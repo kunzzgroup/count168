@@ -355,7 +355,9 @@ body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .
 body.account-page:not(.account-page--show-all) .account-list-row .account-role-badge,
 body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-role-badge,
 body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row span.account-role-badge {
-    padding: 4px 8px;
+    box-sizing: border-box;
+    height: var(--account-list-pill-height, 20px);
+    padding: 0 8px;
     line-height: 1.1;
     font-size: 1.1rem;
     font-weight: 700;
@@ -2678,7 +2680,9 @@ body.account-page #forceDeleteCurrencyModal .confirm-delete {
 .account-role-badge {
     display: inline-flex;
     align-items: center;
-    padding: 4px 8px;
+    box-sizing: border-box;
+    height: var(--account-list-pill-height, 20px);
+    padding: 0 8px;
     border-radius: 6px;
     font-size: 1.1rem;
     font-weight: bold;
@@ -2687,13 +2691,14 @@ body.account-page #forceDeleteCurrencyModal .confirm-delete {
     line-height: 1.1;
 }
 
-/* Alert 列 toggle：带 ON/OFF 文案，off=红 on=青，方形滑块 */
+/* Alert 列 toggle：带 ON/OFF 文案，off=红 on=绿，方形滑块 */
 .account-alert-toggle {
     position: relative;
     display: inline-flex;
     align-items: center;
-    width: 54px;
-    height: 24px;
+    box-sizing: border-box;
+    width: 46px;
+    height: var(--account-list-pill-height, 20px);
     flex-shrink: 0;
     cursor: pointer;
     vertical-align: middle;
@@ -2722,8 +2727,8 @@ body.account-page #forceDeleteCurrencyModal .confirm-delete {
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     background: #ffffff;
     border-radius: 4px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
@@ -2735,7 +2740,7 @@ body.account-page #forceDeleteCurrencyModal .confirm-delete {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 700;
     line-height: 1;
     color: #ffffff;
@@ -2756,11 +2761,11 @@ body.account-page #forceDeleteCurrencyModal .confirm-delete {
 }
 
 .account-alert-toggle__input:checked + .account-alert-toggle__track {
-    background: #06b6d4;
+    background: #3daf15;
 }
 
 .account-alert-toggle__input:checked + .account-alert-toggle__track .account-alert-toggle__thumb {
-    left: calc(100% - 22px);
+    left: calc(100% - 18px);
 }
 
 .account-alert-toggle__input:checked + .account-alert-toggle__track .account-alert-toggle__label--off {
