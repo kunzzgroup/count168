@@ -211,20 +211,31 @@ body.datacapture-page .top-section .submitted-column {
     align-self: stretch;
 }
 
-body.datacapture-page .top-section .form-column > .form-container,
-body.datacapture-page .top-section .submitted-column > .submitted-container {
+body.datacapture-page .top-section .form-column > .form-container {
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
     margin: 0;
     box-sizing: border-box;
-}
-
-body.datacapture-page .top-section .form-column > .form-container {
     overflow: hidden;
 }
 
+/* Form column drives the top band height (down to the bottom of the form/
+   description fields). The submitted column matches that height instead of
+   growing with its own content. */
+body.datacapture-page .top-section .submitted-column {
+    position: relative;
+}
+
+/* Absolute-fill removes the submitted card from the grid row's intrinsic
+   height, so the form decides the row height and the submitted card simply
+   stretches to align. Its list scrolls internally when it overflows. */
 body.datacapture-page .top-section .submitted-column > .submitted-container {
+    position: absolute;
+    inset: 0;
+    min-height: 0;
+    margin: 0;
+    box-sizing: border-box;
     overflow: hidden;
 }
 
@@ -254,6 +265,17 @@ body.datacapture-page .submitted-list {
     body.datacapture-page .top-section .form-column > .form-container,
     body.datacapture-page .top-section .submitted-column > .submitted-container {
         height: auto;
+    }
+
+    /* Stacked layout: drop the desktop absolute-fill so the submitted card
+       flows normally under the form. */
+    body.datacapture-page .top-section .submitted-column {
+        position: static;
+    }
+
+    body.datacapture-page .top-section .submitted-column > .submitted-container {
+        position: static;
+        inset: auto;
     }
 
     body.datacapture-page .submitted-list {
