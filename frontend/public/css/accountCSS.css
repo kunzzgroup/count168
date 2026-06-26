@@ -184,6 +184,18 @@ body.account-page .account-table-wrapper {
     box-sizing: border-box;
 }
 
+body.ec-auth-shell.account-page:not(.account-page--show-all) .account-table-wrapper.account-list-table {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+}
+
+body.ec-auth-shell.account-page .account-list-table-header,
+body.ec-auth-shell.account-page .account-cards {
+    min-width: max(100%, var(--list-table-min-width, 980px));
+    width: 100%;
+    box-sizing: border-box;
+}
+
 .account-page .account-table-header {
     flex-shrink: 0;
     margin-top: 12px;
@@ -355,7 +367,8 @@ body.account-page:not(.account-page--show-all) .account-cards {
     width: 100%;
     min-height: 0;
     max-height: none;
-    overflow: hidden;
+    overflow-x: visible;
+    overflow-y: hidden;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;

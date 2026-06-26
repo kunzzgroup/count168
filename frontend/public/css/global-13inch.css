@@ -328,9 +328,16 @@
             minmax(84px, 0.7fr)
             minmax(52px, 0.42fr)
             minmax(72px, 0.55fr)
-            minmax(130px, 1fr)
+            minmax(131px, 1fr)
             minmax(60px, 1.2fr)
-            minmax(92px, 0.55fr);
+            minmax(64px, 0.25fr);
+    }
+
+    body.ec-auth-shell.account-page .account-list-table-header,
+    body.ec-auth-shell.account-page .account-cards {
+        min-width: max(100%, var(--list-table-min-width, 980px)) !important;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     body.ec-auth-shell.account-page .account-list-table-header .account-header-item,
@@ -802,7 +809,9 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         flex: 1 1 auto !important;
         min-height: 0 !important;
         max-height: none !important;
-        overflow: hidden !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
         display: flex !important;
         flex-direction: column !important;
         padding-bottom: 52px !important;
