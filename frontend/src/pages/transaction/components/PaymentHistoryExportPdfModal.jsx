@@ -251,8 +251,7 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
                 label={m.exportPdfDateRange}
                 placeholder={m.exportPdfSelectDateRange}
                 selectEndDateHint={m.exportPdfSelectEndDate}
-                outlinedFloatingLabel
-                captureDateStyle={false}
+                captureDateStyle
                 periodPresets={periodPresets}
                 periodShortcutsAria={m.exportPdfPeriod}
                 monthLabels={m.monthsShort}

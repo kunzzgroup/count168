@@ -1050,105 +1050,52 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
   letter-spacing: 0.04em;
 }
 
-/* Date range — clean outlined field (no transaction blue icon tile) */
+/* Date range — bank / transaction pill (body.transaction-page + date-range-picker.css) */
 .transaction-payment-history-export-modal .report-filter-group,
-.transaction-payment-history-export-modal .report-outlined-anchor {
+.transaction-payment-history-export-modal .report-date-range-picker-container {
   width: 100%;
   min-width: 0;
-  gap: 0;
+  gap: 8px;
 }
 
-.transaction-payment-history-export-modal .report-outlined-shell {
-  position: relative;
-  box-sizing: border-box;
-  width: 100%;
-  margin-top: 0;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  background: #fff;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.transaction-payment-history-export-modal .report-outlined-shell:hover,
-.transaction-payment-history-export-modal .report-outlined-shell:focus-within {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.transaction-payment-history-export-modal .report-outlined-label {
-  position: absolute;
-  left: 12px;
-  top: -2px;
-  transform: translateY(-50%);
-  z-index: 3;
-  padding: 0 6px;
-  margin: 0;
-  font-size: 13px;
+.transaction-payment-history-export-modal .maintenance-label {
+  font-size: 0.8125rem;
   font-weight: 700;
   color: #64748b;
-  background: #fff;
-  pointer-events: none;
-  line-height: 1.15;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
-.transaction-payment-history-export-modal .report-outlined-shell:focus-within .report-outlined-label {
-  color: #2563eb;
-}
-
-.transaction-payment-history-export-modal .report-outlined-inner {
-  display: flex;
+.transaction-payment-history-export-modal .transaction-date-range-group {
   width: 100%;
-  border-radius: inherit;
-}
-
-.transaction-payment-history-export-modal .report-outlined-inner .date-range-picker {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 50px !important;
-  padding: 0 16px !important;
-  border: none !important;
-  border-radius: inherit !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  cursor: pointer;
-}
-
-.transaction-payment-history-export-modal .report-outlined-inner .date-range-picker:hover,
-.transaction-payment-history-export-modal .report-outlined-inner .date-range-picker:focus-visible {
-  background: transparent !important;
-  box-shadow: none !important;
-  outline: none;
-}
-
-.transaction-payment-history-export-modal .report-outlined-inner .date-range-picker i.fa-calendar-alt {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: auto !important;
-  height: auto !important;
-  margin: 0 !important;
-  padding: 0;
-  border-radius: 0 !important;
-  background: transparent !important;
-  color: #64748b !important;
-  font-size: 1.05rem;
-  flex: 0 0 auto;
-  box-shadow: none !important;
-}
-
-.transaction-payment-history-export-modal .report-outlined-inner #date-range-display,
-.transaction-payment-history-export-modal .report-outlined-inner .report-date-range-input {
-  flex: 1 1 auto;
   min-width: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #1e293b;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.transaction-payment-history-export-modal .transaction-date-range-group .date-range-picker {
+  width: 100%;
+  min-width: 0;
+  min-height: clamp(38px, 2.8vw, 44px);
+}
+
+.transaction-payment-history-export-modal .transaction-date-range-group #date-range-display {
+  font-size: clamp(13px, 0.95vw, 16px);
+  font-weight: 700;
+  color: #000000;
+}
+
+.transaction-payment-history-export-modal .transaction-date-range-group .transaction-date-range-chevron {
+  margin: 0 !important;
+  color: #64748b !important;
+  font-size: clamp(13px, 0.95vw, 16px) !important;
+}
+
+.transaction-payment-history-export-modal .transaction-date-range-group .date-range-picker:hover .transaction-date-range-chevron {
+  color: #2563eb !important;
+  transform: translateY(1px);
+}
+
+.transaction-payment-history-export-overlay .calendar-popup.calendar-popup--transaction-range {
+  z-index: 10060;
 }
 
 /* Currency chips */
@@ -1219,60 +1166,74 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
   margin-top: 6px;
 }
 
+/* Footer buttons — match the global confirm-modal button system
+   (gray gradient cancel + blue --btn-add-gradient primary). */
 .transaction-payment-history-export-modal__btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-width: 132px;
-  height: 46px;
-  padding: 0 20px;
-  border-radius: 11px;
-  font-size: 0.9375rem;
-  font-weight: 600;
+  box-sizing: border-box;
+  min-width: clamp(90px, 7vw, 120px);
+  padding: clamp(8px, 0.6vw, 11px) 20px;
+  border: none;
+  border-radius: 6px;
+  font-family: var(--font-heading-page), -apple-system, sans-serif;
+  font-size: clamp(13px, 0.9vw, 16px);
+  font-weight: var(--font-weight-semibold, 600);
   line-height: 1.2;
+  color: #fff;
   cursor: pointer;
+  white-space: nowrap;
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease,
-    box-shadow 0.15s ease,
-    opacity 0.15s ease;
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .transaction-payment-history-export-modal__btn svg {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   flex-shrink: 0;
 }
 
 .transaction-payment-history-export-modal__btn:disabled {
-  opacity: 0.55;
+  background: linear-gradient(180deg, #d8d8d8 0%, #8e9baa 100%);
+  color: #f8fafc;
+  box-shadow: none;
+  transform: none;
   cursor: not-allowed;
+  opacity: 0.9;
 }
 
 .transaction-payment-history-export-modal__btn--ghost {
-  border: 1px solid #d1d5db;
-  background: #fff;
-  color: #475569;
+  background: var(--gradient-domain-muted-action, linear-gradient(180deg, #bcbcbc 0%, #585858 100%));
+  box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
 }
 
 .transaction-payment-history-export-modal__btn--ghost:hover:not(:disabled) {
-  border-color: #94a3b8;
-  background: #f8fafc;
-  color: #334155;
+  background: var(--gradient-domain-muted-action-hover, linear-gradient(180deg, #585858 0%, #bcbcbc 100%));
+  box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
+  transform: translateY(-1px);
+}
+
+.transaction-payment-history-export-modal__btn--ghost:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .transaction-payment-history-export-modal__btn--primary {
-  border: 1px solid #2563eb;
-  background: #2563eb;
-  color: #fff;
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+  background: var(--btn-add-gradient, linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%));
+  box-shadow: var(--shadow-btn-add-page, 0 2px 4px rgba(0, 123, 255, 0.3));
 }
 
 .transaction-payment-history-export-modal__btn--primary:hover:not(:disabled) {
-  border-color: #1d4ed8;
-  background: #1d4ed8;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+  background: var(--btn-add-gradient-hover, linear-gradient(180deg, #0d60ff 0%, #63c4ff 100%));
+  box-shadow: var(--shadow-btn-add-page-hover, 0 4px 8px rgba(0, 123, 255, 0.4));
+  transform: translateY(-1px);
+}
+
+.transaction-payment-history-export-modal__btn--primary:active:not(:disabled) {
+  transform: translateY(0);
 }
 
