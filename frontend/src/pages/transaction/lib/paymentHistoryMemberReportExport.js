@@ -44,59 +44,11 @@ export async function fetchPaymentHistoryExportCurrencies(accountId, companyId, 
     .filter(Boolean);
 }
 
-function sameAccountCode(a, b) {
-  return (
-    String(a || "")
-      .trim()
-      .toUpperCase() ===
-    String(b || "")
-      .trim()
-      .toUpperCase()
-  );
-}
-
 /**
- * Resolve the account id exactly like the Member page context. Payment History
- * rows can carry a transaction-scope account id; Member Win/Loss must use the
- * linked account id visible on the Member page (matched by account code).
- */
-export async function resolveMemberReportAccountId({ accountCode, fallbackAccountId, companyId, signal }) {
-  const cid = Number(companyId) || 0;
-  const code = String(accountCode || "").trim();
-  if (!cid || !code) return Number(fallbackAccountId) || 0;
-
-  const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), {
-    credentials: "include",
-    cache: "no-store",
-    signal,
-  });
-  const meJson = await parseJsonResponse(await meRes.text());
-  const me = meJson?.data || {};
-  const rootId = Number(me.member_login_account_id || me.user_id) || 0;
-  const viewId = Number(me.member_winloss_view_account_id || me.winloss_view_account_id || me.user_id) || 0;
-  if (!rootId) return Number(fallbackAccountId) || 0;
-
-  const linkedParams = new URLSearchParams({
-    action: "get_all_linked_accounts",
-    account_id: String(rootId),
-    company_id: String(cid),
-  });
-  const linkedRes = await fetch(buildApiUrl(`api/accounts/account_link_api.php?${linkedParams}&_t=${Date.now()}`), {
-    credentials: "include",
-    cache: "no-store",
-    signal,
-  });
-  const linkedJson = await parseJsonResponse(await linkedRes.text());
-  const linked = Array.isArray(linkedJson?.data) ? linkedJson.data : [];
-  const matched = linked.find((acc) => sameAccountCode(acc.account_id, code) || sameAccountCode(acc.name, code));
-  if (matched?.id) return Number(matched.id) || 0;
-  if (sameAccountCode(me.login_id, code) || sameAccountCode(me.account_id, code)) return viewId || rootId;
-  return Number(fallbackAccountId) || 0;
-}
-
-/**
- * Member Win/Loss table rows — same request shape as MemberPage `fetchMemberHistory`
- * (account_id + company_id + date range + currency only; no transaction list scope).
+ * Member Win/Loss table rows — same request + same formatting as the Member page.
+ * `member_view=1` forces the backend to apply the member-side description rules
+ * (PAYMENT → Payment Settlement, CLAIM → Claim Settlement, RATE → Currency Exchange,
+ * CONTRA → Contra Account) even when an agent/admin triggers the export.
  */
 export async function fetchMemberReportHistory({ accountId, companyId, dateFrom, dateTo, currency, signal }) {
   const id = Number(accountId) || 0;
@@ -112,6 +64,7 @@ export async function fetchMemberReportHistory({ accountId, companyId, dateFrom,
     currency: String(currency || "")
       .trim()
       .toUpperCase(),
+    member_view: "1",
   });
   const res = await fetch(buildApiUrl(`api/transactions/history_api.php?${params}&_t=${Date.now()}`), {
     credentials: "include",
