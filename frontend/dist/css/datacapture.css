@@ -805,7 +805,7 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
 .form-container {
     background: white;
     border-radius: 10px;
-    padding: clamp(14px, 1.25vw, 22px);
+    padding: 10px;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.06);
     flex: 1 1 auto;
     width: 100%;
@@ -827,8 +827,8 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
 
 .submitted-container {
     background: white;
-    border-radius: 12px;
-    padding: clamp(14px, 1.25vw, 22px);
+    border-radius: 10px;
+    padding: 10px;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.06);
     flex: 1 1 auto;
     width: 100%;
