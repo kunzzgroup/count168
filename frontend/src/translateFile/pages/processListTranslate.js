@@ -49,6 +49,9 @@ export const PROCESS_LIST_I18N = {
     noColumn: "No",
     description: "Description",
     status: "Status",
+    statusActive: "ACTIVE",
+    statusInactive: "INACTIVE",
+    statusWaiting: "WAITING",
     currencyColumn: "Currency",
     dayUse: "Day Use",
     action: "Action",
@@ -95,10 +98,11 @@ export const PROCESS_LIST_I18N = {
     selectCurrency: "Select Currency",
     dtsModified: "DTS Modified:",
     dtsCreated: "DTS Created:",
-    removeWords: "Remove Words",
+    removeWords: "Remove Word",
     enterWordsToRemove: "Enter words to remove",
-    removeWordsHelp: "(Use semicolon to separate multiple words, e.g. abc;cde;efg)",
-    allDay: "All Day",
+    removeWordsHelp: "Press Enter to add a word chip; saved for this process for next time.",
+    removeWordChipRemove: "Remove",
+    allDay: "ALL DAY",
     replaceFrom: "Replace From",
     oldWord: "Old word",
     wordToBeReplaced: "(Word to be replaced)",
@@ -169,6 +173,9 @@ export const PROCESS_LIST_I18N = {
     noColumn: "序号",
     description: "描述",
     status: "状态",
+    statusActive: "启用",
+    statusInactive: "停用",
+    statusWaiting: "等待",
     currencyColumn: "货币",
     dayUse: "使用日期",
     action: "操作",
@@ -217,7 +224,8 @@ export const PROCESS_LIST_I18N = {
     dtsCreated: "创建时间：",
     removeWords: "移除词",
     enterWordsToRemove: "输入要移除的词",
-    removeWordsHelp: "（使用分号分隔多个词，例如 abc;cde;efg）",
+    removeWordsHelp: "输入词语后按 Enter 添加为标签；会保存在当前 Process，下次可继续使用。",
+    removeWordChipRemove: "移除",
     allDay: "全天",
     replaceFrom: "替换来源",
     oldWord: "旧词",
@@ -242,5 +250,46 @@ export const PROCESS_LIST_I18N = {
     daySunday: "周日",
   },
 };
+
+const PROCESS_DAY_NAME_KEYS = {
+  MON: "dayMonday",
+  TUE: "dayTuesday",
+  WED: "dayWednesday",
+  THU: "dayThursday",
+  FRI: "dayFriday",
+  SAT: "daySaturday",
+  SUN: "daySunday",
+  MONDAY: "dayMonday",
+  TUESDAY: "dayTuesday",
+  WEDNESDAY: "dayWednesday",
+  THURSDAY: "dayThursday",
+  FRIDAY: "dayFriday",
+  SATURDAY: "daySaturday",
+  SUNDAY: "daySunday",
+};
+
+/** Process list table: localized status badge */
+export function formatProcessStatusDisplay(t, status) {
+  const s = String(status || "").trim().toLowerCase();
+  if (s === "active") return t("statusActive");
+  if (s === "inactive") return t("statusInactive");
+  if (s === "waiting") return t("statusWaiting");
+  return String(status || "").toUpperCase();
+}
+
+/** Process list table: localized day-use column (MON,TUE → 周一,周二) */
+export function formatProcessDayUseDisplay(t, dayUse) {
+  const raw = String(dayUse || "").trim();
+  if (!raw) return "";
+  return raw
+    .split(/[,，]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const key = PROCESS_DAY_NAME_KEYS[part.toUpperCase()];
+      return key ? t(key) : part.toUpperCase();
+    })
+    .join(",");
+}
 
 export const getProcessListText = createGetText(PROCESS_LIST_I18N);

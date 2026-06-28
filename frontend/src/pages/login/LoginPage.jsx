@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { LOGIN_I18N } from "../../translateFile/auth/authTranslate.js";
+import { LOGIN_I18N, localizeAuthApiMessage } from "../../translateFile/auth/authTranslate.js";
 import { buildSpaPath } from "../../utils/core/apiUrl.js";
+import { resolveDefaultLandingPath } from "../../utils/auth/sidebarPermissions.js";
 import { spaPath } from "../../utils/routing/pageRoutes.js";
 import {
   clearDashboardFilterSession,
@@ -187,7 +188,8 @@ export default function LoginPage() {
           navigate(spaPath("user-secondary-password"), { replace: true });
           return;
         }
-        navigate(spaPath("dashboard"), { replace: true });
+        const landing = resolveDefaultLandingPath(user);
+        navigate(landing || spaPath("login"), { replace: true });
       } catch (err) {
         if (err?.name === "AbortError") return;
         // stay on login page when not authenticated
@@ -201,7 +203,11 @@ export default function LoginPage() {
 
   const showNotice = useCallback(
     (message, title) => {
-      setModal({ open: true, title: title || i18n.notice, message: message || "Unknown error" });
+      setModal({
+        open: true,
+        title: title || i18n.notice,
+        message: message || i18n.unknownError,
+      });
     },
     [i18n.notice]
   );
@@ -340,12 +346,27 @@ export default function LoginPage() {
           if (/user[-_]secondary[-_]password/i.test(r) || r === "/user-secondary-password") {
             return "/user-secondary-password";
           }
-          if (r === "/dashboard" || /dashboard/i.test(r)) return "/dashboard";
           if (r.startsWith("/") && !r.startsWith("//")) return r;
           return null;
         })();
 
         if (internalPath) {
+          if (internalPath === "/dashboard" || /dashboard/i.test(internalPath)) {
+            try {
+              const userRes = await fetch("/api/session/current_user_api.php", {
+                credentials: "include",
+                cache: "no-store",
+              });
+              const userJson = await userRes.json();
+              if (userRes.ok && userJson?.success && userJson?.data) {
+                const landing = resolveDefaultLandingPath(userJson.data);
+                navigate(landing || spaPath("login"), { replace: true });
+                return;
+              }
+            } catch {
+              /* fall through to dashboard redirect; layout guard will correct */
+            }
+          }
           navigate(buildSpaPath(internalPath), { replace: true });
           return;
         }
@@ -357,7 +378,7 @@ export default function LoginPage() {
         }
         return;
       }
-      showNotice(data.message || i18n.loginFailed);
+      showNotice(localizeAuthApiMessage(data.message, lang) || i18n.loginFailed);
     } catch {
       if (tryLoginPageReloadOnce()) return;
       showNotice(i18n.loginError);

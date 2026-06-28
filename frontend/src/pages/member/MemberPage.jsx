@@ -96,6 +96,7 @@ export default function MemberPage() {
     miniGridTotals,
     miniGridHint,
     miniGridAccounts,
+    miniGridHasSelection,
     showMiniRail,
     groupedRows,
     loadingTable,
@@ -109,16 +110,7 @@ export default function MemberPage() {
     formatPaymentHistoryMoney,
   } = useMemberWinLoss({ showNotification, lang });
 
-  const today = useMemo(() => new Date(), []);
-  const monday = useMemo(() => {
-    const d = new Date(today);
-    const day = d.getDay();
-    const toMonday = day === 0 ? 6 : day - 1;
-    d.setDate(d.getDate() - toMonday);
-    return d;
-  }, [today]);
-  const mondayDmy = useMemo(() => formatDmyFromDate(monday), [monday]);
-  const todayDmy = useMemo(() => formatDmyFromDate(today), [today]);
+  const todayDmy = formatDmyFromDate(new Date());
 
   const {
     loading,
@@ -145,7 +137,6 @@ export default function MemberPage() {
   } = useMemberPageShell({
     navigate,
     initSession,
-    mondayDmy,
     todayDmy,
     lang,
   });
@@ -440,7 +431,7 @@ export default function MemberPage() {
               <div className="member-dash-col member-dash-col-filters" ref={wlFiltersColRef}>
             <div className="member-winloss-date-field">
               <ReportDatePicker
-                dateFrom={parseDmy(dateFrom || mondayDmy)}
+                dateFrom={parseDmy(dateFrom || todayDmy)}
                 dateTo={parseDmy(dateTo || todayDmy)}
                 onRangeChange={handleDateRangeChange}
                 containerClass="customer-report-filter-group"
@@ -609,18 +600,22 @@ export default function MemberPage() {
               </div>
               {showMiniRail && (
                 <>
-                  <div className="member-dash-col member-dash-col-matrix" ref={wlMatrixColRef} aria-hidden="false">
+                  <div
+                    className={`member-dash-col member-dash-col-matrix${miniGridHasSelection || miniGridLoading || miniGridShell ? "" : " member-dash-col-matrix--empty"}`}
+                    ref={wlMatrixColRef}
+                    aria-hidden="false"
+                  >
                     {linkedAccounts.length > 0 && (
                       <div className="member-dash-rail-toolbar member-dash-matrix-toolbar">
                         <MemberGridAccountPills
                           linkedAccounts={linkedAccounts}
                           selectedIds={wlGridSelectedIds}
                           onApply={applyWlGridSelection}
-                          onNotify={showNotification}
                           t={t}
                         />
                       </div>
                     )}
+                    {(miniGridHasSelection || miniGridLoading || miniGridShell) && (
                     <div className="member-dash-matrix-center-wrap">
                       <div className="member-dash-rail-matrix">
                         {miniGridLoading ? (
@@ -642,6 +637,7 @@ export default function MemberPage() {
                         )}
                       </div>
                     </div>
+                    )}
                   </div>
                 </>
               )}

@@ -363,13 +363,10 @@ function billingContractExclusiveEndYmdMonthlyAfterPartialFirst(string $dayStart
         if ((int) $start->format('j') === 1) {
             return billingContractExclusiveEndYmd($dayStartYmd, $termMonths);
         }
-        $nextMo = $start->modify('first day of next month');
-        $y = (int) $nextMo->format('Y');
-        $mo = (int) $nextMo->format('n');
-        $dueDay = (int) $start->format('j');
-        $last = (int) date('t', mktime(0, 0, 0, $mo, 1, $y));
-        $d = min(max(1, $dueDay), $last);
-        $firstContractDue = sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        $firstContractDue = billingMonthlyFirstContractDueAfterPartialFirst($dayStartYmd);
+        if ($firstContractDue === null) {
+            return null;
+        }
 
         return (new DateTimeImmutable($firstContractDue))->modify("+{$termMonths} months")->format('Y-m-d');
     } catch (Throwable $e) {
@@ -705,7 +702,6 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
     if (!isWithinRecurringBillingWindowForTxn($today, $dayStart, $contract, $dayEnd, 'monthly', $resendRelaxMonthly, $resendSinglePeriod)) {
         return null;
     }
-    $startDayOfMonth = (int) date('j', $startTs);
     $onlyAnchorYmMonthly = null;
     if ($resendSinglePeriod) {
         try {
@@ -715,63 +711,22 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
         }
     }
     if ($startDate !== '' && ($resendRelaxMonthly || $today >= $createdYmd)) {
-        try {
-            $iter = new DateTimeImmutable($startDate);
-            $iter = $iter->modify('first day of this month');
-            $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
-            $todayYm = (new DateTimeImmutable($today))->format('Y-n');
-            if ($resendRelaxMonthly) {
-                try {
-                    $startMonthFirst = (new DateTimeImmutable($startDate))->modify('first day of this month');
-                    if ($startMonthFirst > $endCap) {
-                        $endCap = $startMonthFirst;
-                    }
-                } catch (Throwable $e) {
-                    // ignore
-                }
+        $term = getBillingTermMonthsFromContract($contract);
+        $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmdMonthlyAfterPartialFirst($startDate, $term) : null;
+        $anchors = billingCollectMonthlyChainedDueAnchors(
+            $startDate,
+            $today,
+            $createdYmd,
+            $exclusiveEnd,
+            $resendRelaxMonthly,
+            $resendSinglePeriod,
+            $onlyAnchorYmMonthly,
+            static function (string $due, int $y, int $mo, string $dueYm) use ($pdo, $companyId, $processId): bool {
+                return !txnHasMonthlyPeriodPosted($pdo, $companyId, $processId, 'monthly', $y, $mo, $due);
             }
-            $startYm = (new DateTimeImmutable($startDate))->format('Y-m');
-            $term = getBillingTermMonthsFromContract($contract);
-            $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmdMonthlyAfterPartialFirst($startDate, $term) : null;
-            while ($iter <= $endCap) {
-                $y = (int) $iter->format('Y');
-                $mo = (int) $iter->format('n');
-                $billYm = $iter->format('Y-n');
-                if ($onlyAnchorYmMonthly !== null && $iter->format('Y-n') !== $onlyAnchorYmMonthly) {
-                    $iter = $iter->modify('+1 month');
-                    continue;
-                }
-                // 与 Inbox 对齐：非 Resend 不回补当月前的历史 monthly。
-                if (!$resendRelaxMonthly && !$resendSinglePeriod && $billYm !== $todayYm) {
-                    $iter = $iter->modify('+1 month');
-                    continue;
-                }
-                $due = ($iter->format('Y-m') === $startYm)
-                    ? $startDate
-                    : calendarMonthDueYmd($y, $mo, $startDayOfMonth);
-                if (!$resendSinglePeriod && $exclusiveEnd !== null && $due >= $exclusiveEnd) {
-                    break;
-                }
-                if (!$resendRelaxMonthly && $due < $createdYmd) {
-                    try {
-                        $createdYmOnly = (new DateTimeImmutable($createdYmd))->format('Y-n');
-                        if ($billYm !== $createdYmOnly) {
-                            $iter = $iter->modify('+1 month');
-                            continue;
-                        }
-                    } catch (Throwable $e) {
-                        $iter = $iter->modify('+1 month');
-                        continue;
-                    }
-                }
-                if (($today >= $due || $resendRelaxMonthly)
-                    && !txnHasMonthlyPeriodPosted($pdo, $companyId, $processId, 'monthly', $y, $mo, $due)) {
-                    return $resendSinglePeriod ? $due : $iter->format('Y-n');
-                }
-                $iter = $iter->modify('+1 month');
-            }
-        } catch (Throwable $e) {
-            return null;
+        );
+        if (!empty($anchors)) {
+            return $anchors[0];
         }
     }
     return null;
@@ -1399,6 +1354,30 @@ try {
             $profit = $amountsDaily['profit'];
         }
 
+        // Resend 单期（Y-m-d 锚点）：金额区间与 Inbox 一致——1st 为锚点～月末，Monthly 为锚点～+1月-1日。
+        if ($origPeriodType === 'resend_monthly_reopen' && $periodType === 'monthly') {
+            $bmResendPost = trim((string) ($pair['billing_month'] ?? ''));
+            if ($bmResendPost !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $bmResendPost)) {
+                $resolvedMonthlyBm = $bmResendPost;
+                if ($frequency === 'monthly') {
+                    [$p0, $p1] = billingMonthlyAnniversaryInclusiveRangeFromDue($bmResendPost, $bmResendPost);
+                    $pr = prorateMonthlyAnniversaryPeriodLinear($p0, $p1, $p0, $cost, $price, $profit);
+                    $cost = $pr['cost'];
+                    $price = $pr['price'];
+                    $profit = $pr['profit'];
+                    if ($pr['ratio'] !== null) {
+                        $monthlyProrationPsRatio = $pr['ratio'];
+                    }
+                } elseif ($frequency === '1st_of_every_month') {
+                    $lastProrationRatio = ratioRemainingDaysInMonthFromStartYmd($bmResendPost);
+                    $pr = prorateToMonthEndFromStart($bmResendPost, $cost, $price, $profit);
+                    $cost = $pr['cost'];
+                    $price = $pr['price'];
+                    $profit = $pr['profit'];
+                }
+            }
+        }
+
         // monthly：与 Inbox 一致；1st_of_every_month 新建在创建日晚于当月1号时从创建日摊到月末；Resend 仍从 dueYmd（1号）起算比例。
         if ($periodType === 'monthly' && $resolvedMonthlyBm !== '' && preg_match('/^(\d{4})-(\d{1,2})$/', $resolvedMonthlyBm, $m)) {
             $billY = (int) $m[1];
@@ -1454,7 +1433,7 @@ try {
                 if ($frequency === 'monthly' && $dayStartYmd) {
                     $dueYmdM = monthlyDueYmdForBillingMonth($resolvedMonthlyBm, $dayStartYmd, 'monthly');
                     if ($dueYmdM !== null) {
-                        [$p0, $p1] = billingMonthlyAnniversaryInclusiveRangeFromDue($dueYmdM, $dayStartYmd);
+                        [$p0, $p1] = billingMonthlyChainedInclusiveRangeFromDue($dueYmdM, $dayStartYmd);
                         $from = $p0;
                         if ($from <= $p1) {
                             $pr = prorateMonthlyAnniversaryPeriodLinear($p0, $p1, $from, $cost, $price, $profit);
@@ -1964,6 +1943,21 @@ try {
                 bmp_maybeClearResendRelaxAfterAnchorHandled($pdo, (int) $p['id'], $companyId, $resendAnchorYmd);
                 if (empty(bmp_loadResendOpenAnchorsFromDb($pdo, (int) $p['id'], $companyId))) {
                     $p['accounting_resend_relax_created_floor'] = 0;
+                }
+            } elseif (in_array($periodType, ['weekly', 'daily', 'once_one_off'], true)) {
+                $resendAnchorYmd = null;
+                $bmPost = trim((string) ($pair['billing_month'] ?? ''));
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $bmPost)) {
+                    $resendAnchorYmd = $bmPost;
+                } elseif ($dayStartYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayStartYmd)) {
+                    $resendAnchorYmd = $dayStartYmd;
+                }
+                if ($resendAnchorYmd !== null
+                    && bmp_resendOpenAnchorAlreadyExists($pdo, (int) $p['id'], $companyId, $resendAnchorYmd)) {
+                    bmp_maybeClearResendRelaxAfterAnchorHandled($pdo, (int) $p['id'], $companyId, $resendAnchorYmd);
+                    if (empty(bmp_loadResendOpenAnchorsFromDb($pdo, (int) $p['id'], $companyId))) {
+                        $p['accounting_resend_relax_created_floor'] = 0;
+                    }
                 }
             }
         }

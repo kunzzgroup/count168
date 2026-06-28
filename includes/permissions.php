@@ -39,6 +39,26 @@ function getCurrentUserAccountPermissions($pdo) {
 }
 
 /**
+ * Roles that bypass user_company_permissions.account_permissions whitelist (full ledger visibility).
+ * Partnership / audit are read-only reviewers and must see the same accounts as owner.
+ */
+function permissions_user_sees_all_accounts(?string $role = null, ?string $userType = null): bool
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    $role = strtolower(trim((string) ($role ?? $_SESSION['role'] ?? '')));
+    $userType = strtolower(trim((string) ($userType ?? $_SESSION['user_type'] ?? '')));
+
+    if ($role === 'owner' || $userType === 'member') {
+        return true;
+    }
+
+    return in_array($role, ['partnership', 'audit'], true);
+}
+
+/**
  * @param int|null $permissionCompanyId 查询「指定公司」账户时传入该公司主键，用于读取 user_company_permissions；
  *                                        为 null 时用 $_SESSION['company_id']（与旧行为一致）。
  */
@@ -47,12 +67,7 @@ function filterAccountsByPermissions($pdo, $baseQuery, $params = [], $permission
         session_start();
     }
 
-    // owner 不受权限限制，自动显示全部
-    $currentUserRole = $_SESSION['role'] ?? '';
-    $currentUserType = isset($_SESSION['user_type']) ? strtolower($_SESSION['user_type']) : '';
-    
-    // member 用户不受权限限制，可以看到自己的账户（通过 account_company 表已经过滤）
-    if ($currentUserRole === 'owner' || $currentUserType === 'member') {
+    if (permissions_user_sees_all_accounts()) {
         return [$baseQuery, $params];
     }
 
@@ -301,5 +316,115 @@ if (!function_exists('checkCompanyCategoryPermission')) {
             return false;
         }
     }
+}
+
+if (!function_exists('checkCompanyGamesOrBankCategoryPermission')) {
+    /** Data Capture / maintenance process list: Games/Gambling or Bank (e.g. CX payroll channel). */
+    function checkCompanyGamesOrBankCategoryPermission(PDO $pdo, $companyId): bool
+    {
+        return checkCompanyCategoryPermission($pdo, $companyId, 'Games')
+            || checkCompanyCategoryPermission($pdo, $companyId, 'Bank');
+    }
+}
+
+if (!function_exists('user_sidebar_permissions_list')) {
+    /**
+     * Sidebar permission keys from user.permissions JSON.
+     * Empty/null = unrestricted (owner / legacy full access).
+     *
+     * @return array<int, string>|null null = unrestricted
+     */
+    function user_sidebar_permissions_list(PDO $pdo, ?int $userId = null): ?array
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $role = strtolower((string) ($_SESSION['role'] ?? ''));
+        if ($role === 'owner') {
+            return null;
+        }
+
+        $userType = strtolower((string) ($_SESSION['user_type'] ?? ''));
+        if ($userType === 'member') {
+            return [];
+        }
+
+        $uid = $userId ?? (int) ($_SESSION['user_id'] ?? 0);
+        if ($uid <= 0) {
+            return [];
+        }
+
+        $stmt = $pdo->prepare('SELECT permissions FROM user WHERE id = ? LIMIT 1');
+        $stmt->execute([$uid]);
+        $raw = $stmt->fetchColumn();
+        if ($raw === false || $raw === null || trim((string) $raw) === '') {
+            return null;
+        }
+
+        $decoded = json_decode((string) $raw, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+        if (count($decoded) === 0) {
+            return null;
+        }
+
+        return array_values(array_filter(array_map('strval', $decoded)));
+    }
+}
+
+if (!function_exists('user_has_sidebar_permission')) {
+    function user_has_sidebar_permission(PDO $pdo, string $key, ?int $userId = null): bool
+    {
+        if ($key === 'ownership') {
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            if (!role_supports_ownership_permission($_SESSION['role'] ?? '')) {
+                return false;
+            }
+        }
+
+        $perms = user_sidebar_permissions_list($pdo, $userId);
+        if ($perms === null) {
+            return true;
+        }
+        return in_array($key, $perms, true);
+    }
+}
+
+if (!function_exists('user_can_access_dashboard')) {
+    function user_can_access_dashboard(PDO $pdo, ?int $userId = null): bool
+    {
+        return user_has_sidebar_permission($pdo, 'home', $userId);
+    }
+}
+
+if (!function_exists('role_supports_ownership_permission')) {
+  function role_supports_ownership_permission(?string $role): bool
+  {
+    $r = strtolower(trim((string) $role));
+    return $r === 'owner' || $r === 'partnership';
+  }
+}
+
+if (!function_exists('sanitize_sidebar_permissions_for_role')) {
+  /**
+   * @param array<int, string>|null $permissions
+   * @return array<int, string>
+   */
+  function sanitize_sidebar_permissions_for_role(?string $role, $permissions): array
+  {
+    if (!is_array($permissions)) {
+      return [];
+    }
+    if (role_supports_ownership_permission($role)) {
+      return array_values($permissions);
+    }
+    return array_values(array_filter($permissions, static function ($perm) {
+      return $perm !== 'ownership';
+    }));
+  }
 }
 ?>

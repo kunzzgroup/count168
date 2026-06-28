@@ -10,7 +10,7 @@ import {
   normalizeCompanyGroupId,
 } from "../../utils/company/sharedCompanyFilter.js";
 
-export const PAGE_SIZE = 20;
+export const PAGE_SIZE = 25;
 
 export const ROLE_HIERARCHY = {
   owner: 0,
@@ -52,6 +52,23 @@ export const PERMISSION_ICONS = {
 
 export function normRole(r) {
   return String(r || "").trim().toLowerCase();
+}
+
+/** Ownership sidebar permission — only owner and partnership roles may have or see it. */
+export function roleSupportsOwnershipPermission(role) {
+  const r = normRole(role);
+  return r === "owner" || r === "partnership";
+}
+
+export function getVisiblePermissionKeys(targetRole) {
+  if (roleSupportsOwnershipPermission(targetRole)) return PERMISSION_KEYS;
+  return PERMISSION_KEYS.filter((k) => k !== "ownership");
+}
+
+export function sanitizeSidebarPermissionsForRole(role, permissions) {
+  if (!Array.isArray(permissions)) return [];
+  if (roleSupportsOwnershipPermission(role)) return permissions;
+  return permissions.filter((p) => p !== "ownership");
 }
 
 /** Partnership / Audit：显示 Read Only 开关 */
@@ -115,6 +132,7 @@ export function getUserEditFieldLocks(row, currentUserId, currentUserRole) {
 export function getCurrentUserRolePermissions(currentUserRole) {
   const rolePermissions = {
     owner: ["home", "admin", "account", "ownership", "process", "datacapture", "payment", "report", "maintenance"],
+    partnership: ["home", "admin", "account", "ownership", "process", "datacapture", "payment", "report", "maintenance"],
     admin: ["home", "admin", "account", "process", "datacapture", "payment", "report", "maintenance"],
     manager: ["admin", "account", "process", "datacapture", "payment", "report", "maintenance"],
     supervisor: ["admin", "account", "process", "datacapture", "payment", "report"],
@@ -128,8 +146,11 @@ export function getCurrentUserRolePermissions(currentUserRole) {
 export function getRoleTemplateSidebarList(role) {
   if (!role) return [];
   const adminDefault = ["home", "admin", "account", "process", "datacapture", "payment", "report", "maintenance"];
+  const ownerDefault = ["home", "admin", "account", "ownership", "process", "datacapture", "payment", "report", "maintenance"];
+  const partnershipDefault = [...ownerDefault];
   const rolePermissions = {
-    partnership: PERMISSION_KEYS,
+    owner: ownerDefault,
+    partnership: partnershipDefault,
     admin: adminDefault,
     manager: ["admin", "account", "process", "datacapture", "payment", "report", "maintenance"],
     supervisor: ["admin", "account", "process", "datacapture", "payment", "report"],
@@ -180,10 +201,11 @@ export function getFinalPermissionsForCreation(selectedRole, manuallySelected, c
   }
   const defaultPermissions = rolePerms[sr] ?? [];
   const manual = new Set(manuallySelected);
-  return defaultPermissions.filter((perm) => {
+  const merged = defaultPermissions.filter((perm) => {
     if (currentUserPermissions.includes(perm)) return manual.has(perm);
     return true;
   });
+  return sanitizeSidebarPermissionsForRole(sr, merged);
 }
 
 /**
@@ -224,7 +246,7 @@ export function computeRowCapabilities(row, currentUserId, currentUserRole) {
   }
 
   canToggleStatus = canEditDelete && !isSelf;
-  if (normRole(currentUserRole) === "admin" && targetRole === "admin" && !isSelf) {
+  if (!isOwnerShadow && (isSameLevel || isHigherLevel)) {
     canToggleStatus = false;
   }
 
@@ -260,11 +282,16 @@ export function userRowVisibleAfterStatusChange(newStatus, { showInactive, showA
   return status === "active";
 }
 
-export function applyUserFilters(users, { search, showInactive, showAll, viewerRole }) {
+export function applyUserFilters(users, { search, showInactive, showAll, viewerRole, viewerUserId = null }) {
   const vr = normRole(viewerRole);
   let rows = users.map((u) => ({ ...u }));
   if (vr !== "owner") {
-    rows = rows.filter((u) => normRole(u.role) !== "partnership");
+    const viewerIdNum = Number(viewerUserId);
+    rows = rows.filter((u) => {
+      if (normRole(u.role) !== "partnership") return true;
+      if (!Number.isFinite(viewerIdNum) || viewerIdNum <= 0) return false;
+      return Number(u.id) === viewerIdNum;
+    });
   }
   const q = search.trim().toLowerCase();
   if (q) {

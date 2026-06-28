@@ -52,6 +52,7 @@ import {
   deleteFormulaTemplates,
   updateSessionCompany,
   prepareFormulaRowsForDisplay,
+  filterFormulaRowsBySearch,
   formulaRowIdsMatch,
   patchFormulaRowAfterSave,
 } from "./formulaMaintenanceLogic.js";
@@ -63,6 +64,7 @@ import {
   formulaMaintenanceUsesGroupProcesses,
   resolveFormulaMaintenanceScope,
 } from "./formulaMaintenanceScope.js";
+import { normalizeMaintenanceSearchInput } from "../shared/maintenanceSearchInput.js";
 
 // Components
 import FormulaMaintenanceFilters from "./components/FormulaMaintenanceFilters.jsx";
@@ -113,6 +115,7 @@ export default function FormulaMaintenancePage() {
   const [companyCode, setCompanyCode] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedProcess, setSelectedProcess] = useState(null);
+  const [textSearch, setTextSearch] = useState("");
   const [activePermission, setActivePermission] = useState("");
   const [processes, setProcesses] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -130,6 +133,7 @@ export default function FormulaMaintenancePage() {
   const toastTimerRef = useRef(null);
   const searchDebounceRef = useRef(null);
   const formulaDataFullRef = useRef([]);
+  const formulaDisplayRef = useRef([]);
   const progressiveRafRef = useRef(null);
   const searchSeqRef = useRef(0);
   const listScrollActiveRef = useRef(false);
@@ -138,6 +142,10 @@ export default function FormulaMaintenancePage() {
   const initialFormulaSearchDoneRef = useRef(false);
   const lastSearchQueryKeyRef = useRef("");
   const suppressNextSearchEffectRef = useRef(false);
+  const processAutoOpenedBySearchRef = useRef(false);
+  const textSearchAutoLoadStartedRef = useRef(false);
+  const textSearchRef = useRef("");
+  const selectedProcessRef = useRef(null);
   const skipMetaAfterBootRef = useRef(false);
   const handledMetaScopeKeyRef = useRef("");
   const switchPermsCacheRef = useRef(null);
@@ -195,8 +203,9 @@ export default function FormulaMaintenancePage() {
           : selectedProcess === ""
             ? "__all__"
             : String(selectedProcess),
+        textSearch.trim().toUpperCase(),
       ]),
-    [formulaScopeKey, activePermission, selectedProcess],
+    [formulaScopeKey, activePermission, selectedProcess, textSearch],
   );
 
   const listQueryEnabled =
@@ -213,6 +222,14 @@ export default function FormulaMaintenancePage() {
   useEffect(() => {
     scopeKeyRef.current = formulaScopeKey;
   }, [formulaScopeKey]);
+
+  useEffect(() => {
+    textSearchRef.current = textSearch;
+  }, [textSearch]);
+
+  useEffect(() => {
+    selectedProcessRef.current = selectedProcess;
+  }, [selectedProcess]);
 
   const [totalRowCount, setTotalRowCount] = useState(0);
   const [listHydrating, setListHydrating] = useState(false);
@@ -283,13 +300,38 @@ export default function FormulaMaintenancePage() {
       cancelAnimationFrame(progressiveRafRef.current);
       progressiveRafRef.current = null;
     }
+    processAutoOpenedBySearchRef.current = false;
+    textSearchAutoLoadStartedRef.current = false;
     formulaDataFullRef.current = [];
+    formulaDisplayRef.current = [];
     setTotalRowCount(0);
     setFormulaData([]);
     setListHydrating(false);
     setListSyncing(false);
+    setTextSearch("");
     resetSelection();
   }, [resetSelection]);
+
+  const applyFormulaListView = useCallback(
+    (fullList, searchTerm = textSearch) => {
+      if (progressiveRafRef.current) {
+        cancelAnimationFrame(progressiveRafRef.current);
+        progressiveRafRef.current = null;
+      }
+
+      const full = prepareFormulaRowsForDisplay(Array.isArray(fullList) ? fullList : []);
+      formulaDataFullRef.current = full;
+      const filtered = filterFormulaRowsBySearch(full, searchTerm).map((row, index) => ({
+        ...row,
+        no: index + 1,
+      }));
+      formulaDisplayRef.current = filtered;
+      setTotalRowCount(filtered.length);
+      setListHydrating(false);
+      startTransition(() => setFormulaData(filtered));
+    },
+    [textSearch],
+  );
 
   useEffect(() => {
     const handleSwitch = (e) => {
@@ -312,20 +354,18 @@ export default function FormulaMaintenancePage() {
   /** 虚拟列表负责大表渲染；一次性写入 state，不显示分批进度 */
   const hydrateFormulaList = useCallback(
     (fullList) => {
-      if (progressiveRafRef.current) {
-        cancelAnimationFrame(progressiveRafRef.current);
-        progressiveRafRef.current = null;
-      }
-
-      const full = prepareFormulaRowsForDisplay(Array.isArray(fullList) ? fullList : []);
-      formulaDataFullRef.current = full;
-      setTotalRowCount(full.length);
-      setListHydrating(false);
       resetSelection();
-      startTransition(() => setFormulaData(full));
+      applyFormulaListView(fullList);
     },
-    [resetSelection],
+    [resetSelection, applyFormulaListView],
   );
+
+  useEffect(() => {
+    if (!listQueryEnabled) return;
+    if (processAutoOpenedBySearchRef.current && !textSearch.trim()) return;
+    applyFormulaListView(formulaDataFullRef.current);
+    resetSelection();
+  }, [textSearch, listQueryEnabled, applyFormulaListView, resetSelection]);
 
   // -- Boot Logic --
   useEffect(() => {
@@ -682,6 +722,7 @@ export default function FormulaMaintenancePage() {
       });
       if (!skipStaleGuard && seq !== searchSeqRef.current) return;
       if (!skipStaleGuard && searchScopeKey !== scopeKeyRef.current) return;
+      if (processAutoOpenedBySearchRef.current && !textSearchRef.current.trim()) return;
 
       setConfirmDelete(false);
       setFormulaDataSourceCompanyId(formulaMaintenanceScopeCacheCompanyKey(effectiveScope));
@@ -700,6 +741,7 @@ export default function FormulaMaintenancePage() {
       if (!skipStaleGuard && searchScopeKey !== scopeKeyRef.current) return;
       notify(err.message, "error");
       formulaDataFullRef.current = [];
+      formulaDisplayRef.current = [];
       setTotalRowCount(0);
       setFormulaData([]);
       resetSelection();
@@ -859,11 +901,15 @@ export default function FormulaMaintenancePage() {
   const handleSetSelectedProcess = useCallback(
     (value) => {
       if (value === null || value === undefined) {
+        processAutoOpenedBySearchRef.current = false;
+        textSearchAutoLoadStartedRef.current = false;
         setSelectedProcess(null);
         clearFormulaList();
         lastSearchQueryKeyRef.current = "";
         return;
       }
+      processAutoOpenedBySearchRef.current = false;
+      textSearchAutoLoadStartedRef.current = false;
       setSelectedProcess(value);
       if (!filtersReady || !formulaMaintenanceScopeIsReady(formulaScope)) return;
       suppressNextSearchEffectRef.current = true;
@@ -877,6 +923,50 @@ export default function FormulaMaintenancePage() {
     handleSetSelectedProcess(null);
   }, [handleSetSelectedProcess]);
 
+  const handleTextSearchChange = useCallback(
+    (value) => {
+      const next = normalizeMaintenanceSearchInput(value);
+      textSearchRef.current = next;
+      setTextSearch(next);
+
+      if (!next.trim() && processAutoOpenedBySearchRef.current) {
+        processAutoOpenedBySearchRef.current = false;
+        textSearchAutoLoadStartedRef.current = false;
+        searchSeqRef.current += 1;
+        suppressNextSearchEffectRef.current = true;
+        lastSearchQueryKeyRef.current = "";
+        setSelectedProcess(null);
+        selectedProcessRef.current = null;
+        formulaDataFullRef.current = [];
+        formulaDisplayRef.current = [];
+        setTotalRowCount(0);
+        setFormulaData([]);
+        setLoading(false);
+        setListSyncing(false);
+        resetSelection();
+        return;
+      }
+
+      if (
+        selectedProcessRef.current === null &&
+        next.trim() &&
+        filtersReady &&
+        formulaMaintenanceScopeIsReady(formulaScope)
+      ) {
+        processAutoOpenedBySearchRef.current = true;
+        selectedProcessRef.current = "";
+        setSelectedProcess("");
+        if (!textSearchAutoLoadStartedRef.current) {
+          textSearchAutoLoadStartedRef.current = true;
+          suppressNextSearchEffectRef.current = true;
+          lastSearchQueryKeyRef.current = "";
+          void performSearchRef.current({ process: "" });
+        }
+      }
+    },
+    [filtersReady, formulaScope, resetSelection],
+  );
+
   const isRowSelected = useCallback(
     (id) => {
       if (selectAllActive) return !deselectedIds.has(id);
@@ -886,10 +976,10 @@ export default function FormulaMaintenancePage() {
   );
 
   const resolveSelectedIds = useCallback(() => {
-    const full = formulaDataFullRef.current;
+    const visible = formulaDisplayRef.current;
     if (selectAllActive) {
-      if (deselectedIds.size === 0) return full.map((r) => r.id);
-      return full.filter((r) => !deselectedIds.has(r.id)).map((r) => r.id);
+      if (deselectedIds.size === 0) return visible.map((r) => r.id);
+      return visible.filter((r) => !deselectedIds.has(r.id)).map((r) => r.id);
     }
     return selectedIds;
   }, [selectAllActive, deselectedIds, selectedIds]);
@@ -996,7 +1086,7 @@ export default function FormulaMaintenancePage() {
       const mergeRow = (row) => patchFormulaRowAfterSave(row, patchOpts);
 
       formulaDataFullRef.current = formulaDataFullRef.current.map(mergeRow);
-      setFormulaData((prev) => prev.map(mergeRow));
+      applyFormulaListView(formulaDataFullRef.current);
       return true;
     } catch (err) {
       notify(err.message || t("saveFailed"), "error");
@@ -1038,6 +1128,8 @@ export default function FormulaMaintenancePage() {
         processes={processes}
         selectedProcess={selectedProcess}
         setSelectedProcess={handleSetSelectedProcess}
+        textSearch={textSearch}
+        onTextSearchChange={handleTextSearchChange}
         companyId={companyId}
         snapGroupIds={snapGroupIds}
         visibleCompanies={visibleCompanies}
@@ -1084,7 +1176,7 @@ export default function FormulaMaintenancePage() {
         accounts={accounts}
         m={m}
         inputMethodOptions={inputMethodOptions}
-        awaitingProcessSelection={selectedProcess === null}
+        awaitingProcessSelection={selectedProcess === null && !textSearch.trim()}
         bootPending={bootPending}
       />
       </div>

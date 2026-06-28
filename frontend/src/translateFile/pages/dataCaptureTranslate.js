@@ -31,6 +31,8 @@ export const DATA_CAPTURE_I18N = {
     removeWordChipRemove: "Remove",
     submittedProcesses: "Submitted Processes",
     noProcessesSubmitted: "No processes submitted for this date",
+    failedLoadSubmittedProcesses: "Could not load submitted processes",
+    retry: "Retry",
     dataCaptureTable: "Data Capture Table",
     tableSize: "Add Row",
     tableSizeResetTitle: "Reset to default size (A–Z × 11 cols)",
@@ -111,6 +113,7 @@ export const DATA_CAPTURE_I18N = {
     pasteSuccessPrefixRows:
       "{prefix}: successfully pasted {rows} rows × {cols} columns.",
     pasteFailedClipboard: "Failed to access clipboard",
+    weekdayLabels: ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"],
   },
   zh: {
     pageTitle: "数据采集",
@@ -142,6 +145,8 @@ export const DATA_CAPTURE_I18N = {
     removeWordChipRemove: "移除",
     submittedProcesses: "已提交流程",
     noProcessesSubmitted: "该日期暂无已提交流程",
+    failedLoadSubmittedProcesses: "无法加载已提交流程",
+    retry: "重试",
     dataCaptureTable: "数据采集表",
     tableSize: "新增行",
     tableSizeResetTitle: "重置为默认大小（A–Z × 11 列）",
@@ -222,10 +227,16 @@ export const DATA_CAPTURE_I18N = {
     pasteSuccessPrefixRows:
       "{prefix}：成功粘贴 {rows} 行 x {cols} 列数据!",
     pasteFailedClipboard: "无法访问剪贴板",
+    weekdayLabels: ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"],
   },
 };
 
 export const getDataCaptureText = createGetText(DATA_CAPTURE_I18N);
+
+export function getDataCaptureWeekdayLabels(lang) {
+  const locale = lang === "zh" ? "zh" : "en";
+  return DATA_CAPTURE_I18N[locale].weekdayLabels;
+}
 
 /** Map validation / API message keys used in hooks. */
 export function translateDataCaptureMessage(lang, message) {

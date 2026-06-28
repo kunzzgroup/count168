@@ -149,6 +149,26 @@ export function rowHasNonZeroBalance(row) {
   }
 }
 
+function rowFlagToBool(v) {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v !== 0;
+  return parseInt(String(v || "0"), 10) !== 0;
+}
+
+/** 查询期内有 Payment 流水，或当日有 CONTRA/CLEAR 清账（含待审批 contra）。 */
+export function rowHasPeriodPaymentOrContraClear(row) {
+  if (rowFlagToBool(row?.has_crdr_transactions) || rowFlagToBool(row?.has_contra_clear_period)) {
+    return true;
+  }
+  const crdr = parseBalanceValue(row?.cr_dr);
+  if (crdr === null) return false;
+  try {
+    return MoneyDecimal.toDecimal(crdr, 0).abs().gt("0.00001");
+  } catch {
+    return Math.abs(crdr) > 1e-5;
+  }
+}
+
 /** @deprecated Prefer {@link applyZeroBalanceFilter} — kept for legacy callers. */
 export function rowPassesHideZeroBalanceFilter(showZero, row) {
   if (showZero) return true;
@@ -285,10 +305,11 @@ export function applyZeroBalanceFilter(
   if (showZeroBalance || showCaptureOnly || showPaymentOnly) {
     return { left: filteredLeft, right: filteredRight };
   }
-  // Default: hide rows whose ending balance is 0.00.
+  // Default: hide zero-balance rows unless the period had Payment/Contra/Clear activity (e.g. 清账后余额为 0).
+  const keepRow = (row) => rowHasNonZeroBalance(row) || rowHasPeriodPaymentOrContraClear(row);
   return {
-    left: filteredLeft.filter(rowHasNonZeroBalance),
-    right: filteredRight.filter(rowHasNonZeroBalance),
+    left: filteredLeft.filter(keepRow),
+    right: filteredRight.filter(keepRow),
   };
 }
 
@@ -536,6 +557,33 @@ export function readTxListFromSessionStorage(sessionKey) {
   }
 }
 
+/** Row count in rendered table presentation (after client-side filters). */
+export function countTransactionPresentationRows(tp) {
+  if (!tp || tp.mode === "none") return 0;
+  if (tp.mode === "grouped") {
+    return (tp.grouped || []).reduce(
+      (sum, g) => sum + (g.left?.length || 0) + (g.right?.length || 0),
+      0,
+    );
+  }
+  return (tp.defaultLeft?.length || 0) + (tp.defaultRight?.length || 0);
+}
+
+export function hasTransactionCurrencyFilter(showAllCurrencies, selectedCurrencies) {
+  return Boolean(showAllCurrencies) || (Array.isArray(selectedCurrencies) && selectedCurrencies.length > 0);
+}
+
+export function shouldShowTransactionTablesSection({
+  showAllCurrencies,
+  selectedCurrencies,
+  tablePresentation,
+  searchLoading,
+}) {
+  if (!hasTransactionCurrencyFilter(showAllCurrencies, selectedCurrencies)) return false;
+  if (countTransactionPresentationRows(tablePresentation) > 0) return true;
+  return Boolean(searchLoading);
+}
+
 export function buildTxListSessionKey({
   companyId,
   dateFrom,
@@ -557,9 +605,9 @@ export function buildTxListSessionKey({
     cur = [...selectedCurrencies].sort().join(",");
   }
   const cid = companyId != null ? String(companyId) : "";
-  const hideZero = hideZeroBalance ? "0" : "1";
+  const hideZb = hideZeroBalance ? "1" : "0";
   return (
     TX_LIST_SESSION_PREFIX +
-    [cid, dateFrom, dateTo, cat, showInactive ? "1" : "0", showCaptureOnly ? "1" : "0", hideZero, cur, showAllCurrencies ? "1" : "0"].join("|")
+    [cid, dateFrom, dateTo, cat, showInactive ? "1" : "0", showCaptureOnly ? "1" : "0", hideZb, cur, showAllCurrencies ? "1" : "0"].join("|")
   );
 }

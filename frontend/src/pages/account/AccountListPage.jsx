@@ -59,13 +59,13 @@ import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
+import "../../../public/css/list-badge-scale.css";
 
 // Logic & Constants..
 import {
   toUpper,
   normalizeAlertAmount,
   roleSortOrder,
-  PAGE_SIZE,
   DEFAULT_FORM,
   getAccountModalOrderedRoles,
   getOrderedRoles,
@@ -82,6 +82,8 @@ import {
   resolveAccountListGroupOnlyFetch,
   resolveAccountListInlinePickerCompanies,
   shouldLoadAccountListData,
+  formatAccountLastLoginDate,
+  formatAccountLastLoginTimeTitle,
 } from "./accountLogic.js";
 
 // Components
@@ -93,6 +95,9 @@ import {
   LinkAccountModal,
 } from "./components/accountModals.jsx";
 import {
+  formatAccountAlertDisplay,
+  formatAccountRoleDisplay,
+  formatAccountStatusDisplay,
   formatCurrencyUsageDetail,
   getAccountText,
   isHistoricalOnlyCurrencyDeleteBlock,
@@ -101,6 +106,8 @@ import {
 } from "../../translateFile/pages/accountTranslate.js";
 import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import { useAutoListPageSize } from "../../hooks/useAutoListPageSize.js";
+import { PAGE_SIZE_MAX, PAGE_SIZE_MIN } from "../../constants/listPageSize.js";
 
 function resolveAccountListCacheKey(scopeKey, searchTerm, showInactive, showAll) {
   return `${scopeKey}|${String(searchTerm || "").trim()}|${showInactive ? "1" : "0"}|${showAll ? "1" : "0"}`;
@@ -211,6 +218,7 @@ export default function AccountListPage() {
   const [sortColumn, setSortColumn] = useState("account");
   const [sortDirection, setSortDirection] = useState("asc");
   const [currentPage, setCurrentPage] = useState(1);
+  const listRegionRef = useRef(null);
   const [selectedGroup, setSelectedGroup] = useState(() => initialBootGc.selectedGroup);
   const [selectedDeleteIds, setSelectedDeleteIds] = useState(new Set());
 
@@ -1850,15 +1858,48 @@ export default function AccountListPage() {
 
   const accountMutationsBlocked = usePartnershipAuditReadOnlyLocked(sessionMe);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredForMode.length / PAGE_SIZE)), [filteredForMode]);
+  const pageSize = useAutoListPageSize({
+    listRegionRef,
+    enabled: !showAll,
+    rowSelector: ".account-list-row",
+    headerSelector: ".account-list-table-header",
+    paginationSelector: ".account-pagination-container",
+    minRows: PAGE_SIZE_MIN,
+    maxRows: PAGE_SIZE_MAX,
+    stableRowHeight: true,
+    remeasureDeps: [
+      filteredForMode.length,
+      showAll,
+      showInactive,
+      searchTerm,
+      lang,
+      currentPage,
+      bootLoading,
+      companyId,
+      selectedGroup,
+      groupAllMode,
+      groupsAllMode,
+    ],
+  });
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredForMode.length / pageSize)),
+    [filteredForMode.length, pageSize],
+  );
   const effectivePage = useMemo(
     () => Math.min(Math.max(1, currentPage), totalPages),
     [currentPage, totalPages],
   );
+
+  useEffect(() => {
+    if (showAll) return;
+    setCurrentPage((p) => Math.min(p, totalPages));
+  }, [showAll, totalPages, pageSize]);
+
   const pageRows = useMemo(() => {
     if (showAll) return filteredForMode;
-    return filteredForMode.slice((effectivePage - 1) * PAGE_SIZE, effectivePage * PAGE_SIZE);
-  }, [filteredForMode, showAll, effectivePage]);
+    return filteredForMode.slice((effectivePage - 1) * pageSize, effectivePage * pageSize);
+  }, [filteredForMode, showAll, effectivePage, pageSize]);
 
   /** React scope (instant on pill click) — do not wait for sessionStorage group-only flag. */
   const isGroupOnlyScope = useMemo(
@@ -2724,8 +2765,7 @@ export default function AccountListPage() {
         <div className="content">
           <div className="action-buttons-container">
             <div className="action-buttons">
-              <div className="account-toolbar-top-row">
-                <div className="action-controls-row account-toolbar-primary">
+                <div className="action-controls-row account-toolbar-primary" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <button
                   type="button"
                   className="btn btn-add"
@@ -2785,7 +2825,7 @@ export default function AccountListPage() {
                   </button>
                 </div>
                 </div>
-                <div className="user-toolbar-actions-right">
+                <div className="user-toolbar-actions-right" style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
                   <button
                     type="button"
                     className="btn btn-currency-setting"
@@ -2803,7 +2843,6 @@ export default function AccountListPage() {
                     {t("deleteWithCount", { count: selectedDeleteIds.size })}
                   </button>
                 </div>
-              </div>
             </div>
             <GcInlineFilterPanel
               t={t}
@@ -2825,8 +2864,7 @@ export default function AccountListPage() {
             />
           </div>
 
-          <div className="account-table-wrapper account-list-table">
-            <div className="account-list-table-inner">
+          <div ref={listRegionRef} className="account-table-wrapper account-list-table">
             <div className="account-table-header account-list-table-header">
               <div className="account-header-item">{t("no")}</div>
               {renderSortableHeader(t("account"), "account")}
@@ -2836,35 +2874,74 @@ export default function AccountListPage() {
               {renderSortableHeader(t("status"), "status")}
               {renderSortableHeader(t("lastLogin"), "lastLogin")}
               {renderSortableHeader(t("remark"), "remark")}
-              <div className="account-header-item">{t("action")}</div>
+              <div className="account-header-item account-header-item--action">{t("action")}</div>
             </div>
-            <div className={`account-cards${showAll ? " account-cards--show-all" : ""}`}>
+            <div
+              className={`account-cards${showAll ? " account-cards--show-all" : ""}${!showAll && pageRows.length > 0 ? " account-cards--paged-fill" : ""}`}
+              style={!showAll && pageRows.length > 0 ? { "--account-list-page-size": Math.max(pageSize, pageRows.length) } : undefined}
+            >
               {pageRows.map((a, idx) => {
                 const alertOn = String(a.payment_alert) === "1";
                 const isInactive = String(a.status || "").toLowerCase() === "inactive";
                 return (
                   <div className="account-card account-list-row" key={a.id}>
-                    <div className="account-card-item">{showAll ? idx + 1 : (effectivePage - 1) * PAGE_SIZE + idx + 1}</div>
+                    <div className="account-card-item">{showAll ? idx + 1 : (effectivePage - 1) * pageSize + idx + 1}</div>
                     <div className="account-card-item">{toUpper(a.account_id)}</div>
                     <div className="account-card-item">{toUpper(a.name)}</div>
-                    <div className="account-card-item"><span className={`account-role-badge account-role-${String(a.role || "").toLowerCase().replace(/\s+/g, "-")}`}>{toUpper(a.role) === "UPLINE" ? t("supplier") : toUpper(a.role)}</span></div>
-                    <div className="account-card-item"><span className={`account-role-badge ${alertOn ? "account-status-active" : "account-status-inactive"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => togglePaymentAlert(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{alertOn ? "ON" : "OFF"}</span></div>
-                    <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => toggleAccountStatus(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{toUpper(a.status)}</span></div>
-                    <div className="account-card-item">{toUpper(a.last_login)}</div>
-                    <div className="account-card-item">{toUpper(a.remark)}</div>
+                    <div className="account-card-item"><span className={`account-role-badge account-role-${String(a.role || "").toLowerCase().replace(/\s+/g, "-")}`}>{formatAccountRoleDisplay(t, a.role)}</span></div>
                     <div className="account-card-item">
-                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openEdit(a.id)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
-                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openLink(a.id)} style={{ marginLeft: 5 }} title={t("linkAccountTitle")}>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        </svg>
-                      </button>
-                      {isInactive && <input type="checkbox" style={{ marginLeft: 10 }} disabled={accountMutationsBlocked} checked={selectedDeleteIds.has(Number(a.id))} onChange={(e) => setSelectedDeleteIds(prev => { const n = new Set(prev); if (e.target.checked) n.add(Number(a.id)); else n.delete(Number(a.id)); return n; })} />}
+                      <label
+                        className={`account-alert-toggle${accountMutationsBlocked ? " is-disabled" : ""}`}
+                        onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          className="account-alert-toggle__input"
+                          checked={alertOn}
+                          disabled={accountMutationsBlocked}
+                          aria-label={formatAccountAlertDisplay(t, a.payment_alert)}
+                          onChange={() => togglePaymentAlert(a.id)}
+                        />
+                        <span className="account-alert-toggle__track" aria-hidden="true">
+                          <span className="account-alert-toggle__label account-alert-toggle__label--on">{t("alertOn")}</span>
+                          <span className="account-alert-toggle__label account-alert-toggle__label--off">{t("alertOff")}</span>
+                          <span className="account-alert-toggle__thumb" />
+                        </span>
+                      </label>
+                    </div>
+                    <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => toggleAccountStatus(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{formatAccountStatusDisplay(t, a.status)}</span></div>
+                    <div
+                      className="account-card-item"
+                      title={formatAccountLastLoginTimeTitle(a.last_login) || undefined}
+                    >
+                      {formatAccountLastLoginDate(a.last_login)}
+                    </div>
+                    <div className="account-card-item">{toUpper(a.remark)}</div>
+                    <div className="account-card-item account-card-item--action">
+                      <div className="account-action-tools">
+                        <div className="account-action-tools-bar">
+                        <button type="button" className="btn btn-edit account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openEdit(a.id)} aria-label={t("edit")} title={t("edit")}>
+                          <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
+                        </button>
+                        <button type="button" className="btn account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openLink(a.id)} title={t("linkAccountTitle")} aria-label={t("linkAccountTitle")}>
+                          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                        </div>
+                        {isInactive && (
+                          <input
+                            type="checkbox"
+                            disabled={accountMutationsBlocked}
+                            checked={selectedDeleteIds.has(Number(a.id))}
+                            onChange={(e) => setSelectedDeleteIds(prev => { const n = new Set(prev); if (e.target.checked) n.add(Number(a.id)); else n.delete(Number(a.id)); return n; })}
+                          />
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
               })}
-            </div>
             </div>
           </div>
           {!showAll && (

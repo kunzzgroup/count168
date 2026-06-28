@@ -33,14 +33,21 @@ export function netProfitFromDashboardPayload(dashboardData) {
   return rawProfit + displayExpenses;
 }
 
-/** True when the logged-in viewer has earnings config (Account or Group Ownership). */
-export function viewerHasEarningsConfig(dashboardData) {
+/**
+ * True when the logged-in viewer has earnings config (Account or Group Ownership).
+ * Subsidiary drill-down (e.g. AP + C168): group-level earnings do not apply — only direct
+ * company ownership or link multiplier counts (matches IG + 95 net-profit panel).
+ */
+export function viewerHasEarningsConfig(dashboardData, options = {}) {
   if (!dashboardData) return false;
   const directPct = parseFloat(dashboardData.ownership_percentage) || 0;
   if (directPct > 0) return true;
-  if (dashboardData.has_group_ownership) return true;
   const linkMul = parseFloat(dashboardData._link_multiplier || 0) || 0;
-  return linkMul > 0 && linkMul !== 1;
+  if (linkMul > 0 && linkMul !== 1) return true;
+  if (options.subsidiaryGroupDrillDown) return false;
+  if (options.groupsAllCompaniesAggregate) return false;
+  if (dashboardData.has_group_ownership) return true;
+  return false;
 }
 
 /** Group earning = (subsidiary earnings + group ledger net profit) × viewer group %. */
@@ -113,7 +120,7 @@ export function resolvePanelEarningsPct(dashboardData, selectedGroup, options = 
   });
 }
 
-/** Copy ownership fields from primary-currency KPI into per-currency earnings payloads. */
+/** Copy ownership config (not dollar totals) from primary-currency KPI into per-currency payloads. */
 export function mergeDashboardOwnershipFields(payload, ownershipSource) {
   if (!payload || !ownershipSource) return payload;
   return {
@@ -124,9 +131,6 @@ export function mergeDashboardOwnershipFields(payload, ownershipSource) {
     group_account_percentage: ownershipSource.group_account_percentage,
     has_group_ownership: ownershipSource.has_group_ownership,
     _link_multiplier: ownershipSource._link_multiplier,
-    subsidiary_earnings_total: ownershipSource.subsidiary_earnings_total,
-    group_ledger_net_profit: ownershipSource.group_ledger_net_profit,
-    _group_aggregate_earnings: ownershipSource._group_aggregate_earnings,
   };
 }
 
@@ -165,7 +169,9 @@ export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
   const displayProfitNum = rawProfit;
   const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
   const netProfitDisplay = displayProfitNum + displayExpensesNum;
-  const showEarnings = viewerHasEarningsConfig(dashboardData);
+  const showEarnings = options.groupsAllCompaniesAggregate
+    ? false
+    : viewerHasEarningsConfig(dashboardData, options);
   const groupAggregate = isGroupAggregateEarningsPayload(dashboardData, options);
   const panelMultiplier = resolvePanelEarningsPct(dashboardData, selectedGroup, options);
   const kpiMultiplier = resolveEffectiveOwnershipPct(dashboardData, selectedGroup, options);

@@ -62,6 +62,7 @@ import {
   formatBankMoneyFixed2,
   formatProfitSharingStringFixed2,
   EMPTY_BANK_FORM,
+  buildBankDtsFormFields,
   parseBankContractRentalMonthsForDayEnd,
   contractBillingEndYmdForBankForm,
   matchesCurrentBankFilters,
@@ -75,6 +76,7 @@ import {
   accountingDueRowKey,
   checkBankResendLockFromBackend,
   isBankResendScheduleLockedToday,
+  isResendDayStartDuplicateInAccountingDue,
   normalizeBankResendDayStartYmd,
 } from "../lib/bankProcessHelpers.js";
 import {
@@ -224,6 +226,7 @@ export function useBankProcessListPage() {
   const [resendFrequency, setResendFrequency] = useState("1st_of_every_month");
   const [resendInlineError, setResendInlineError] = useState("");
   const [resendConfirmDisabled, setResendConfirmDisabled] = useState(false);
+  const [resendConfirmBlockReason, setResendConfirmBlockReason] = useState("");
   const [resendLockChecking, setResendLockChecking] = useState(false);
   const resendLockCheckSeqRef = useRef(0);
 
@@ -270,6 +273,9 @@ export function useBankProcessListPage() {
 
   const toastTimerRef = useRef(null);
   const listAbortRef = useRef(null);
+  const listFetchGenRef = useRef(0);
+  const accountingInboxFetchGenRef = useRef(0);
+  const companyIdRef = useRef(null);
   const skipNextBankFetchRef = useRef(false);
   const skipCompanyFetchEffectRef = useRef(false);
   const bankProcessListCacheRef = useRef(new Map());
@@ -299,6 +305,21 @@ export function useBankProcessListPage() {
   useEffect(() => {
     rowsRef.current = rows;
   }, [rows]);
+
+  useEffect(() => {
+    companyIdRef.current = companyId;
+  }, [companyId]);
+
+  const prevRowsLenRef = useRef(0);
+  useEffect(() => {
+    const prev = prevRowsLenRef.current;
+    prevRowsLenRef.current = rows.length;
+    if (loading || prev > 0 || rows.length === 0) return undefined;
+    const raf = window.requestAnimationFrame(() => {
+      notifyBankListLayoutChanged();
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [rows.length, loading, notifyBankListLayoutChanged]);
 
   const { mutationsBlocked, guardWrite } = usePartnershipAuditWriteGuard(
     authMe,
@@ -707,17 +728,6 @@ export function useBankProcessListPage() {
     window.MaintenanceDateRangePicker?.refreshInputsDisplay?.();
   }, [dateFrom, dateTo, loading, cssReady, lang]);
 
-  useEffect(() => {
-    if (loading || !companyId || groupFilterKind !== "follow") return;
-    if (suppressCrossPageSyncRef.current) return;
-    const row = companies.find((c) => Number(c.id) === Number(companyId));
-    void ensureCrossPageCompanySelection(companyId, {
-      companies,
-      selectedGroup,
-      companyRow: row,
-      sessionCompanyId: authMe?.company_id,
-    });
-  }, [loading, companyId, companies, selectedGroup, groupFilterKind, authMe?.company_id]);
 
   useEffect(() => {
     (async () => {
@@ -1086,33 +1096,41 @@ export function useBankProcessListPage() {
     const dayStartYmd = normalizeBankResendDayStartYmd(resendDayStart);
     if (!resendModalOpen || !id || !dayStartYmd) {
       setResendConfirmDisabled(false);
+      setResendConfirmBlockReason("");
       setResendLockChecking(false);
       return;
     }
+    const duplicateClient = isResendDayStartDuplicateInAccountingDue(accountingRows, id, resendDayStart);
     const quickLocked = isBankResendScheduleLockedToday(resendTarget, resendDayStart);
     const seq = ++resendLockCheckSeqRef.current;
     setResendLockChecking(true);
     setResendConfirmDisabled(true);
+    setResendConfirmBlockReason(duplicateClient ? "duplicate" : quickLocked ? "locked" : "");
     try {
-      const backendLocked = await checkBankResendLockFromBackend(id, resendDayStart);
+      const backend = await checkBankResendLockFromBackend(id, resendDayStart);
       if (seq !== resendLockCheckSeqRef.current) return;
-      setResendConfirmDisabled(backendLocked);
+      const duplicate = duplicateClient || backend.duplicateOpenAnchor;
+      const locked = backend.locked;
+      setResendConfirmDisabled(locked || duplicate);
+      setResendConfirmBlockReason(duplicate ? "duplicate" : locked ? "locked" : "");
     } catch {
       if (seq !== resendLockCheckSeqRef.current) return;
-      setResendConfirmDisabled(quickLocked);
+      setResendConfirmDisabled(quickLocked || duplicateClient);
+      setResendConfirmBlockReason(duplicateClient ? "duplicate" : quickLocked ? "locked" : "");
     } finally {
       if (seq === resendLockCheckSeqRef.current) setResendLockChecking(false);
     }
-  }, [resendModalOpen, resendTarget, resendDayStart]);
+  }, [resendModalOpen, resendTarget, resendDayStart, accountingRows]);
 
   useEffect(() => {
     if (!resendModalOpen) {
       setResendConfirmDisabled(false);
+      setResendConfirmBlockReason("");
       setResendLockChecking(false);
       return;
     }
     void refreshResendConfirmLock();
-  }, [resendModalOpen, resendDayStart, resendDayEnd, resendTarget?.id, refreshResendConfirmLock]);
+  }, [resendModalOpen, resendDayStart, resendDayEnd, resendTarget?.id, accountingRows, refreshResendConfirmLock]);
 
   const syncUrl = useCallback(() => {
     replaceBrowserPathOnly();
@@ -1129,6 +1147,9 @@ export function useBankProcessListPage() {
         bankProcessRowsFingerprint(prev) === bankProcessRowsFingerprint(cached.rows) ? prev : cached.rows,
       );
       setTableLoading(false);
+      if (cached.rows.length > 0) {
+        window.requestAnimationFrame(() => notifyBankListLayoutChanged());
+      }
       if (Array.isArray(cached.currencyCodes) && cached.currencyCodes.length) {
         const ordered = mergeCurrencyCodesWithSavedOrder(
           cached.currencyCodes,
@@ -1142,7 +1163,7 @@ export function useBankProcessListPage() {
       }
       return true;
     },
-    [search, selectedGroup],
+    [search, notifyBankListLayoutChanged],
   );
 
   const warmBankProcessListCompanyCache = useCallback(
@@ -1184,13 +1205,17 @@ export function useBankProcessListPage() {
       const preserveSelection = !!opts.preserveSelection;
       const cid = opts.companyId != null ? Number(opts.companyId) : Number(companyId);
       if (!Number.isFinite(cid) || cid <= 0) return;
+
+      const fetchGen = ++listFetchGenRef.current;
+      if (rowsRef.current.length === 0) setTableLoading(true);
+
       listAbortRef.current?.abort();
       const ac = new AbortController();
       listAbortRef.current = ac;
-      if (!silent && rowsRef.current.length === 0) setTableLoading(true);
       try {
         const slice = await prefetchBankProcessListPayload(cid, { search });
-        if (ac.signal.aborted) return;
+        if (ac.signal.aborted || fetchGen !== listFetchGenRef.current) return;
+        if (Number(companyIdRef.current) !== cid) return;
         if (!slice.rows) {
           if (!silent) notify(t("failedLoadBankProcesses"), "danger");
           return;
@@ -1221,14 +1246,19 @@ export function useBankProcessListPage() {
         if (!preserveSelection) setSelectedIds(new Set());
         if (!preservePage) setCurrentPage(1);
         syncUrl();
+        if (fetchGen === listFetchGenRef.current) {
+          notifyBankListLayoutChanged();
+        }
       } catch {
-        if (ac.signal.aborted) return;
+        if (ac.signal.aborted || fetchGen !== listFetchGenRef.current) return;
         if (!silent) notify(t("failedLoadBankProcesses"), "danger");
       } finally {
-        if (!ac.signal.aborted && !silent) setTableLoading(false);
+        if (fetchGen === listFetchGenRef.current) {
+          setTableLoading(false);
+        }
       }
     },
-    [companyId, selectedGroup, search, notify, syncUrl, t],
+    [companyId, search, notify, syncUrl, t, notifyBankListLayoutChanged],
   );
 
   useEffect(() => {
@@ -1275,16 +1305,20 @@ export function useBankProcessListPage() {
   const loadAccountingInbox = useCallback(async (opts = {}) => {
     const silent = !!opts.silent;
     const restoreDismissed = !!opts.restoreDismissed;
-    if (!companyId) return;
+    const cid = Number(companyId);
+    if (!Number.isFinite(cid) || cid <= 0) return;
+    const fetchGen = ++accountingInboxFetchGenRef.current;
     if (!silent) setAccountingLoading(true);
     try {
       const url = new URL(buildApiUrl("api/processes/process_accounting_inbox_api.php"));
-      url.searchParams.set("company_id", String(companyId));
+      url.searchParams.set("company_id", String(cid));
       if (restoreDismissed) {
         url.searchParams.set("restore_dismissed", "1");
       }
       const res = await fetch(url.toString(), { credentials: "include", cache: "no-cache" });
       const json = await res.json();
+      if (fetchGen !== accountingInboxFetchGenRef.current) return;
+      if (Number(companyIdRef.current) !== cid) return;
       const list = Array.isArray(json?.data) ? json.data : [];
       setAccountingRows(list);
       if (!silent) {
@@ -1308,13 +1342,17 @@ export function useBankProcessListPage() {
         });
       }
     } catch {
+      if (fetchGen !== accountingInboxFetchGenRef.current) return;
+      if (Number(companyIdRef.current) !== cid) return;
       setAccountingRows([]);
       if (!silent) {
         setAccountingSelected(new Set());
         setAccountingDeleteSelected(new Set());
       }
     } finally {
-      if (!silent) setAccountingLoading(false);
+      if (!silent && fetchGen === accountingInboxFetchGenRef.current) {
+        setAccountingLoading(false);
+      }
     }
   }, [companyId]);
 
@@ -1335,11 +1373,30 @@ export function useBankProcessListPage() {
     [fetchRows, loadAccountingInbox]
   );
 
-  // Badge count uses accountingRows; fetch inbox whenever company is ready so the badge is not stuck at 0 until the modal is opened.
+  // Badge uses accountingRows; sync PHP session first (when needed) so inbox matches the visible company.
   useEffect(() => {
     if (!companyId || loading) return;
-    void loadAccountingInbox({ silent: true });
-  }, [companyId, loading, loadAccountingInbox]);
+    if (suppressCrossPageSyncRef.current) return;
+
+    let cancelled = false;
+    void (async () => {
+      if (groupFilterKind === "follow") {
+        const row = companies.find((c) => Number(c.id) === Number(companyId));
+        await ensureCrossPageCompanySelection(companyId, {
+          companies,
+          selectedGroup,
+          companyRow: row,
+          sessionCompanyId: authMe?.company_id,
+        });
+      }
+      if (cancelled || Number(companyIdRef.current) !== Number(companyId)) return;
+      await loadAccountingInbox({ silent: true });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, loading, companies, selectedGroup, groupFilterKind, authMe?.company_id, loadAccountingInbox]);
 
   // Items can become due when the clock passes a billing boundary; refresh periodically and when the tab becomes visible again.
   useEffect(() => {
@@ -1355,11 +1412,12 @@ export function useBankProcessListPage() {
         preservePage: isLocalBank,
         preserveSelection: isLocalBank,
       });
+      void loadAccountingInbox({ silent: true });
       if (resendModalOpen) void refreshResendConfirmLock();
     };
     window.addEventListener("tx-data-changed", onTxChanged);
     return () => window.removeEventListener("tx-data-changed", onTxChanged);
-  }, [fetchRows, resendModalOpen, refreshResendConfirmLock]);
+  }, [fetchRows, loadAccountingInbox, resendModalOpen, refreshResendConfirmLock]);
 
   useEffect(() => {
     if (!companyId || loading) return;
@@ -1378,7 +1436,7 @@ export function useBankProcessListPage() {
   const resetForm = () => setForm({ ...EMPTY_BANK_FORM });
 
   const onSwitchCompany = useCallback(
-    async (c, { layoutSilent = false } = {}) => {
+    async (c, { layoutSilent = false, backgroundRefresh = false } = {}) => {
       const nextId = Number(c?.id);
       if (!nextId) return;
 
@@ -1386,7 +1444,9 @@ export function useBankProcessListPage() {
       try {
         const sessionCompanyId = authMe?.company_id != null ? Number(authMe.company_id) : null;
         const bankCategoryPromise = isBankCategoryCompany(c.company_id, buildApiUrl);
-        void fetchRows({ companyId: nextId, silent: true, preservePage: true, preserveSelection: true });
+        if (backgroundRefresh) {
+          void fetchRows({ companyId: nextId, silent: true, preservePage: true, preserveSelection: true });
+        }
         if (accountingOpen) void loadAccountingInbox({ silent: true });
 
         try {
@@ -1493,7 +1553,7 @@ export function useBankProcessListPage() {
       persistDashboardFilterState(nextGroup, nextId);
       notifyDashboardGroupFilterChanged(nextGroup, nextId);
 
-      void onSwitchCompanyRef.current?.(c, { layoutSilent: true });
+      void onSwitchCompanyRef.current?.(c, { layoutSilent: true, backgroundRefresh: hadCache });
     },
     [applyBankProcessListCache, companyId, search],
   );
@@ -1786,6 +1846,7 @@ export function useBankProcessListPage() {
             String(d.day_end_monthly_cap_enabled) === "1"),
         day_start_frequency: bankProcessFrequencyNormalized(d.day_start_frequency),
         status: d.status || "active", remark: d.remark || "", sop: d.sop || "",
+        ...buildBankDtsFormFields(d),
       };
       seedContractSyncKeys(nextForm);
       setEditMode(true);
@@ -1897,6 +1958,8 @@ export function useBankProcessListPage() {
       if (!res.ok || !json.success) return notify(apiMsg(json, "transactionPostFailed"), "danger");
       notify(apiMsg(json, "postedToTransaction"));
       notifyTransactionDataChanged("bank-process-list-react");
+      setAccountingOpen(false);
+      setAccountingSelected(new Set());
       loadAccountingInbox(); fetchRows();
     } catch { notify(t("transactionPostFailed"), "danger"); }
   };
@@ -1963,8 +2026,8 @@ export function useBankProcessListPage() {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({
           bank_process_id: Number(resendTarget.id),
-          day_start: resendDayStart || null,
-          day_end: omitDayEnd ? null : (dayEndTrim || null),
+          day_start: normalizeBankResendDayStartYmd(resendDayStart) || null,
+          day_end: omitDayEnd ? null : (normalizeBankResendDayStartYmd(dayEndTrim) || null),
           day_start_frequency: normalizedResendFrequency,
         }),
       });
@@ -2091,7 +2154,7 @@ export function useBankProcessListPage() {
         return;
       }
 
-      if (canUseGroupOnlyMode(authMe)) {
+      if (canUseGroupOnlyMode(authMe, g, companies)) {
         setGroupFilterKind("follow");
         setSelectedGroup(g);
         persistDashboardGroupFilter(g);
@@ -2126,6 +2189,7 @@ export function useBankProcessListPage() {
           if (hadCache) applyBankProcessListCache(nextCompanyId);
           else {
             setRows([]);
+            setTableLoading(true);
             setCurrencyFilterCode("");
             setCurrencyListOrdered([]);
             setCurrencyPillDisplayOrder(null);
@@ -2135,7 +2199,7 @@ export function useBankProcessListPage() {
         notifyDashboardGroupFilterChanged(g, nextCompanyId, {
           companyCode: pick.company_id,
         });
-        void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
+        void onSwitchCompanyRef.current?.(pick, { layoutSilent: true, backgroundRefresh: hadCache });
         return;
       }
 
@@ -2146,6 +2210,7 @@ export function useBankProcessListPage() {
     },
     [
       applyBankProcessListCache,
+      authMe,
       companies,
       companyId,
       groupFilterKind,
@@ -2441,6 +2506,7 @@ export function useBankProcessListPage() {
     resendInlineError,
     setResendInlineError,
     resendConfirmDisabled,
+    resendConfirmBlockReason,
     resendLockChecking,
     isBankResendScheduleLockedToday,
     sortColumn,

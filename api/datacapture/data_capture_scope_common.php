@@ -36,15 +36,26 @@ function dcIsGroupScopeHint(array $resolved): bool
     return $code !== '' && $code === $groupId;
 }
 
-/** Ordered group payroll process codes (Data Capture group-only: SALARY, COMMISSION, BONUS). */
+/** Ordered group payroll process codes (Data Capture group-only: PROFIT first, then SALARY, COMMISSION, BONUS). */
 function dcGroupPayrollProcessCodes(): array
 {
-    return ['SALARY', 'COMMISSION', 'BONUS'];
+    return ['PROFIT', 'SALARY', 'COMMISSION', 'BONUS'];
 }
 
 function dcIsGroupPayrollProcessCode(string $code): bool
 {
     return in_array(strtoupper(trim($code)), dcGroupPayrollProcessCodes(), true);
+}
+
+/** Group payroll table drafts: SALARY / COMMISSION / BONUS only (not PROFIT). */
+function dcGroupPayrollDraftProcessCodes(): array
+{
+    return ['SALARY', 'COMMISSION', 'BONUS'];
+}
+
+function dcIsGroupPayrollDraftProcessCode(string $code): bool
+{
+    return in_array(strtoupper(trim($code)), dcGroupPayrollDraftProcessCodes(), true);
 }
 
 function dcSqlQuotedGroupPayrollProcessCodes(): string
@@ -1085,7 +1096,8 @@ function dcFixGroupPayrollProcessDescription(PDO $pdo, int $processId): void
 }
 
 /**
- * Resolve process.id; for group SALARY/BONUS auto-create on entity company when missing.
+ * Resolve process.id; auto-create group payroll codes when missing on group ledger or
+ * subsidiary company scope (C168 / bank-only e.g. CX).
  */
 function dcEnsureProcessIdByCode(
     PDO $pdo,
@@ -1102,10 +1114,15 @@ function dcEnsureProcessIdByCode(
         dcFixGroupPayrollProcessDescription($pdo, $existing);
         return $existing;
     }
-    if (!$groupScope) {
+
+    $code = strtoupper(trim($processCode));
+    $mayAutoCreate = $groupScope
+        || (dcIsGroupPayrollProcessCode($code) && dcCompanyScopeAllowsSalaryBonusProcess($pdo, $companyId));
+    if (!$mayAutoCreate) {
         dcSetGroupProcessEnsureError('Process not found for scope');
         return null;
     }
+
     return dcCreateGroupProcessByCode($pdo, $companyId, $processCode, $groupId, $preferredCurrencyId);
 }
 

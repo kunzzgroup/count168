@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { accountCompanyPickerZIndex, accountModalOverlayZIndex } from "../../../components/ProcessModalPortal.jsx";
+import SimpleSelect from "../../../components/SimpleSelect.jsx";
 import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 
 /** Inline so first paint is 3-column even if extracted CSS applies one frame late */
@@ -39,10 +40,10 @@ function getPermissionLabel(key, t) {
 }
 
 /** Large screens: inline checklist; laptop/tablet: same UI inside permission picker modal */
-function PermissionChecklist({ className, permissionsLocked, permDisabledMap, permSelected, setPermSelected, t }) {
+function PermissionChecklist({ className, permissionsLocked, permDisabledMap, visiblePermissionKeys, permSelected, setPermSelected, t }) {
   return (
     <div className={className}>
-      {PERMISSION_KEYS.map((key) => (
+      {visiblePermissionKeys.map((key) => (
         <div key={key} className="permission-item" style={{ opacity: permDisabledMap[key] ? 0.6 : 1 }}>
           <label className="permission-label">
             <input
@@ -73,7 +74,7 @@ function PermissionChecklist({ className, permissionsLocked, permDisabledMap, pe
   );
 }
 
-function PermissionBulkActions({ className, permissionsLocked, permDisabledMap, setPermSelected, t }) {
+function PermissionBulkActions({ className, permissionsLocked, permDisabledMap, visiblePermissionKeys, setPermSelected, t }) {
   return (
     <div className={className}>
       <button
@@ -82,7 +83,7 @@ function PermissionBulkActions({ className, permissionsLocked, permDisabledMap, 
         disabled={permissionsLocked}
         onClick={() => {
           const n = new Set();
-          PERMISSION_KEYS.forEach((k) => {
+          visiblePermissionKeys.forEach((k) => {
             if (!permDisabledMap[k]) n.add(k);
           });
           setPermSelected(n);
@@ -133,9 +134,7 @@ const userModalColStyle = {
   overflow: "hidden",
 };
 import {
-  PERMISSION_KEYS,
   PERMISSION_ICONS,
-  ALL_ROLE_OPTIONS,
   normRole,
   getAvailableRolesForCreation,
   getAvailableRolesForEdit,
@@ -143,6 +142,7 @@ import {
   canInteractWithReadOnlyToggle,
   isUserModalPageReadOnlyLock,
 } from "../userListLogic.js";
+import { formatUserRoleDisplay } from "../../../translateFile/pages/userListTranslate.js";
 import { sanitizeEmailInput } from "../../../utils/input/emailValidation.js";
 
 export default function UserModal({
@@ -158,6 +158,7 @@ export default function UserModal({
   loginDisabled,
   fieldLocks,
   permDisabledMap,
+  visiblePermissionKeys,
   permSelected,
   setPermSelected,
   modalCompanies,
@@ -191,6 +192,26 @@ export default function UserModal({
   const [bulkSelectionSettling, setBulkSelectionSettling] = useState(false);
   const bulkSelectionTimerRef = useRef(null);
   const { submitting, guardSubmit } = useSubmitGuard(open);
+
+  const roleOptions = useMemo(() => {
+    if (editingRow?.is_owner_shadow) {
+      return [{ value: "owner", label: formatUserRoleDisplay(t, "owner") }];
+    }
+    const list = isEditMode
+      ? getAvailableRolesForEdit(currentUserRole, editingRow?.role)
+      : getAvailableRolesForCreation(currentUserRole);
+    const opts = list.map((opt) => ({
+      value: opt.value,
+      label: formatUserRoleDisplay(t, opt.value),
+    }));
+    if (isEditMode && form.role && !list.find((x) => x.value === form.role)) {
+      opts.push({
+        value: form.role,
+        label: formatUserRoleDisplay(t, form.role),
+      });
+    }
+    return opts;
+  }, [isEditMode, currentUserRole, editingRow, form.role, t]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -380,8 +401,8 @@ export default function UserModal({
   const showProcessColumn = dualTenantPicker ? selectedCompanyIds.length > 0 : !groupPickerMode;
 
   const selectedPermissionLabels = useMemo(
-    () => PERMISSION_KEYS.filter((k) => permSelected.has(k)).map((k) => getPermissionLabel(k, t)),
-    [permSelected, t]
+    () => visiblePermissionKeys.filter((k) => permSelected.has(k)).map((k) => getPermissionLabel(k, t)),
+    [visiblePermissionKeys, permSelected, t]
   );
 
   const readOnlyToggleVisible = !editingRow?.is_owner_shadow && roleHasReadOnlyToggle(form.role);
@@ -418,17 +439,15 @@ export default function UserModal({
               <h3 className="user-modal-col-title">{t("userInformation")}</h3>
               <form id="userForm" onSubmit={guardSubmit(onSave)}>
               <div className="user-info-grid">
-                <div className="user-info-field-row">
-                  <div className="form-group user-info-field">
-                    <label htmlFor="login_id">{t("loginId")} *</label>
-                    <input
-                      id="login_id"
-                      required
-                      disabled={loginDisabled || pageReadOnlyLock}
-                      value={form.login_id}
-                      onChange={(e) => setForm((f) => ({ ...f, login_id: e.target.value.toUpperCase() }))}
-                    />
-                  </div>
+                <div className="form-group user-info-field">
+                  <label htmlFor="login_id">{t("loginId")} *</label>
+                  <input
+                    id="login_id"
+                    required
+                    disabled={loginDisabled || pageReadOnlyLock}
+                    value={form.login_id}
+                    onChange={(e) => setForm((f) => ({ ...f, login_id: e.target.value.toUpperCase() }))}
+                  />
                 </div>
                 {showSecondaryPassword ? (
                   <div className="form-group user-info-field password-row-container password-row-container--split">
@@ -463,25 +482,18 @@ export default function UserModal({
                   </div>
                   <div className="form-group user-info-field">
                     <label htmlFor="role">{t("roleRequired")}</label>
-                    <select id="role" required disabled={roleSelectDisabled || fieldLocks.role || pageReadOnlyLock} value={form.role} onChange={(e) => {
-                      const v = e.target.value;
-                      setForm((f) => ({ ...f, role: v }));
-                      applyPermTemplate(v, true);
-                    }}>
-                      <option value="">{t("selectRole")}</option>
-                      {editingRow?.is_owner_shadow ? (
-                        <option value="owner">Owner</option>
-                      ) : (
-                        <>
-                          {(isEditMode ? getAvailableRolesForEdit(currentUserRole, editingRow?.role) : getAvailableRolesForCreation(currentUserRole)).map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                          {isEditMode && form.role && !getAvailableRolesForEdit(currentUserRole, editingRow?.role).find((x) => x.value === form.role) ? (
-                            <option value={form.role}>{ALL_ROLE_OPTIONS.find((x) => x.value === form.role)?.label || String(form.role).toUpperCase()}</option>
-                          ) : null}
-                        </>
-                      )}
-                    </select>
+                    <SimpleSelect
+                      id="role"
+                      value={form.role}
+                      onChange={(v) => {
+                        setForm((f) => ({ ...f, role: v }));
+                        applyPermTemplate(v, true);
+                      }}
+                      options={roleOptions}
+                      placeholder={t("selectRole")}
+                      disabled={roleSelectDisabled || fieldLocks.role || pageReadOnlyLock}
+                      required
+                    />
                   </div>
                 </div>
                 <div className="form-group user-info-field">
@@ -592,6 +604,7 @@ export default function UserModal({
                     className="permissions-container"
                     permissionsLocked={permissionsLocked}
                     permDisabledMap={permDisabledMap}
+                    visiblePermissionKeys={visiblePermissionKeys}
                     permSelected={permSelected}
                     setPermSelected={setPermSelected}
                     t={t}
@@ -600,6 +613,7 @@ export default function UserModal({
                     className="permissions-actions user-modal-col-actions"
                     permissionsLocked={permissionsLocked}
                     permDisabledMap={permDisabledMap}
+                    visiblePermissionKeys={visiblePermissionKeys}
                     setPermSelected={setPermSelected}
                     t={t}
                   />
@@ -908,7 +922,7 @@ export default function UserModal({
                         disabled={permissionsLocked}
                         onClick={() => {
                           const n = new Set();
-                          PERMISSION_KEYS.forEach((k) => {
+                          visiblePermissionKeys.forEach((k) => {
                             if (!permDisabledMap[k]) n.add(k);
                           });
                           setPermSelected(n);
@@ -930,6 +944,7 @@ export default function UserModal({
                     className="permissions-container user-modal-permission-picker-perms"
                     permissionsLocked={permissionsLocked}
                     permDisabledMap={permDisabledMap}
+                    visiblePermissionKeys={visiblePermissionKeys}
                     permSelected={permSelected}
                     setPermSelected={setPermSelected}
                     t={t}

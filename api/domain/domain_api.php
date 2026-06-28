@@ -2,6 +2,7 @@
 session_start();
 // session_write_close() 将在 session 写入（回填 company_code）完成后调用
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/password_hashing.php';
 require_once __DIR__ . '/../../includes/email_validation.php';
 require_once __DIR__ . '/../../includes/tenant_scope.php';
 require_once __DIR__ . '/../c168/c168_domain_access.php';
@@ -1082,6 +1083,51 @@ function fetchFeeShareProfitPickerAccounts(PDO $pdo): array {
 }
 
 /**
+ * Share % Profit 默认账号：C168 公司下 role=profit，优先 account_id C168，其次 PROFIT。
+ */
+function resolveDefaultFeeShareProfitAccountId(PDO $pdo): ?int
+{
+    $c168Pk = domainApiResolveFeeShareC168CompanyPk($pdo);
+    if (!$c168Pk) {
+        return null;
+    }
+    return resolveC168ProfitRoleAccountId($pdo, $c168Pk, 0);
+}
+
+/**
+ * Profit 未配置账号时，自动填入默认 C168 profit 账号。
+ *
+ * @param array{profit: list, sales: list, cs: list, it: list} $normalized
+ * @return array{profit: list, sales: list, cs: list, it: list}
+ */
+function applyDefaultProfitAllocationIfEmpty(PDO $pdo, array $normalized): array
+{
+    $profitRows = $normalized['profit'] ?? [];
+    if (!is_array($profitRows)) {
+        $profitRows = [];
+    }
+    foreach ($profitRows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        if ((int) ($row['account_id'] ?? 0) > 0) {
+            return $normalized;
+        }
+    }
+    $defaultId = resolveDefaultFeeShareProfitAccountId($pdo);
+    if (!$defaultId || $defaultId <= 0) {
+        return $normalized;
+    }
+    $normalized['profit'] = [
+        [
+            'account_id' => $defaultId,
+            'percentage' => '0',
+        ],
+    ];
+    return $normalized;
+}
+
+/**
  * 校验：C168 旗下；Profit 池仅 profit role；Sales/CS/IT 仅 staff/agent。
  */
 function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
@@ -1399,7 +1445,11 @@ function resolveC168ProfitRoleAccountId(PDO $pdo, int $c168Pk, int $excludeAccou
               AND LOWER(TRIM(COALESCE(a.role, ''))) = 'profit'
               AND a.id <> ?
               AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
-            ORDER BY CASE WHEN UPPER(TRIM(COALESCE(a.account_id, ''))) = 'PROFIT' THEN 0 ELSE 1 END, a.id ASC
+            ORDER BY CASE
+                WHEN UPPER(TRIM(COALESCE(a.account_id, ''))) = 'C168' THEN 0
+                WHEN UPPER(TRIM(COALESCE(a.account_id, ''))) = 'PROFIT' THEN 1
+                ELSE 2
+            END, a.id ASC
             LIMIT 1
         ");
         $st->execute([$c168Pk, (int)$excludeAccountId]);
@@ -3263,6 +3313,7 @@ function getOwnerWithCompanies(PDO $pdo, $owner_id) {
     ");
     $stmt2->execute([$ownerId]);
     $owner['companies_full'] = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+    $owner['groups_full'] = domainApiOwnerGroupsFullForList($pdo, $ownerId);
     return $owner;
 }
 
@@ -3317,6 +3368,7 @@ try {
                     ");
                     $stmt2->execute([$oid]);
                     $domain['companies_full'] = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+                    $domain['groups_full'] = domainApiOwnerGroupsFullForList($pdo, $oid);
                 }
                 unset($domain);
 
@@ -3384,8 +3436,8 @@ try {
             }
             
             // Hash passwords
-            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            $hashed_secondary_password = password_hash($secondary_password, PASSWORD_DEFAULT);
+            $hashed_password = secure_hash_password($password);
+            $hashed_secondary_password = secure_hash_password($secondary_password);
             
             // DDL 在 MySQL 中会隐式提交并结束当前事务，须在 beginTransaction 之前执行
             ensureCompanyFeeShareColumn($pdo);
@@ -3562,14 +3614,14 @@ try {
                 $updateValues[] = $email;
                 
                 if (!empty($password)) {
-                    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                    $hashed_password = secure_hash_password($password);
                     $updateFields[] = "password = ?";
                     $updateValues[] = $hashed_password;
                 }
                 
                 // 只有C168的owner/admin可以修改二级密码
                 if (!empty($secondary_password) && $hasC168Context && $isOwnerOrAdmin) {
-                    $hashed_secondary_password = password_hash($secondary_password, PASSWORD_DEFAULT);
+                    $hashed_secondary_password = secure_hash_password($secondary_password);
                     $updateFields[] = "secondary_password = ?";
                     $updateValues[] = $hashed_secondary_password;
                 }
@@ -4035,7 +4087,7 @@ try {
                 $shareRow = $stmt->fetch(PDO::FETCH_ASSOC);
                 if (!$shareRow) {
                     jsonResponse(true, 'OK', [
-                        'allocations' => normalizeFeeShareAllocationsInput(null),
+                        'allocations' => applyDefaultProfitAllocationIfEmpty($pdo, normalizeFeeShareAllocationsInput(null)),
                         'accounts' => fetchFeeSharePickerAccounts($pdo),
                         'accounts_profit' => fetchFeeShareProfitPickerAccounts($pdo),
                         'company_exists' => false,
@@ -4044,7 +4096,10 @@ try {
                 }
                 $shareAccounts = fetchFeeSharePickerAccounts($pdo);
                 jsonResponse(true, 'OK', [
-                    'allocations' => normalizeFeeShareAllocationsInput($shareRow['fee_share_allocations'] ?? null),
+                    'allocations' => applyDefaultProfitAllocationIfEmpty(
+                        $pdo,
+                        normalizeFeeShareAllocationsInput($shareRow['fee_share_allocations'] ?? null)
+                    ),
                     'accounts' => $shareAccounts,
                     'accounts_profit' => fetchFeeShareProfitPickerAccounts($pdo),
                     'company_exists' => true,
@@ -4064,7 +4119,10 @@ try {
                 jsonResponse(false, 'Invalid company ID', null);
                 exit;
             }
-            $saveNormalized = normalizeFeeShareAllocationsInput($data['fee_share_allocations'] ?? null);
+            $saveNormalized = applyDefaultProfitAllocationIfEmpty(
+                $pdo,
+                normalizeFeeShareAllocationsInput($data['fee_share_allocations'] ?? null)
+            );
             try {
                 ensureCompanyFeeShareColumn($pdo);
                 $stmt = $pdo->prepare("SELECT id FROM company WHERE company_id = ? LIMIT 1");
@@ -4127,7 +4185,10 @@ try {
                 jsonResponse(false, 'Groups table not available', null);
                 exit;
             }
-            $saveNormalized = normalizeFeeShareAllocationsInput($data['fee_share_allocations'] ?? null);
+            $saveNormalized = applyDefaultProfitAllocationIfEmpty(
+                $pdo,
+                normalizeFeeShareAllocationsInput($data['fee_share_allocations'] ?? null)
+            );
             try {
                 ensureCompanyFeeShareColumn($pdo);
                 $stmt = $pdo->prepare('SELECT id FROM `groups` WHERE UPPER(TRIM(group_code)) = ? LIMIT 1');
@@ -4175,7 +4236,10 @@ try {
                 jsonResponse(false, 'Groups table not available', null);
                 exit;
             }
-            $saveNormalized = normalizeFeeShareAllocationsInput($data['fee_share_allocations'] ?? null);
+            $saveNormalized = applyDefaultProfitAllocationIfEmpty(
+                $pdo,
+                normalizeFeeShareAllocationsInput($data['fee_share_allocations'] ?? null)
+            );
             $expDate = !empty($data['expiration_date']) ? (string) $data['expiration_date'] : null;
             $applyCommission = filter_var($data['apply_commission_payments'] ?? false, FILTER_VALIDATE_BOOLEAN);
             try {

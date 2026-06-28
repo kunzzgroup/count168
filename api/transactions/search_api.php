@@ -84,6 +84,26 @@ function searchApiDcdCompanyId(): int
 }
 
 /**
+ * account_currency / currency JOIN scope — align with getaccount_api & bulk_account_currency_api.
+ *
+ * @return array{sql: string, bind: int}
+ */
+function searchApiCurrencyJoinScope(PDO $pdo, bool $isGroupLedger, int $groupScopeId): array
+{
+    if ($isGroupLedger && tenant_table_has_scope_columns($pdo, 'currency') && $groupScopeId > 0) {
+        return [
+            'sql' => "c.scope_type = 'group' AND c.scope_id = ?",
+            'bind' => $groupScopeId,
+        ];
+    }
+
+    return [
+        'sql' => 'c.company_id = ?' . tenant_sql_currency_subsidiary_only($pdo, 'c'),
+        'bind' => searchApiDcdCompanyId(),
+    ];
+}
+
+/**
  * Bulk DCD 查询的 ledger 隔离（与 history_api / dcBuildCaptureLedgerFilter 对齐）。
  * Group ledger 使用 anchor company_id；dual-tenant 再按 scope_type/scope_id 过滤。
  *
@@ -128,6 +148,83 @@ function searchApiDcdBulkLedgerWhere(PDO $pdo, bool $isGroupLedger, array $listS
 function contraApprovedWhere(PDO $pdo, string $alias = 't'): string
 {
     return tx_sql_transaction_approval_where($pdo, $alias);
+}
+
+/**
+ * Period CONTRA/CLEAR count for list visibility (includes PENDING contra — balance still excludes them).
+ *
+ * @param array<string, mixed>|null $bulk
+ */
+function searchApiContraClearPeriodCount($bulk, int $accountId, int $currencyId): int
+{
+    if ($bulk === null || $accountId <= 0) {
+        return 0;
+    }
+    $to = (int) ($bulk['contra_clear_to'][$accountId][$currencyId]['period_count'] ?? 0);
+    $from = (int) ($bulk['contra_clear_from'][$accountId][$currencyId]['period_count'] ?? 0);
+
+    return $to + $from;
+}
+
+/** SQL IN list for CONTRA/CLEAR (concatenated — avoids double-quoted PHP string edge cases). */
+function searchApiSqlInContraClearTypes(): string
+{
+    return "'CONTRA','CLEAR'";
+}
+
+/**
+ * Period CONTRA/CLEAR counts for list visibility (includes PENDING contra).
+ * Isolated + try/catch so a SQL issue here cannot break the whole search response.
+ *
+ * @param array<string, mixed> $bulk
+ */
+function searchApiBulkLoadContraClearPeriodCounts(
+    PDO $pdo,
+    array &$bulk,
+    string $searchTxnWhere,
+    int $searchTxnBind,
+    string $dateFromDb,
+    string $dateToDb
+): void {
+    $txnWhere = $searchTxnWhere !== '' ? $searchTxnWhere : searchApiTxnWhereSql('t');
+    $inTypes = searchApiSqlInContraClearTypes();
+    $queries = [
+        [
+            'key' => 'contra_clear_to',
+            'sql' => 'SELECT t.account_id, t.currency_id,
+                       SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS period_count
+                FROM transactions t
+                WHERE ' . $txnWhere . '
+                  AND t.transaction_type IN (' . $inTypes . ')
+                  AND t.currency_id IS NOT NULL
+                GROUP BY t.account_id, t.currency_id',
+        ],
+        [
+            'key' => 'contra_clear_from',
+            'sql' => 'SELECT t.from_account_id AS account_id, t.currency_id,
+                       SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS period_count
+                FROM transactions t
+                WHERE ' . $txnWhere . '
+                  AND t.from_account_id IS NOT NULL
+                  AND t.transaction_type IN (' . $inTypes . ')
+                  AND t.currency_id IS NOT NULL
+                GROUP BY t.from_account_id, t.currency_id',
+        ],
+    ];
+
+    foreach ($queries as $q) {
+        try {
+            $stmt = $pdo->prepare($q['sql']);
+            $stmt->execute([$dateFromDb, $dateToDb, $searchTxnBind]);
+            while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $bulk[$q['key']][$r['account_id']][$r['currency_id']] = [
+                    'period_count' => (int) ($r['period_count'] ?? 0),
+                ];
+            }
+        } catch (Throwable $e) {
+            error_log('search_api contra_clear bulk failed (' . $q['key'] . '): ' . $e->getMessage());
+        }
+    }
 }
 
 function searchApiAccountHasCreatedSourceColumn(PDO $pdo): bool
@@ -792,7 +889,8 @@ function searchApiApplyDomainSourceCompanyRows(
     string $date_from_db,
     string $date_to_db,
     array $filter_currency_codes,
-    array $currency_id_map
+    array $currency_id_map,
+    bool $hide_zero_balance = true
 ): void {
     $currencyFilterIds = [];
     if (!empty($filter_currency_codes)) {
@@ -908,18 +1006,20 @@ function searchApiApplyDomainSourceCompanyRows(
     }
     unset($row);
 
-    $results = array_values(array_filter($results, function ($r) {
-        $aid = (int) ($r['account_db_id'] ?? 0);
-        if ($aid <= 0) {
-            return true;
-        }
-        $has = (int) ($r['has_crdr_transactions'] ?? 0) === 1;
-        $nonZero = searchMoneyNonZero($r['bf'] ?? '0')
-            || searchMoneyNonZero($r['win_loss'] ?? '0')
-            || searchMoneyNonZero($r['cr_dr'] ?? '0')
-            || searchMoneyNonZero($r['balance'] ?? '0');
-        return $has || $nonZero;
-    }));
+    if ($hide_zero_balance) {
+        $results = array_values(array_filter($results, function ($r) {
+            $aid = (int) ($r['account_db_id'] ?? 0);
+            if ($aid <= 0) {
+                return true;
+            }
+            $has = (int) ($r['has_crdr_transactions'] ?? 0) === 1;
+            $nonZero = searchMoneyNonZero($r['bf'] ?? '0')
+                || searchMoneyNonZero($r['win_loss'] ?? '0')
+                || searchMoneyNonZero($r['cr_dr'] ?? '0')
+                || searchMoneyNonZero($r['balance'] ?? '0');
+            return $has || $nonZero;
+        }));
+    }
 }
 
 if (!defined('SEARCH_API_LIBRARY_MODE')) {
@@ -1386,6 +1486,7 @@ try {
             "SELECT id, UPPER(code) AS code 
              FROM currency 
              WHERE company_id = ?"
+            . tenant_sql_currency_subsidiary_only($pdo)
         );
         $currency_stmt->execute([$company_id]);
         $currency_rows = $currency_stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1559,13 +1660,18 @@ try {
         if ($has_account_currency_table) {
             $placeholders = implode(',', array_fill(0, count($accounts), '?'));
             $ids = array_column($accounts, 'id');
+            $acCurScope = searchApiCurrencyJoinScope(
+                $pdo,
+                $search_is_group_ledger,
+                (int) ($search_list_scope['group_scope_id'] ?? 0)
+            );
             $stmt = $pdo->prepare("
                 SELECT DISTINCT UPPER(c.code) AS code
                 FROM account_currency ac
-                INNER JOIN currency c ON ac.currency_id = c.id AND c.company_id = ?
+                INNER JOIN currency c ON ac.currency_id = c.id AND {$acCurScope['sql']}
                 WHERE ac.account_id IN ($placeholders)
             ");
-            $stmt->execute(array_merge([$company_id], $ids));
+            $stmt->execute(array_merge([$acCurScope['bind']], $ids));
             $active_currency_codes = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'code');
             $active_currency_codes = array_values(array_unique($active_currency_codes));
         }
@@ -1583,6 +1689,11 @@ try {
         $all_ids = array_column($accounts, 'id');
         $all_ph = implode(',', array_fill(0, count($all_ids), '?'));
         $bulk_cur_company_id = searchApiDcdCompanyId();
+        $bulk_ac_cur_scope = searchApiCurrencyJoinScope(
+            $pdo,
+            $search_is_group_ledger,
+            (int) ($search_list_scope['group_scope_id'] ?? 0)
+        );
         $dcd_ledger_where = searchApiDcdBulkLedgerWhere($pdo, $search_is_group_ledger, $search_list_scope);
         $bulk_txn_scope_sql = $search_txn_where;
         $bulk_txn_scope_bind = $search_txn_bind;
@@ -1592,11 +1703,11 @@ try {
             $st = $pdo->prepare("
                 SELECT ac.account_id, ac.currency_id, UPPER(c.code) AS currency_code
                 FROM account_currency ac
-                INNER JOIN currency c ON ac.currency_id = c.id AND c.company_id = ?
+                INNER JOIN currency c ON ac.currency_id = c.id AND {$bulk_ac_cur_scope['sql']}
                 WHERE ac.account_id IN ($all_ph)
                 ORDER BY ac.account_id, ac.currency_id ASC
             ");
-            $st->execute(array_merge([$bulk_cur_company_id], $all_ids));
+            $st->execute(array_merge([$bulk_ac_cur_scope['bind']], $all_ids));
             while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
                 $bulk_ac[(int) $r['account_id']][(int) $r['currency_id']] = strtoupper($r['currency_code']);
             }
@@ -1786,6 +1897,39 @@ try {
             }
         }
 
+        // Show all 0 balance: ensure every scoped account gets a row per filtered currency.
+        // Dormant members may have no period txn/DCD but still need MYR 0.00 visible.
+        if (!$hide_zero_balance) {
+            if (!empty($filter_currency_codes)) {
+                foreach ($filter_currency_codes as $fcc) {
+                    $code = strtoupper((string) $fcc);
+                    if ($code === '' || !isset($currency_map[$code])) {
+                        continue;
+                    }
+                    addAccountCurrencyCombo(
+                        $account_currencies,
+                        $account_currency_ids,
+                        (int) $currency_map[$code],
+                        $code
+                    );
+                }
+            } elseif ($has_account_currency_table) {
+                foreach ($bulk_ac[$account_id] ?? [] as $cid => $code) {
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, (int) $cid, $code);
+                }
+                if (empty($account_currencies)) {
+                    foreach ($currency_map as $code => $cid) {
+                        addAccountCurrencyCombo(
+                            $account_currencies,
+                            $account_currency_ids,
+                            (int) $cid,
+                            strtoupper((string) $code)
+                        );
+                    }
+                }
+            }
+        }
+
         if (empty($account_currencies)) {
             continue;
         }
@@ -1817,6 +1961,8 @@ try {
             'txn_win_lose' => [],
             'txn_crdr_to' => [],
             'txn_crdr_from' => [],
+            'contra_clear_to' => [],
+            'contra_clear_from' => [],
             'entry' => []
         ];
         $contra_where_t = contraApprovedWhere($pdo, 't');
@@ -2012,8 +2158,8 @@ try {
                 FROM transactions t
                 WHERE {$search_txn_where}
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
-                  AND t.currency_id IS NOT NULL 
-                  $contra_where_t
+                  AND t.currency_id IS NOT NULL"
+            . $contra_where_t . "
                 GROUP BY t.account_id, t.currency_id";
         $stmt_bulk = $pdo->prepare($sql);
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $search_txn_bind]);
@@ -2057,8 +2203,8 @@ try {
                   AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
                   AND COALESCE(t.sms, '') NOT LIKE '[AUTO_RENEW|COMMISSION|%'
                   AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_NET_PROFIT|%'
-                  AND COALESCE(t.sms, '') NOT LIKE '[AUTO_RENEW|NET_PROFIT|%'
-                  $contra_where_t
+                  AND COALESCE(t.sms, '') NOT LIKE '[AUTO_RENEW|NET_PROFIT|%'"
+            . $contra_where_t . "
                 GROUP BY t.from_account_id, t.currency_id";
         $stmt_bulk = $pdo->prepare($sql);
         $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $search_txn_bind]);
@@ -2069,6 +2215,16 @@ try {
                 'count' => (int) $r['wl_txn_count']
             ];
         }
+
+        // CONTRA/CLEAR visibility: include PENDING contra so 清账账户在当日仍出现在列表（余额口径仍只计已批准）。
+        searchApiBulkLoadContraClearPeriodCounts(
+            $pdo,
+            $bulk,
+            $search_txn_where,
+            $search_txn_bind,
+            $date_from_db,
+            $date_to_db
+        );
 
         $rateNonMmRowAmt = '(CASE
                       WHEN e.entry_type IN (\'RATE_FIRST_FROM\',\'RATE_TRANSFER_FROM\') THEN -e.amount
@@ -2154,6 +2310,7 @@ try {
         $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $bulk);
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
+        $has_contra_clear_period = searchApiContraClearPeriodCount($bulk, (int) $account_id, (int) $currency_id) > 0;
 
         // Layer 2：(账户+币种) 级筛选。
         // 勿仅因「本期无 Win/Loss 动账」就整行丢弃——否则仅剩 B/F 或 Cr/Dr 轧差的户被藏起来，
@@ -2172,7 +2329,7 @@ try {
         }
         // 对称：勿仅因本期无 PAYMENT 类 Cr/Dr 动账就丢弃——无 Cr/Dr 交易但仍承担 Win/Loss 或期初轧差的户要保留。
         if ($hide_zero_balance && $show_inactive && !$show_capture_only) {
-            if (!$has_crdr_transactions) {
+            if (!$has_crdr_transactions && !$has_contra_clear_period) {
                 $bf_near = trunc2($bf);
                 $cr_near = trunc2($cr_dr);
                 $wl_full_chk = $wlPack['win_loss_full'] ?? '0';
@@ -2301,8 +2458,15 @@ try {
         }
 
         // Default list: omit balance 0.00 unless Show Payment Only (show_inactive) is on.
-        // Show Win/Loss Only / Show 0 balance are applied on the client; hide_zero_balance=0 skips this.
-        if ($hide_zero_balance && !$show_inactive && !searchMoneyNonZero($balance)) {
+        // Still return balance 0.00 when the period has W/L or Payment activity so the client
+        // Show Win/Loss Only / Show Payment Only filters can include them (default view hides via applyZeroBalanceFilter).
+        // CONTRA/CLEAR 清账后余额常为 0：has_contra_clear_period 保证当日仍返回行（含待审批 contra）。
+        // Show all 0 balance (hide_zero_balance=0) skips this gate entirely.
+        $has_period_activity = $has_win_loss_transactions
+            || $has_period_id_product_rows
+            || $has_crdr_transactions
+            || $has_contra_clear_period;
+        if ($hide_zero_balance && !$show_inactive && !searchMoneyNonZero($balance) && !$has_period_activity) {
             continue;
         }
 
@@ -2321,6 +2485,7 @@ try {
             'balance' => $balance,
             'balance_full' => $balance_full,
             'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
+            'has_contra_clear_period' => $has_contra_clear_period ? 1 : 0,
             'has_win_loss_transactions' => $has_win_loss_transactions ? 1 : 0,
             'has_win_loss_history' => $has_win_loss_history ? 1 : 0,
             'has_period_id_product_rows' => $has_period_id_product_rows ? 1 : 0,
@@ -2364,7 +2529,8 @@ try {
         $date_from_db,
         $date_to_db,
         $filter_currency_codes,
-        $currency_id_map
+        $currency_id_map,
+        $hide_zero_balance
     );
     // Domain 净利润行已停用：最终利润由 Share/Commission 实际分配结果体现。
     // 按 currency 和 account_id 排序

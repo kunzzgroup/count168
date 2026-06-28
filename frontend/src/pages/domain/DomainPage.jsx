@@ -20,6 +20,7 @@ import DomainNotification, { showDomainAlert } from "./components/DomainNotifica
 import DomainConfirmModal from "./components/DomainConfirmModal.jsx";
 import DomainFeeModal from "./components/DomainFeeModal.jsx";
 import CompanyExpirationModal from "./components/CompanyExpirationModal.jsx";
+import GroupExpirationModal from "./components/GroupExpirationModal.jsx";
 import DomainFormModal from "./components/DomainFormModal.jsx";
 import { getDomainText } from "../../translateFile/pages/domainTranslate.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
@@ -78,6 +79,7 @@ export default function DomainPage() {
   const [confirmModal, setConfirmModal] = useState(null); // { message, onConfirm }
   const [feeModal, setFeeModal] = useState(false);
   const [expModal, setExpModal] = useState(null);       // companies array
+  const [groupExpModal, setGroupExpModal] = useState(null); // groups array
 
   // ── Domain fee price (for share calc + toolbar chips) ─────────────────────
   const [domainPeriodPrices, setDomainPeriodPrices] = useState(null);
@@ -263,6 +265,24 @@ export default function DomainPage() {
     setExpModal(companiesFull);
   }
 
+  function resolveGroupsFull(domain) {
+    if (Array.isArray(domain?.groups_full) && domain.groups_full.length > 0) {
+      return domain.groups_full;
+    }
+    const raw = String(domain?.group_ids || "").trim();
+    if (!raw) return [];
+    return raw
+      .split(",")
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean)
+      .map((group_code) => ({ group_code, expiration_date: null }));
+  }
+
+  function handleGroupBadgeClick(e, groupsFull) {
+    e.stopPropagation();
+    setGroupExpModal(groupsFull);
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
   const isOwnerOrAdmin = ["owner", "admin"].includes(String(me?.role || "").toLowerCase());
 
@@ -349,36 +369,84 @@ export default function DomainPage() {
           </div>
         </div>
 
-        <div className="table-container">
-          <div className="table-header">
-            <div>{t("no")}</div>
-            <div>{t("ownerCodeWithColon")}</div>
-            <div>{t("nameWithColon")}</div>
-            <div>{t("emailWithColon")}</div>
-            <div>Group ID:</div>
-            <div>{t("companiesWithColon")}</div>
-            <div>{t("createdBy")}</div>
-            <div>{t("action")}</div>
-          </div>
-          <div className="domain-cards" id="domainTableBody">
+        <div className="table-container domain-list-table">
+          <div className="domain-list-table-inner">
+            <div className="table-header domain-list-table-header">
+              <div>{t("no")}</div>
+              <div>{t("ownerCodeWithColon")}</div>
+              <div>{t("nameWithColon")}</div>
+              <div>{t("emailWithColon")}</div>
+              <div>{t("groupIdLabel")}:</div>
+              <div>{t("companiesWithColon")}</div>
+              <div>{t("createdBy")}</div>
+              <div>{t("action")}</div>
+            </div>
+            <div className="domain-cards" id="domainTableBody">
             {pagedDomains.map((domain, idx) => {
               const globalIdx = (safePage - 1) * ROWS_PER_PAGE + idx + 1;
               const companiesFull = Array.isArray(domain.companies_full) ? domain.companies_full : [];
               const companyList = companiesFull.map((c) => c.company_id).filter(Boolean);
               const visible = companyList.slice(0, MAX_VISIBLE_CHIPS);
               const hidden = companyList.slice(MAX_VISIBLE_CHIPS);
+              const groupsFull = resolveGroupsFull(domain);
+              const groupList = groupsFull.map((g) => g.group_code).filter(Boolean);
+              const visibleGroups = groupList.slice(0, MAX_VISIBLE_CHIPS);
+              const hiddenGroups = groupList.slice(MAX_VISIBLE_CHIPS);
               const isProtected = hasProtectedCompany(companiesFull);
 
               return (
-                <div key={domain.id} className="domain-card show-card" data-id={domain.id}>
+                <div key={domain.id} className="domain-card domain-list-row show-card" data-id={domain.id}>
                   <div className="card-item">{globalIdx}</div>
                   <div className="card-item uppercase-text">{domain.owner_code}</div>
-                  <div className="card-item">{domain.name}</div>
-                  <div className="card-item">{domain.email}</div>
-                  <div className="card-item">{domain.group_ids || "-"}</div>
-                  <div className="card-item companies-column" data-companies={JSON.stringify(companiesFull)}>
+                  <div className="card-item card-item--name">{domain.name}</div>
+                  <div className="card-item card-item--email">{domain.email}</div>
+                  <div
+                    className="card-item groups-column"
+                    data-groups={JSON.stringify(groupsFull)}
+                  >
+                    {groupList.length === 0 ? "-" : (
+                      <div className="domain-chip-row">
+                        {visibleGroups.map((gid) => {
+                          const exp = groupsFull.find((g) => g.group_code === gid)?.expiration_date || "";
+                          return (
+                            <span
+                              key={gid}
+                              role="button"
+                              tabIndex={0}
+                              className="domain-company-chip company-badge domain-group-chip"
+                              data-exp={exp || undefined}
+                              onClick={(e) => handleGroupBadgeClick(e, groupsFull)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  handleGroupBadgeClick(e, groupsFull);
+                                }
+                              }}
+                            >
+                              {gid}
+                            </span>
+                          );
+                        })}
+                        {hiddenGroups.length > 0 && (
+                          <button
+                            type="button"
+                            className="domain-company-more chip-more"
+                            title={t("viewMoreGroupsHint")}
+                            aria-label={t("viewMoreGroupsHint")}
+                            onClick={(e) => handleGroupBadgeClick(e, groupsFull)}
+                          >
+                            +{hiddenGroups.length}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className="card-item companies-column"
+                    data-companies={JSON.stringify(companiesFull)}
+                  >
                     {companyList.length === 0 ? "-" : (
-                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                      <div className="domain-chip-row">
                         {visible.map((cid) => {
                           const exp = companiesFull.find((c) => c.company_id === cid)?.expiration_date || "";
                           return (
@@ -414,11 +482,13 @@ export default function DomainPage() {
                       </div>
                     )}
                   </div>
-                  <div className="card-item uppercase-text">{String(domain.created_by || "-").toUpperCase()}</div>
+                  <div className="card-item uppercase-text">
+                    {String(domain.created_by || "-").toUpperCase()}
+                  </div>
                   <div className="card-item domain-action-cell">
                     <button
                       type="button"
-                      className="btn-edit"
+                      className="btn-edit domain-action-cell__edit"
                       onClick={() => openEditModal(domain)}
                       aria-label={t("edit")}
                     >
@@ -427,17 +497,20 @@ export default function DomainPage() {
                     {!isProtected ? (
                       <input
                         type="checkbox"
-                        className="domain-checkbox"
+                        className="domain-checkbox domain-action-cell__check"
                         value={domain.id}
                         checked={checkedIds.has(domain.id)}
                         aria-label={t("selectOwnerForDelete")}
                         onChange={(e) => handleCheckbox(domain.id, e.target.checked)}
                       />
-                    ) : null}
+                    ) : (
+                      <span className="domain-action-cell__check domain-action-cell__check--empty" aria-hidden="true" />
+                    )}
                   </div>
                 </div>
               );
             })}
+            </div>
           </div>
         </div>
 
@@ -510,6 +583,14 @@ export default function DomainPage() {
           lang={lang}
           companies={expModal}
           onClose={() => setExpModal(null)}
+        />
+      )}
+
+      {groupExpModal && (
+        <GroupExpirationModal
+          lang={lang}
+          groups={groupExpModal}
+          onClose={() => setGroupExpModal(null)}
         />
       )}
 

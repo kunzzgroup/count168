@@ -319,6 +319,16 @@ export function companyLoginRequiresSubsidiaryWithGroup(me) {
 }
 
 /**
+ * Company login that may use Group All → AP+IG group-ledger aggregate (same path as group login).
+ * Owner/admin, or Admin-assigned group ledger (e.g. partnership user with AP/IG).
+ */
+export function companyLoginCanUseGroupsAllLedger(me) {
+  if (!me || !isCompanyLogin(me) || isGroupLogin(me)) return false;
+  if (!canUseGroupOnlyMode(me)) return false;
+  return companyLoginHasGroupLedgerPrivilege(me) || userHasAssignedGroupLedger(me);
+}
+
+/**
  * Runtime UI state: viewing group ledger (no subsidiary company selected).
  * @param {object|null|undefined} me
  * @param {{ companyId?: number|null, selectedGroup?: string|null, groupOnly?: boolean }} ctx
@@ -371,7 +381,7 @@ const C168_DOMAIN_PAGE_ROLES = new Set([
 ]);
 
 /** Mirrors c168AutoRenewAllowedRoles */
-const C168_AUTO_RENEW_ROLES = new Set(["owner", "admin"]);
+const C168_AUTO_RENEW_ROLES = new Set(["owner", "admin", "partnership"]);
 
 export function userRoleAllowsC168Domain(role) {
   const r = String(role || "").trim().toLowerCase();
@@ -412,6 +422,14 @@ export function resolveVisibleGroupIds(groupIds, me, companies = []) {
   }
 
   return ids;
+}
+
+/** Group ledger API calls (dashboard group-only / currency warm) — skip pills the user cannot access. */
+export function filterGroupIdsForLedgerAccess(me, groupIds, companies = []) {
+  if (!me || !Array.isArray(groupIds)) return [];
+  return groupIds
+    .map((g) => String(g || "").trim().toUpperCase())
+    .filter((g) => g && canAccessGroupLedgerForGroup(me, g, companies));
 }
 
 export function loginScopeBodyClass(me) {
@@ -514,17 +532,8 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
     company_code: hasExplicitCode ? code : code || me.company_code,
     is_current_company_c168: isC168,
   };
-  if (isC168) {
-    if (userRoleAllowsC168Domain(me.role)) {
-      next.has_c168_domain_page_access = true;
-    }
-    if (userRoleAllowsC168AutoRenew(me.role, me.user_type)) {
-      next.has_c168_auto_renew_access = true;
-    }
-  } else {
-    next.has_c168_domain_page_access = false;
-    next.has_c168_auto_renew_access = false;
-  }
+  // C168 page access flags come from current_user API (PHP session). Do not
+  // optimistically grant them here — sidebar uses role + isActiveCompanyContextC168.
   if (ctx.hasGambling != null) {
     next.company_has_gambling = Boolean(ctx.hasGambling);
   } else if (companyChanged) {

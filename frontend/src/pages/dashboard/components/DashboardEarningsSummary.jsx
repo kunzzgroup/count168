@@ -18,7 +18,7 @@ import {
   resolveEarningsPiePaddingAngle,
   resolveEarningsRowDisplayAmounts,
 } from "../lib/dashboardEarnings.js";
-import { DASHBOARD_EARNINGS_PIE_MIN_ANGLE } from "../lib/dashboardConstants.js";
+import { DASHBOARD_EARNINGS_PIE_MIN_ANGLE, DASHBOARD_PANEL_ANIM_BEGIN_MS, DASHBOARD_PANEL_ANIM_DURATION_MS, DASHBOARD_PANEL_ANIM_EASING } from "../lib/dashboardConstants.js";
 import { useAnimatedNumber } from "../hooks/useAnimatedNumber.js";
 import { formatCurrency, formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { DashboardAnimatedValue } from "./DashboardAnimatedValue.jsx";
@@ -38,19 +38,27 @@ export function DashboardEarningsSummary({
   earningsPanelStable = true,
   earningsByCurrencyLoading,
   exchangeRates,
-  exchangeRatesError,
   exchangeRatesLoading,
   exchangeRateScopeKey = "",
-  rateFootnoteText,
   showProfitChartTab = false,
+  showEarningsCompanyTab = false,
   earningsPanelView = "currency",
   onEarningsPanelViewChange,
   companyBreakdownRows = [],
+  companyEarningsBreakdownRows = [],
   companyNetProfitTotal = 0,
+  companyEarningsTotal = 0,
+  panelAnimActive = false,
+  panelAnimEpoch = 0,
+  panelAnimDuration = DASHBOARD_PANEL_ANIM_DURATION_MS,
 }) {
   const isNetProfitCompanyView = showProfitChartTab && earningsPanelView === "netProfit";
-  const isCompanyBreakdownView = isNetProfitCompanyView;
-  const companyBreakdownView = "netProfit";
+  const isCompanyEarningView = showProfitChartTab && earningsPanelView === "earning";
+  const isCompanyBreakdownView = isNetProfitCompanyView || isCompanyEarningView;
+  const companyBreakdownView = isCompanyEarningView ? "earnings" : "netProfit";
+  const activeCompanyBreakdownRows = isCompanyEarningView
+    ? companyEarningsBreakdownRows
+    : companyBreakdownRows;
   const pieAreaRef = useRef(null);
   const pieShellRef = useRef(null);
   const [pieShellLayout, setPieShellLayout] = useState({
@@ -63,12 +71,12 @@ export function DashboardEarningsSummary({
 
   const earningsPieSlices = useMemo(() => {
     if (isCompanyBreakdownView) {
-      return buildCompanyBreakdownPieSlices(companyBreakdownRows, companyBreakdownView);
+      return buildCompanyBreakdownPieSlices(activeCompanyBreakdownRows, companyBreakdownView);
     }
     return buildEarningsPieSlices(earningsCurrencyRows, { useConverted: useConvertedEarnings });
   }, [
     isCompanyBreakdownView,
-    companyBreakdownRows,
+    activeCompanyBreakdownRows,
     companyBreakdownView,
     earningsCurrencyRows,
     useConvertedEarnings,
@@ -76,14 +84,14 @@ export function DashboardEarningsSummary({
 
   const earningsShareByCode = useMemo(() => {
     if (isCompanyBreakdownView) {
-      return buildCompanyBreakdownShareByCode(companyBreakdownRows, companyBreakdownView);
+      return buildCompanyBreakdownShareByCode(activeCompanyBreakdownRows, companyBreakdownView);
     }
     return buildEarningsShareByCode(earningsCurrencyRows, currencyCode, {
       useConverted: useConvertedEarnings,
     });
   }, [
     isCompanyBreakdownView,
-    companyBreakdownRows,
+    activeCompanyBreakdownRows,
     companyBreakdownView,
     earningsCurrencyRows,
     currencyCode,
@@ -92,14 +100,14 @@ export function DashboardEarningsSummary({
 
   const pieCenterMetrics = useMemo(() => {
     if (isCompanyBreakdownView) {
-      return computeCompanyBreakdownCenterMetrics(companyBreakdownRows, companyBreakdownView);
+      return computeCompanyBreakdownCenterMetrics(activeCompanyBreakdownRows, companyBreakdownView);
     }
     return computePieCenterMetrics(earningsCurrencyRows, currencyCode, {
       useConverted: useConvertedEarnings,
     });
   }, [
     isCompanyBreakdownView,
-    companyBreakdownRows,
+    activeCompanyBreakdownRows,
     companyBreakdownView,
     earningsCurrencyRows,
     currencyCode,
@@ -109,7 +117,7 @@ export function DashboardEarningsSummary({
   const currencyPieFillByCode = useMemo(() => {
     const map = {};
     if (isCompanyBreakdownView) {
-      companyBreakdownRows.forEach((row, index) => {
+      activeCompanyBreakdownRows.forEach((row, index) => {
         map[row.company_id] = getCurrencyColor(row.company_id, index);
       });
       return map;
@@ -118,7 +126,7 @@ export function DashboardEarningsSummary({
       map[row.code] = getCurrencyColor(row.code, index);
     });
     return map;
-  }, [isCompanyBreakdownView, companyBreakdownRows, earningsCurrencyRows]);
+  }, [isCompanyBreakdownView, activeCompanyBreakdownRows, earningsCurrencyRows]);
 
   const piePaddingAngle = useMemo(
     () => resolveEarningsPiePaddingAngle(earningsPieSlices.length),
@@ -131,22 +139,21 @@ export function DashboardEarningsSummary({
   /** Unique per page visit so pie enter animation replays when navigating back to Dashboard. */
   const [pieVisitKey] = useState(() => Date.now());
   const [pieFlowIdle, setPieFlowIdle] = useState(false);
-  const pieAnimKey = `${pieVisitKey}-${exchangeRateScopeKey || "scope"}-${
-    summaryPieReady ? "ready" : "pending"
-  }`;
+  const pieAnimKey = `${pieVisitKey}-${exchangeRateScopeKey || "scope"}-${panelAnimEpoch}`;
+  const panelAnimPlaying = panelAnimActive && summaryPieReady;
 
   useEffect(() => {
-    if (!summaryPieReady) {
+    if (!panelAnimPlaying) {
       setPieFlowIdle(false);
       return undefined;
     }
-    const timer = window.setTimeout(() => setPieFlowIdle(true), 920);
+    const timer = window.setTimeout(() => setPieFlowIdle(true), panelAnimDuration);
     return () => window.clearTimeout(timer);
-  }, [pieAnimKey, summaryPieReady]);
+  }, [pieAnimKey, panelAnimPlaying, panelAnimDuration]);
 
   const animatedPiePct = useAnimatedNumber(Number(pieCenterMetrics.pct) || 0, {
-    duration: 920,
-    active: summaryPieReady,
+    duration: panelAnimDuration,
+    active: panelAnimPlaying,
   });
 
   useEffect(() => {
@@ -225,7 +232,7 @@ export function DashboardEarningsSummary({
     let sharePct = null;
     let unitRateLabel = null;
     if (isCompanyBreakdownView) {
-      const row = companyBreakdownRows.find(
+      const row = activeCompanyBreakdownRows.find(
         (r) =>
           (r.group_id
             ? `${r.company_id} · ${r.group_id}`
@@ -265,7 +272,7 @@ export function DashboardEarningsSummary({
     hoveredPieSector,
     earningsPieSlices,
     earningsCurrencyRows,
-    companyBreakdownRows,
+    activeCompanyBreakdownRows,
     earningsShareByCode,
     isCompanyBreakdownView,
     companyBreakdownView,
@@ -276,13 +283,23 @@ export function DashboardEarningsSummary({
   ]);
 
   const showMultiCurrencyBreakdown = !isCompanyBreakdownView && currencies.length > 1;
+  /** Pie + table stack at top of panel (same as group-level layout). */
+  const isStackedLayout = true;
+  /** Single-currency / company rows: table hugs content; multi-currency fills remaining card height. */
+  const isCompactTable = !showMultiCurrencyBreakdown;
   const heroLabel = isNetProfitCompanyView
     ? i18n.netProfitCompanyCaption
-    : summaryPanelLabel || i18n.earnings;
-  const heroValue = isNetProfitCompanyView ? companyNetProfitTotal : summaryEarningsValue;
+    : isCompanyEarningView
+      ? i18n.earningsCompanyCaption
+      : summaryPanelLabel || i18n.earnings;
+  const heroValue = isNetProfitCompanyView
+    ? companyNetProfitTotal
+    : isCompanyEarningView
+      ? companyEarningsTotal
+      : summaryEarningsValue;
   const showPieCenterBadge = isCompanyBreakdownView
-    ? companyBreakdownRows.length > 0
-    : showMultiCurrencyBreakdown;
+    ? activeCompanyBreakdownRows.length > 0
+    : earningsPieSlices.length > 0;
 
   const summaryHero = (
     <div className="dashboard-summary-hero dashboard-summary-hero--compact">
@@ -293,7 +310,8 @@ export function DashboardEarningsSummary({
       <div className="dashboard-summary-hero-value">
         <DashboardAnimatedValue
           value={heroValue}
-          active={!summaryEarningsLoading}
+          active={panelAnimPlaying}
+          duration={panelAnimDuration}
           className="dashboard-summary-hero-value-anim"
         />
       </div>
@@ -304,7 +322,13 @@ export function DashboardEarningsSummary({
   );
 
   const summaryViewTabs = showProfitChartTab ? (
-    <div className="dashboard-summary-view-tabs" role="tablist" aria-label={i18n.statistics}>
+    <div
+      className={`dashboard-summary-view-tabs${
+        showEarningsCompanyTab ? " is-three-tabs" : ""
+      }`}
+      role="tablist"
+      aria-label={i18n.statistics}
+    >
       <button
         type="button"
         role="tab"
@@ -327,6 +351,19 @@ export function DashboardEarningsSummary({
       >
         {i18n.netProfitChartTab}
       </button>
+      {showEarningsCompanyTab && (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={earningsPanelView === "earning"}
+          className={`dashboard-summary-view-tab${
+            earningsPanelView === "earning" ? " is-active" : ""
+          }`}
+          onClick={() => onEarningsPanelViewChange?.("earning")}
+        >
+          {i18n.earningChartTab}
+        </button>
+      )}
     </div>
   ) : null;
 
@@ -334,9 +371,15 @@ export function DashboardEarningsSummary({
     <div
       className={`dashboard-panel-card dashboard-panel-card--summary${
         showProfitChartTab ? " dashboard-panel-card--summary-has-tabs" : ""
+      }${showEarningsCompanyTab ? " dashboard-panel-card--summary-has-earning-tab" : ""}${
+        isStackedLayout ? " dashboard-panel-card--summary-compact" : ""
       }`}
     >
-      <div className="dashboard-summary-layout">
+      <div
+        className={`dashboard-summary-layout${
+          isStackedLayout ? " is-compact-breakdown" : ""
+        }${showMultiCurrencyBreakdown ? " is-multi-currency-layout" : ""}`}
+      >
         <div className="dashboard-summary-top-row">
           {summaryViewTabs}
           {summaryHero}
@@ -349,7 +392,7 @@ export function DashboardEarningsSummary({
             <div
               ref={pieShellRef}
               className={`dashboard-summary-pie-chart-shell${
-                summaryPieReady ? " is-enter is-flow-active" : ""
+                panelAnimPlaying ? " is-enter is-flow-active" : ""
               }`}
             >
               <ResponsiveContainer width="100%" height="100%">
@@ -373,10 +416,10 @@ export function DashboardEarningsSummary({
                     strokeWidth={2}
                     label={false}
                     activeShape={false}
-                    isAnimationActive={summaryPieReady}
-                    animationBegin={80}
-                    animationDuration={920}
-                    animationEasing="ease-out"
+                    isAnimationActive={panelAnimPlaying}
+                    animationBegin={DASHBOARD_PANEL_ANIM_BEGIN_MS}
+                    animationDuration={panelAnimDuration}
+                    animationEasing={DASHBOARD_PANEL_ANIM_EASING}
                     onMouseEnter={handlePieSectorEnter}
                     onMouseLeave={() => setHoveredPieSector(null)}
                   >
@@ -395,7 +438,7 @@ export function DashboardEarningsSummary({
                 showPieCenterBadge && (
                 <div
                   key={pieAnimKey}
-                  className={`dashboard-summary-pie-center${summaryPieReady ? " is-enter" : ""}`}
+                  className={`dashboard-summary-pie-center${panelAnimPlaying ? " is-enter" : ""}`}
                   aria-hidden="true"
                 >
                   <span className="dashboard-summary-pie-center-pct">{animatedPiePct.toFixed(1)}%</span>
@@ -432,9 +475,9 @@ export function DashboardEarningsSummary({
         <div
           className={`dashboard-summary-currency-list${
             showMultiCurrencyBreakdown ? " is-multi-currency" : ""
-          }${earningsBreakdownShowsRate ? " is-with-original" : ""}${
-            isCompanyBreakdownView ? " is-company-profit" : ""
-          }`}
+          }${isCompactTable ? " is-compact-breakdown" : ""}${
+            earningsBreakdownShowsRate ? " is-with-original" : ""
+          }${isCompanyBreakdownView ? " is-company-profit" : ""}`}
           aria-label={isCompanyBreakdownView ? i18n.companyBreakdown : i18n.currencyBreakdown}
         >
           <div className="dashboard-summary-currency-list-head" aria-hidden="true">
@@ -465,7 +508,7 @@ export function DashboardEarningsSummary({
           </div>
           <div className="dashboard-summary-currency-list-body" role="list">
             {isCompanyBreakdownView &&
-              companyBreakdownRows.map((row, index) => {
+              activeCompanyBreakdownRows.map((row, index) => {
                 const sharePct = computeCompanyBreakdownSharePct(row, earningsShareByCode);
                 const rowAmount = companyRowDisplayAmount(row, companyBreakdownView);
                 const rowKey = `${row.group_id || ""}:${row.company_pk ?? row.company_id}`;
@@ -512,6 +555,7 @@ export function DashboardEarningsSummary({
               earningsCurrencyRows.map((row, index) => {
               const rowAmountLoading = isRowAmountLoading(row.code);
               const rowRateLoading = isRowRateLoading();
+              const sharePct = computeCurrencySharePct(row, earningsShareByCode);
               const { primary, native } = resolveEarningsRowDisplayAmounts(
                 row,
                 currencyCode,
@@ -584,7 +628,9 @@ export function DashboardEarningsSummary({
                         ? unitRateLabel && unitRateLabel !== "—"
                           ? unitRateLabel
                           : "—"
-                        : ""}
+                        : sharePct != null
+                          ? `${Number(sharePct).toFixed(1)}%`
+                          : "—"}
                   </span>
                 </div>
               );
@@ -592,15 +638,6 @@ export function DashboardEarningsSummary({
           </div>
         </div>
       </div>
-      {!isCompanyBreakdownView && showMultiCurrencyBreakdown && rateFootnoteText && (
-        <p
-          className={`dashboard-summary-rate-footnote${
-            exchangeRatesError || exchangeRates.unsupported?.length ? " is-warn" : ""
-          }${exchangeRatesLoading ? " is-muted" : ""}`}
-        >
-          {rateFootnoteText}
-        </p>
-      )}
     </div>
   );
 }

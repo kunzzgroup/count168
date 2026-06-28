@@ -254,19 +254,28 @@ if ($req_company_id) {
         'get_selected_banks', 'save_selected_banks', 'update_bank_process'
     ];
 
-    $requiredCategory = 'Games'; // Default fallback
     if (in_array($action, $bankOnlyActions)) {
-        $requiredCategory = 'Bank';
-    } else {
-        $reqPermission = $_GET['permission'] ?? $_POST['permission'] ?? '';
-        if ($reqPermission === 'Bank') {
-            $requiredCategory = 'Bank';
+        if (!checkCompanyCategoryPermission($pdo, $req_company_id, 'Bank')) {
+            jsonResponse(false, 'Unauthorized permission category');
+            exit;
         }
-    }
-
-    if (!checkCompanyCategoryPermission($pdo, $req_company_id, $requiredCategory)) {
-        jsonResponse(false, 'Unauthorized permission category');
-        exit;
+    } else {
+        $reqPermission = trim((string) ($_GET['permission'] ?? $_POST['permission'] ?? ''));
+        if ($reqPermission === 'Bank') {
+            if (!checkCompanyCategoryPermission($pdo, $req_company_id, 'Bank')) {
+                jsonResponse(false, 'Unauthorized permission category');
+                exit;
+            }
+        } elseif ($reqPermission === 'Games' || $reqPermission === 'Gambling') {
+            if (!checkCompanyCategoryPermission($pdo, $req_company_id, 'Games')) {
+                jsonResponse(false, 'Unauthorized permission category');
+                exit;
+            }
+        } elseif (!checkCompanyGamesOrBankCategoryPermission($pdo, $req_company_id)) {
+            // Default process list (incl. Data Capture / capture maintenance on bank-only companies).
+            jsonResponse(false, 'Unauthorized permission category');
+            exit;
+        }
     }
 }
 // --- END DATA-LEVEL CATEGORY PERMISSION VALIDATION ---
@@ -1052,12 +1061,18 @@ function getBankProcess() {
                 bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.contract, bp.insurance, bp.remark, $sopSelect,
                 bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_start_frequency, bp.day_end, $dayEndMonthlyCapSelect, bp.status, $issueFlagSelect,
                 bp.dts_modified, bp.dts_created,
+                " . bankProcessModifiedByLoginSql() . " as modified_by_login,
+                COALESCE(u_created.login_id, o_created.owner_code) as created_by_login,
                 a_cm.account_id as card_merchant_account_id, a_cm.name as card_merchant_name, a_cust.account_id as customer_account, a_cust.name as customer_name,
                 a_pa.account_id as profit_account_account_id, a_pa.name as profit_account_name
             FROM bank_process bp
             LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
             LEFT JOIN account a_cust ON bp.customer_id = a_cust.id
             LEFT JOIN account a_pa ON bp.profit_account_id = a_pa.id
+            LEFT JOIN user u_modified ON bp.modified_by = u_modified.id AND (bp.modified_by_type IS NULL OR bp.modified_by_type = 'user')
+            LEFT JOIN owner o_modified ON bp.modified_by_owner_id = o_modified.id AND bp.modified_by_type = 'owner'
+            LEFT JOIN user u_created ON bp.created_by = u_created.id
+            LEFT JOIN owner o_created ON bp.created_by_owner_id = o_created.id
             WHERE bp.id = ? AND bp.company_id = ?");
         $stmt->execute([$processId, $currentCompanyId]);
         $process = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1097,6 +1112,8 @@ function getBankProcess() {
             'issue_flag' => normalizeBankIssueFlagValue($process['issue_flag'] ?? null),
             'dts_modified' => $process['dts_modified'],
             'dts_created' => $process['dts_created'],
+            'modified_by' => $process['modified_by_login'] ?? '',
+            'created_by' => $process['created_by_login'] ?? '',
         ];
         jsonResponse(true, '', $formatted);
     } catch (PDOException $e) {

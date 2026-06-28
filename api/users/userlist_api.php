@@ -9,11 +9,13 @@ header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/password_hashing.php';
 require_once __DIR__ . '/../../includes/email_validation.php';
 require_once __DIR__ . '/../../includes/auth_invalidation.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../../includes/group_scope_resolve.php';
+require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../get_companies_helper.php';
 
 session_start();
@@ -1995,10 +1997,7 @@ try {
             }
             
             // Hash password
-            $hashedPassword = password_hash($input['password'], PASSWORD_DEFAULT);
-            if ($hashedPassword === false) {
-                sendResponse(false, 'Failed to hash password');
-            }
+            $hashedPassword = secure_hash_password($input['password']);
             
             // Hash secondary_password if provided (for c168 company users)
             $hashedSecondaryPassword = null;
@@ -2007,14 +2006,15 @@ try {
                 if (!preg_match('/^\d{6}$/', $input['secondary_password'])) {
                     sendResponse(false, 'Secondary password must be exactly 6 digits');
                 }
-                $hashedSecondaryPassword = password_hash($input['secondary_password'], PASSWORD_DEFAULT);
-                if ($hashedSecondaryPassword === false) {
-                    sendResponse(false, 'Failed to hash secondary password');
-                }
+                $hashedSecondaryPassword = secure_hash_password($input['secondary_password']);
             }
             
             // 处理权限数据
-            $permissions = isset($input['permissions']) ? json_encode($input['permissions']) : null;
+            $permissionsArray = null;
+            if (isset($input['permissions']) && is_array($input['permissions'])) {
+                $permissionsArray = sanitize_sidebar_permissions_for_role($input['role'] ?? '', $input['permissions']);
+            }
+            $permissions = $permissionsArray !== null ? json_encode($permissionsArray) : null;
 
             // 开始事务
             $pdo->beginTransaction();
@@ -2154,11 +2154,12 @@ try {
             break;
             
         case 'update':
-            if (is_partnership_audit_read_only_active($pdo)) {
-                sendResponse(false, '只读账号无法执行此操作');
-            }
             if (!isset($input['id'])) {
                 sendResponse(false, 'User ID is required');
+            }
+            $updateUserId = (int) $input['id'];
+            if (partnership_audit_read_only_blocks_userlist_self_edit($pdo, $updateUserId)) {
+                sendResponse(false, '只读账号无法执行此操作');
             }
             
             global $current_company_id, $current_user_role;
@@ -2222,7 +2223,7 @@ try {
                 // Only update password if provided
                 if (isset($input['password']) && trim($input['password']) !== '') {
                     $updateFields[] = "password = ?";
-                    $updateValues[] = password_hash($input['password'], PASSWORD_DEFAULT);
+                    $updateValues[] = secure_hash_password($input['password']);
                 }
                 
                 // Only update secondary_password if provided (for c168 company)
@@ -2232,7 +2233,7 @@ try {
                         sendResponse(false, 'Secondary password must be exactly 6 digits');
                     }
                     $updateFields[] = "secondary_password = ?";
-                    $updateValues[] = password_hash($input['secondary_password'], PASSWORD_DEFAULT);
+                    $updateValues[] = secure_hash_password($input['secondary_password']);
                 }
                 
                 if (empty($updateFields)) {
@@ -2379,7 +2380,11 @@ try {
 
             // 添加权限字段到更新列表（系统级权限仍然存储在 user 表）
             $updateFields[] = "permissions = ?";
-            $updateValues[] = isset($input['permissions']) ? json_encode($input['permissions']) : null;
+            $permissionsArray = null;
+            if (isset($input['permissions']) && is_array($input['permissions'])) {
+                $permissionsArray = sanitize_sidebar_permissions_for_role($input['role'] ?? '', $input['permissions']);
+            }
+            $updateValues[] = $permissionsArray !== null ? json_encode($permissionsArray) : null;
             
             // Account 和 Process 权限不再更新到 user 表，而是更新到 user_company_permissions 表
             // 这些字段保留在 $input 中，稍后在事务中处理
@@ -2388,7 +2393,7 @@ try {
             $userPasswordWasUpdated = false;
             if (isset($input['password']) && trim($input['password']) !== '') {
                 $updateFields[] = "password = ?";
-                $updateValues[] = password_hash($input['password'], PASSWORD_DEFAULT);
+                $updateValues[] = secure_hash_password($input['password']);
                 $userPasswordWasUpdated = true;
             }
             
@@ -2399,7 +2404,7 @@ try {
                     sendResponse(false, 'Secondary password must be exactly 6 digits');
                 }
                 $updateFields[] = "secondary_password = ?";
-                $updateValues[] = password_hash($input['secondary_password'], PASSWORD_DEFAULT);
+                $updateValues[] = secure_hash_password($input['secondary_password']);
             }
             
             // 添加 WHERE 条件的参数

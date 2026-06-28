@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { SECONDARY_VERIFY_I18N } from "../../translateFile/auth/authTranslate.js";
+import { SECONDARY_VERIFY_I18N, localizeAuthApiMessage } from "../../translateFile/auth/authTranslate.js";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import SecondaryVerifyBackButton from "./SecondaryVerifyBackButton.jsx";
 import { useAuthBackground } from "./useAuthBackground.js";
+import { resolveDefaultLandingPath } from "../../utils/auth/sidebarPermissions.js";
 import { spaPath } from "../../utils/routing/pageRoutes.js";
 
 const VARIANT_CONFIG = {
@@ -65,7 +66,10 @@ export default function SecondaryPasswordPage({ variant }) {
           if (config.returnAfterWrongUserType) return;
         }
         if (config.shouldRedirectToDashboard(user)) {
-          if (!cancelled) navigate(spaPath("dashboard"), { replace: true });
+          if (!cancelled) {
+            const landing = resolveDefaultLandingPath(user);
+            navigate(landing || spaPath("login"), { replace: true });
+          }
         }
       } catch {
         if (!cancelled) navigate(spaPath("login"), { replace: true });
@@ -126,10 +130,24 @@ export default function SecondaryPasswordPage({ variant }) {
       });
       const json = await res.json();
       if (res.ok && json?.success) {
+        try {
+          const userRes = await fetch(buildApiUrl("api/session/current_user_api.php"), {
+            credentials: "include",
+            cache: "no-store",
+          });
+          const userJson = await userRes.json();
+          if (userRes.ok && userJson?.success && userJson?.data) {
+            const landing = resolveDefaultLandingPath(userJson.data);
+            navigate(landing || spaPath("login"), { replace: true });
+            return;
+          }
+        } catch {
+          /* fall through */
+        }
         navigate(spaPath("dashboard"), { replace: true });
         return;
       }
-      setErrorMessage(json?.message || i18n.genericError);
+      setErrorMessage(localizeAuthApiMessage(json?.message, lang) || i18n.genericError);
       inputRef.current?.focus();
     } catch {
       setErrorMessage(i18n.genericError);

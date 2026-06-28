@@ -36,6 +36,7 @@ import {
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { pathnameIs, spaPath } from "../../utils/routing/pageRoutes.js";
+import { resolveDefaultLandingPath } from "../../utils/auth/sidebarPermissions.js";
 import { replaceBrowserPathOnly } from "../../utils/routing/privateBrowserUrl.js";
 import {
   canClearCompanySelection,
@@ -49,12 +50,14 @@ import {
 } from "../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
-import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
+import { isPartnershipAuditReadOnlyLocked, isPartnershipAuditReadOnlyBlockingUserEdit } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/admin-responsive.css";
+import "../../../public/css/select-unified.css";
+import "../../../public/css/list-badge-scale.css";
 import {
   ALL_ROLE_OPTIONS,
   PAGE_SIZE,
@@ -68,6 +71,9 @@ import {
   getDeleteCheckboxState,
   getFinalPermissionsForCreation,
   getRoleTemplateSidebarList,
+  getVisiblePermissionKeys,
+  sanitizeSidebarPermissionsForRole,
+  roleSupportsOwnershipPermission,
   normRole,
   sortUsers,
   roleHasReadOnlyToggle,
@@ -87,7 +93,7 @@ import {
 import UserModal from "./components/UserModal.jsx";
 import UserConfirmModal from "./components/UserConfirmModal.jsx";
 import { processNotificationAboveAccountZIndex, processNotificationZIndex } from "../../components/ProcessModalPortal.jsx";
-import { getUserListText, translateUserListApiMessage } from "../../translateFile/pages/userListTranslate.js";
+import { formatUserRoleDisplay, formatUserStatusDisplay, getUserListText, translateUserListApiMessage } from "../../translateFile/pages/userListTranslate.js";
 import { validateEmail } from "../../utils/input/emailValidation.js";
 
 function roleBadgeClass(role) {
@@ -316,12 +322,22 @@ export default function UserListPage() {
   );
   const pickerCompanyId = companyId;
   const filteredSorted = useMemo(() => {
-    const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
+    const f = applyUserFilters(usersRaw, {
+      search,
+      showInactive,
+      showAll,
+      viewerRole: currentUserRole,
+      viewerUserId: currentUserId,
+    });
     return sortUsers(f, sortColumn, sortDirection);
-  }, [usersRaw, search, showInactive, showAll, currentUserRole, sortColumn, sortDirection]);
+  }, [usersRaw, search, showInactive, showAll, currentUserRole, currentUserId, sortColumn, sortDirection]);
 
   const canCreateUser = useMemo(() => getAvailableRolesForCreation(currentUserRole).length > 0, [currentUserRole]);
   const userMutationsBlocked = useMemo(() => isPartnershipAuditReadOnlyLocked(me), [me]);
+  const isUserEditBlockedByReadOnly = useCallback(
+    (row) => isPartnershipAuditReadOnlyBlockingUserEdit(me, row?.id, currentUserId),
+    [me, currentUserId],
+  );
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE)), [filteredSorted.length]);
 
@@ -340,6 +356,18 @@ export default function UserListPage() {
     PERMISSION_KEYS.forEach((k) => { m[k] = currentUserRole !== "owner" && !allowed.has(k); });
     return m;
   }, [currentUserRole]);
+
+  const visiblePermissionKeys = useMemo(() => getVisiblePermissionKeys(form.role), [form.role]);
+
+  useEffect(() => {
+    if (roleSupportsOwnershipPermission(form.role)) return;
+    setPermSelected((prev) => {
+      if (!prev.has("ownership")) return prev;
+      const next = new Set(prev);
+      next.delete("ownership");
+      return next;
+    });
+  }, [form.role]);
 
   const syncUrl = useCallback(() => {
     replaceBrowserPathOnly();
@@ -395,7 +423,8 @@ export default function UserListPage() {
       try {
         const perms = Array.isArray(me.permissions) ? me.permissions : [];
         if (perms.length > 0 && !perms.includes("admin")) {
-          navigate(spaPath("dashboard"), { replace: true });
+          const landing = resolveDefaultLandingPath(me);
+          navigate(landing || spaPath("login"), { replace: true });
           return;
         }
         const rows = (await fetchOwnerCompaniesAll()).map(normalizeCompanyRow);
@@ -1766,7 +1795,8 @@ export default function UserListPage() {
 
   const applyEditDetail = useCallback((row, detail, accList, procList) => {
     let perms = []; try { perms = detail.permissions ? JSON.parse(detail.permissions) : []; } catch { perms = []; }
-    setPermSelected(new Set(perms.map((p) => String(p).toLowerCase())));
+    perms = sanitizeSidebarPermissionsForRole(normRole(row.role), perms.map((p) => String(p).toLowerCase()));
+    setPermSelected(new Set(perms));
     setForm((f) => ({ ...f, read_only: detail.read_only !== undefined ? parseInt(detail.read_only, 10) === 1 : true }));
     let ap = null, pp = null; try { if (detail.account_permissions != null) ap = typeof detail.account_permissions === "string" ? JSON.parse(detail.account_permissions) : detail.account_permissions; } catch { ap = []; }
     try { if (detail.process_permissions != null) pp = typeof detail.process_permissions === "string" ? JSON.parse(detail.process_permissions) : detail.process_permissions; } catch { pp = []; }
@@ -1811,7 +1841,7 @@ export default function UserListPage() {
       setSelectedGroupIds([]);
     }
     if (row.is_owner_shadow) {
-      setPermSelected(new Set(PERMISSION_KEYS));
+      setPermSelected(new Set(getVisiblePermissionKeys("owner")));
       setSelectedAccountIds(new Set(accList.map((a) => Number(a.id))));
       setSelectedProcessIds(new Set(procList.map((p) => Number(p.id))));
       setSelectedCompanyIds([]);
@@ -1845,7 +1875,7 @@ export default function UserListPage() {
     setForm({ id: "", login_id: "", name: "", email: "", role: "", password: "", secondary_password: "", status: "active", read_only: true });
     setRoleSelectDisabled(false); setLoginDisabled(false);
     setFieldLocks({ name: false, email: false, role: false, password: false, sidebar: false, company: false });
-    const allP = new Set(PERMISSION_KEYS.filter((k) => !permDisabledMap[k])); setPermSelected(allP);
+    const allP = new Set(getVisiblePermissionKeys("").filter((k) => !permDisabledMap[k])); setPermSelected(allP);
     void loadCompaniesForModal();
     const cachedAccess = modalAccessCacheRef.current.get(modalCacheKey);
     const currentAccess =
@@ -1900,7 +1930,9 @@ export default function UserListPage() {
   const applyPermTemplate = (role, force) => {
     if (isEditMode && !force) return;
     const next = new Set();
-    getRoleTemplateSidebarList(role).forEach((k) => next.add(k));
+    getRoleTemplateSidebarList(role).forEach((k) => {
+      if (getVisiblePermissionKeys(role).includes(k)) next.add(k);
+    });
     setPermSelected(next);
     if (roleHasReadOnlyToggle(role)) {
       setForm((f) => ({ ...f, read_only: true }));
@@ -1908,7 +1940,7 @@ export default function UserListPage() {
   };
 
   const openEdit = async (row) => {
-    if (userMutationsBlocked) {
+    if (isUserEditBlockedByReadOnly(row)) {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
@@ -2033,7 +2065,7 @@ export default function UserListPage() {
 
   const saveUser = async (e) => {
     e.preventDefault();
-    if (userMutationsBlocked) {
+    if (isUserEditBlockedByReadOnly(editingRow)) {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
@@ -2041,6 +2073,7 @@ export default function UserListPage() {
     if (!isEditMode && !form.password.trim()) { notify(t("passwordRequired"), "danger"); return; }
     if (
       useDualTenantUserPicker &&
+      !editingRow?.is_owner_shadow &&
       selectedGroupIds.length === 0 &&
       selectedCompanyIds.length === 0
     ) {
@@ -2051,6 +2084,7 @@ export default function UserListPage() {
       !useDualTenantUserPicker &&
       groupOnlyUserList &&
       (currentUserRole === "admin" || currentUserRole === "owner") &&
+      !editingRow?.is_owner_shadow &&
       selectedCompanyIds.length === 0
     ) {
       notify(t("groupNoneSelected"), "danger");
@@ -2068,7 +2102,7 @@ export default function UserListPage() {
     let saveCompanyIds = selectedCompanyIds;
     let saveGroupCodes = [];
     const shouldForceGroupScope = !useDualTenantUserPicker && groupOnlyUserList;
-    if (useDualTenantUserPicker) {
+    if (useDualTenantUserPicker && !editingRow?.is_owner_shadow) {
       saveGroupCodes = resolveSelectedGroupCodesFromPicker(modalGroupCompanies, selectedGroupIds);
       saveCompanyIds = selectedCompanyIds;
       payload.mixed_tenant_assign = 1;
@@ -2295,7 +2329,6 @@ export default function UserListPage() {
             />
           </div>
           <div className={`user-table-wrapper user-list-table${showBulkDeleteColumn ? " user-table-wrapper--bulk-delete-col" : ""}`}>
-            <div className="user-list-table-inner">
             <div className="table-header user-list-table-header">
               <div
                 className="header-item header-item--with-sort-icon header-sortable"
@@ -2417,7 +2450,7 @@ export default function UserListPage() {
                 <span className="header-item__label">{t("createdBy")}</span>
                 {renderUserListHeaderSortIcon("createdBy")}
               </div>
-              <div className="header-item">
+              <div className="header-item header-item--action">
                 <span className="header-item__label">{t("action")}</span>
               </div>
               {showBulkDeleteColumn && (
@@ -2442,7 +2475,9 @@ export default function UserListPage() {
                 </div>
               )}
             </div>
-            <div className="user-cards">
+            <div
+              className={`user-cards${!showAll && pageRows.length > 0 ? " user-cards--paged-fill" : ""}`}
+            >
               {pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);
@@ -2453,12 +2488,22 @@ export default function UserListPage() {
                     <div className="card-item">{r.login_id}</div>
                     <div className="card-item">{r.name}</div>
                     <div className="card-item">{r.email || "-"}</div>
-                    <div className="card-item"><span className={`role-badge ${roleBadgeClass(r.role)}`}>{String(r.role || "").toUpperCase()}</span></div>
-                    <div className="card-item"><span className={`role-badge ${normRole(r.status) === "active" ? "status-active" : "status-inactive"} ${caps.canToggleStatus && !userMutationsBlocked ? "status-clickable" : ""}`} onClick={() => !userMutationsBlocked && caps.canToggleStatus && toggleUserStatus(r)}>{String(r.status || "").toUpperCase()}</span></div>
+                    <div className="card-item"><span className={`role-badge ${roleBadgeClass(r.role)}`}>{formatUserRoleDisplay(t, r.role)}</span></div>
+                    <div className="card-item"><span className={`role-badge ${normRole(r.status) === "active" ? "status-active" : "status-inactive"} ${caps.canToggleStatus && !userMutationsBlocked ? "status-clickable" : ""}`} onClick={() => !userMutationsBlocked && caps.canToggleStatus && toggleUserStatus(r)}>{formatUserStatusDisplay(t, r.status)}</span></div>
                     <div className="card-item">{formatLastLogin(r.last_login)}</div>
                     <div className="card-item">{String(r.created_by || "-").toUpperCase()}</div>
                     <div className="card-item card-item--action">
-                      <button className="btn btn-edit" onClick={() => openEdit(r)} disabled={!editReady || userMutationsBlocked} style={{ opacity: editReady && !userMutationsBlocked ? 1 : 0.3 }}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
+                      <button
+                        type="button"
+                        className="btn btn-edit"
+                        onClick={() => openEdit(r)}
+                        disabled={!editReady || isUserEditBlockedByReadOnly(r)}
+                        aria-label={t("edit")}
+                        title={t("edit")}
+                        style={{ opacity: editReady && !isUserEditBlockedByReadOnly(r) ? 1 : 0.3 }}
+                      >
+                        <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
+                      </button>
                     </div>
                     {showBulkDeleteColumn && (
                       <div className="card-item card-item--select">
@@ -2485,7 +2530,6 @@ export default function UserListPage() {
                 );
               })}
             </div>
-            </div>
           </div>
           {!showAll && (
             <div className="pagination-container">
@@ -2510,7 +2554,7 @@ export default function UserListPage() {
             document.body
           )
         : null}
-      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} currentUserId={currentUserId} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} groupPickerMode={!useDualTenantUserPicker && groupOnlyUserList} dualTenantPicker={useDualTenantUserPicker} modalGroupCompanies={modalGroupCompanies} modalSubsidiaryCompanies={modalSubsidiaryCompanies} selectedGroupIds={selectedGroupIds} setSelectedGroupIds={setSelectedGroupIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} sessionMutationsBlocked={userMutationsBlocked} t={t} />
+      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} currentUserId={currentUserId} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} visiblePermissionKeys={visiblePermissionKeys} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} groupPickerMode={!useDualTenantUserPicker && groupOnlyUserList} dualTenantPicker={useDualTenantUserPicker} modalGroupCompanies={modalGroupCompanies} modalSubsidiaryCompanies={modalSubsidiaryCompanies} selectedGroupIds={selectedGroupIds} setSelectedGroupIds={setSelectedGroupIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} sessionMutationsBlocked={isUserEditBlockedByReadOnly(editingRow)} t={t} />
       <UserConfirmModal open={confirmOpen} message={confirmMessage} onConfirm={confirmDelete} onClose={() => setConfirmOpen(false)} confirmDisabled={userMutationsBlocked} t={t} />
     </>
   );

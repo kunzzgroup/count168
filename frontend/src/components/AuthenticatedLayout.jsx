@@ -10,6 +10,7 @@ import ExpirationReminderModal from "./ExpirationReminderModal.jsx";
 import { AuthSessionProvider } from "../context/AuthSessionContext.jsx";
 import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
 import { DASHBOARD_I18N } from "../translateFile/shell/dashboardTranslate.js";
+import { formatUserRoleDisplay, getUserListText } from "../translateFile/pages/userListTranslate.js";
 import { getExpirationReminderText } from "../translateFile/shell/expirationReminderTranslate.js";
 import { getAutoRenewText } from "../translateFile/pages/autoRenewTranslate.js";
 import {
@@ -19,9 +20,12 @@ import {
 import { useExpirationReminder } from "../hooks/useExpirationReminder.js";
 import { applyLoginLang } from "../utils/i18n/useLoginLang.js";
 import {
+  canAccessDashboard,
+  canAccessCaptureMaintenance,
   canAccessFullMaintenance,
   canAccessLimitedMaintenance,
   canAccessPermission,
+  resolveDefaultLandingPath,
   showMaintenanceInSidebar,
 } from "../utils/auth/sidebarPermissions.js";
 import {
@@ -73,6 +77,7 @@ import { pathnameIs, pathnameToPageKey, spaPath } from "../utils/routing/pageRou
 import { stripPrivateQueryFromBrowserUrl } from "../utils/routing/privateBrowserUrl.js";
 import { resetDashboardSessionCaches } from "../utils/dashboard/dashboardCache.js";
 import "../../public/css/modal-close-unified.css";
+import "../../public/css/select-unified.css";
 
 function formatSidebarExpirationHint(hint, i18n) {
   if (!hint || hint === "-") return "-";
@@ -199,6 +204,11 @@ export default function AuthenticatedLayout() {
   const [searchParams] = useSearchParams();
   const path = location.pathname;
   const pageKey = pathnameToPageKey(path);
+  const isDataCaptureSidebarActive =
+    pageKey === "datacapture" ||
+    pageKey === "datacapturesummary" ||
+    pageKey === "capture-maintenance" ||
+    pageKey === "transaction-maintenance";
   const chromelessPaymentHistory = isPaymentHistoryChromelessPath(path, searchParams);
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -291,6 +301,13 @@ export default function AuthenticatedLayout() {
       document.body.classList.add("process-page");
     }
   }, [location.pathname]);
+
+  /* Transaction Payment：layout 阶段即挂 transaction-page，避免 lazy chunk 加载前 Global Unlock 双 scrollbar */
+  useLayoutEffect(() => {
+    const onTransactionPayment =
+      pathnameIs("transaction", location.pathname) && !chromelessPaymentHistory;
+    document.body.classList.toggle("transaction-page", onTransactionPayment);
+  }, [location.pathname, chromelessPaymentHistory]);
 
   useLayoutEffect(() => {
     document.body.classList.toggle("ec-payment-history-chromeless", chromelessPaymentHistory);
@@ -532,7 +549,29 @@ export default function AuthenticatedLayout() {
       }
       if (!options.force && !dashboardFilterEventMatchesPersisted(detail)) return;
 
-      const resolved = buildDashboardFilterEventDetailFromPersisted();
+      let resolved = buildDashboardFilterEventDetailFromPersisted();
+      const detailCompanyId =
+        detail?.companyId != null && detail.companyId !== ""
+          ? Number(detail.companyId)
+          : null;
+      if (Number.isFinite(detailCompanyId) && detailCompanyId > 0) {
+        resolved = {
+          ...resolved,
+          companyId: detailCompanyId,
+          groupAllMode: false,
+          companyCode:
+            detail.companyCode != null && String(detail.companyCode).trim() !== ""
+              ? String(detail.companyCode).trim().toUpperCase()
+              : resolved.companyCode,
+          ...(detail.hasGambling != null
+            ? { hasGambling: Boolean(detail.hasGambling) }
+            : {}),
+          ...(detail.hasBank != null ? { hasBank: Boolean(detail.hasBank) } : {}),
+          ...(detail.expirationDate !== undefined
+            ? { expirationDate: detail.expirationDate }
+            : {}),
+        };
+      }
       const sig = dashboardSidebarFilterSignature(resolved);
       if (sig === lastSidebarFilterSigRef.current) return;
       lastSidebarFilterSigRef.current = sig;
@@ -875,7 +914,7 @@ export default function AuthenticatedLayout() {
       const routePageKey = routePath ? pathnameToPageKey(routePath) : null;
       if (routePath) {
         prefetchRouteModule(routePath);
-        if (routePageKey === "auto-renew") prefetchAutoRenewList();
+        if (routePageKey === "auto-renew" && me?.has_c168_auto_renew_access) prefetchAutoRenewList();
         if (routePageKey === "ownership") prefetchOwnershipCompanies();
         if (
           (routePageKey === "process-list" || routePageKey === "games-process-list") &&
@@ -975,7 +1014,11 @@ export default function AuthenticatedLayout() {
   }, [me, sidebarGcTick]);
   
   const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
-  const roleLabel = me?.role ? me.role.charAt(0).toUpperCase() + me.role.slice(1).toLowerCase() : "";
+  const roleLabel = useMemo(() => {
+    if (!me?.role) return "";
+    const t = (key) => getUserListText(lang, key);
+    return formatUserRoleDisplay(t, me.role);
+  }, [lang, me?.role]);
   const processSpaPath =
     me?.company_has_bank && !me?.company_has_gambling ? spaPath("bank-process-list") : spaPath("process-list");
   const performLogout = async () => {
@@ -1033,6 +1076,11 @@ export default function AuthenticatedLayout() {
 
   if (loading) return <AppBootLoading label={lang === "zh" ? "正在加载…" : "Loading…"} />;
   if (!me) return <Navigate to={spaPath("login")} replace />;
+
+  if (pageKey === "dashboard" && !canAccessDashboard(me)) {
+    const fallback = resolveDefaultLandingPath(me);
+    if (fallback) return <Navigate to={fallback} replace />;
+  }
 
   return (
     <AuthSessionProvider value={sessionContextValue}>
@@ -1229,7 +1277,7 @@ export default function AuthenticatedLayout() {
               </SidebarNavTip>
             </div>
           )}
-          {canAccess("datacapture") && me?.company_has_gambling && (
+          {canAccess("datacapture") && (me?.company_has_gambling || me?.company_has_bank) && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarDataCapture} enabled={sidebarIconOnly}>
                 <SidebarSectionLink
@@ -1240,7 +1288,7 @@ export default function AuthenticatedLayout() {
                       clearDataCaptureRoundLocalStorage();
                     }
                   }}
-                  className={`informationmenu-section-title ${pageKey === "datacapture" ? "current-page" : "account-direct"}`}
+                  className={`informationmenu-section-title ${isDataCaptureSidebarActive ? "current-page" : "account-direct"}`}
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
@@ -1355,7 +1403,8 @@ export default function AuthenticatedLayout() {
                   onMouseLeave={() => setHoverSection(null)}
                 >
                   <div className="submenu-content">
-                    {showFullMaintenanceMenu && me?.company_has_gambling && (
+                    {(showFullMaintenanceMenu || (showLimitedMaintenanceMenu && me?.company_has_bank)) &&
+                      (me?.company_has_gambling || me?.company_has_bank) && (
                       <a
                         {...sidebarSubmenuLinkProps("/capture-maintenance", goTo)}
                         className={`submenu-item ${pageKey === "capture-maintenance" ? "current-page" : ""}`}
@@ -1364,7 +1413,8 @@ export default function AuthenticatedLayout() {
                         <span>{i18n.sidebarDataCapture}</span>
                       </a>
                     )}
-                    {me?.company_has_gambling && (showFullMaintenanceMenu || showLimitedMaintenanceMenu) && (
+                    {(me?.company_has_gambling || me?.company_has_bank) &&
+                      (showFullMaintenanceMenu || showLimitedMaintenanceMenu) && (
                       <a
                         {...sidebarSubmenuLinkProps("/transaction-maintenance", goTo)}
                         className={`submenu-item ${pageKey === "transaction-maintenance" ? "current-page" : ""}`}

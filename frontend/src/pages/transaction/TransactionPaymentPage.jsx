@@ -15,7 +15,7 @@ import { useTransactionSync } from "./hooks/useTransactionSync.js";
 import { useTransactionDateRange } from "./hooks/useTransactionDateRange.js";
 import { useTransactionInitialization } from "./hooks/useTransactionInitialization.js";
 import { installTransactionExcelCopy } from "./lib/transactionExcelCopy.js";
-import { getRoleClass } from "./lib/transactionPaymentLogic.js";
+import { getRoleClass, shouldShowTransactionTablesSection } from "./lib/transactionPaymentLogic.js";
 import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
 import "../../../public/css/userlist.css";
@@ -155,14 +155,14 @@ function TransactionPaymentPageMain() {
 
   const applyTransactionBodyClasses = useCallback(() => {
     document.body.classList.remove(...ROUTE_BODY_CLASSES_TO_CLEAR, "bg");
-    document.body.classList.add("dashboard-page", "transaction-page");
+    document.body.classList.add("dashboard-page");
     clearInlineScrollLock();
   }, []);
 
   useLayoutEffect(() => {
     applyTransactionBodyClasses();
     return () => {
-      document.body.classList.remove("transaction-page", "page-ready");
+      document.body.classList.remove("page-ready");
     };
   }, [applyTransactionBodyClasses]);
 
@@ -233,8 +233,8 @@ function TransactionPaymentPageMain() {
   );
 
   const onRejectContra = useCallback(
-    (opts) => ui.onRejectContra(opts.transactionId, scopeApi),
-    [ui.onRejectContra, scopeApi],
+    (opts) => ui.onRejectContra(opts.transactionId, scopeApi, search.runSearch),
+    [ui.onRejectContra, scopeApi, search.runSearch],
   );
 
   if (forbidden) {
@@ -247,7 +247,12 @@ function TransactionPaymentPageMain() {
     filterSnapshot && scopeCacheKey && data.currencyScopeBundle?.scopeKey !== scopeCacheKey,
   );
   const tablesLoading = search.searchLoading || scopeDataPending;
-  const tablesVisible = search.tablesVisible || Boolean(filterSnapshot);
+  const tablesVisible = shouldShowTransactionTablesSection({
+    showAllCurrencies: search.showAllCurrencies,
+    selectedCurrencies: search.selectedCurrencies,
+    tablePresentation: search.tablePresentation,
+    searchLoading: tablesLoading,
+  });
 
   return (
     <div className="container-fluid transaction-container">

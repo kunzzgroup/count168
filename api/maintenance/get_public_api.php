@@ -6,6 +6,7 @@
 
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/maintenance_common.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -27,7 +28,8 @@ if (!isset($pdo) || !$pdo instanceof PDO) {
  * 获取 C168 公司下所有活跃的维护跑马灯内容
  */
 function fetchActiveMaintenanceList(PDO $pdo) {
-    $sql = "SELECT m.id, m.prefix, m.content, m.status
+    $prefixSelect = maintenanceMarqueeHasPrefixColumn($pdo) ? 'm.prefix' : "'' AS prefix";
+    $sql = "SELECT m.id, {$prefixSelect}, m.content, m.status
             FROM maintenance_marquee m
             WHERE m.company_code = 'C168' AND m.status = 'active'
             ORDER BY m.created_at DESC";

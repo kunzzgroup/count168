@@ -2,13 +2,13 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import {
   applyGroupOnlyCaptureRestoreFilter,
-  captureSessionMatchesScope,
-  loadCaptureSession,
+  captureSessionRestorable,
+  loadRestoreCaptureSession,
   saveCaptureSession,
   shouldRestoreFromUrl,
   stripRestoreParamFromUrl,
 } from "../lib/dataCaptureStorage.js";
-import { isGroupOnlyProcessId } from "../lib/dataCaptureGroupOnlyProcesses.js";
+import { isGroupOnlyProcessId, isGroupPayrollDraftProcessId } from "../lib/dataCaptureGroupOnlyProcesses.js";
 import {
   cancelAllScheduledServerDraftSaves,
   flushGroupOnlyTableDraftToServer,
@@ -82,6 +82,7 @@ function buildProcessCapturePayload(form, captureType, currencies, selectedDescr
  */
 export function useDataCaptureSubmitReset({
   captureScope,
+  companies = [],
   form,
   captureType,
   mutationsBlocked = false,
@@ -209,7 +210,7 @@ export function useDataCaptureSubmitReset({
       if (
         groupPayrollUi &&
         draftBucket &&
-        isGroupOnlyProcessId(form.selectedProcess?.id)
+        isGroupPayrollDraftProcessId(form.selectedProcess?.id)
       ) {
         const draftPayload = {
           tableData: preConvertSnapshot,
@@ -265,7 +266,7 @@ export function useDataCaptureSubmitReset({
   const reset = useCallback(() => {
     const draftBucket = payrollDraftBucket || selectedGroup;
     const groupOnlyProcessId =
-      groupPayrollUi && draftBucket && isGroupOnlyProcessId(form.selectedProcess?.id)
+      groupPayrollUi && draftBucket && isGroupPayrollDraftProcessId(form.selectedProcess?.id)
         ? form.selectedProcess.id
         : null;
 
@@ -327,11 +328,14 @@ export function useDataCaptureSubmitReset({
     if (restoreInFlightRef.current) return;
     restoreInFlightRef.current = true;
 
-    const session = loadCaptureSession(captureScope);
-    if (!session || !captureSessionMatchesScope(session, captureScope)) {
+    const session = loadRestoreCaptureSession(captureScope, companies);
+    if (!session || !captureSessionRestorable(session, captureScope)) {
+      console.warn("Data Capture restore: no matching session in storage", {
+        scope: captureScope,
+        hasSession: Boolean(session),
+      });
       restoreInFlightRef.current = false;
       getDataCaptureState().isRestoring = false;
-      stripRestoreParamFromUrl();
       return;
     }
 
@@ -369,6 +373,7 @@ export function useDataCaptureSubmitReset({
       await callDataCaptureRuntime("syncRestoreForm", processData);
 
       stripRestoreParamFromUrl();
+      getDataCaptureState().restoreCompleted = true;
     } catch (err) {
       console.error("React restore failed:", err);
     } finally {
@@ -376,7 +381,7 @@ export function useDataCaptureSubmitReset({
       getDataCaptureState().isRestoring = false;
       recomputeSubmitState();
     }
-  }, [captureScope, recomputeSubmitState]);
+  }, [captureScope, companies, recomputeSubmitState]);
 
   const handlersRef = useRef({});
   handlersRef.current = { submit, reset, restoreFromStorage, recomputeSubmitState };
