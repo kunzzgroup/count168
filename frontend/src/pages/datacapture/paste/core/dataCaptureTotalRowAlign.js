@@ -1,16 +1,13 @@
 /**
- * TOTAL / 总数 row handling — matches the PHP site's visible result.
+ * TOTAL / 总数 row column alignment — matches the PHP site's visible result.
  *
- * PHP renders the captured TOTAL / 总数 row exactly as pasted: the label stays in
- * column 1 and its numbers follow immediately (e.g. `总数 | num1 | num2 | ...`),
- * one column to the left of the data rows' `serial | name | num1 | ...` columns.
- * It never inserts an empty name-column gap and never drops repeated values, so
- * every captured value is preserved in its original column.
- *
- * Earlier versions shifted total rows right (inserting a blank name column) to
- * line their first number up under the data rows' first numeric column, but that
- * diverges from PHP and drops the trailing column. All alignment helpers here are
- * therefore pass-throughs: the pasted matrix is rendered as captured.
+ * PHP renders the TOTAL / 总数 row with its numbers flush against the label:
+ * `总数 | num1 | num2 | ...` starting in column 2, one column to the LEFT of the
+ * data rows' `serial | name | num1 | ...` columns. If the captured total row has
+ * a blank gap between the label and its first number (e.g. `总数 | "" | num1`),
+ * that gap is removed so the first number sits in column 2. Only the gap right
+ * after the label is collapsed; the rest of the row keeps its order, and the row
+ * length is preserved by padding blanks at the end.
  */
 
 function trimCellValue(cell) {
@@ -49,6 +46,39 @@ function isTotalLabel(value) {
   const upper = raw.toUpperCase();
   if (upper === "TOTAL" || upper === "SUB TOTAL" || upper === "GRAND TOTAL") return true;
   return CJK_TOTAL_LABELS.has(raw);
+}
+
+function isNumericValue(value) {
+  const cleaned = String(value ?? "").replace(/,/g, "").trim();
+  if (cleaned === "") return false;
+  return /^-?\d+(\.\d+)?$/.test(cleaned);
+}
+
+function rowFirstNonEmptyIndex(row) {
+  for (let i = 0; i < row.length; i += 1) {
+    if (!isBlankCell(trimCellValue(row[i]))) return i;
+  }
+  return -1;
+}
+
+function rowFirstNumericIndex(row) {
+  for (let i = 0; i < row.length; i += 1) {
+    if (isNumericValue(trimCellValue(row[i]))) return i;
+  }
+  return -1;
+}
+
+/** A total row is one whose first non-empty cell is a TOTAL / 总数 label. */
+function rowIsTotalRow(row) {
+  if (!Array.isArray(row)) return false;
+  const idx = rowFirstNonEmptyIndex(row);
+  if (idx < 0) return false;
+  return isTotalLabel(trimCellValue(row[idx]));
+}
+
+function makeBlankCellLike(row) {
+  const sample = row.find((cell) => cell != null && typeof cell === "object" && "value" in cell);
+  return sample ? { value: "" } : "";
 }
 
 function rowHasTotalLabel(row) {
@@ -92,16 +122,38 @@ export function alignTotalRowArray(row) {
 }
 
 /**
- * Render TOTAL / 总数 rows exactly as captured (matches PHP).
- *
- * PHP keeps the label in column 1 with its numbers immediately after and never
- * inserts a name-column gap, so the pasted matrix is returned unchanged.
+ * Collapse the blank gap between a TOTAL / 总数 label and its first number so the
+ * total row's numbers start in column 2 (matches PHP). Cells after the first
+ * number keep their order; row length is preserved by padding blanks at the end.
  *
  * @param {Array<Array<string|object>>} matrix
  * @returns {Array<Array<string|object>>}
  */
 export function alignTotalRowsInMatrix(matrix) {
-  return matrix;
+  if (!Array.isArray(matrix) || !matrix.length) return matrix;
+  if (!matrix.some(rowIsTotalRow)) return matrix;
+
+  let changed = false;
+  const aligned = matrix.map((row) => {
+    if (!Array.isArray(row) || !rowIsTotalRow(row)) return row;
+
+    const labelIdx = rowFirstNonEmptyIndex(row);
+    const numIdx = rowFirstNumericIndex(row);
+    if (numIdx <= labelIdx + 1) return row;
+
+    const gap = numIdx - (labelIdx + 1);
+    const next = [...row];
+    next.splice(labelIdx + 1, gap);
+    for (let i = 0; i < gap; i += 1) next.push(makeBlankCellLike(row));
+    changed = true;
+    return next;
+  });
+
+  if (changed) {
+    console.log("Collapsed TOTAL row label gap so numbers start in column 2 (matches PHP).");
+  }
+
+  return aligned;
 }
 
 function getSnapshotDataText(rowData, dataColIndex) {
