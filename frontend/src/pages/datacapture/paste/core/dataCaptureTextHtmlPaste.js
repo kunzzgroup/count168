@@ -26,20 +26,6 @@ function patchFromSourceCell(sourceCell) {
   return { value: cellContent };
 }
 
-const TOTAL_LABELS = new Set(["总数", "总计", "合计", "總數", "總計", "合計"]);
-
-function isTotalLabel(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return false;
-  const upper = raw.toUpperCase();
-  return upper === "TOTAL" || upper === "SUB TOTAL" || upper === "GRAND TOTAL" || TOTAL_LABELS.has(raw);
-}
-
-function isTotalHtmlRow(sourceCells) {
-  const firstNonEmpty = sourceCells.find((cell) => String(cell.textContent || "").trim() !== "");
-  return isTotalLabel(firstNonEmpty?.textContent);
-}
-
 function buildRowPatches(sourceRow, maxCols, columnOrder) {
   const row = Array.from({ length: maxCols }, () => emptyPatch());
   const rawCells = sourceRow.querySelectorAll("td, th");
@@ -47,13 +33,11 @@ function buildRowPatches(sourceRow, maxCols, columnOrder) {
     columnOrder && rawCells.length >= columnOrder.length
       ? columnOrder.map((i) => rawCells[i])
       : Array.from(rawCells);
-  const isTotalRow = isTotalHtmlRow(sourceCells);
 
   let currentCol = 0;
 
-  sourceCells.forEach((sourceCell, sourceIdx) => {
-    const rawColspan = Number.parseInt(sourceCell.getAttribute("colspan") || "1", 10);
-    const colspan = isTotalRow && sourceIdx === 0 ? 1 : rawColspan;
+  sourceCells.forEach((sourceCell) => {
+    const colspan = Number.parseInt(sourceCell.getAttribute("colspan") || "1", 10);
 
     if (currentCol < maxCols) {
       row[currentCol] = patchFromSourceCell(sourceCell);
