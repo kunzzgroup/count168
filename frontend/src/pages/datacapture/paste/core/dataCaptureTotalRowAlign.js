@@ -1,10 +1,16 @@
 /**
- * TOTAL row column alignment — matches PHP paste behavior.
+ * TOTAL / 总数 row column alignment — matches the PHP site's visible result.
  *
- * PHP preserves the pasted TOTAL row as-is (keeps the empty name-column gap and
- * never shifts the row), so totals already line up under the data rows' numeric
- * columns. Alignment here is therefore a no-op; the helpers remain for callers
- * that still probe the name-column pattern.
+ * Data rows look like `serial | name | num1 | num2 | ...`, while a total row may
+ * arrive as `TOTAL | num1 | ...` (missing the empty name column) and end up one
+ * column to the left. `alignTotalRowsInMatrix` shifts such total rows right by
+ * inserting blank name-column cells so their first number lines up under the
+ * data rows' first numeric column. Cells are only ever inserted, never removed,
+ * so rows that already align (e.g. `TOTAL | "" | num1`) are left untouched.
+ *
+ * The per-row helper `alignTotalRowArray` stays a no-op: the grid/snapshot
+ * callers lack the full-matrix context needed to know the data number column,
+ * and by the time they run the paste matrix has already been aligned.
  */
 
 function trimCellValue(cell) {
@@ -35,9 +41,72 @@ function isNameLike(value) {
   return true;
 }
 
+const CJK_TOTAL_LABELS = new Set(["总数", "总计", "合计", "總數", "總計", "合計"]);
+
 function isTotalLabel(value) {
-  const upper = String(value || "").trim().toUpperCase();
-  return upper === "TOTAL" || upper === "SUB TOTAL" || upper === "GRAND TOTAL";
+  const raw = String(value || "").trim();
+  if (!raw) return false;
+  const upper = raw.toUpperCase();
+  if (upper === "TOTAL" || upper === "SUB TOTAL" || upper === "GRAND TOTAL") return true;
+  return CJK_TOTAL_LABELS.has(raw);
+}
+
+function isNumericValue(value) {
+  const cleaned = String(value ?? "").replace(/,/g, "").trim();
+  if (cleaned === "") return false;
+  return /^-?\d+(\.\d+)?$/.test(cleaned);
+}
+
+function rowFirstNonEmptyIndex(row) {
+  for (let i = 0; i < row.length; i += 1) {
+    if (!isBlankCell(trimCellValue(row[i]))) return i;
+  }
+  return -1;
+}
+
+function rowFirstNumericIndex(row) {
+  for (let i = 0; i < row.length; i += 1) {
+    if (isNumericValue(trimCellValue(row[i]))) return i;
+  }
+  return -1;
+}
+
+/** A total row is one whose first non-empty cell is a TOTAL / 总数 label. */
+function rowIsTotalRow(row) {
+  if (!Array.isArray(row)) return false;
+  const idx = rowFirstNonEmptyIndex(row);
+  if (idx < 0) return false;
+  return isTotalLabel(trimCellValue(row[idx]));
+}
+
+function makeBlankCellLike(row) {
+  const sample = row.find((cell) => cell != null && typeof cell === "object" && "value" in cell);
+  return sample ? { value: "" } : "";
+}
+
+/**
+ * Column index where regular (non-total) data rows begin their numeric values.
+ * Uses the most frequent first-number column among rows that have leading labels.
+ */
+function computeDataNumberColumn(matrix) {
+  const counts = new Map();
+  for (const row of matrix) {
+    if (!Array.isArray(row) || row.length < 2) continue;
+    if (rowIsTotalRow(row)) continue;
+    const numIdx = rowFirstNumericIndex(row);
+    if (numIdx < 1) continue;
+    counts.set(numIdx, (counts.get(numIdx) || 0) + 1);
+  }
+
+  let best = -1;
+  let bestCount = 0;
+  for (const [idx, count] of counts) {
+    if (count > bestCount || (count === bestCount && idx > best)) {
+      best = idx;
+      bestCount = count;
+    }
+  }
+  return best;
 }
 
 function rowHasTotalLabel(row) {
@@ -83,22 +152,38 @@ export function alignTotalRowArray(row) {
 }
 
 /**
+ * Align TOTAL / 总数 rows so their first numeric value sits under the data rows'
+ * first numeric column (matches PHP). Blank name-column cells are inserted after
+ * the label when the totals start too far left; cells are never removed.
+ *
  * @param {Array<Array<string|object>>} matrix
  * @returns {Array<Array<string|object>>}
  */
 export function alignTotalRowsInMatrix(matrix) {
   if (!Array.isArray(matrix) || !matrix.length) return matrix;
-  if (!matrixHasNameColumnPattern(matrix) && !matrix.some(rowHasTotalLabel)) return matrix;
+  if (!matrix.some(rowIsTotalRow)) return matrix;
+
+  const dataNumberCol = computeDataNumberColumn(matrix);
+  if (dataNumberCol < 1) return matrix;
 
   let changed = false;
   const aligned = matrix.map((row) => {
-    const next = alignTotalRowArray(row);
-    if (next !== row) changed = true;
+    if (!Array.isArray(row) || !rowIsTotalRow(row)) return row;
+
+    const labelIdx = rowFirstNonEmptyIndex(row);
+    const numIdx = rowFirstNumericIndex(row);
+    if (numIdx <= labelIdx || numIdx >= dataNumberCol) return row;
+
+    const padCount = dataNumberCol - numIdx;
+    const next = [...row];
+    const blanks = Array.from({ length: padCount }, () => makeBlankCellLike(row));
+    next.splice(labelIdx + 1, 0, ...blanks);
+    changed = true;
     return next;
   });
 
   if (changed) {
-    console.log("Aligned TOTAL row columns to match PHP (removed empty gap before totals).");
+    console.log("Aligned TOTAL row numbers under data columns to match PHP (inserted name-column gap).");
   }
 
   return aligned;
