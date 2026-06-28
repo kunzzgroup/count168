@@ -1,4 +1,11 @@
-/** Align TOTAL rows with PHP paste behavior — drop empty gap column(s) before numeric totals. */
+/**
+ * TOTAL row column alignment — matches PHP paste behavior.
+ *
+ * PHP preserves the pasted TOTAL row as-is (keeps the empty name-column gap and
+ * never shifts the row), so totals already line up under the data rows' numeric
+ * columns. Alignment here is therefore a no-op; the helpers remain for callers
+ * that still probe the name-column pattern.
+ */
 
 function trimCellValue(cell) {
   if (cell != null && typeof cell === "object" && "value" in cell) {
@@ -41,14 +48,6 @@ function rowHasTotalLabel(row) {
   return false;
 }
 
-function cloneTailCell(row) {
-  const tail = row[row.length - 1];
-  if (tail != null && typeof tail === "object" && "value" in tail) {
-    return { ...tail, value: "" };
-  }
-  return "";
-}
-
 /** True when regular rows use serial | code | name before numeric columns. */
 export function matrixHasNameColumnPattern(matrix) {
   if (!Array.isArray(matrix) || matrix.length < 2) return false;
@@ -71,48 +70,16 @@ export function matrixHasNameColumnPattern(matrix) {
   return false;
 }
 
-function findTotalLabelIndex(row) {
-  for (let i = 0; i < Math.min(row.length, 4); i += 1) {
-    if (isTotalLabel(trimCellValue(row[i]))) return i;
-  }
-  return -1;
-}
-
 /**
- * Remove consecutive blank cells between TOTAL label and the first data value.
- * Matches PHP: TOTAL row skips the empty name column so totals start one column earlier.
+ * Preserve the source TOTAL row exactly as pasted (matches PHP).
+ *
+ * PHP keeps the empty name-column gap after the TOTAL label and treats the row
+ * as an identifier row (never shifted), so the first total value stays under the
+ * data rows' first numeric column. Removing the gap here would shift totals one
+ * column to the left and misalign them, so this is intentionally a no-op.
  */
 export function alignTotalRowArray(row) {
-  if (!Array.isArray(row) || row.length < 3) return row;
-
-  const totalIndex = findTotalLabelIndex(row);
-  if (totalIndex < 0) return row;
-
-  let firstDataIndex = -1;
-  for (let i = totalIndex + 1; i < row.length; i += 1) {
-    const value = trimCellValue(row[i]);
-    if (!isBlankCell(value) && !isTotalLabel(value)) {
-      firstDataIndex = i;
-      break;
-    }
-  }
-
-  if (firstDataIndex <= totalIndex + 1) return row;
-
-  const next = [...row];
-  let removed = 0;
-  while (totalIndex + 1 < firstDataIndex - removed && isBlankCell(trimCellValue(next[totalIndex + 1]))) {
-    next.splice(totalIndex + 1, 1);
-    removed += 1;
-  }
-
-  if (removed === 0) return row;
-
-  while (next.length < row.length) {
-    next.push(cloneTailCell(row));
-  }
-
-  return next;
+  return row;
 }
 
 /**
