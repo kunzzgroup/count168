@@ -1,16 +1,16 @@
 /**
- * TOTAL / 总数 row column alignment — matches the PHP site's visible result.
+ * TOTAL / 总数 row handling — matches the PHP site's visible result.
  *
- * Data rows look like `serial | name | num1 | num2 | ...`, while a total row may
- * arrive as `TOTAL | num1 | ...` (missing the empty name column) and end up one
- * column to the left. `alignTotalRowsInMatrix` shifts such total rows right by
- * inserting blank name-column cells so their first number lines up under the
- * data rows' first numeric column. Cells are only ever inserted, never removed,
- * so rows that already align (e.g. `TOTAL | "" | num1`) are left untouched.
+ * PHP renders the captured TOTAL / 总数 row exactly as pasted: the label stays in
+ * column 1 and its numbers follow immediately (e.g. `总数 | num1 | num2 | ...`),
+ * one column to the left of the data rows' `serial | name | num1 | ...` columns.
+ * It never inserts an empty name-column gap and never drops repeated values, so
+ * every captured value is preserved in its original column.
  *
- * The per-row helper `alignTotalRowArray` stays a no-op: the grid/snapshot
- * callers lack the full-matrix context needed to know the data number column,
- * and by the time they run the paste matrix has already been aligned.
+ * Earlier versions shifted total rows right (inserting a blank name column) to
+ * line their first number up under the data rows' first numeric column, but that
+ * diverges from PHP and drops the trailing column. All alignment helpers here are
+ * therefore pass-throughs: the pasted matrix is rendered as captured.
  */
 
 function trimCellValue(cell) {
@@ -84,10 +84,8 @@ export function matrixHasNameColumnPattern(matrix) {
 /**
  * Preserve the source TOTAL row exactly as pasted (matches PHP).
  *
- * PHP keeps the empty name-column gap after the TOTAL label and treats the row
- * as an identifier row (never shifted), so the first total value stays under the
- * data rows' first numeric column. Removing the gap here would shift totals one
- * column to the left and misalign them, so this is intentionally a no-op.
+ * PHP renders the captured row as-is — it neither inserts a name-column gap nor
+ * removes one — so this is intentionally a no-op.
  */
 export function alignTotalRowArray(row) {
   return row;
@@ -97,10 +95,7 @@ export function alignTotalRowArray(row) {
  * Render TOTAL / 总数 rows exactly as captured (matches PHP).
  *
  * PHP keeps the label in column 1 with its numbers immediately after and never
- * inserts a name-column gap — the total row therefore sits one column to the
- * left of the data rows' numeric columns. Inserting a gap here would shift the
- * row one column right and diverge from PHP, so the pasted matrix is returned
- * unchanged.
+ * inserts a name-column gap, so the pasted matrix is returned unchanged.
  *
  * @param {Array<Array<string|object>>} matrix
  * @returns {Array<Array<string|object>>}
