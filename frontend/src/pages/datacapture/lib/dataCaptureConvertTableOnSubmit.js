@@ -48,12 +48,40 @@ function countDataCells(rowData) {
   return rowData.filter((cell) => cell?.type === "data").length;
 }
 
+function countDataCellsUntilLastValue(rowData) {
+  let lastIndex = -1;
+  rowData.forEach((cell, rowCellIndex) => {
+    if (cell?.type !== "data" || String(cell.value || "").trim() === "") return;
+    const dataIndex = typeof cell.col === "number" ? cell.col : rowCellIndex - 1;
+    lastIndex = Math.max(lastIndex, dataIndex);
+  });
+  return lastIndex + 1;
+}
+
+const LEGACY_TOTAL_AMOUNT_START_INDEX = 7;
+
+function normalizeLegacyTotalCells(values, maxLength) {
+  const normalized = values.map((value) => String(value ?? ""));
+  const missingCount = maxLength - normalized.length;
+
+  if (missingCount > 0 && normalized.length > LEGACY_TOTAL_AMOUNT_START_INDEX) {
+    normalized.splice(
+      LEGACY_TOTAL_AMOUNT_START_INDEX,
+      0,
+      ...Array.from({ length: missingCount }, () => "0.00"),
+    );
+  }
+
+  return normalized;
+}
+
 function buildConvertedTotalRow(rowIndex, values, maxLength) {
+  const normalizedValues = normalizeLegacyTotalCells(values, maxLength);
   const rowData = [{ type: "header", value: getRowLabel(rowIndex) }];
   for (let i = 0; i < maxLength; i += 1) {
     rowData.push({
       type: "data",
-      value: i < values.length ? String(values[i]).toUpperCase() : "",
+      value: i < normalizedValues.length ? normalizedValues[i].toUpperCase() : "",
       col: i,
     });
   }
@@ -163,7 +191,10 @@ export function convertTableFormatOnSubmitSnapshot(tableData, captureType) {
 
   let expectedCols = 0;
   if (subTotalRowIndex > 0) {
-    expectedCols = countDataCells(rows[subTotalRowIndex - 1]);
+    expectedCols = countDataCellsUntilLastValue(rows[subTotalRowIndex - 1]);
+    if (expectedCols <= 0) {
+      expectedCols = countDataCells(rows[subTotalRowIndex - 1]);
+    }
   }
 
   while (currentRow < rows.length) {
