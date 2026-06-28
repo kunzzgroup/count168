@@ -51,64 +51,6 @@ function isTotalLabel(value) {
   return CJK_TOTAL_LABELS.has(raw);
 }
 
-function isNumericValue(value) {
-  const cleaned = String(value ?? "").replace(/,/g, "").trim();
-  if (cleaned === "") return false;
-  return /^-?\d+(\.\d+)?$/.test(cleaned);
-}
-
-function rowFirstNonEmptyIndex(row) {
-  for (let i = 0; i < row.length; i += 1) {
-    if (!isBlankCell(trimCellValue(row[i]))) return i;
-  }
-  return -1;
-}
-
-function rowFirstNumericIndex(row) {
-  for (let i = 0; i < row.length; i += 1) {
-    if (isNumericValue(trimCellValue(row[i]))) return i;
-  }
-  return -1;
-}
-
-/** A total row is one whose first non-empty cell is a TOTAL / 总数 label. */
-function rowIsTotalRow(row) {
-  if (!Array.isArray(row)) return false;
-  const idx = rowFirstNonEmptyIndex(row);
-  if (idx < 0) return false;
-  return isTotalLabel(trimCellValue(row[idx]));
-}
-
-function makeBlankCellLike(row) {
-  const sample = row.find((cell) => cell != null && typeof cell === "object" && "value" in cell);
-  return sample ? { value: "" } : "";
-}
-
-/**
- * Column index where regular (non-total) data rows begin their numeric values.
- * Uses the most frequent first-number column among rows that have leading labels.
- */
-function computeDataNumberColumn(matrix) {
-  const counts = new Map();
-  for (const row of matrix) {
-    if (!Array.isArray(row) || row.length < 2) continue;
-    if (rowIsTotalRow(row)) continue;
-    const numIdx = rowFirstNumericIndex(row);
-    if (numIdx < 1) continue;
-    counts.set(numIdx, (counts.get(numIdx) || 0) + 1);
-  }
-
-  let best = -1;
-  let bestCount = 0;
-  for (const [idx, count] of counts) {
-    if (count > bestCount || (count === bestCount && idx > best)) {
-      best = idx;
-      bestCount = count;
-    }
-  }
-  return best;
-}
-
 function rowHasTotalLabel(row) {
   if (!Array.isArray(row)) return false;
   for (let i = 0; i < Math.min(row.length, 4); i += 1) {
@@ -152,41 +94,19 @@ export function alignTotalRowArray(row) {
 }
 
 /**
- * Align TOTAL / 总数 rows so their first numeric value sits under the data rows'
- * first numeric column (matches PHP). Blank name-column cells are inserted after
- * the label when the totals start too far left; cells are never removed.
+ * Render TOTAL / 总数 rows exactly as captured (matches PHP).
+ *
+ * PHP keeps the label in column 1 with its numbers immediately after and never
+ * inserts a name-column gap — the total row therefore sits one column to the
+ * left of the data rows' numeric columns. Inserting a gap here would shift the
+ * row one column right and diverge from PHP, so the pasted matrix is returned
+ * unchanged.
  *
  * @param {Array<Array<string|object>>} matrix
  * @returns {Array<Array<string|object>>}
  */
 export function alignTotalRowsInMatrix(matrix) {
-  if (!Array.isArray(matrix) || !matrix.length) return matrix;
-  if (!matrix.some(rowIsTotalRow)) return matrix;
-
-  const dataNumberCol = computeDataNumberColumn(matrix);
-  if (dataNumberCol < 1) return matrix;
-
-  let changed = false;
-  const aligned = matrix.map((row) => {
-    if (!Array.isArray(row) || !rowIsTotalRow(row)) return row;
-
-    const labelIdx = rowFirstNonEmptyIndex(row);
-    const numIdx = rowFirstNumericIndex(row);
-    if (numIdx <= labelIdx || numIdx >= dataNumberCol) return row;
-
-    const padCount = dataNumberCol - numIdx;
-    const next = [...row];
-    const blanks = Array.from({ length: padCount }, () => makeBlankCellLike(row));
-    next.splice(labelIdx + 1, 0, ...blanks);
-    changed = true;
-    return next;
-  });
-
-  if (changed) {
-    console.log("Aligned TOTAL row numbers under data columns to match PHP (inserted name-column gap).");
-  }
-
-  return aligned;
+  return matrix;
 }
 
 function getSnapshotDataText(rowData, dataColIndex) {
