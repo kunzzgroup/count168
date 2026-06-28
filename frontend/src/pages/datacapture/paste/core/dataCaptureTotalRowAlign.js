@@ -1,13 +1,11 @@
 /**
  * TOTAL / 总数 row column alignment — matches the PHP site's visible result.
  *
- * PHP renders the TOTAL / 总数 row with its numbers flush against the label:
- * `总数 | num1 | num2 | ...` starting in column 2, one column to the LEFT of the
- * data rows' `serial | name | num1 | ...` columns. If the captured total row has
- * a blank gap between the label and its first number (e.g. `总数 | "" | num1`),
- * that gap is removed so the first number sits in column 2. Only the gap right
- * after the label is collapsed; the rest of the row keeps its order, and the row
- * length is preserved by padding blanks at the end.
+ * PHP 1.TEXT renders Chinese total rows (总数 / 合计 …) with numbers flush against
+ * the label: `总数 | num1 | num2 | ...` starting in column 2. If the captured row
+ * has a blank gap between the label and its first number, that gap is collapsed.
+ * SUB TOTAL / GRAND TOTAL (2.Format) keep their name-column gap and are never
+ * shifted here — PHP has no equivalent alignment on the format paste path.
  */
 
 function trimCellValue(cell) {
@@ -68,12 +66,18 @@ function rowFirstNumericIndex(row) {
   return -1;
 }
 
-/** A total row is one whose first non-empty cell is a TOTAL / 总数 label. */
-function rowIsTotalRow(row) {
+/** True for 1.TEXT-style Chinese total rows (总数 / 合计 …), not SUB/GRAND TOTAL. */
+function isTextStyleTotalLabel(value) {
+  const raw = String(value || "").trim();
+  return CJK_TOTAL_LABELS.has(raw);
+}
+
+/** A 1.TEXT total row: first non-empty cell is a Chinese total label. */
+function rowIsTextStyleTotalRow(row) {
   if (!Array.isArray(row)) return false;
   const idx = rowFirstNonEmptyIndex(row);
   if (idx < 0) return false;
-  return isTotalLabel(trimCellValue(row[idx]));
+  return isTextStyleTotalLabel(trimCellValue(row[idx]));
 }
 
 function makeBlankCellLike(row) {
@@ -131,11 +135,11 @@ export function alignTotalRowArray(row) {
  */
 export function alignTotalRowsInMatrix(matrix) {
   if (!Array.isArray(matrix) || !matrix.length) return matrix;
-  if (!matrix.some(rowIsTotalRow)) return matrix;
+  if (!matrix.some(rowIsTextStyleTotalRow)) return matrix;
 
   let changed = false;
   const aligned = matrix.map((row) => {
-    if (!Array.isArray(row) || !rowIsTotalRow(row)) return row;
+    if (!Array.isArray(row) || !rowIsTextStyleTotalRow(row)) return row;
 
     const labelIdx = rowFirstNonEmptyIndex(row);
     const numIdx = rowFirstNumericIndex(row);
