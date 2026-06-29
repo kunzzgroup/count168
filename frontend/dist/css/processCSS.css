@@ -987,12 +987,15 @@ body.process-page.process-page--bank.process-page--bank-show-all #root {
     --bank-list-scroll-body-min-height: calc(
         var(--bank-list-scroll-min-visible-rows) * var(--bank-list-data-row-estimate)
     );
-    --bank-list-scrollbar-width: 5px;
-    --bank-list-scrollbar-gutter: 6px;
-    --bank-list-scrollbar-thumb: #6b7280;
-    --bank-list-scrollbar-thumb-hover: #4b5563;
-    --bank-list-scrollbar-thumb-active: #374151;
-    --bank-list-scrollbar-track: #e5e7eb;
+    --bank-list-scrollbar-width: 6px;
+    --bank-list-scrollbar-gutter: 4px;
+    --bank-list-scrollbar-thumb: #b8c0cc;
+    --bank-list-scrollbar-thumb-hover: #94a3b8;
+    --bank-list-scrollbar-thumb-active: #64748b;
+    --bank-list-scrollbar-track: transparent;
+    --bank-list-pagination-offset-bottom: calc(
+        max(10px, env(safe-area-inset-bottom, 0px)) + var(--bank-list-scrollbar-width) + 8px
+    );
 }
 
 .process-page.process-page--bank .container {
@@ -1071,6 +1074,46 @@ body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-
     overflow-x: auto !important;
     overflow-y: hidden !important;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--bank-list-scrollbar-thumb) var(--bank-list-scrollbar-track);
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar {
+    width: var(--bank-list-scrollbar-width) !important;
+    height: var(--bank-list-scrollbar-width) !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar-button,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar-track,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar-track {
+    background: var(--bank-list-scrollbar-track) !important;
+    border-radius: 999px !important;
+    margin: 0 var(--bank-list-scrollbar-gutter) !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar-thumb,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar-thumb {
+    background: var(--bank-list-scrollbar-thumb) !important;
+    border: none !important;
+    border-radius: 999px !important;
+    min-height: 24px !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar-thumb:hover,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar-thumb:hover {
+    background: var(--bank-list-scrollbar-thumb-hover) !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar-thumb:active,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar-thumb:active {
+    background: var(--bank-list-scrollbar-thumb-active) !important;
 }
 
 body.process-page.process-page--bank.process-page--bank-show-all .bank-process-list-body,
@@ -1562,7 +1605,7 @@ body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-pro
 body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .pagination-container {
     position: fixed !important;
     right: max(40px, env(safe-area-inset-right, 0px)) !important;
-    bottom: max(20px, env(safe-area-inset-bottom, 0px)) !important;
+    bottom: var(--bank-list-pagination-offset-bottom, max(28px, env(safe-area-inset-bottom, 0px))) !important;
     left: auto !important;
     top: auto !important;
     margin: 0 !important;
