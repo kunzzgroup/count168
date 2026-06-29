@@ -3211,7 +3211,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         --bank-list-cell-min-height: 26px;
         --bank-list-header-row-height: clamp(40px, 2.9vw, 48px);
         --bank-list-data-row-estimate: var(--bank-list-cell-min-height);
-        --bank-header-th-font-size: clamp(10px, 0.7vw, 12px);
+        --bank-header-th-font-size: 1.6rem;
         --bank-virtual-grid-columns:
             minmax(36px, 0.16fr) minmax(70px, 0.4fr) minmax(max-content, 0.3fr)
             minmax(108px, 0.82fr) minmax(148px, 1.68fr)
@@ -3355,7 +3355,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         --bank-list-cell-min-height: 26px;
         --bank-list-header-row-height: clamp(40px, 2.9vw, 48px);
         --bank-list-data-row-estimate: var(--bank-list-cell-min-height);
-        --bank-header-th-font-size: clamp(9px, 0.65vw, 11px);
+        --bank-header-th-font-size: 1.6rem;
         /* 列宽由上方 @2584 统一 media 定义，此处不再覆盖（避免平板 Card Owner 被挤窄） */
     }
 
