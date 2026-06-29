@@ -280,7 +280,7 @@
     /* ----------------------------------------------------
        5. Status & Role Badges (Visual Cues)
        ---------------------------------------------------- */
-    .role-badge,
+    body.ec-auth-shell:not(.user-page) .role-badge,
     .contract-badge,
     .status-badge,
     .member-badge {
@@ -297,10 +297,7 @@
         line-height: 1 !important;
     }
 
-    /* User List：Role / Status 药丸（.role-badge） */
-    body.ec-auth-shell.user-page .role-badge {
-        font-size: var(--text-tiny) !important;
-    }
+    /* User List：Role / Status 药丸由 userlist.css 固定 1.1rem，此处不覆盖 */
 
     /* ----------------------------------------------------
        6. Edit Action Buttons Sizing
@@ -715,7 +712,9 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         flex: 1 1 auto !important;
         min-height: 0 !important;
         max-height: none !important;
-        overflow: hidden !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
         display: flex !important;
         flex-direction: column !important;
         padding-bottom: 52px !important;
@@ -737,7 +736,8 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         flex: 1 1 auto !important;
         min-height: 0 !important;
         max-height: none !important;
-        overflow: hidden !important;
+        overflow-x: visible !important;
+        overflow-y: hidden !important;
         display: flex !important;
         flex-direction: column !important;
     }
@@ -745,21 +745,16 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     body.user-page:not(.user-page--show-all) .user-cards.user-cards--paged-fill {
         display: grid !important;
         grid-template-columns: 1fr !important;
-        grid-template-rows: repeat(25, minmax(0, 1fr)) !important;
-        flex: 1 1 auto !important;
+        grid-template-rows: repeat(var(--user-list-page-size, 15), minmax(0, 1fr)) !important;
+        flex: 1 1 0 !important;
         align-content: stretch !important;
     }
 
     body.user-page:not(.user-page--show-all) .user-cards.user-cards--paged-fill .user-list-row {
         flex: unset !important;
         min-height: 0 !important;
+        height: 100% !important;
         align-self: stretch !important;
-    }
-
-    body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-row .role-badge {
-        padding: 4px 10px !important;
-        letter-spacing: 0.025em !important;
-        min-width: max-content !important;
     }
 
     body.user-page:not(.user-page--show-all) .user-table-wrapper {
@@ -917,7 +912,8 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     body.user-page:not(.user-page--show-all) .user-cards {
-        overflow: hidden !important;
+        overflow-x: visible !important;
+        overflow-y: hidden !important;
         min-height: 0 !important;
     }
 
@@ -944,8 +940,7 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         align-self: stretch !important;
     }
 
-    body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-row .role-badge,
-    body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-row .role-badge {
+    body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-row .role-badge {
         padding: 4px 10px !important;
         letter-spacing: 0.025em !important;
         min-width: max-content !important;

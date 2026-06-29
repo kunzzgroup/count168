@@ -27,6 +27,8 @@ function readCssPx(el, varName, fallback) {
 function cellMinHeight(region) {
   const accountRow = readCssPx(region, "--account-list-row-min-height", 0);
   if (accountRow > 0) return accountRow;
+  const userRow = readCssPx(region, "--user-list-row-min-height", 0);
+  if (userRow > 0) return userRow;
   return readCssPx(region, "--bank-list-cell-min-height", DEFAULT_FALLBACK_ROW_HEIGHT);
 }
 
