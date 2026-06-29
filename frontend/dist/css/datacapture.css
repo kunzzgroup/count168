@@ -2072,8 +2072,9 @@ body.datacapture-page .excel-table-scroll-body .excel-table tbody td {
     top: 50%;
     right: 10px;
     transform: translateY(-50%);
-    width: 32px;
-    height: 32px;
+    z-index: 30;
+    width: 34px;
+    height: 34px;
     padding: 0;
     border: 1px solid var(--dc-border, #e2e8f0);
     border-radius: 6px;
@@ -2082,6 +2083,11 @@ body.datacapture-page .excel-table-scroll-body .excel-table tbody td {
     cursor: pointer;
     flex-shrink: 0;
     line-height: 0;
+    touch-action: manipulation;
+}
+
+.dc-table-expand-btn svg {
+    pointer-events: none;
 }
 
 .dc-table-expand-btn:hover {

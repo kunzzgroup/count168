@@ -60,6 +60,28 @@ export default function DataCaptureTableSection({
     setTableExpanded((prev) => !prev);
   }, []);
 
+  // Toggle on pointerdown (not click): clicking this button blurs the active
+  // grid cell, which can reflow the grid between mousedown/mouseup and swallow
+  // the click. Reacting on pointerdown makes a single tap/click reliable.
+  const handleExpandPointerDown = useCallback(
+    (event) => {
+      if (event.button != null && event.button !== 0) return;
+      event.preventDefault();
+      toggleTableExpanded();
+    },
+    [toggleTableExpanded],
+  );
+
+  const handleExpandKeyDown = useCallback(
+    (event) => {
+      if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+        event.preventDefault();
+        toggleTableExpanded();
+      }
+    },
+    [toggleTableExpanded],
+  );
+
   useEffect(() => {
     document.body.classList.toggle("datacapture-table-expanded", tableExpanded);
     return () => document.body.classList.remove("datacapture-table-expanded");
@@ -170,7 +192,8 @@ export default function DataCaptureTableSection({
             aria-pressed={tableExpanded}
             title={tableExpanded ? t("tableCollapse") : t("tableExpand")}
             aria-label={tableExpanded ? t("tableCollapse") : t("tableExpand")}
-            onClick={toggleTableExpanded}
+            onPointerDown={handleExpandPointerDown}
+            onKeyDown={handleExpandKeyDown}
           >
             <TableExpandIcon expanded={tableExpanded} />
           </button>
