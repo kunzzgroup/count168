@@ -143,38 +143,37 @@ export default function DataCaptureTableSection({
               </>
             ) : null}
           </div>
-          <div className="dc-table-header-end">
-            {!hideCaptureTypeSelector ? (
-              <div className="dc-table-header-controls">
-                <SimpleSelect
-                  id="dataCaptureTypeSelector"
-                  className="data-capture-type-selector"
-                  value={captureType}
-                  onChange={(v) => onCaptureTypeChange(v)}
-                  options={captureTypeOptions}
-                  includeEmptyOption={false}
-                  forcePortal
-                  portalDropdownClassName="dc-process-select-portal"
-                  ariaLabel={t("captureFormatAria")}
-                />
-                <button type="button" className="btn btn-cancel" onClick={() => onReset?.()}>
-                  {t("reset")}
-                </button>
-              </div>
-            ) : (
-              <GroupOnlyTableSizeControl t={t} engineReady={engineReady} />
-            )}
-            <button
-              type="button"
-              className="dc-table-expand-btn"
-              aria-pressed={tableExpanded}
-              title={tableExpanded ? t("tableCollapse") : t("tableExpand")}
-              aria-label={tableExpanded ? t("tableCollapse") : t("tableExpand")}
-              onClick={toggleTableExpanded}
-            >
-              <TableExpandIcon expanded={tableExpanded} />
-            </button>
-          </div>
+          {!hideCaptureTypeSelector ? (
+            <div className="dc-table-header-controls">
+              <SimpleSelect
+                id="dataCaptureTypeSelector"
+                className="data-capture-type-selector"
+                value={captureType}
+                onChange={(v) => onCaptureTypeChange(v)}
+                options={captureTypeOptions}
+                includeEmptyOption={false}
+                forcePortal
+                portalDropdownClassName="dc-process-select-portal"
+                ariaLabel={t("captureFormatAria")}
+              />
+              <button type="button" className="btn btn-cancel" onClick={() => onReset?.()}>
+                {t("reset")}
+              </button>
+            </div>
+          ) : null}
+          {hideCaptureTypeSelector ? (
+            <GroupOnlyTableSizeControl t={t} engineReady={engineReady} />
+          ) : null}
+          <button
+            type="button"
+            className="dc-table-expand-btn"
+            aria-pressed={tableExpanded}
+            title={tableExpanded ? t("tableCollapse") : t("tableExpand")}
+            aria-label={tableExpanded ? t("tableCollapse") : t("tableExpand")}
+            onClick={toggleTableExpanded}
+          >
+            <TableExpandIcon expanded={tableExpanded} />
+          </button>
         </div>
         <div className="excel-table-scroll-body" ref={tableAreaRef}>
           {gridBody}
