@@ -5,14 +5,14 @@ body.auto-renew-page-body {
   overflow-y: hidden !important;
   --auto-renew-toolbar-search-width: clamp(180px, 16vw, 240px);
   --auto-renew-toolbar-date-width: clamp(316px, 22vw, 336px);
-  --auto-renew-control-height: 20px;
+  --auto-renew-control-height: 26px;
   --auto-renew-toolbar-control-height: clamp(32px, 2.45vw, 38px);
-  --auto-renew-row-padding-y: 0px;
-  --auto-renew-row-min-height: 26px;
-  --auto-renew-pill-height: 20px;
+  --auto-renew-row-padding-y: 5px;
+  --auto-renew-row-min-height: 36px;
+  --auto-renew-pill-height: var(--auto-renew-control-height);
   --auto-renew-surface-radius: 14px;
   --auto-renew-control-radius: 10px;
-  --auto-renew-pill-radius: 6px;
+  --auto-renew-pill-radius: 999px;
 }
 
 body.auto-renew-page-body.user-page:not(.user-page--show-all) {
@@ -329,8 +329,6 @@ body.auto-renew-page-body .user-list-table.auto-renew-table .table-header.user-l
   padding-left: 22px !important;
   padding-right: 22px !important;
   box-sizing: border-box;
-  font-size: 1.6rem !important;
-  font-weight: bold !important;
   flex-shrink: 0;
 }
 
@@ -394,16 +392,16 @@ body.auto-renew-page-body .auto-renew-col-control > .auto-renew-cell-readonly {
 }
 
 body.auto-renew-page-body .user-list-table.auto-renew-table .table-header.user-list-table-header.auto-renew-table-header {
-  font-size: 1.6rem;
-  font-weight: bold;
+  font-size: var(--auto-renew-text-table-head);
+  font-weight: var(--auto-renew-weight-table-head);
   font-family: inherit;
 }
 
 body.auto-renew-page-body .user-list-table.auto-renew-table .user-list-table-header .header-item,
 body.auto-renew-page-body .auto-renew-table-row .card-item {
-  font-size: 1.4rem !important;
-  font-weight: bold !important;
-  line-height: 1.1 !important;
+  font-size: var(--auto-renew-text-table-cell) !important;
+  font-weight: var(--auto-renew-weight-table-cell) !important;
+  line-height: var(--auto-renew-line-height) !important;
   font-family: inherit;
 }
 
@@ -430,15 +428,15 @@ body.auto-renew-page-body .auto-renew-period-badge {
   flex: 0 0 auto;
   min-height: var(--auto-renew-pill-height);
   height: var(--auto-renew-pill-height);
-  padding: 0 8px;
+  padding: 0 10px;
   border-radius: var(--auto-renew-pill-radius);
   border: 1px solid rgba(124, 58, 237, 0.42);
   background: linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%);
   color: #5b21b6;
-  font-size: 1.1rem;
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: 0.02em;
+  font-size: var(--auto-renew-text-badge);
+  font-weight: var(--auto-renew-weight-badge);
+  line-height: 1;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -497,16 +495,16 @@ body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-cards.auto-
 body.auto-renew-page-body.user-page:not(.user-page--show-all) .user-cards.auto-renew-cards.auto-renew-cards--paged-fill {
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: repeat(var(--auto-renew-page-size, 15), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--auto-renew-page-size, 15), var(--auto-renew-row-min-height));
   flex: 1 1 0;
   min-height: 0;
-  align-content: stretch;
+  align-content: start;
 }
 
 body.auto-renew-page-body.user-page:not(.user-page--show-all) .user-cards.auto-renew-cards.auto-renew-cards--paged-fill .auto-renew-table-row {
   flex: unset;
-  min-height: 0;
-  height: 100%;
+  min-height: var(--auto-renew-row-min-height);
+  height: var(--auto-renew-row-min-height);
   align-items: center;
   align-self: stretch;
 }
@@ -586,7 +584,7 @@ body.auto-renew-page-body .auto-renew-table-row .card-item {
   display: flex;
   align-items: center;
   min-width: 0;
-  line-height: 1.1;
+  line-height: 1.35;
 }
 
 body.auto-renew-page-body .auto-renew-table-row .card-item > span,
@@ -627,13 +625,13 @@ body.auto-renew-page-body .auto-renew-status-badge {
   box-sizing: border-box;
   min-height: var(--auto-renew-pill-height);
   height: var(--auto-renew-pill-height);
-  padding: 0 8px;
+  padding: 0 10px;
   border-radius: var(--auto-renew-pill-radius);
   border: 1px solid transparent;
-  font-size: 1.1rem;
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: 0.02em;
+  font-size: var(--auto-renew-text-badge);
+  font-weight: var(--auto-renew-weight-badge);
+  line-height: 1;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
@@ -679,13 +677,13 @@ body.auto-renew-page-body .auto-renew-approval-badge {
   box-sizing: border-box;
   min-height: var(--auto-renew-pill-height);
   height: var(--auto-renew-pill-height);
-  padding: 0 8px;
+  padding: 0 12px;
   border-radius: var(--auto-renew-pill-radius);
   border: 1px solid transparent;
-  font-size: 1.1rem;
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: 0.02em;
+  font-size: var(--auto-renew-text-badge);
+  font-weight: var(--auto-renew-weight-badge);
+  line-height: 1;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
@@ -723,7 +721,7 @@ body.auto-renew-page-body .auto-renew-inline-select {
   padding: 0 26px 0 12px;
   border: 1px solid #e2e8f0;
   border-radius: var(--auto-renew-pill-radius);
-  font-size: 1.1rem;
+  font-size: var(--auto-renew-text-control);
   font-weight: var(--auto-renew-weight-control);
   line-height: 1.2;
   background-color: #ffffff;
@@ -817,10 +815,10 @@ body.auto-renew-page-body .auto-renew-btn {
 
 body.auto-renew-page-body .auto-renew-btn--sm {
   min-height: var(--auto-renew-control-height);
-  height: var(--auto-renew-control-height);
-  padding: 0 8px;
-  font-size: 1.1rem;
-  line-height: 1.1;
+  height: auto;
+  padding: 5px 10px;
+  font-size: var(--auto-renew-text-control);
+  line-height: 1.2;
 }
 
 body.auto-renew-page-body .auto-renew-btn:not(:disabled):active {
@@ -1226,7 +1224,7 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
 
   body.auto-renew-page-body .user-list-table.auto-renew-table .table-header.user-list-table-header .header-item,
   body.auto-renew-page-body .auto-renew-table-row .card-item {
-    line-height: 1.1 !important;
+    line-height: var(--auto-renew-line-height) !important;
   }
 
   body.auto-renew-page-body .auto-renew-inline-select {
@@ -1273,7 +1271,7 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
   body.auto-renew-page-body {
     --auto-renew-surface-radius: 12px;
     --auto-renew-control-radius: 9px;
-    --auto-renew-control-height: 20px;
+    --auto-renew-control-height: 28px;
   }
 
   body.auto-renew-page-body .auto-renew-page-header {
@@ -1308,28 +1306,28 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
 @media (max-width: 1366px) {
   body.auto-renew-page-body .search-container.userlist-search-bar .userlist-search-input,
   body.ec-auth-shell.user-page.auto-renew-page-body .search-container.userlist-search-bar .userlist-search-input {
-    font-size: 1.2rem !important;
+    font-size: var(--auto-renew-text-toolbar) !important;
   }
 
   body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip__label {
-    font-size: 1.2rem !important;
+    font-size: var(--auto-renew-text-toolbar) !important;
   }
 
   body.auto-renew-page-body .user-list-table.auto-renew-table .user-list-table-header,
   body.auto-renew-page-body .user-list-table.auto-renew-table .table-header.user-list-table-header.auto-renew-table-header,
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table .user-list-table-header {
-    font-size: 1.6rem !important;
-    font-weight: bold !important;
+    font-size: var(--auto-renew-text-table-head) !important;
+    font-weight: var(--auto-renew-weight-table-head) !important;
     font-family: inherit;
   }
 
   body.auto-renew-page-body .user-list-table.auto-renew-table .user-list-table-header .header-item,
   body.auto-renew-page-body .user-list-table.auto-renew-table .auto-renew-table-row .card-item,
   body.ec-auth-shell.user-page.auto-renew-page-body:not(.user-page--show-all) .auto-renew-table-row .card-item {
-    font-size: 1.4rem !important;
-    font-weight: bold !important;
+    font-size: var(--auto-renew-text-table-cell) !important;
+    font-weight: var(--auto-renew-weight-table-cell) !important;
     font-family: inherit;
-    line-height: 1.1 !important;
+    line-height: var(--auto-renew-line-height) !important;
     letter-spacing: normal !important;
   }
 
@@ -1341,9 +1339,9 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
   body.ec-auth-shell.user-page.auto-renew-page-body:not(.user-page--show-all) .auto-renew-table-row .card-item:nth-child(6),
   body.auto-renew-page-body .user-list-table.auto-renew-table .user-list-table-header .header-item:nth-child(5),
   body.auto-renew-page-body .user-list-table.auto-renew-table .user-list-table-header .header-item:nth-child(6) {
-    font-size: 1.4rem !important;
-    font-weight: bold !important;
-    line-height: 1.1 !important;
+    font-size: var(--auto-renew-text-table-cell) !important;
+    font-weight: var(--auto-renew-weight-table-cell) !important;
+    line-height: var(--auto-renew-line-height) !important;
   }
 
   body.auto-renew-page-body .auto-renew-date-range-group #date-range-display {
