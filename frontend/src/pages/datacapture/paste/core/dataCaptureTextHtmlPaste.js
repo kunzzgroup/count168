@@ -34,23 +34,13 @@ function buildRowPatches(sourceRow, maxCols, columnOrder) {
       ? columnOrder.map((i) => rawCells[i])
       : Array.from(rawCells);
 
-  let currentCol = 0;
-
-  sourceCells.forEach((sourceCell) => {
-    const colspan = Number.parseInt(sourceCell.getAttribute("colspan") || "1", 10);
-
-    if (currentCol < maxCols) {
-      row[currentCol] = patchFromSourceCell(sourceCell);
+  // Match PHP 1.TEXT: place each source cell left-to-right, one column each,
+  // ignoring colspan. Expanding colspan into blank columns would push a
+  // spanning label row (e.g. "SUB (MYR)") one column to the right of PHP.
+  sourceCells.forEach((sourceCell, index) => {
+    if (index < maxCols) {
+      row[index] = patchFromSourceCell(sourceCell);
     }
-
-    for (let i = 1; i < colspan; i += 1) {
-      currentCol += 1;
-      if (currentCol < maxCols) {
-        row[currentCol] = emptyPatch();
-      }
-    }
-
-    currentCol += 1;
   });
 
   return row;
