@@ -365,8 +365,6 @@ export default function UserListPage() {
       bootLoading,
       companyId,
       selectedGroup,
-      groupAllMode,
-      groupsAllMode,
       showBulkDeleteColumn,
     ],
   });
