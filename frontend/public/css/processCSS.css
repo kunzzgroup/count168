@@ -282,6 +282,25 @@ body.ec-auth-shell.process-page:not(.process-page--bank) .search-container.userl
     font-size: 1.2rem !important;
 }
 
+/* Bank Process toolbar：与 Account / User List 保持同一字号标准 */
+body.ec-auth-shell.process-page.process-page--bank .action-buttons .btn {
+    font-size: 1.4rem !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .user-gc-segment {
+    padding: 4px 18px !important;
+    font-size: 1.2rem !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .user-filter-chip {
+    font-size: 1.2rem !important;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .search-container.userlist-search-bar .userlist-search-input,
+body.ec-auth-shell.process-page.process-page--bank .search-container.userlist-search-bar .userlist-search-input.search-input {
+    font-size: 1.2rem !important;
+}
+
 .process-page .process-company-filter {
     display: flex;
     align-items: center;
@@ -696,18 +715,20 @@ body.ec-auth-shell.process-page:not(.process-page--bank) .search-container.userl
 
 .process-page .bank-status-button {
     width: auto;
-    min-width: 0;
+    min-width: max-content;
     max-width: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 24px;
-    padding: 4px 12px;
-    border-radius: 999px;
+    height: var(--bank-list-pill-height, 20px);
+    min-height: var(--bank-list-pill-height, 20px);
+    padding: 0 8px;
+    border-radius: 6px;
     border: 1px solid #cbd5e1;
-    font-size: clamp(7px, 0.63vw, 12px);
-    font-weight: bolder;
+    font-size: 1.1rem;
+    font-weight: 700;
     line-height: 1.1;
+    letter-spacing: 0.02em;
     text-align: center;
     white-space: nowrap;
     overflow: visible;
@@ -1041,10 +1062,15 @@ body.process-page.process-page--bank.process-page--bank-show-all .content {
 }
 
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
-body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
-body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
-body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region {
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body {
     overflow: hidden !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
 }
 
 body.process-page.process-page--bank.process-page--bank-show-all .bank-process-list-body,
@@ -1113,24 +1139,26 @@ body.process-page.process-page--bank.process-page--bank-show-all .bank-process-l
 
 /* —— Bank virtual table（表头/数据行 subgrid 共用列轨道，铺满宽度无横向滚动）—— */
 .process-page.process-page--bank {
-    --bank-list-cell-padding-y: clamp(4px, 0.4vw, 5px);
+    --bank-list-cell-padding-y: 0;
     --bank-list-cell-padding-x: clamp(6px, 0.65vw, 12px);
-    --bank-list-cell-min-height: clamp(28px, 2.4vw, 30px);
+    --bank-list-cell-min-height: 26px;
+    --bank-list-pill-height: 20px;
     --bank-list-header-row-height: clamp(40px, 2.8vw, 48px);
-    --bank-list-cell-line-height: 1.35;
+    --bank-list-cell-line-height: 1.1;
+    --bank-virtual-table-min-width: 1440px;
     /* Country / Insurance / Customer 列设最小像素宽，保证表头英文标题+排序角标完整显示 */
     --bank-virtual-grid-columns:
         minmax(36px, 0.34fr) minmax(0, 0.62fr) minmax(max-content, 0.44fr)
         minmax(max-content, 1.08fr) minmax(140px, 1.68fr)
         minmax(0, 0.6fr) minmax(max-content, 0.56fr) minmax(max-content, 0.5fr)
         minmax(0, 0.56fr) minmax(0, 0.56fr) minmax(0, 0.56fr)
-        minmax(0, 0.6fr) minmax(0, 0.56fr) max-content;
+        minmax(max-content, 0.6fr) minmax(0, 0.56fr) max-content;
     --bank-virtual-grid-columns-with-select:
         minmax(36px, 0.34fr) minmax(0, 0.62fr) minmax(max-content, 0.44fr)
         minmax(max-content, 1.08fr) minmax(140px, 1.68fr)
         minmax(0, 0.6fr) minmax(max-content, 0.56fr) minmax(max-content, 0.5fr)
         minmax(0, 0.56fr) minmax(0, 0.56fr) minmax(0, 0.56fr)
-        minmax(0, 0.6fr) minmax(0, 0.56fr) max-content max-content;
+        minmax(max-content, 0.6fr) minmax(0, 0.56fr) max-content max-content;
     --bank-virtual-grid-active: var(--bank-virtual-grid-columns);
 }
 
@@ -1142,8 +1170,9 @@ body.process-page.process-page--bank.process-page--bank-show-all .bank-process-l
     display: flex;
     flex-direction: column;
     overflow: visible;
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
 }
 
 .process-page.process-page--bank .bank-virtual-table {
@@ -1153,7 +1182,8 @@ body.process-page.process-page--bank.process-page--bank-show-all .bank-process-l
     min-height: 0;
     height: auto;
     width: 100%;
-    max-width: 100%;
+    min-width: max(100%, var(--bank-virtual-table-min-width, 1440px));
+    max-width: none;
     overflow: visible;
     -webkit-overflow-scrolling: touch;
 }
@@ -1161,7 +1191,7 @@ body.process-page.process-page--bank.process-page--bank-show-all .bank-process-l
 .process-page.process-page--bank .bank-virtual-table-inner {
     min-width: 0;
     width: 100%;
-    max-width: 100%;
+    max-width: none;
     display: grid;
     grid-template-columns: var(--bank-virtual-grid-active);
     grid-template-rows: auto auto;
@@ -1186,7 +1216,7 @@ body.process-page.process-page--bank.process-page--bank-show-all .bank-process-l
     align-items: stretch;
     width: 100%;
     min-width: 0;
-    max-width: 100%;
+    max-width: none;
     box-sizing: border-box;
     gap: 0;
     column-gap: 0;
@@ -1252,12 +1282,12 @@ body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-vir
 body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
     flex: 1 1 auto;
     max-height: 100%;
-    overflow-x: hidden !important;
+    overflow-x: visible !important;
     overflow-y: hidden !important;
 }
 
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
-    overflow-x: hidden !important;
+    overflow-x: auto !important;
     overflow-y: hidden !important;
 }
 
@@ -1349,7 +1379,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     background: transparent;
     color: #ffffff;
     font-weight: bold;
-    font-size: var(--text-base);
+    font-size: 1.6rem;
     line-height: 1.2;
     padding: var(--bank-list-cell-padding-y) var(--bank-list-cell-padding-x);
     text-align: center;
@@ -1387,7 +1417,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 }
 
 .process-page.process-page--bank .bank-virtual-cell {
-    font-size: var(--text-medium);
+    font-size: 1.4rem;
     font-weight: var(--font-weight-bold);
     color: #374151;
     line-height: var(--bank-list-cell-line-height);
@@ -1479,8 +1509,15 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 }
 
 .process-page.process-page--bank .contract-badge {
-    padding: 0 clamp(3px, 0.38vw, 7px);
-    font-size: clamp(8px, 0.64vw, 12px);
+    box-sizing: border-box;
+    height: var(--bank-list-pill-height, 20px);
+    min-height: var(--bank-list-pill-height, 20px);
+    padding: 0 8px;
+    border-radius: 6px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
 }
 
 /* 标题行外层 div 的 margin 不再缩减，保持与 processlist.php 一致（inline margin: 20px 生效） */
@@ -3143,10 +3180,10 @@ body.process-page.process-page--bank .bank-col-status .bank-status-dropdown {
 }
 
 body.process-page.process-page--bank .bank-col-status .bank-status-button {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    flex-shrink: 1;
+    width: max-content;
+    max-width: none;
+    min-width: max-content;
+    flex-shrink: 0;
     box-sizing: border-box;
 }
 
@@ -3170,29 +3207,23 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
 @media (max-width: 1699px) {
     .process-page.process-page--bank {
         --bank-list-cell-padding-x: clamp(4px, 0.42vw, 8px);
-        --bank-list-cell-line-height: 1.28;
-        --bank-list-cell-min-height: clamp(28px, 2.6vw, 36px);
+        --bank-list-cell-line-height: 1.1;
+        --bank-list-cell-min-height: 26px;
         --bank-list-header-row-height: clamp(40px, 2.9vw, 48px);
-        --bank-list-data-row-estimate: max(
-            var(--bank-list-cell-min-height),
-            calc(
-                2 * var(--bank-list-cell-padding-y)
-                + 2 * var(--bank-list-cell-line-height) * var(--text-medium, 14px)
-            )
-        );
+        --bank-list-data-row-estimate: var(--bank-list-cell-min-height);
         --bank-header-th-font-size: clamp(10px, 0.7vw, 12px);
         --bank-virtual-grid-columns:
             minmax(36px, 0.16fr) minmax(70px, 0.4fr) minmax(max-content, 0.3fr)
             minmax(108px, 0.82fr) minmax(148px, 1.68fr)
             minmax(max-content, 0.4fr) minmax(max-content, 0.34fr) minmax(max-content, 0.32fr)
             minmax(42px, 0.36fr) minmax(46px, 0.36fr) minmax(48px, 0.36fr)
-            minmax(56px, 0.48fr) minmax(90px, 0.54fr) max-content;
+            minmax(max-content, 0.48fr) minmax(90px, 0.54fr) max-content;
         --bank-virtual-grid-columns-with-select:
             minmax(36px, 0.16fr) minmax(70px, 0.4fr) minmax(max-content, 0.3fr)
             minmax(108px, 0.82fr) minmax(148px, 1.68fr)
             minmax(max-content, 0.4fr) minmax(max-content, 0.34fr) minmax(max-content, 0.32fr)
             minmax(42px, 0.36fr) minmax(46px, 0.36fr) minmax(48px, 0.36fr)
-            minmax(56px, 0.48fr) minmax(90px, 0.54fr) max-content max-content;
+            minmax(max-content, 0.48fr) minmax(90px, 0.54fr) max-content max-content;
     }
 
     /* 表头：单行对齐；角标 ↕/▲/▼ 贴列右上，文字同一基线 */
@@ -3230,12 +3261,14 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
     }
 
     .process-page.process-page--bank .bank-status-button {
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        flex-shrink: 1 !important;
-        font-size: clamp(8px, 0.68vw, 10px) !important;
-        padding: 0 6px !important;
+        width: max-content !important;
+        max-width: none !important;
+        min-width: max-content !important;
+        flex-shrink: 0 !important;
+        height: var(--bank-list-pill-height, 20px) !important;
+        min-height: var(--bank-list-pill-height, 20px) !important;
+        font-size: 1.1rem !important;
+        padding: 0 8px !important;
     }
 
     body.process-page.process-page--bank .bank-process-table-region .bank-col-contract.bank-virtual-th,
@@ -3317,17 +3350,11 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
     }
     .process-page.process-page--bank {
         --bank-list-cell-padding-x: clamp(3px, 0.38vw, 6px);
-        --bank-list-cell-padding-y: clamp(4px, 0.4vw, 5px);
-        --bank-list-cell-line-height: 1.28;
-        --bank-list-cell-min-height: clamp(28px, 2.6vw, 36px);
+        --bank-list-cell-padding-y: 0;
+        --bank-list-cell-line-height: 1.1;
+        --bank-list-cell-min-height: 26px;
         --bank-list-header-row-height: clamp(40px, 2.9vw, 48px);
-        --bank-list-data-row-estimate: max(
-            var(--bank-list-cell-min-height),
-            calc(
-                2 * var(--bank-list-cell-padding-y)
-                + 2 * var(--bank-list-cell-line-height) * var(--text-medium, 14px)
-            )
-        );
+        --bank-list-data-row-estimate: var(--bank-list-cell-min-height);
         --bank-header-th-font-size: clamp(9px, 0.65vw, 11px);
         /* 列宽由上方 @2584 统一 media 定义，此处不再覆盖（避免平板 Card Owner 被挤窄） */
     }
@@ -3533,11 +3560,14 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         word-break: keep-all !important;
         overflow-wrap: normal !important;
         text-align: center;
-        line-height: 1.2;
+        height: var(--bank-list-pill-height, 20px) !important;
+        min-height: var(--bank-list-pill-height, 20px) !important;
+        font-size: 1.1rem !important;
+        line-height: 1.1 !important;
         overflow: visible;
         text-overflow: clip;
-        padding: 1px clamp(5px, 0.42vw, 8px);
-        font-size: clamp(8px, 0.62vw, 11px);
+        padding: 0 8px !important;
+        font-size: 1.1rem !important;
         box-sizing: border-box;
     }
 
@@ -3617,17 +3647,32 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
 
     /* 非 Show All + auto 分页：保留一屏 flex 链与 subgrid（上方 flex:0 / overflow:visible 会破坏窄屏布局） */
     body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region {
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body {
         flex: 1 1 auto !important;
         min-height: 0 !important;
         overflow: hidden !important;
     }
 
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
     body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        max-height: 100% !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+    }
+
     body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region,
     body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table {
         flex: 1 1 auto !important;
         min-height: 0 !important;
@@ -3652,7 +3697,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         display: grid !important;
         grid-template-columns: subgrid !important;
         grid-template-rows: auto !important;
-        overflow-x: hidden !important;
+        overflow-x: visible !important;
         overflow-y: hidden !important;
     }
 
@@ -3680,13 +3725,13 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
             minmax(100px, 0.72fr) minmax(72px, 1.05fr)
             minmax(max-content, 0.38fr) minmax(max-content, 0.32fr) minmax(max-content, 0.3fr)
             minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
-            minmax(52px, 0.46fr) minmax(88px, 0.56fr) max-content;
+            minmax(max-content, 0.46fr) minmax(88px, 0.56fr) max-content;
         --bank-virtual-grid-columns-with-select:
             minmax(36px, 0.14fr) minmax(66px, 0.4fr) minmax(max-content, 0.28fr)
             minmax(100px, 0.72fr) minmax(72px, 1.05fr)
             minmax(max-content, 0.38fr) minmax(max-content, 0.32fr) minmax(max-content, 0.3fr)
             minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
-            minmax(52px, 0.46fr) minmax(88px, 0.56fr) max-content max-content;
+            minmax(max-content, 0.46fr) minmax(88px, 0.56fr) max-content max-content;
     }
 
     body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-th,
@@ -3710,8 +3755,11 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-contract .contract-badge {
         width: max-content;
         max-width: none;
-        font-size: clamp(8px, 0.6vw, 10px);
-        padding: 1px clamp(4px, 0.35vw, 7px);
+        height: var(--bank-list-pill-height, 20px) !important;
+        min-height: var(--bank-list-pill-height, 20px) !important;
+        font-size: 1.1rem !important;
+        padding: 0 8px !important;
+        line-height: 1.1 !important;
         white-space: nowrap !important;
         word-break: keep-all !important;
         overflow: visible;
@@ -4090,25 +4138,49 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: var(--bank-action-btn-size);
-    height: var(--bank-action-btn-size);
-    min-width: var(--bank-action-btn-size);
-    min-height: var(--bank-action-btn-size);
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
     padding: 0;
     margin: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #374151;
     flex-shrink: 0;
+    box-shadow: none;
+    transition: background 0.12s ease;
+}
+
+.process-page.process-page--bank .bank-action-tools .edit-btn:hover:not(:disabled),
+.process-page.process-page--bank .bank-action-tools .remark-action-btn:hover:not(:disabled),
+.process-page.process-page--bank .bank-action-tools .bank-resend-btn:hover:not(:disabled),
+.process-page.process-page--bank .bank-action-tools .bank-resent-btn:hover:not(:disabled) {
+    background: #c5ccd6;
+    color: #1f2937;
+    box-shadow: none;
+    transform: none;
+}
+
+.process-page.process-page--bank .bank-action-tools .edit-btn:active:not(:disabled),
+.process-page.process-page--bank .bank-action-tools .remark-action-btn:active:not(:disabled),
+.process-page.process-page--bank .bank-action-tools .bank-resend-btn:active:not(:disabled),
+.process-page.process-page--bank .bank-action-tools .bank-resent-btn:active:not(:disabled) {
+    background: #b3bbc7;
+    transform: none;
 }
 
 .process-page.process-page--bank .bank-action-tools .edit-btn img,
 .process-page.process-page--bank .bank-action-tools .remark-action-btn svg,
 .process-page.process-page--bank .bank-action-tools .bank-resend-btn svg,
 .process-page.process-page--bank .bank-action-tools .bank-resent-btn svg {
-    width: var(--bank-action-icon-size);
-    height: var(--bank-action-icon-size);
+    width: 16px;
+    height: 16px;
     display: block;
     object-fit: contain;
     color: currentColor;
-    filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
+    filter: none;
 }
 
 .process-page .bank-action-tools .remark-action-btn {

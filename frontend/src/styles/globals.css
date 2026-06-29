@@ -159,3 +159,15 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .process
   overflow-x: visible !important;
   overflow-y: hidden !important;
 }
+
+/* Bank Process List — 多列表格使用局部横向滚动，不压缩到不可读 */
+body.ec-auth-shell.process-page.process-page--bank .bank-process-list-scroll-region,
+body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper.bank-process-table-region {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.ec-auth-shell.process-page.process-page--bank .bank-virtual-table {
+  min-width: max(100%, var(--bank-virtual-table-min-width, 1440px));
+}

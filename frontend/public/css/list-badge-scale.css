@@ -11,9 +11,9 @@
 
   /* Status / Role pills（不含 Account / User / Games Process 分页表） */
   body.ec-auth-shell:not(.user-page):not(.process-page) .role-badge,
-  body.ec-auth-shell .contract-badge,
-  body.ec-auth-shell .status-badge,
-  body.ec-auth-shell .member-badge {
+  body.ec-auth-shell:not(.process-page) .contract-badge,
+  body.ec-auth-shell:not(.process-page) .status-badge,
+  body.ec-auth-shell:not(.process-page) .member-badge {
     font-size: 8px !important;
     padding: 1px 6px !important;
     border-radius: 20px !important;

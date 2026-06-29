@@ -262,6 +262,30 @@
         padding: 0 !important;
     }
 
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-th {
+        font-size: 1.6rem !important;
+        line-height: 1.2 !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-cell {
+        min-height: var(--bank-list-cell-min-height, 26px) !important;
+        font-size: 1.4rem !important;
+        line-height: 1.1 !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank .bank-status-button,
+    body.ec-auth-shell.process-page.process-page--bank .bank-contract-pill {
+        box-sizing: border-box !important;
+        height: var(--bank-list-pill-height, 20px) !important;
+        min-height: var(--bank-list-pill-height, 20px) !important;
+        padding: 0 8px !important;
+        font-size: 1.1rem !important;
+        line-height: 1.1 !important;
+        border-radius: 6px !important;
+        white-space: nowrap !important;
+        min-width: max-content !important;
+    }
+
     /* Stop Bank badges from overflowing horizontally due to global constraints */
     .process-page.process-page--bank .bank-data-table .contract-badge,
     .process-page.process-page--bank .bank-data-table .status-badge {
@@ -858,11 +882,22 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table {
         overflow: hidden !important;
+        max-height: none !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
+        max-height: none !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
+        overflow-x: visible !important;
+        overflow-y: hidden !important;
         max-height: none !important;
     }
 
@@ -898,11 +933,19 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table {
         overflow: hidden !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
+        overflow-x: visible !important;
+        overflow-y: hidden !important;
     }
 
     body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .pagination-container {
