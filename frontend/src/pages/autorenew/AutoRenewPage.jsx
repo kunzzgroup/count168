@@ -554,7 +554,7 @@ export default function AutoRenewPage() {
     rowSelector: ".auto-renew-table-row",
     headerSelector: ".auto-renew-table-header",
     paginationSelector: ".pagination-container",
-    minRows: PAGE_SIZE_MIN,
+    minRows: Math.max(PAGE_SIZE_MIN, 15),
     maxRows: PAGE_SIZE_MAX,
     stableRowHeight: true,
     remeasureDeps: [
@@ -868,7 +868,7 @@ export default function AutoRenewPage() {
               <div
                 className={`user-cards auto-renew-cards${!showAll && displayRows.length > 0 ? " auto-renew-cards--paged-fill" : ""}`}
                 aria-busy={listRefreshing || Boolean(busyRequestId)}
-                style={!showAll && displayRows.length > 0 ? { "--auto-renew-page-size": Math.max(pageSize, displayRows.length) } : undefined}
+                style={!showAll && displayRows.length > 0 ? { "--auto-renew-page-size": Math.max(pageSize, displayRows.length, 15) } : undefined}
               >
                 {displayRows.length === 0 ? (
                   <EmptyState statusFilter={statusFilter} searchTerm={searchTerm} t={t} />
