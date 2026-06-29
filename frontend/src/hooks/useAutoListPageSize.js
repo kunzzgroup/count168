@@ -29,6 +29,8 @@ function cellMinHeight(region) {
   if (accountRow > 0) return accountRow;
   const userRow = readCssPx(region, "--user-list-row-min-height", 0);
   if (userRow > 0) return userRow;
+  const processRow = readCssPx(region, "--games-process-row-min-height", 0);
+  if (processRow > 0) return processRow;
   return readCssPx(region, "--bank-list-cell-min-height", DEFAULT_FALLBACK_ROW_HEIGHT);
 }
 

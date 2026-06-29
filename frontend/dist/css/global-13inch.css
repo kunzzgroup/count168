@@ -169,8 +169,8 @@
     }
 
     /* Process List（Games 等）：与 User / Account 表头一致 — 字号 + padding token */
-    body.ec-auth-shell.process-page .table-header:not(.bank-virtual-head-row) {
-        font-size: var(--text-base) !important;
+    body.ec-auth-shell.process-page:not(.process-page--bank) .table-header:not(.bank-virtual-head-row) {
+        font-size: 1.6rem !important;
         padding: var(--table-header-height) !important;
     }
 
@@ -426,6 +426,12 @@
     body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-table-header .header-item,
     body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-row .card-item {
         padding: 0 !important;
+    }
+
+    body.ec-auth-shell.process-page:not(.process-page--bank):not(.process-page--show-all) .games-process-row .card-item {
+        font-size: 1.4rem !important;
+        font-weight: bold !important;
+        line-height: 1.1 !important;
     }
 
     /* ----------------------------------------------------
@@ -941,8 +947,14 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-row .role-badge {
-        padding: 4px 10px !important;
-        letter-spacing: 0.025em !important;
+        box-sizing: border-box !important;
+        height: var(--games-process-pill-height, 20px) !important;
+        padding: 0 8px !important;
+        line-height: 1.1 !important;
+        font-size: 1.1rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.02em !important;
+        border-radius: 6px !important;
         min-width: max-content !important;
         flex-shrink: 0;
         white-space: nowrap;
@@ -989,7 +1001,9 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         flex: 1 1 auto !important;
         min-height: 0 !important;
         max-height: none !important;
-        overflow: hidden !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
         display: flex !important;
         flex-direction: column !important;
         padding-bottom: 52px !important;
@@ -1000,9 +1014,27 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         flex: 1 1 auto !important;
         min-height: 0 !important;
         max-height: none !important;
-        overflow: hidden !important;
+        overflow-x: visible !important;
+        overflow-y: hidden !important;
         display: flex !important;
         flex-direction: column !important;
+    }
+
+    body.process-page:not(.process-page--bank):not(.process-page--show-all) .process-cards.process-cards--paged-fill:not(.bank-virtual-scroll) {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        grid-template-rows: repeat(var(--games-process-page-size, 15), minmax(0, 1fr)) !important;
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+        align-content: stretch !important;
+    }
+
+    body.process-page:not(.process-page--bank):not(.process-page--show-all) .process-cards.process-cards--paged-fill .games-process-row {
+        flex: unset !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        align-items: center !important;
+        align-self: stretch !important;
     }
 
     /* Games Process List Show All：小屏下覆盖 global unlock，整页可滚 */

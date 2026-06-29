@@ -142,3 +142,20 @@ body.user-page:not(.user-page--show-all) .user-cards {
   overflow-x: visible !important;
   overflow-y: hidden !important;
 }
+
+/* Games Process List — 全宽度横向滚动安全网（与 Account List 同模式） */
+body.ec-auth-shell.process-page:not(.process-page--bank) .process-table-wrapper {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-table-header,
+body.ec-auth-shell.process-page:not(.process-page--bank) .process-cards {
+  min-width: max(100%, var(--list-table-min-width, 980px));
+}
+
+body.process-page:not(.process-page--bank):not(.process-page--show-all) .process-cards {
+  overflow-x: visible !important;
+  overflow-y: hidden !important;
+}
