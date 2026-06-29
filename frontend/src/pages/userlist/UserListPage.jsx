@@ -42,6 +42,7 @@ import {
   canClearCompanySelection,
   canUseGroupOnlyMode,
   companyLoginRequiresSubsidiaryWithGroup,
+  filterCompaniesForAssignedScope,
   isCompanyLogin,
   isGroupLedgerMode,
   isGroupLogin,
@@ -427,7 +428,10 @@ export default function UserListPage() {
           navigate(landing || spaPath("login"), { replace: true });
           return;
         }
-        const rows = (await fetchOwnerCompaniesAll()).map(normalizeCompanyRow);
+        const rows = filterCompaniesForAssignedScope(
+          (await fetchOwnerCompaniesAll()).map(normalizeCompanyRow),
+          me,
+        );
         if (cancelled) return;
         setCompanies(rows);
         applyLoginScopeToSessionStorageIfNeeded(me, rows);
