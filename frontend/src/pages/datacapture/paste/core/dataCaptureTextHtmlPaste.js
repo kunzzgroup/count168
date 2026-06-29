@@ -2,7 +2,7 @@ import { applyDataMatrixToGrid, notifyPasteSuccess } from "./dataCapturePasteApp
 import { recomputeSubmitStateAfterPaste } from "../../lib/dataCaptureBridge.js";
 import {
   detectColumnReorder,
-  measureHtmlTable,
+  measureTopLevelTables,
   sanitizePastedCellHtml,
 } from "./dataCaptureClipboard.js";
 import { alignTotalRowsInMatrix } from "./dataCaptureTotalRowAlign.js";
@@ -58,7 +58,10 @@ export function parseAndFillHtmlTableForText(htmlString, anchorCell) {
     const table = tempDiv.querySelector("table");
     if (!table) return false;
 
-    const measured = measureHtmlTable(table);
+    // Collect rows across every top-level table: some reports split the data
+    // rows and the TOTAL footer row into separate sibling tables, so reading
+    // only the first table would drop the TOTAL row (matches the PHP site).
+    const measured = measureTopLevelTables(tempDiv);
     if (!measured) return false;
 
     const { allRows, maxCols } = measured;
