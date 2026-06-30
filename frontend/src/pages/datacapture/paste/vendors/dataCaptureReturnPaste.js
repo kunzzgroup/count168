@@ -1,26 +1,82 @@
 /** API_RETURN & 4.RETURN paste. */
 import {
   extractReturnExpressionTokens,
-  isReturnFormulaLikeCell,
+  isReturnFormulaCell,
+  normalizeReturnPasteCell,
   parseApiReturnFormat,
   parseApiReturnTableFormat,
   smartSplitPreservingDates,
 } from "../core/dataCaptureApiReturnParsers.js";
-
+import {
+  detectHtmlTableInClipboard,
+  getClipboardHtml,
+  measureTopLevelTables,
+} from "../core/dataCaptureClipboard.js";
 
 import { applyParsedMatrixToGrid } from "../core/dataCapturePasteApply.js";
 import { notifyPasteUser, recomputeSubmitStateAfterPaste } from "../../lib/dataCaptureBridge.js";
 
 function fillReturnDataMatrix(dataMatrix, anchorCell) {
-  return applyParsedMatrixToGrid(dataMatrix, anchorCell, { trimValues: true });
+  return applyParsedMatrixToGrid(dataMatrix, anchorCell, {
+    trimValues: true,
+    alignTotalRows: false,
+  });
 }
 
-/** Match PHP: collapse newlines / runs of whitespace inside a pasted RETURN cell. */
-function normalizeReturnPasteCell(raw) {
-  return String(raw == null ? "" : raw)
-    .replace(/[\r\n\u2028\u2029]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+function padReturnMatrixRows(dataMatrix) {
+  if (!dataMatrix?.length) return 0;
+  const maxCols = Math.max(...dataMatrix.map((row) => row.length));
+  dataMatrix.forEach((row) => {
+    while (row.length < maxCols) row.push("");
+  });
+  return maxCols;
+}
+
+function buildReturnMatrixFromClipboardHtml(e, processReturnRowTabCells) {
+  const html = getClipboardHtml(e) || detectHtmlTableInClipboard(e);
+  if (!html || !/<table\b/i.test(html)) return null;
+
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = html;
+  const measured = measureTopLevelTables(tempDiv);
+  if (!measured) return null;
+
+  const { allRows, maxCols } = measured;
+  const matrix = [];
+  allRows.forEach((sourceRow, rowIndex) => {
+    const row = Array(maxCols).fill("");
+    const cells = sourceRow.querySelectorAll("td, th");
+    cells.forEach((cell, index) => {
+      if (index < maxCols) {
+        row[index] = normalizeReturnPasteCell(cell.textContent || "");
+      }
+    });
+    processReturnRowTabCells(row, rowIndex + 1);
+    matrix.push(row);
+  });
+
+  return matrix.length ? matrix : null;
+}
+
+function applyReturnMatrix(dataMatrix, anchorCell, successMessage) {
+  if (!dataMatrix?.length) return false;
+  const maxCols = padReturnMatrixRows(dataMatrix);
+  if (maxCols <= 0) return false;
+
+  const { successCount, maxRows, maxCols: cols } = fillReturnDataMatrix(dataMatrix, anchorCell);
+  if (successCount > 0) {
+    notifyPasteUser(
+      successMessage ||
+        `成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${cols} 列)! 按 Ctrl+Z 可撤销`,
+      "success",
+    );
+    recomputeSubmitStateAfterPaste();
+    return true;
+  }
+
+  notifyPasteUser("No cells were pasted from 4.RETURN format.", "danger");
+  recomputeSubmitStateAfterPaste();
+  return false;
 }
 
 /** @returns {boolean} */
@@ -357,7 +413,7 @@ export function handleApiReturnPaste(e, pastedData) {
 /** @returns {boolean} */
 export function handle4ReturnPaste(e, pastedData) {
         console.log('4.RETURN format detected, processing paste data...');
-        console.log('Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
+        console.log('Pasted data sample (first 500 chars):', (pastedData || '').substring(0, 500));
 
         // 4.RETURN 专用：提取公式中的 token（见 extractReturnExpressionTokens）
         const extractReturnTokens = extractReturnExpressionTokens;
@@ -381,7 +437,7 @@ export function handle4ReturnPaste(e, pastedData) {
                     continue;
                 }
 
-                const hasFormula = isReturnFormulaLikeCell(cell);
+                const hasFormula = isReturnFormulaCell(cell);
 
                 if (hasFormula) {
                     console.log(`4.RETURN: ${lineTag}, Column ${colIndex} contains formula:`, cell);
@@ -440,8 +496,16 @@ export function handle4ReturnPaste(e, pastedData) {
             }
         }
 
+        // Excel 常只提供 text/html；纯文本无 Tab 时优先从 HTML 表格构建矩阵
+        if (!pastedData?.includes("\t")) {
+            const htmlMatrix = buildReturnMatrixFromClipboardHtml(e, processReturnRowTabCells);
+            if (htmlMatrix?.length) {
+                return applyReturnMatrix(htmlMatrix, e.target);
+            }
+        }
+
         // 检查是否是多行数据
-        const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const normalizedData = (pastedData || "").replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
         console.log('4.RETURN: Number of lines:', lines.length);
 
@@ -522,7 +586,7 @@ export function handle4ReturnPaste(e, pastedData) {
 
                                     // 检查是否包含公式特征：括号和运算符
                                     // 公式应该包含括号或运算符，并且不是简单的数字或日期
-                                    const isFormula = isReturnFormulaLikeCell(cell);
+                                    const isFormula = isReturnFormulaCell(cell);
 
                                     if (isFormula) {
                                         console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} contains formula:`, cell);
@@ -611,18 +675,13 @@ export function handle4ReturnPaste(e, pastedData) {
             });
 
             if (hasValidRow && dataMatrix.length > 0 && maxCols > 0) {
-                const { successCount, maxRows, maxCols: cols } = fillReturnDataMatrix(dataMatrix, e.target);
-
-                console.log('4.RETURN: Multi-line processing completed. Success count:', successCount, 'Rows:', maxRows, 'Cols:', cols);
-                if (successCount > 0) {
-                    notifyPasteUser(`成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${cols} 列)! 按 Ctrl+Z 可撤销`, 'success');
-                } else {
-                    console.log('4.RETURN: No cells were pasted from multi-line format.');
-                    notifyPasteUser('No cells were pasted from 4.RETURN format.', 'danger');
-                }
-
-                recomputeSubmitStateAfterPaste();
-                return true;
+                console.log(
+                    "4.RETURN: Multi-line processing completed. Rows:",
+                    dataMatrix.length,
+                    "Cols:",
+                    maxCols,
+                );
+                return applyReturnMatrix(dataMatrix, e.target);
             }
         } else {
             console.log('4.RETURN: Single-line data detected');
@@ -675,18 +734,17 @@ export function handle4ReturnPaste(e, pastedData) {
 
             if (apiReturnParsed) {
                 const { columns, columnCount } = apiReturnParsed;
-
-                const { successCount } = fillReturnDataMatrix([columns], e.target);
-
-                if (successCount > 0) {
-                    notifyPasteUser(`Successfully pasted ${successCount} cells in ${columnCount} columns!`, 'success');
-                } else {
-                    notifyPasteUser('No cells were pasted from 4.RETURN format.', 'danger');
-                }
-
-                recomputeSubmitStateAfterPaste();
-                return true;
+                return applyReturnMatrix(
+                    [columns],
+                    e.target,
+                    `Successfully pasted cells in ${columnCount} columns!`,
+                );
             }
+        }
+
+        const htmlMatrix = buildReturnMatrixFromClipboardHtml(e, processReturnRowTabCells);
+        if (htmlMatrix?.length) {
+            return applyReturnMatrix(htmlMatrix, e.target);
         }
   return false;
 }

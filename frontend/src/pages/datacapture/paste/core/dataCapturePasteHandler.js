@@ -155,7 +155,10 @@ export function handleCellPasteEvent(e) {
 
   if (TYPED_CAPTURE_TYPES.has(captureType)) {
     if (handleTypedCapturePaste(e, pastedData, captureType)) return;
-    invokeGenericPasteFallback(e, pastedData);
+    // 4.RETURN / API_RETURN must not fall back to generic tab/HTML paste (keeps formulas intact).
+    if (captureType !== "4.RETURN" && captureType !== "API_RETURN") {
+      invokeGenericPasteFallback(e, pastedData);
+    }
     return;
   }
 
