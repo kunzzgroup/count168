@@ -2388,20 +2388,38 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
             }
 
             // Summary 页面没有 capturedTableBody，不能靠 DOM row-header 解析 F/A。
-            // 直接把 rowLabel 转为 Data Capture 的 0-based 行序（F -> 5），避免同 id_product 回退到第一行。
-            if (!processRow && typeof rowLabelToZeroBasedIndex === 'function' && parsedTableData && parsedTableData.rows) {
-                const rowIndexFromLabel = rowLabelToZeroBasedIndex(rowLabel);
-                if (rowIndexFromLabel >= 0 && rowIndexFromLabel < parsedTableData.rows.length) {
-                    const candidateRow = parsedTableData.rows[rowIndexFromLabel];
-                    if (candidateRow && candidateRow.length > 1 && candidateRow[1] && candidateRow[1].type === 'data') {
-                        const candidateIdProduct = String(candidateRow[1].value || '').trim();
-                        const expectedIdProduct = String(idProductResolved || '').trim();
-                        const normalizeSpaces = function (s) { return String(s || '').trim().replace(/\s+/g, ''); };
-                        const useExactOnly = typeof isFullIdProduct === 'function' && isFullIdProduct(expectedIdProduct);
-                        const candidateMatches = candidateIdProduct === expectedIdProduct ||
-                            (useExactOnly && normalizeSpaces(candidateIdProduct) === normalizeSpaces(expectedIdProduct)) ||
-                            (!useExactOnly && normalizeIdProductText(candidateIdProduct) === normalizeIdProductText(expectedIdProduct));
-                        if (candidateMatches) {
+            // 直接在表数据里按「行头标签 row[0].value === rowLabel」搜索（最可靠），
+            // 找不到再用「字母转 0-based 行序」兜底，避免同 id_product 回退到第一行。
+            if (!processRow && parsedTableData && parsedTableData.rows) {
+                const expectedIdProduct = String(idProductResolved || '').trim();
+                const normalizeSpaces = function (s) { return String(s || '').trim().replace(/\s+/g, ''); };
+                const useExactOnly = typeof isFullIdProduct === 'function' && isFullIdProduct(expectedIdProduct);
+                const idMatches = function (candidateIdProduct) {
+                    const c = String(candidateIdProduct || '').trim();
+                    return c === expectedIdProduct ||
+                        (useExactOnly && normalizeSpaces(c) === normalizeSpaces(expectedIdProduct)) ||
+                        (!useExactOnly && normalizeIdProductText(c) === normalizeIdProductText(expectedIdProduct));
+                };
+
+                // 1) 行头标签精确匹配 + id_product 校验
+                for (let i = 0; i < parsedTableData.rows.length; i++) {
+                    const candidateRow = parsedTableData.rows[i];
+                    if (!candidateRow || candidateRow.length <= 1) continue;
+                    const headerVal = (candidateRow[0] && candidateRow[0].value != null) ? String(candidateRow[0].value).trim() : '';
+                    if (headerVal !== rowLabel) continue;
+                    if (candidateRow[1] && candidateRow[1].type === 'data' && idMatches(candidateRow[1].value)) {
+                        processRow = candidateRow;
+                        console.log('getCellValueByIdProductAndColumn: Found row by data row-header label:', rowLabel, 'index:', i, idProductResolved);
+                        break;
+                    }
+                }
+
+                // 2) 兜底：字母转 0-based 行序（F -> 5）
+                if (!processRow && typeof rowLabelToZeroBasedIndex === 'function') {
+                    const rowIndexFromLabel = rowLabelToZeroBasedIndex(rowLabel);
+                    if (rowIndexFromLabel >= 0 && rowIndexFromLabel < parsedTableData.rows.length) {
+                        const candidateRow = parsedTableData.rows[rowIndexFromLabel];
+                        if (candidateRow && candidateRow.length > 1 && candidateRow[1] && candidateRow[1].type === 'data' && idMatches(candidateRow[1].value)) {
                             processRow = candidateRow;
                             console.log('getCellValueByIdProductAndColumn: Found row by rowLabel index fallback:', rowLabel, rowIndexFromLabel, idProductResolved);
                         }
