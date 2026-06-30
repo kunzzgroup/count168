@@ -15,6 +15,14 @@ function fillReturnDataMatrix(dataMatrix, anchorCell) {
   return applyParsedMatrixToGrid(dataMatrix, anchorCell, { trimValues: true });
 }
 
+/** Match PHP: collapse newlines / runs of whitespace inside a pasted RETURN cell. */
+function normalizeReturnPasteCell(raw) {
+  return String(raw == null ? "" : raw)
+    .replace(/[\r\n\u2028\u2029]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** @returns {boolean} */
 export function handleApiReturnPaste(e, pastedData) {
         // 检查是否是多行数据
@@ -357,6 +365,9 @@ export function handle4ReturnPaste(e, pastedData) {
         // 4.RETURN：一行内已由 Tab 分列后的单元格数组（就地修改）：去尾冒号、按需展开公式列
         function processReturnRowTabCells(cells, lineNo) {
             const lineTag = `Line ${lineNo}`;
+            for (let colIndex = 0; colIndex < cells.length; colIndex++) {
+                cells[colIndex] = normalizeReturnPasteCell(cells[colIndex]);
+            }
             for (let colIndex = 0; colIndex < cells.length; colIndex++) {
                 if (cells[colIndex] && cells[colIndex].endsWith(':') && !cells[colIndex].includes('(')) {
                     cells[colIndex] = cells[colIndex].slice(0, -1);

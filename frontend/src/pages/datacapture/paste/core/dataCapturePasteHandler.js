@@ -3,13 +3,10 @@ import {
   isGridPasteBlockedTarget,
   clipboardLooksLikeGridPaste,
   resolvePasteCell,
+  isTypingModeCell,
 } from "./dataCaptureClipboard.js";
 import { getDefaultPasteAnchorCell } from "./dataCapturePasteApply.js";
-import {
-  autoDetectCaptureTypeFromPaste,
-  parseCitibetPasteData,
-  shouldExitCitibetMode,
-} from "./dataCapturePasteDetect.js";
+import { parseCitibetPasteData } from "./dataCapturePasteDetect.js";
 import { handleCitibetPaste } from "../vendors/dataCaptureCitibetPaste.js";
 import { handleTextModePaste } from "./dataCaptureTextPaste.js";
 import { handleFormatCellPaste } from "./dataCaptureFormatPasteHandler.js";
@@ -28,7 +25,6 @@ import { handleAlipayPaste } from "../vendors/dataCaptureAlipayPaste.js";
 import { handleC8PlayPaste } from "../vendors/dataCaptureC8PlayPaste.js";
 import { handleMaxbetPaste } from "../vendors/dataCaptureMaxbetPaste.js";
 import {
-  applyActiveCaptureType,
   getActiveCaptureType,
   setTableActiveForPaste,
 } from "../../lib/dataCaptureBridge.js";
@@ -139,16 +135,16 @@ export function handleGlobalGridPaste(e) {
 export function handleCellPasteEvent(e) {
   const cell = resolvePasteCell(e.target);
 
+  if (isTypingModeCell(cell)) {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log("Paste blocked: cell is in typing mode");
+    return;
+  }
+
   e.preventDefault();
 
   const pastedData = getClipboardPlainText(e);
-  const detected = autoDetectCaptureTypeFromPaste(pastedData);
-  if (detected) {
-    applyActiveCaptureType(detected);
-  } else if (shouldExitCitibetMode(pastedData, getActiveCaptureType())) {
-    applyActiveCaptureType("1.Text");
-  }
-
   const captureType = getActiveCaptureType();
 
   if (captureType === "2.Format") {
