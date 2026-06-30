@@ -4087,19 +4087,38 @@
     }
 
     // ==================== 日期选择器 ====================
-    // 若 Capture Date 未填，则默认设为今天（保证首次进入页面自动搜「当天」）
+    function getDefaultCaptureDateRange() {
+        const pageDefaults = window.TRANSACTION_PAGE || {};
+        const serverFrom = (pageDefaults.defaultDateFrom || '').trim();
+        const serverTo = (pageDefaults.defaultDateTo || '').trim();
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(serverFrom) && /^\d{2}\/\d{2}\/\d{4}$/.test(serverTo)) {
+            return { from: serverFrom, to: serverTo };
+        }
+
+        const fmt = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+        const untilHour = Number.isFinite(Number(pageDefaults.earlyWindowUntilHour))
+            ? Number(pageDefaults.earlyWindowUntilHour)
+            : 12;
+        const today = new Date();
+        const todayStr = fmt(today);
+        // 中午之前：默认「昨天 → 今天」两天范围，避免半夜录入的账号因日期对不上而看不见。
+        if (today.getHours() < untilHour) {
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            return { from: fmt(yesterday), to: todayStr };
+        }
+        return { from: todayStr, to: todayStr };
+    }
+
+    // 若 Capture Date 未填，则按做账时段默认（中午前用「昨天→今天」，中午后用单日「今天」）。
     function ensureDefaultDates() {
         const df = document.getElementById('date_from');
         const dt = document.getElementById('date_to');
         if (!df || !dt) return;
         if ((df.value || '').trim() && (dt.value || '').trim()) return;
-        const today = new Date();
-        const d = today.getDate();
-        const m = today.getMonth() + 1;
-        const y = today.getFullYear();
-        const str = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
-        if (!(df.value || '').trim()) df.value = str;
-        if (!(dt.value || '').trim()) dt.value = str;
+        const range = getDefaultCaptureDateRange();
+        if (!(df.value || '').trim()) df.value = range.from;
+        if (!(dt.value || '').trim()) dt.value = range.to;
     }
 
     function initDatePickers() {

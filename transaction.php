@@ -42,10 +42,22 @@ $tx_debug_wl = isset($_GET['tx_debug_wl']) && (string) $_GET['tx_debug_wl'] === 
 // 底部 Summary Total Win/Loss：|r|≤1.00 时显示 0.00（仅前端展示，不改变 search_api / 明细；真平账须改 Capture）
 $tx_wl_tol = isset($_GET['tx_wl_tol']) && (string) $_GET['tx_wl_tol'] === '1';
 
-// Capture Date 默认：当天
-$today_dt = new DateTime('today');
-$default_date_from = $today_dt->format('d/m/Y');
-$default_date_to = $today_dt->format('d/m/Y');
+// Capture Date 默认：
+// 半夜做账场景账务日习惯不统一（可能记昨天、也可能记今天），任何“只默认某一天”都会有一半情况看不见刚录入的账号。
+// 因此 00:00 进入新一天后、到当天中午之前，默认用「昨天 → 今天」两天范围，保证账号无论落在哪天都会出现；
+// 中午之后恢复单日「今天」。用户随时可手动选回单日，得到单日口径数字。
+$transaction_early_window_until_hour = 12; // 中午 12 点前算“清晨做账时段”
+$now_dt = new DateTime('now');
+$today_dt = (clone $now_dt)->setTime(0, 0, 0);
+if ((int) $now_dt->format('G') < $transaction_early_window_until_hour) {
+    $default_from_dt = (clone $today_dt)->modify('-1 day');
+    $default_to_dt = clone $today_dt;
+} else {
+    $default_from_dt = clone $today_dt;
+    $default_to_dt = clone $today_dt;
+}
+$default_date_from = $default_from_dt->format('d/m/Y');
+$default_date_to = $default_to_dt->format('d/m/Y');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -604,6 +616,9 @@ $default_date_to = $today_dt->format('d/m/Y');
             canApproveContra: <?php echo $canApproveContra ? 'true' : 'false'; ?>,
             showDescriptionColumn: <?php echo $useDescriptionColumn ? 'true' : 'false'; ?>,
             apiBase: <?php echo json_encode($tx_api_base, JSON_UNESCAPED_UNICODE); ?>,
+            defaultDateFrom: <?php echo json_encode($default_date_from, JSON_UNESCAPED_UNICODE); ?>,
+            defaultDateTo: <?php echo json_encode($default_date_to, JSON_UNESCAPED_UNICODE); ?>,
+            earlyWindowUntilHour: <?php echo (int) $transaction_early_window_until_hour; ?>,
             txDebugWl: <?php echo $tx_debug_wl ? 'true' : 'false'; ?>,
             winLossSummaryAbsTol: <?php echo $tx_wl_tol ? json_encode('1.00', JSON_UNESCAPED_UNICODE) : 'null'; ?>
         };
