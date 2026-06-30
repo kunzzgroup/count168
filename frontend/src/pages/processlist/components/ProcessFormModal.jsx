@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import RemoveWordChipInput from "../../../components/RemoveWordChipInput.jsx";
 import { toProcessFormUpperInput } from "../processListHelpers.js";
@@ -64,32 +64,41 @@ export default function ProcessFormModal({
   const ro = Boolean(readOnly);
   const { submitting, guardSubmit } = useSubmitGuard(true);
   const [copyOpen, setCopyOpen] = useState(false);
-  const [copySearch, setCopySearch] = useState("");
   const [currencyOpen, setCurrencyOpen] = useState(false);
 
   const copyOptions = useMemo(() => sortedCopyFromOptions(form.existingProcesses), [form.existingProcesses]);
-  const filteredCopy = useMemo(() => {
-    const q = copySearch.trim().toLowerCase();
-    if (!q) return copyOptions;
-    return copyOptions.filter((p) => {
-      const line = `${p.process_name || ""} ${p.description_name || ""}`.toLowerCase();
-      return line.includes(q);
-    });
-  }, [copyOptions, copySearch]);
+  const copyListCount = copyOptions.length + 1;
 
-  const copyListCount = filteredCopy.length + 1;
+  const getCopyItemLabel = useCallback(
+    (idx) => {
+      if (idx === 0) return t("clear");
+      const p = copyOptions[idx - 1];
+      return p ? `${p.process_name || t("unknown")} - ${p.description_name || t("noDescription")}` : "";
+    },
+    [copyOptions, t],
+  );
 
   const copyKeyboard = useListboxKeyboard({
     open: copyOpen,
     itemCount: copyListCount,
-    resetToken: copySearch,
+    getItemLabel: getCopyItemLabel,
   });
 
   const currencyListCount = currencies.length + 1;
 
+  const getCurrencyItemLabel = useCallback(
+    (idx) => {
+      if (idx === 0) return t("clear");
+      const c = currencies[idx - 1];
+      return c ? `${c.code || ""} - ${c.name || ""}` : "";
+    },
+    [currencies, t],
+  );
+
   const currencyKeyboard = useListboxKeyboard({
     open: currencyOpen,
     itemCount: currencyListCount,
+    getItemLabel: getCurrencyItemLabel,
   });
 
   const multiUseRows = useMemo(() => uniqueProcessesForMultiUse(form.existingProcesses), [form.existingProcesses]);
@@ -127,7 +136,6 @@ export default function ProcessFormModal({
                       open={copyOpen}
                       onOpenChange={setCopyOpen}
                       disabled={ro}
-                      hasSearch
                       onButtonKeyDown={(e) => {
                         copyKeyboard.handleButtonKeyDown(e, {
                           isOpen: copyOpen,
@@ -138,13 +146,11 @@ export default function ProcessFormModal({
                             if (idx === 0) {
                               setForm((prev) => ({ ...prev, copy_from: "" }));
                               setCopyOpen(false);
-                              setCopySearch("");
                             } else {
-                              const p = filteredCopy[idx - 1];
+                              const p = copyOptions[idx - 1];
                               if (p) {
                                 setForm((prev) => ({ ...prev, copy_from: String(p.process_id ?? "") }));
                                 setCopyOpen(false);
-                                setCopySearch("");
                               }
                             }
                           },
@@ -158,36 +164,6 @@ export default function ProcessFormModal({
                     >
                       {({ optionsMaxHeight }) => (
                         <>
-                          <div className="custom-select-search">
-                            <input
-                              type="text"
-                              placeholder={t("searchProcess")}
-                              autoComplete="off"
-                              value={copySearch}
-                              disabled={ro}
-                              onChange={(e) => setCopySearch(e.target.value)}
-                              onKeyDown={(e) => {
-                                copyKeyboard.handleListKeyDown(e, {
-                                  len: copyListCount,
-                                  onSelectIndex: (idx) => {
-                                    if (idx === 0) {
-                                      setForm((prev) => ({ ...prev, copy_from: "" }));
-                                      setCopyOpen(false);
-                                      setCopySearch("");
-                                    } else {
-                                      const p = filteredCopy[idx - 1];
-                                      if (p) {
-                                        setForm((prev) => ({ ...prev, copy_from: String(p.process_id ?? "") }));
-                                        setCopyOpen(false);
-                                        setCopySearch("");
-                                      }
-                                    }
-                                  },
-                                  onClose: () => setCopyOpen(false),
-                                });
-                              }}
-                            />
-                          </div>
                           <div
                             ref={copyKeyboard.listRef}
                             className="custom-select-options"
@@ -201,12 +177,11 @@ export default function ProcessFormModal({
                               onClick={() => {
                                 setForm((prev) => ({ ...prev, copy_from: "" }));
                                 setCopyOpen(false);
-                                setCopySearch("");
                               }}
                             >
                               {t("clear")}
                             </div>
-                            {filteredCopy.map((p, idx) => {
+                            {copyOptions.map((p, idx) => {
                               const kbIdx = idx + 1;
                               return (
                               <div
@@ -218,7 +193,6 @@ export default function ProcessFormModal({
                                 onClick={() => {
                                   setForm((prev) => ({ ...prev, copy_from: String(p.process_id ?? "") }));
                                   setCopyOpen(false);
-                                  setCopySearch("");
                                 }}
                               >
                                 {`${p.process_name || t("unknown")} - ${p.description_name || t("noDescription")}`}

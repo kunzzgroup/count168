@@ -1066,13 +1066,9 @@ function DataCapturePageContent() {
                       processOpen={form.processOpen}
                       setProcessOpen={form.setProcessOpen}
                       selectedProcess={form.selectedProcess}
-                      processFilter={form.processFilter}
-                      setProcessFilter={form.setProcessFilter}
-                      processSearchInputRef={form.processSearchInputRef}
-                      processListTruncated={form.processListTruncated}
-                      processRowsCount={form.processRowsCount}
+                      processTypeAheadPrefix={form.processTypeAheadPrefix}
+                      setProcessTypeAheadPrefix={form.setProcessTypeAheadPrefix}
                       visibleProcesses={form.visibleProcesses}
-                      filteredProcesses={form.filteredProcesses}
                       selectProcessRow={form.selectProcessRow}
                       displayTextFromProcessRow={form.displayTextFromProcessRow}
                       onBeforeToggle={() => {

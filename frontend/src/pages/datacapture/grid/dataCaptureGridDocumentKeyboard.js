@@ -193,10 +193,8 @@ const key = (e.key || '').toLowerCase();
         // 检查是否在 process 下拉菜单中（锁定表格，让 process 下拉菜单处理箭头键）
         const processButton = document.getElementById('capture_process');
         const processDropdown = document.getElementById('capture_process_dropdown');
-        const processSearchInput = processDropdown?.querySelector('.custom-select-search input');
         const isProcessDropdownOpen = processDropdown && processDropdown.classList.contains('show');
         const isProcessElementFocused = activeElement === processButton ||
-            activeElement === processSearchInput ||
             (processDropdown && processDropdown.contains(activeElement));
 
         // 如果 process 下拉菜单打开或焦点在 process 相关元素上，不处理箭头键（让 process 下拉菜单处理）

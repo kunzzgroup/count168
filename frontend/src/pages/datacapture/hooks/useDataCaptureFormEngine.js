@@ -46,8 +46,6 @@ function normalizeRemoveWordValue(value) {
 
 const PROCESS_PLACEHOLDER = "Select Process";
 /** Cap initial option nodes when list is huge (e.g. Monday with 200+ processes). */
-const PROCESS_OPTIONS_RENDER_CAP = 80;
-
 function readRestoredProcessData() {
   try {
     if (!shouldRestoreFromUrl()) return null;
@@ -193,7 +191,7 @@ export function useDataCaptureFormEngine(
   );
 
   const [processOpen, setProcessOpen] = useState(false);
-  const [processFilter, setProcessFilter] = useState("");
+  const [processTypeAheadPrefix, setProcessTypeAheadPrefix] = useState("");
   const [selectedProcess, setSelectedProcess] = useState(() =>
     readRestoredSelectedProcess(restoredProcessData, selectedGroup, payrollPrefsKey)
   );
@@ -384,7 +382,7 @@ export function useDataCaptureFormEngine(
       date: captureDate,
     });
     setProcessOpen(false);
-    setProcessFilter("");
+    setProcessTypeAheadPrefix("");
     if (
       isGroupPayrollDraftProcessId(next.id) &&
       normalizeGroupOnlyDraftCurrencyId(currencyId)
@@ -409,7 +407,7 @@ export function useDataCaptureFormEngine(
       description_name: row.description_name || null,
     });
     setProcessOpen(false);
-    setProcessFilter("");
+    setProcessTypeAheadPrefix("");
     setRemoveWord("");
     const cid = companyIdRef.current;
     const res = await fetchProcessDetail(row.id, cid);
@@ -612,28 +610,12 @@ export function useDataCaptureFormEngine(
   }, [setSelectedDescriptions]);
 
   const filteredProcesses = useMemo(() => {
-    const q = processFilter.trim().toLowerCase();
+    const q = processTypeAheadPrefix.trim().toLowerCase();
     if (!q) return processRows;
-    return processRows.filter((r) => displayTextFromProcessRow(r).toLowerCase().includes(q));
-  }, [processFilter, processRows]);
+    return processRows.filter((r) => displayTextFromProcessRow(r).toLowerCase().startsWith(q));
+  }, [processTypeAheadPrefix, processRows]);
 
-  const processListTruncated = useMemo(
-    () => !processFilter.trim() && processRows.length > PROCESS_OPTIONS_RENDER_CAP,
-    [processFilter, processRows.length]
-  );
-
-  const visibleProcesses = useMemo(() => {
-    if (!processListTruncated) return filteredProcesses;
-    return filteredProcesses.slice(0, PROCESS_OPTIONS_RENDER_CAP);
-  }, [filteredProcesses, processListTruncated]);
-
-  const processSearchInputRef = useRef(null);
-  useEffect(() => {
-    if (processOpen && processSearchInputRef.current) {
-      const t = setTimeout(() => processSearchInputRef.current?.focus(), 10);
-      return () => clearTimeout(t);
-    }
-  }, [processOpen]);
+  const visibleProcesses = filteredProcesses;
 
   useEffect(() => {
     if (applyCompanyOnlyFields || !selectedGroup || !selectedProcess?.id) return;
@@ -688,13 +670,9 @@ export function useDataCaptureFormEngine(
     descriptionDisplay,
     processOpen,
     setProcessOpen,
-    processFilter,
-    setProcessFilter,
-    processSearchInputRef,
-    filteredProcesses,
+    processTypeAheadPrefix,
+    setProcessTypeAheadPrefix,
     visibleProcesses,
-    processListTruncated,
-    processRowsCount: processRows.length,
     selectedProcess,
     selectProcessRow,
     selectGroupOnlyProcess,
