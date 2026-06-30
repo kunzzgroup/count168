@@ -90,7 +90,7 @@ export function AccountSelect({
             autoComplete="off"
             disabled={disabled}
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={(e) => setFilter(e.target.value.toUpperCase())}
             onKeyDown={(e) => {
               if (e.key === "Escape") {
                 setOpen(false);
