@@ -5727,11 +5727,20 @@ function updateFormulaDisplay(formulaValue, processValue) {
                                 : (normalizeIdProductText(refIdProduct) === normalizeIdProductText(currentIdProduct))
                         );
                         if (!isCurrentRowRef) continue;
+                        // $数字 表示「当前行」。若该引用本身没有带行绑定（既无 row_label 也无 #captureRowIndex），
+                        // 不能退化成「该 id_product 的第一行」(否则 sub 行会抓到 A 行的 $)，
+                        // 而要用当前编辑行(尤其 sub 行)自己的 Data Capture 行(由 data-row-index 决定)来解析。
+                        let dollarRowLabel = parsed.rowLabel;
+                        let dollarCaptureIdx = (parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined) ? parsed.captureRowIndex : null;
+                        if (dollarRowLabel == null && dollarCaptureIdx == null) {
+                            dollarCaptureIdx = (editFormulaRowIndexOverride != null && editFormulaRowIndexOverride !== undefined) ? editFormulaRowIndexOverride : null;
+                            dollarRowLabel = getRowLabelFromProcessValue(processValue, dollarCaptureIdx);
+                        }
                         columnValue = getCellValueByIdProductAndColumn(
                             refIdProduct,
                             parsed.dataColumnIndex,
-                            parsed.rowLabel,
-                            parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined ? parsed.captureRowIndex : null
+                            dollarRowLabel,
+                            dollarCaptureIdx
                         );
                         refIndex = j + 1;
                         break;
@@ -9598,7 +9607,16 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
                             if (!isCurrentRowRef) {
                                 continue;
                             }
-                            columnValue = getCellValueByIdProductAndColumn(parsed.idProduct, parsed.dataColumnIndex, parsed.rowLabel, parsed.captureRowIndex);
+                            // $数字 表示「当前行」。若引用本身没有带行绑定（无 row_label 也无 #captureRowIndex），
+                            // 不能退化成「该 id_product 的第一行」(否则 sub 行会抓到 A 行的 $)，
+                            // 而要用当前行自己的 Data Capture 行(由 rowIndexOverride 决定)来解析。
+                            let dollarRowLabel = parsed.rowLabel;
+                            let dollarCaptureIdx = (parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined) ? parsed.captureRowIndex : null;
+                            if (dollarRowLabel == null && dollarCaptureIdx == null) {
+                                dollarCaptureIdx = (rowIndexOverride != null && rowIndexOverride !== undefined) ? rowIndexOverride : null;
+                                dollarRowLabel = getRowLabelFromProcessValue(processValue, dollarCaptureIdx);
+                            }
+                            columnValue = getCellValueByIdProductAndColumn(parsed.idProduct, parsed.dataColumnIndex, dollarRowLabel, dollarCaptureIdx);
                             refIndex = j + 1;
                             break;
                         }
@@ -13819,7 +13837,11 @@ function enableFormulaInlineEdit(element, row) {
 
             // If formula contains $数字 references, convert them to actual values
             if (processValue && finalBaseFormula && /\$(\d+)(?!\d)/.test(finalBaseFormula)) {
-                const rowLabel = getRowLabelFromProcessValue(processValue);
+                // 用当前行自己的 Data Capture 行(data-row-index)解析 $数字，避免 sub 行抓到同 id_product 的第一行(A 行)
+                const inlineRowIndexOverride = typeof getDataCaptureRowIndexOverrideFromSummaryRow === 'function'
+                    ? getDataCaptureRowIndexOverrideFromSummaryRow(row)
+                    : null;
+                const rowLabel = getRowLabelFromProcessValue(processValue, inlineRowIndexOverride);
                 if (rowLabel) {
                     // Match all $数字 patterns
                     const dollarPattern = /\$(\d+)(?!\d)/g;
@@ -13851,7 +13873,7 @@ function enableFormulaInlineEdit(element, row) {
                         const dollarMatch = dollarMatches[i];
                         // Convert $数字 to cell reference (e.g., $4 -> A4)
                         const columnReference = rowLabel + dollarMatch.columnNumber;
-                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                        const columnValue = getColumnValueFromCellReference(columnReference, processValue, inlineRowIndexOverride);
 
                         if (columnValue !== null) {
                             // Replace $数字 with actual value (ensure it's a string)
