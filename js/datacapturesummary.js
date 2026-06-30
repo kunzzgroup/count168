@@ -5599,20 +5599,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
     }
 
     try {
-        let selectedEditFormulaRowIndexOverride = null;
-        if (typeof getSelectedEditFormulaRowIndexForProduct === 'function') {
-            selectedEditFormulaRowIndexOverride = getSelectedEditFormulaRowIndexForProduct(processValue);
-            if (selectedEditFormulaRowIndexOverride === null || selectedEditFormulaRowIndexOverride === undefined) {
-                const processInputEl = document.getElementById('process');
-                const processInputVal = processInputEl ? (processInputEl.value || '').trim() : '';
-                if (processInputVal && processInputVal !== processValue) {
-                    selectedEditFormulaRowIndexOverride = getSelectedEditFormulaRowIndexForProduct(processInputVal);
-                }
-            }
-        }
-        const editFormulaRowIndexOverride = (selectedEditFormulaRowIndexOverride !== null && selectedEditFormulaRowIndexOverride !== undefined)
-            ? selectedEditFormulaRowIndexOverride
-            : getEditFormulaDataCaptureRowIndexOverride();
+        const editFormulaRowIndexOverride = getEditFormulaDataCaptureRowIndexOverride();
 
         // IMPORTANT: 优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
         // 这样当用户选择其他 id product 的数据时，能正确显示那些数据
@@ -5625,10 +5612,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
         if (clickedCellRefs && clickedCellRefs.trim() !== '') {
             // 使用 data-clicked-cell-refs 中的引用（格式：id_product:row_label:column_index 或 id_product:column_index）
             // 这些引用包含了正确的 id_product，可能来自其他 id product 的数据
-            const effectiveClickedCellRefs = typeof getEffectiveClickedRefsForDollarOnlyFormula === 'function'
-                ? getEffectiveClickedRefsForDollarOnlyFormula(formulaValue, processValue, clickedCellRefs)
-                : clickedCellRefs;
-            const refs = effectiveClickedCellRefs.trim().split(/\s+/).filter(r => r.trim() !== '');
+            const refs = clickedCellRefs.trim().split(/\s+/).filter(r => r.trim() !== '');
 
             // 匹配新格式：[id_product,数字] 和 $数字
             // 新格式：\[([^,\]]+),(\d+)\] 匹配 [BBB,1] 或 [YONG,4]
@@ -5743,20 +5727,11 @@ function updateFormulaDisplay(formulaValue, processValue) {
                                 : (normalizeIdProductText(refIdProduct) === normalizeIdProductText(currentIdProduct))
                         );
                         if (!isCurrentRowRef) continue;
-                        // $数字 表示「当前行」。若该引用本身没有带行绑定（既无 row_label 也无 #captureRowIndex），
-                        // 不能退化成「该 id_product 的第一行」(否则 sub 行会抓到 A 行的 $)，
-                        // 而要用当前编辑行(尤其 sub 行)自己的 Data Capture 行(由 data-row-index 决定)来解析。
-                        let dollarRowLabel = parsed.rowLabel;
-                        let dollarCaptureIdx = (parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined) ? parsed.captureRowIndex : null;
-                        if (dollarRowLabel == null && dollarCaptureIdx == null) {
-                            dollarCaptureIdx = (editFormulaRowIndexOverride != null && editFormulaRowIndexOverride !== undefined) ? editFormulaRowIndexOverride : null;
-                            dollarRowLabel = getRowLabelFromProcessValue(processValue, dollarCaptureIdx);
-                        }
                         columnValue = getCellValueByIdProductAndColumn(
                             refIdProduct,
                             parsed.dataColumnIndex,
-                            dollarRowLabel,
-                            dollarCaptureIdx
+                            parsed.rowLabel,
+                            parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined ? parsed.captureRowIndex : null
                         );
                         refIndex = j + 1;
                         break;
@@ -8352,15 +8327,6 @@ function saveFormula() {
             ? getSummaryRowFormulaRefContext(editingRowForSave).clickedCellRefs
             : '');
     const rowIdxForCalc = (() => {
-        // 优先用 Edit Formula 里 Data 下拉当前选中的那条 capture 行（且其 id_product 与当前一致），
-        // 与灰框显示同源，修复 sub 行 $ 引用被父行 data-row-index 带偏到 A 行（或解析失败成 0）。
-        // 注意：灰框用的是 #process 的值（processValue），保存这里也优先用它，避免 processValueForCalc 不一致导致校验失败回落到 A。
-        if (typeof getSelectedEditFormulaRowIndexForProduct === 'function') {
-            const selectedByProcess = getSelectedEditFormulaRowIndexForProduct(processValue);
-            if (selectedByProcess !== null && selectedByProcess !== undefined) return selectedByProcess;
-            const selectedByCalc = getSelectedEditFormulaRowIndexForProduct(processValueForCalc);
-            if (selectedByCalc !== null && selectedByCalc !== undefined) return selectedByCalc;
-        }
         if (!editingRowForSave) return null;
         const a = editingRowForSave.getAttribute('data-row-index');
         if (a === null || a === '' || a === '999999') return null;
@@ -8683,17 +8649,6 @@ function saveFormula() {
         }
     }
 
-    // 保存到 DB / 快照的 clicked_columns。
-    // 关键修复：对「纯 $数字 当前行」公式（sub 行常见），裸引用如 "HBS212:10" 缺少行绑定，
-    // 刷新后重算会回落到该 id_product 的第一行（A 行）导致显示 0。
-    // 此处改用已带 row_label 绑定的 sourceColumns（如 "HBS212:F:10"），
-    // 使刷新后 data-clicked-cell-refs 能稳定定位到用户选的那一行（如 F）。
-    const clickedColumnsForSave = (formulaOnlyCurrentRowRefs && hasDollarSign && sourceColumns && sourceColumns.trim() !== '')
-        ? sourceColumns
-        : ((formulaOnlyCurrentRowRefs && clickedForCalc === '' && clickedCellRefsForPayload && sourceColumns)
-            ? sourceColumns
-            : clickedCellRefsForPayload);
-
     let descriptionTargetRow = null
 
     // Check if we're in edit mode
@@ -8717,7 +8672,9 @@ function saveFormula() {
             columns: columnsDisplay,
             // $n-only 公式若检测到脏 refs 已丢弃（clickedForCalc=''），用正确构建的 sourceColumns 覆盖，
             // 以便同步更新行的 data-clicked-cell-refs，避免下次重算时仍读到 MARI 等历史错误引用
-            clickedColumns: clickedColumnsForSave,
+            clickedColumns: (formulaOnlyCurrentRowRefs && clickedForCalc === '' && clickedCellRefsForPayload && sourceColumns)
+                ? sourceColumns
+                : clickedCellRefsForPayload,
             // 优先使用从 $数字 提取的列引用格式（如 "GGG:A:10 GGG:A:8"）
             // 如果formula为空，清空sourceColumns以防止页面刷新时重新生成formula
             sourceColumns: sourceColumns || finalSourceColumns,
@@ -8789,7 +8746,7 @@ function saveFormula() {
             currency: currencyName || 'Currency',
             currencyDbId: currencyValue, // Database ID
             columns: columnsDisplay,
-            clickedColumns: clickedColumnsForSave,
+            clickedColumns: clickedCellRefsForPayload,
             sourceColumns: finalSourceColumnsForSub, // Store clicked column numbers
             batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
             source: formulaValue || 'Source', // Use formula as source
@@ -8831,7 +8788,7 @@ function saveFormula() {
                     currency: currencyName || 'Currency',
                     currencyDbId: currencyValue,
                     columns: columnsDisplay,
-                    clickedColumns: clickedColumnsForSave,
+                    clickedColumns: clickedCellRefsForPayload,
                     sourceColumns: finalSourceColumnsForMain,
                     batchSelection: batchSelectionChecked,
                     source: formulaValue || 'Source',
@@ -8874,7 +8831,7 @@ function saveFormula() {
                 currency: currencyName || 'Currency',
                 currencyDbId: currencyValue, // Database ID
                 columns: columnsDisplay,
-                clickedColumns: clickedColumnsForSave,
+                clickedColumns: clickedCellRefsForPayload,
                 sourceColumns: finalSourceColumnsForSub2, // Store clicked column numbers
                 batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
                 source: formulaValue || 'Source', // Use formula as source
@@ -9641,16 +9598,7 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
                             if (!isCurrentRowRef) {
                                 continue;
                             }
-                            // $数字 表示「当前行」。若引用本身没有带行绑定（无 row_label 也无 #captureRowIndex），
-                            // 不能退化成「该 id_product 的第一行」(否则 sub 行会抓到 A 行的 $)，
-                            // 而要用当前行自己的 Data Capture 行(由 rowIndexOverride 决定)来解析。
-                            let dollarRowLabel = parsed.rowLabel;
-                            let dollarCaptureIdx = (parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined) ? parsed.captureRowIndex : null;
-                            if (dollarRowLabel == null && dollarCaptureIdx == null) {
-                                dollarCaptureIdx = (rowIndexOverride != null && rowIndexOverride !== undefined) ? rowIndexOverride : null;
-                                dollarRowLabel = getRowLabelFromProcessValue(processValue, dollarCaptureIdx);
-                            }
-                            columnValue = getCellValueByIdProductAndColumn(parsed.idProduct, parsed.dataColumnIndex, dollarRowLabel, dollarCaptureIdx);
+                            columnValue = getCellValueByIdProductAndColumn(parsed.idProduct, parsed.dataColumnIndex, parsed.rowLabel, parsed.captureRowIndex);
                             refIndex = j + 1;
                             break;
                         }
@@ -13587,91 +13535,17 @@ function getProcessValueFromRow(row) {
     return '';
 }
 
-// Edit Formula 中 Data 下拉当前选中的 Data Capture 行序。用于修复旧/裸 $ 引用没有 row 绑定时抓到同 id_product 第一行的问题。
-function getSelectedEditFormulaDataCaptureRowIndex() {
-    const descriptionSelect2 = document.getElementById('descriptionSelect2');
-    if (!descriptionSelect2 || !descriptionSelect2.value) return null;
-    const firstPart = String(descriptionSelect2.value).split(':')[0];
-    const n = Number(firstPart);
-    return !Number.isNaN(n) && n >= 0 ? n : null;
-}
-
-// 仅当 Data 下拉选中的那条 capture 行的 id_product 与 processValue 一致时，才返回它的行序。
-// 用于把当前行（尤其 sub 行）的 $ 引用绑定到用户真正选的那一行，且避免在做跨 id_product 引用时误用。
-function getSelectedEditFormulaRowIndexForProduct(processValue) {
-    const idx = getSelectedEditFormulaDataCaptureRowIndex();
-    if (idx === null) return null;
-    if (!processValue || !String(processValue).trim()) return idx;
-    try {
-        const capturedTableBody = document.getElementById('capturedTableBody');
-        if (!capturedTableBody) return idx;
-        const capturedRow = capturedTableBody.querySelectorAll('tr')[idx];
-        if (!capturedRow) return null;
-        let capId = capturedRow.getAttribute('data-id-product') || '';
-        if (!capId.trim()) {
-            const cs = capturedRow.querySelectorAll('td');
-            if (cs.length > 1 && cs[1]) capId = cs[1].textContent ? cs[1].textContent.trim() : '';
-        }
-        const norm = s => (s || '').trim().replace(/\s+/g, '');
-        let matches = norm(capId) === norm(processValue);
-        if (!matches && typeof normalizeIdProductText === 'function') {
-            matches = normalizeIdProductText(capId) === normalizeIdProductText(processValue);
-        }
-        return matches ? idx : null;
-    } catch (e) {
-        return idx;
-    }
-}
-
-// $n-only 且无 [id,n] 时，若 data-clicked-cell-refs 是旧/裸格式，则优先补上 Edit Formula 当前 Data 下拉选中的行。
-// 若 refs 全部指向非当前行 id_product，视为历史脏数据，返回 ''，按当前行 + row_index 解析（与 Edit Formula 一致）
+// $n-only 且无 [id,n] 时，若 data-clicked-cell-refs 全部指向非当前行 id_product，视为历史脏数据，返回 ''，按当前行 + row_index 解析（与 Edit Formula 一致）
 function getEffectiveClickedRefsForDollarOnlyFormula(formulaOperators, processValue, clickedCellRefs) {
     const ft = (formulaOperators || '').trim()
     const refs = String(clickedCellRefs || '').trim()
     if (!ft || !processValue) return String(clickedCellRefs || '')
     const formulaOnlyCurrentRowRefs = !!(ft.includes('$') && !ft.includes('[') && /^[\s\$0-9+\-*/().]+$/.test(ft))
     if (!formulaOnlyCurrentRowRefs) return refs
-    const selectedRowIndex = typeof getSelectedEditFormulaRowIndexForProduct === 'function'
-        ? getSelectedEditFormulaRowIndexForProduct(processValue)
-        : (typeof getSelectedEditFormulaDataCaptureRowIndex === 'function' ? getSelectedEditFormulaDataCaptureRowIndex() : null)
-    if (!refs) {
-        if (selectedRowIndex === null) return ''
-        const generatedRefs = []
-        const dollarPattern = /\$(\d+)(?!\d)/g
-        let match
-        while ((match = dollarPattern.exec(ft)) !== null) {
-            const displayColumnIndex = Number(match[1])
-            if (!Number.isNaN(displayColumnIndex) && displayColumnIndex > 1) {
-                generatedRefs.push(`${processValue}:#${selectedRowIndex}:${displayColumnIndex - 1}`)
-            }
-        }
-        if (generatedRefs.length > 0) {
-            const nextRefs = generatedRefs.join(' ')
-            console.log('getEffectiveClickedRefsForDollarOnlyFormula: generated refs from selected data row:', nextRefs)
-            return nextRefs
-        }
-        return ''
-    }
+    if (!refs) return ''
     const norm = s => (s || '').trim().replace(/\s+/g, '')
     const parts = refs.split(/\s+/).filter(r => r.trim())
     if (parts.length === 0) return ''
-    if (selectedRowIndex !== null) {
-        let changed = false
-        const normalizedParts = parts.map(ref => {
-            const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null
-            if (!parsed || parsed.rowLabel || parsed.captureRowIndex !== null) return ref
-            const fullId = (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(parsed.idProduct))
-                ? resolveToFullIdProduct(parsed.idProduct, parsed.rowLabel) : parsed.idProduct
-            if (norm(fullId) !== norm(processValue)) return ref
-            changed = true
-            return `${parsed.idProduct}:#${selectedRowIndex}:${parsed.dataColumnIndex}`
-        })
-        if (changed) {
-            const nextRefs = normalizedParts.join(' ')
-            console.log('getEffectiveClickedRefsForDollarOnlyFormula: bound bare refs to selected data row:', refs, '=>', nextRefs)
-            return nextRefs
-        }
-    }
     const allOther = parts.every(ref => {
         const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null
         if (!parsed) return false
@@ -13945,11 +13819,7 @@ function enableFormulaInlineEdit(element, row) {
 
             // If formula contains $数字 references, convert them to actual values
             if (processValue && finalBaseFormula && /\$(\d+)(?!\d)/.test(finalBaseFormula)) {
-                // 用当前行自己的 Data Capture 行(data-row-index)解析 $数字，避免 sub 行抓到同 id_product 的第一行(A 行)
-                const inlineRowIndexOverride = typeof getDataCaptureRowIndexOverrideFromSummaryRow === 'function'
-                    ? getDataCaptureRowIndexOverrideFromSummaryRow(row)
-                    : null;
-                const rowLabel = getRowLabelFromProcessValue(processValue, inlineRowIndexOverride);
+                const rowLabel = getRowLabelFromProcessValue(processValue);
                 if (rowLabel) {
                     // Match all $数字 patterns
                     const dollarPattern = /\$(\d+)(?!\d)/g;
@@ -13981,7 +13851,7 @@ function enableFormulaInlineEdit(element, row) {
                         const dollarMatch = dollarMatches[i];
                         // Convert $数字 to cell reference (e.g., $4 -> A4)
                         const columnReference = rowLabel + dollarMatch.columnNumber;
-                        const columnValue = getColumnValueFromCellReference(columnReference, processValue, inlineRowIndexOverride);
+                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
 
                         if (columnValue !== null) {
                             // Replace $数字 with actual value (ensure it's a string)
@@ -15264,17 +15134,6 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         const isFormulaEmpty = !data.formula || data.formula.trim() === '' || data.formula === 'Formula';
         const finalSourceColumns = isFormulaEmpty ? '' : (data.sourceColumns || '');
         row.setAttribute('data-source-columns', finalSourceColumns);
-    }
-    // 关键修复：把带行绑定的 clicked_columns 写回行的 data-clicked-cell-refs，
-    // 否则 recalculateAndRenderProcessedAmount 仍用旧/裸 refs + 父行 data-row-index，sub 行会算成 0。
-    if (data.clickedColumns !== undefined) {
-        const isFormulaEmptyForRefs = !data.formula || String(data.formula).trim() === '' || String(data.formula).trim() === 'Formula';
-        const clickedColsForRow = String(data.clickedColumns || '').trim();
-        if (isFormulaEmptyForRefs || clickedColsForRow === '') {
-            row.removeAttribute('data-clicked-cell-refs');
-        } else if (typeof isNewIdProductColumnFormat === 'function' ? isNewIdProductColumnFormat(clickedColsForRow) : clickedColsForRow.includes(':')) {
-            row.setAttribute('data-clicked-cell-refs', clickedColsForRow);
-        }
     }
     // Store sourcePercent in data attribute (without % symbol for easier retrieval)
     if (data.sourcePercent !== undefined) {
