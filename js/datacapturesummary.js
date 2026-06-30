@@ -5599,9 +5599,17 @@ function updateFormulaDisplay(formulaValue, processValue) {
     }
 
     try {
-        const selectedEditFormulaRowIndexOverride = typeof getSelectedEditFormulaRowIndexForProduct === 'function'
-            ? getSelectedEditFormulaRowIndexForProduct(processValue)
-            : null;
+        let selectedEditFormulaRowIndexOverride = null;
+        if (typeof getSelectedEditFormulaRowIndexForProduct === 'function') {
+            selectedEditFormulaRowIndexOverride = getSelectedEditFormulaRowIndexForProduct(processValue);
+            if (selectedEditFormulaRowIndexOverride === null || selectedEditFormulaRowIndexOverride === undefined) {
+                const processInputEl = document.getElementById('process');
+                const processInputVal = processInputEl ? (processInputEl.value || '').trim() : '';
+                if (processInputVal && processInputVal !== processValue) {
+                    selectedEditFormulaRowIndexOverride = getSelectedEditFormulaRowIndexForProduct(processInputVal);
+                }
+            }
+        }
         const editFormulaRowIndexOverride = (selectedEditFormulaRowIndexOverride !== null && selectedEditFormulaRowIndexOverride !== undefined)
             ? selectedEditFormulaRowIndexOverride
             : getEditFormulaDataCaptureRowIndexOverride();
@@ -8346,10 +8354,13 @@ function saveFormula() {
     const rowIdxForCalc = (() => {
         // 优先用 Edit Formula 里 Data 下拉当前选中的那条 capture 行（且其 id_product 与当前一致），
         // 与灰框显示同源，修复 sub 行 $ 引用被父行 data-row-index 带偏到 A 行（或解析失败成 0）。
-        const selected = typeof getSelectedEditFormulaRowIndexForProduct === 'function'
-            ? getSelectedEditFormulaRowIndexForProduct(processValueForCalc)
-            : null;
-        if (selected !== null && selected !== undefined) return selected;
+        // 注意：灰框用的是 #process 的值（processValue），保存这里也优先用它，避免 processValueForCalc 不一致导致校验失败回落到 A。
+        if (typeof getSelectedEditFormulaRowIndexForProduct === 'function') {
+            const selectedByProcess = getSelectedEditFormulaRowIndexForProduct(processValue);
+            if (selectedByProcess !== null && selectedByProcess !== undefined) return selectedByProcess;
+            const selectedByCalc = getSelectedEditFormulaRowIndexForProduct(processValueForCalc);
+            if (selectedByCalc !== null && selectedByCalc !== undefined) return selectedByCalc;
+        }
         if (!editingRowForSave) return null;
         const a = editingRowForSave.getAttribute('data-row-index');
         if (a === null || a === '' || a === '999999') return null;
@@ -8672,6 +8683,17 @@ function saveFormula() {
         }
     }
 
+    // 保存到 DB / 快照的 clicked_columns。
+    // 关键修复：对「纯 $数字 当前行」公式（sub 行常见），裸引用如 "HBS212:10" 缺少行绑定，
+    // 刷新后重算会回落到该 id_product 的第一行（A 行）导致显示 0。
+    // 此处改用已带 row_label 绑定的 sourceColumns（如 "HBS212:F:10"），
+    // 使刷新后 data-clicked-cell-refs 能稳定定位到用户选的那一行（如 F）。
+    const clickedColumnsForSave = (formulaOnlyCurrentRowRefs && hasDollarSign && sourceColumns && sourceColumns.trim() !== '')
+        ? sourceColumns
+        : ((formulaOnlyCurrentRowRefs && clickedForCalc === '' && clickedCellRefsForPayload && sourceColumns)
+            ? sourceColumns
+            : clickedCellRefsForPayload);
+
     let descriptionTargetRow = null
 
     // Check if we're in edit mode
@@ -8695,9 +8717,7 @@ function saveFormula() {
             columns: columnsDisplay,
             // $n-only 公式若检测到脏 refs 已丢弃（clickedForCalc=''），用正确构建的 sourceColumns 覆盖，
             // 以便同步更新行的 data-clicked-cell-refs，避免下次重算时仍读到 MARI 等历史错误引用
-            clickedColumns: (formulaOnlyCurrentRowRefs && clickedForCalc === '' && clickedCellRefsForPayload && sourceColumns)
-                ? sourceColumns
-                : clickedCellRefsForPayload,
+            clickedColumns: clickedColumnsForSave,
             // 优先使用从 $数字 提取的列引用格式（如 "GGG:A:10 GGG:A:8"）
             // 如果formula为空，清空sourceColumns以防止页面刷新时重新生成formula
             sourceColumns: sourceColumns || finalSourceColumns,
@@ -8769,7 +8789,7 @@ function saveFormula() {
             currency: currencyName || 'Currency',
             currencyDbId: currencyValue, // Database ID
             columns: columnsDisplay,
-            clickedColumns: clickedCellRefsForPayload,
+            clickedColumns: clickedColumnsForSave,
             sourceColumns: finalSourceColumnsForSub, // Store clicked column numbers
             batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
             source: formulaValue || 'Source', // Use formula as source
@@ -8811,7 +8831,7 @@ function saveFormula() {
                     currency: currencyName || 'Currency',
                     currencyDbId: currencyValue,
                     columns: columnsDisplay,
-                    clickedColumns: clickedCellRefsForPayload,
+                    clickedColumns: clickedColumnsForSave,
                     sourceColumns: finalSourceColumnsForMain,
                     batchSelection: batchSelectionChecked,
                     source: formulaValue || 'Source',
@@ -8854,7 +8874,7 @@ function saveFormula() {
                 currency: currencyName || 'Currency',
                 currencyDbId: currencyValue, // Database ID
                 columns: columnsDisplay,
-                clickedColumns: clickedCellRefsForPayload,
+                clickedColumns: clickedColumnsForSave,
                 sourceColumns: finalSourceColumnsForSub2, // Store clicked column numbers
                 batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
                 source: formulaValue || 'Source', // Use formula as source
@@ -15244,6 +15264,17 @@ function updateSubIdProductRow(processValue, data, targetRow = null) {
         const isFormulaEmpty = !data.formula || data.formula.trim() === '' || data.formula === 'Formula';
         const finalSourceColumns = isFormulaEmpty ? '' : (data.sourceColumns || '');
         row.setAttribute('data-source-columns', finalSourceColumns);
+    }
+    // 关键修复：把带行绑定的 clicked_columns 写回行的 data-clicked-cell-refs，
+    // 否则 recalculateAndRenderProcessedAmount 仍用旧/裸 refs + 父行 data-row-index，sub 行会算成 0。
+    if (data.clickedColumns !== undefined) {
+        const isFormulaEmptyForRefs = !data.formula || String(data.formula).trim() === '' || String(data.formula).trim() === 'Formula';
+        const clickedColsForRow = String(data.clickedColumns || '').trim();
+        if (isFormulaEmptyForRefs || clickedColsForRow === '') {
+            row.removeAttribute('data-clicked-cell-refs');
+        } else if (typeof isNewIdProductColumnFormat === 'function' ? isNewIdProductColumnFormat(clickedColsForRow) : clickedColsForRow.includes(':')) {
+            row.setAttribute('data-clicked-cell-refs', clickedColsForRow);
+        }
     }
     // Store sourcePercent in data attribute (without % symbol for easier retrieval)
     if (data.sourcePercent !== undefined) {
