@@ -17666,32 +17666,16 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
                 const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
                 parts.forEach(part => {
                     const parsedPart = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(part) : null;
-                    if (parsedPart && parsedPart.captureRowIndex != null && parsedPart.captureRowIndex !== undefined) {
-                        const displayColumnKey = parsedPart.dataColumnIndex + 1;
-                        columnRefMap.set(displayColumnKey, {
-                            idProduct: parsedPart.idProduct,
-                            rowLabel: null,
-                            dataColumnIndex: parsedPart.dataColumnIndex,
-                            captureRowIndex: parsedPart.captureRowIndex
-                        });
-                        return;
-                    }
-                    // Try format with row label: "id_product:row_label:displayColumnIndex"
-                    let partMatch = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
-                    if (partMatch) {
-                        const refIdProduct = partMatch[1];
-                        const refRowLabel = partMatch[2];
-                        const displayColumnIndex = parseInt(partMatch[3]);
-                        columnRefMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: refRowLabel, dataColumnIndex: displayColumnIndex - 1, captureRowIndex: null });
-                    } else {
-                        // Try format without row label: "id_product:displayColumnIndex"
-                        partMatch = part.match(/^([^:]+):(\d+)$/);
-                        if (partMatch) {
-                            const refIdProduct = partMatch[1];
-                            const displayColumnIndex = parseInt(partMatch[2]);
-                            columnRefMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: null, dataColumnIndex: displayColumnIndex - 1, captureRowIndex: null });
-                        }
-                    }
+                    if (!parsedPart) return;
+                    // source_columns 存的是 dataColumnIndex；公式里的 $n 是 displayColumnIndex。
+                    // 例如 HBS212:F:10 必须对应 $11，而不是 $10。
+                    const displayColumnKey = parsedPart.dataColumnIndex + 1;
+                    columnRefMap.set(displayColumnKey, {
+                        idProduct: parsedPart.idProduct,
+                        rowLabel: parsedPart.rowLabel || null,
+                        dataColumnIndex: parsedPart.dataColumnIndex,
+                        captureRowIndex: parsedPart.captureRowIndex != null && parsedPart.captureRowIndex !== undefined ? parsedPart.captureRowIndex : null
+                    });
                 });
             }
 
@@ -18989,33 +18973,17 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
                 parts.forEach(part => {
                     const parsedPart = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(part) : null;
-                    if (parsedPart && parsedPart.captureRowIndex != null && parsedPart.captureRowIndex !== undefined) {
-                        const displayColumnKey = parsedPart.dataColumnIndex + 1;
-                        sourceColumnRefsMap.set(displayColumnKey, {
-                            idProduct: parsedPart.idProduct,
-                            rowLabel: null,
-                            dataColumnIndex: parsedPart.dataColumnIndex,
-                            displayColumnIndex: displayColumnKey,
-                            captureRowIndex: parsedPart.captureRowIndex
-                        });
-                        return;
-                    }
-                    let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
-                    if (match) {
-                        const refIdProduct = match[1];
-                        const refRowLabel = match[2];
-                        const displayColumnIndex = parseInt(match[3]);
-                        const dataColumnIndex = displayColumnIndex - 1;
-                        sourceColumnRefsMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: refRowLabel, dataColumnIndex: dataColumnIndex, displayColumnIndex: displayColumnIndex, captureRowIndex: null });
-                    } else {
-                        match = part.match(/^([^:]+):(\d+)$/);
-                        if (match) {
-                            const refIdProduct = match[1];
-                            const displayColumnIndex = parseInt(match[2]);
-                            const dataColumnIndex = displayColumnIndex - 1;
-                            sourceColumnRefsMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: null, dataColumnIndex: dataColumnIndex, displayColumnIndex: displayColumnIndex, captureRowIndex: null });
-                        }
-                    }
+                    if (!parsedPart) return;
+                    // source_columns 存的是 dataColumnIndex；公式里的 $n 是 displayColumnIndex。
+                    // 例如 HBS212:F:10 必须对应 $11，而不是 $10。
+                    const displayColumnKey = parsedPart.dataColumnIndex + 1;
+                    sourceColumnRefsMap.set(displayColumnKey, {
+                        idProduct: parsedPart.idProduct,
+                        rowLabel: parsedPart.rowLabel || null,
+                        dataColumnIndex: parsedPart.dataColumnIndex,
+                        displayColumnIndex: displayColumnKey,
+                        captureRowIndex: parsedPart.captureRowIndex != null && parsedPart.captureRowIndex !== undefined ? parsedPart.captureRowIndex : null
+                    });
                 });
             }
 
