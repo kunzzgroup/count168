@@ -48,6 +48,7 @@ export default function EditFormulaModal({
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const accountWrapperRef = useRef(null);
+  const formulaInputRef = useRef(null);
 
   useEffect(() => {
     if (!accountOpen) return undefined;
@@ -98,6 +99,17 @@ export default function EditFormulaModal({
       currencyId,
       currencyLabel: opt?.textContent?.trim() || "",
     });
+  };
+
+  const handleFormulaGridItemClickAndFocus = (item) => {
+    onFormulaGridItemClick?.(item);
+    setTimeout(() => {
+      if (formulaInputRef.current) {
+        formulaInputRef.current.focus();
+        const len = formulaInputRef.current.value.length;
+        formulaInputRef.current.setSelectionRange(len, len);
+      }
+    }, 0);
   };
 
   return portalToDocumentBody(
@@ -258,6 +270,7 @@ export default function EditFormulaModal({
                   <div className="form-group">
                     <label htmlFor="formula">{t("formula")}</label>
                     <input
+                      ref={formulaInputRef}
                       type="text"
                       id="formula"
                       placeholder={t("formulaPlaceholder")}
@@ -298,11 +311,11 @@ export default function EditFormulaModal({
                               className="formula-data-grid-item"
                               role="button"
                               tabIndex={0}
-                              onClick={() => onFormulaGridItemClick?.(item)}
+                              onClick={() => handleFormulaGridItemClickAndFocus(item)}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {
                                   e.preventDefault();
-                                  onFormulaGridItemClick?.(item);
+                                  handleFormulaGridItemClickAndFocus(item);
                                 }
                               }}
                             >
