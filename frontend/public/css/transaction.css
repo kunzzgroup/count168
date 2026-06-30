@@ -356,7 +356,7 @@ body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .tra
     min-width: max-content;
     padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
     box-sizing: border-box;
-    font-size: var(--text-medium) !important;
+    font-size: 1.4rem !important;
     line-height: 1.25;
     display: inline-flex;
     align-items: center;
@@ -410,7 +410,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment {
     border-right: 1px solid var(--color-border, #e5e7eb);
     background: var(--color-surface, #ffffff);
     color: #1f2937;
-    font-size: var(--text-medium) !important;
+    font-size: 1.4rem !important;
     font-weight: var(--font-weight-semibold) !important;
     font-family: inherit;
     cursor: pointer;
