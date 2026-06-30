@@ -12945,17 +12945,25 @@ function updateFormulaAndProcessedAmount(row, data) {
                             // Replace from back to front to preserve indices
                             allMatches.sort((a, b) => b.index - a.index);
 
-                            // 无 [id,n] 括号引用时，$n 表示「当前 Summary 行」对应 Data Capture 列，与 Edit Formula 一致。
-                            // 若仍用 data-source-columns 里历史错误的 id（如 MARI）会显示 2800 而实际 GXS 为 3200。
+                            // 无 [id,n] 括号引用时，$n 表示「当前 Summary 行」对应 Data Capture 列。
+                            // 但若 sourceColumns 指向同一 id_product 且带 rowLabel/captureRowIndex，
+                            // 应信任该行消歧信息，避免同 id_product 多行时回退到第一行（如 HBS212 A/F）。
                             const formulaHasBracketRefs = formulaOperators.includes('[');
 
                             for (let i = 0; i < allMatches.length; i++) {
                                 const match = allMatches[i];
                                 let columnValue = null;
 
-                                // 仅当公式含 [id,n] 跨行引用时，才用 sourceColumns 里存的 id 解析 $n；否则只用当前行 + row_index
-                                if (formulaHasBracketRefs && columnRefMap.has(match.columnNumber)) {
-                                    const ref = columnRefMap.get(match.columnNumber);
+                                // 含 [id,n] 跨行引用时沿用 sourceColumns。
+                                // $n-only 公式则只在 sourceColumns 的 id_product 仍是当前行时使用，避免旧跨产品引用串行。
+                                const ref = columnRefMap.has(match.columnNumber) ? columnRefMap.get(match.columnNumber) : null;
+                                const refMatchesCurrentRow = ref && processValue && (
+                                    (typeof isFullIdProduct === 'function' && isFullIdProduct(ref.idProduct))
+                                        ? (String(ref.idProduct || '').trim() === String(processValue || '').trim())
+                                        : (normalizeIdProductText(ref.idProduct) === normalizeIdProductText(processValue))
+                                );
+                                const shouldUseSourceColumnRef = ref && (formulaHasBracketRefs || refMatchesCurrentRow);
+                                if (shouldUseSourceColumnRef) {
                                     columnValue = getCellValueByIdProductAndColumn(ref.idProduct, ref.dataColumnIndex, ref.rowLabel, ref.captureRowIndex);
                                     console.log('Using id_product from sourceColumns:', ref.idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
                                 }
