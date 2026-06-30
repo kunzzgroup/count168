@@ -5599,10 +5599,10 @@ function updateFormulaDisplay(formulaValue, processValue) {
     }
 
     try {
-        const selectedEditFormulaRowIndexOverride = typeof getSelectedEditFormulaDataCaptureRowIndex === 'function'
-            ? getSelectedEditFormulaDataCaptureRowIndex()
+        const selectedEditFormulaRowIndexOverride = typeof getSelectedEditFormulaRowIndexForProduct === 'function'
+            ? getSelectedEditFormulaRowIndexForProduct(processValue)
             : null;
-        const editFormulaRowIndexOverride = selectedEditFormulaRowIndexOverride !== null
+        const editFormulaRowIndexOverride = (selectedEditFormulaRowIndexOverride !== null && selectedEditFormulaRowIndexOverride !== undefined)
             ? selectedEditFormulaRowIndexOverride
             : getEditFormulaDataCaptureRowIndexOverride();
 
@@ -8344,6 +8344,12 @@ function saveFormula() {
             ? getSummaryRowFormulaRefContext(editingRowForSave).clickedCellRefs
             : '');
     const rowIdxForCalc = (() => {
+        // 优先用 Edit Formula 里 Data 下拉当前选中的那条 capture 行（且其 id_product 与当前一致），
+        // 与灰框显示同源，修复 sub 行 $ 引用被父行 data-row-index 带偏到 A 行（或解析失败成 0）。
+        const selected = typeof getSelectedEditFormulaRowIndexForProduct === 'function'
+            ? getSelectedEditFormulaRowIndexForProduct(processValueForCalc)
+            : null;
+        if (selected !== null && selected !== undefined) return selected;
         if (!editingRowForSave) return null;
         const a = editingRowForSave.getAttribute('data-row-index');
         if (a === null || a === '' || a === '999999') return null;
@@ -13570,6 +13576,33 @@ function getSelectedEditFormulaDataCaptureRowIndex() {
     return !Number.isNaN(n) && n >= 0 ? n : null;
 }
 
+// 仅当 Data 下拉选中的那条 capture 行的 id_product 与 processValue 一致时，才返回它的行序。
+// 用于把当前行（尤其 sub 行）的 $ 引用绑定到用户真正选的那一行，且避免在做跨 id_product 引用时误用。
+function getSelectedEditFormulaRowIndexForProduct(processValue) {
+    const idx = getSelectedEditFormulaDataCaptureRowIndex();
+    if (idx === null) return null;
+    if (!processValue || !String(processValue).trim()) return idx;
+    try {
+        const capturedTableBody = document.getElementById('capturedTableBody');
+        if (!capturedTableBody) return idx;
+        const capturedRow = capturedTableBody.querySelectorAll('tr')[idx];
+        if (!capturedRow) return null;
+        let capId = capturedRow.getAttribute('data-id-product') || '';
+        if (!capId.trim()) {
+            const cs = capturedRow.querySelectorAll('td');
+            if (cs.length > 1 && cs[1]) capId = cs[1].textContent ? cs[1].textContent.trim() : '';
+        }
+        const norm = s => (s || '').trim().replace(/\s+/g, '');
+        let matches = norm(capId) === norm(processValue);
+        if (!matches && typeof normalizeIdProductText === 'function') {
+            matches = normalizeIdProductText(capId) === normalizeIdProductText(processValue);
+        }
+        return matches ? idx : null;
+    } catch (e) {
+        return idx;
+    }
+}
+
 // $n-only 且无 [id,n] 时，若 data-clicked-cell-refs 是旧/裸格式，则优先补上 Edit Formula 当前 Data 下拉选中的行。
 // 若 refs 全部指向非当前行 id_product，视为历史脏数据，返回 ''，按当前行 + row_index 解析（与 Edit Formula 一致）
 function getEffectiveClickedRefsForDollarOnlyFormula(formulaOperators, processValue, clickedCellRefs) {
@@ -13578,9 +13611,9 @@ function getEffectiveClickedRefsForDollarOnlyFormula(formulaOperators, processVa
     if (!ft || !processValue) return String(clickedCellRefs || '')
     const formulaOnlyCurrentRowRefs = !!(ft.includes('$') && !ft.includes('[') && /^[\s\$0-9+\-*/().]+$/.test(ft))
     if (!formulaOnlyCurrentRowRefs) return refs
-    const selectedRowIndex = typeof getSelectedEditFormulaDataCaptureRowIndex === 'function'
-        ? getSelectedEditFormulaDataCaptureRowIndex()
-        : null
+    const selectedRowIndex = typeof getSelectedEditFormulaRowIndexForProduct === 'function'
+        ? getSelectedEditFormulaRowIndexForProduct(processValue)
+        : (typeof getSelectedEditFormulaDataCaptureRowIndex === 'function' ? getSelectedEditFormulaDataCaptureRowIndex() : null)
     if (!refs) {
         if (selectedRowIndex === null) return ''
         const generatedRefs = []
