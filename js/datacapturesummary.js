@@ -5599,7 +5599,12 @@ function updateFormulaDisplay(formulaValue, processValue) {
     }
 
     try {
-        const editFormulaRowIndexOverride = getEditFormulaDataCaptureRowIndexOverride();
+        const selectedEditFormulaRowIndexOverride = typeof getSelectedEditFormulaDataCaptureRowIndex === 'function'
+            ? getSelectedEditFormulaDataCaptureRowIndex()
+            : null;
+        const editFormulaRowIndexOverride = selectedEditFormulaRowIndexOverride !== null
+            ? selectedEditFormulaRowIndexOverride
+            : getEditFormulaDataCaptureRowIndexOverride();
 
         // IMPORTANT: 优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
         // 这样当用户选择其他 id product 的数据时，能正确显示那些数据
@@ -5612,7 +5617,10 @@ function updateFormulaDisplay(formulaValue, processValue) {
         if (clickedCellRefs && clickedCellRefs.trim() !== '') {
             // 使用 data-clicked-cell-refs 中的引用（格式：id_product:row_label:column_index 或 id_product:column_index）
             // 这些引用包含了正确的 id_product，可能来自其他 id product 的数据
-            const refs = clickedCellRefs.trim().split(/\s+/).filter(r => r.trim() !== '');
+            const effectiveClickedCellRefs = typeof getEffectiveClickedRefsForDollarOnlyFormula === 'function'
+                ? getEffectiveClickedRefsForDollarOnlyFormula(formulaValue, processValue, clickedCellRefs)
+                : clickedCellRefs;
+            const refs = effectiveClickedCellRefs.trim().split(/\s+/).filter(r => r.trim() !== '');
 
             // 匹配新格式：[id_product,数字] 和 $数字
             // 新格式：\[([^,\]]+),(\d+)\] 匹配 [BBB,1] 或 [YONG,4]
@@ -13553,17 +13561,64 @@ function getProcessValueFromRow(row) {
     return '';
 }
 
-// $n-only 且无 [id,n] 时，若 data-clicked-cell-refs 全部指向非当前行 id_product，视为历史脏数据，返回 ''，按当前行 + row_index 解析（与 Edit Formula 一致）
+// Edit Formula 中 Data 下拉当前选中的 Data Capture 行序。用于修复旧/裸 $ 引用没有 row 绑定时抓到同 id_product 第一行的问题。
+function getSelectedEditFormulaDataCaptureRowIndex() {
+    const descriptionSelect2 = document.getElementById('descriptionSelect2');
+    if (!descriptionSelect2 || !descriptionSelect2.value) return null;
+    const firstPart = String(descriptionSelect2.value).split(':')[0];
+    const n = Number(firstPart);
+    return !Number.isNaN(n) && n >= 0 ? n : null;
+}
+
+// $n-only 且无 [id,n] 时，若 data-clicked-cell-refs 是旧/裸格式，则优先补上 Edit Formula 当前 Data 下拉选中的行。
+// 若 refs 全部指向非当前行 id_product，视为历史脏数据，返回 ''，按当前行 + row_index 解析（与 Edit Formula 一致）
 function getEffectiveClickedRefsForDollarOnlyFormula(formulaOperators, processValue, clickedCellRefs) {
     const ft = (formulaOperators || '').trim()
     const refs = String(clickedCellRefs || '').trim()
     if (!ft || !processValue) return String(clickedCellRefs || '')
     const formulaOnlyCurrentRowRefs = !!(ft.includes('$') && !ft.includes('[') && /^[\s\$0-9+\-*/().]+$/.test(ft))
     if (!formulaOnlyCurrentRowRefs) return refs
-    if (!refs) return ''
+    const selectedRowIndex = typeof getSelectedEditFormulaDataCaptureRowIndex === 'function'
+        ? getSelectedEditFormulaDataCaptureRowIndex()
+        : null
+    if (!refs) {
+        if (selectedRowIndex === null) return ''
+        const generatedRefs = []
+        const dollarPattern = /\$(\d+)(?!\d)/g
+        let match
+        while ((match = dollarPattern.exec(ft)) !== null) {
+            const displayColumnIndex = Number(match[1])
+            if (!Number.isNaN(displayColumnIndex) && displayColumnIndex > 1) {
+                generatedRefs.push(`${processValue}:#${selectedRowIndex}:${displayColumnIndex - 1}`)
+            }
+        }
+        if (generatedRefs.length > 0) {
+            const nextRefs = generatedRefs.join(' ')
+            console.log('getEffectiveClickedRefsForDollarOnlyFormula: generated refs from selected data row:', nextRefs)
+            return nextRefs
+        }
+        return ''
+    }
     const norm = s => (s || '').trim().replace(/\s+/g, '')
     const parts = refs.split(/\s+/).filter(r => r.trim())
     if (parts.length === 0) return ''
+    if (selectedRowIndex !== null) {
+        let changed = false
+        const normalizedParts = parts.map(ref => {
+            const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null
+            if (!parsed || parsed.rowLabel || parsed.captureRowIndex !== null) return ref
+            const fullId = (typeof resolveToFullIdProduct === 'function' && typeof isTruncatedIdProduct === 'function' && isTruncatedIdProduct(parsed.idProduct))
+                ? resolveToFullIdProduct(parsed.idProduct, parsed.rowLabel) : parsed.idProduct
+            if (norm(fullId) !== norm(processValue)) return ref
+            changed = true
+            return `${parsed.idProduct}:#${selectedRowIndex}:${parsed.dataColumnIndex}`
+        })
+        if (changed) {
+            const nextRefs = normalizedParts.join(' ')
+            console.log('getEffectiveClickedRefsForDollarOnlyFormula: bound bare refs to selected data row:', refs, '=>', nextRefs)
+            return nextRefs
+        }
+    }
     const allOther = parts.every(ref => {
         const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null
         if (!parsed) return false
