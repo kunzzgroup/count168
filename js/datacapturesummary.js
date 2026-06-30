@@ -2386,6 +2386,28 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
             } else {
                 console.log('getCellValueByIdProductAndColumn: row_label not usable, falling back to id_product search. rowLabel:', rowLabel);
             }
+
+            // Summary 页面没有 capturedTableBody，不能靠 DOM row-header 解析 F/A。
+            // 直接把 rowLabel 转为 Data Capture 的 0-based 行序（F -> 5），避免同 id_product 回退到第一行。
+            if (!processRow && typeof rowLabelToZeroBasedIndex === 'function' && parsedTableData && parsedTableData.rows) {
+                const rowIndexFromLabel = rowLabelToZeroBasedIndex(rowLabel);
+                if (rowIndexFromLabel >= 0 && rowIndexFromLabel < parsedTableData.rows.length) {
+                    const candidateRow = parsedTableData.rows[rowIndexFromLabel];
+                    if (candidateRow && candidateRow.length > 1 && candidateRow[1] && candidateRow[1].type === 'data') {
+                        const candidateIdProduct = String(candidateRow[1].value || '').trim();
+                        const expectedIdProduct = String(idProductResolved || '').trim();
+                        const normalizeSpaces = function (s) { return String(s || '').trim().replace(/\s+/g, ''); };
+                        const useExactOnly = typeof isFullIdProduct === 'function' && isFullIdProduct(expectedIdProduct);
+                        const candidateMatches = candidateIdProduct === expectedIdProduct ||
+                            (useExactOnly && normalizeSpaces(candidateIdProduct) === normalizeSpaces(expectedIdProduct)) ||
+                            (!useExactOnly && normalizeIdProductText(candidateIdProduct) === normalizeIdProductText(expectedIdProduct));
+                        if (candidateMatches) {
+                            processRow = candidateRow;
+                            console.log('getCellValueByIdProductAndColumn: Found row by rowLabel index fallback:', rowLabel, rowIndexFromLabel, idProductResolved);
+                        }
+                    }
+                }
+            }
         }
 
         // CRITICAL: Always fallback to id_product search if row_label didn't yield a valid match
