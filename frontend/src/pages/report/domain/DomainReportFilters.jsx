@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import ReportDatePicker from "../common/ReportDatePicker.jsx";
 import ReportGcFilterPanel from "../shared/ReportGcFilterPanel.jsx";
 import { useListboxKeyboard } from "../../../components/useListboxKeyboard.js";
@@ -30,6 +30,7 @@ export default function DomainReportFilters({
   monthLabels,
   weekdaysShort,
 }) {
+  const [processSearch, setProcessSearch] = useState("");
   const [processDropdownOpen, setProcessDropdownOpen] = useState(false);
 
   const processDropdownRef = useRef(null);
@@ -42,17 +43,21 @@ export default function DomainReportFilters({
     return () => document.removeEventListener("mousedown", handle);
   }, []);
 
-  const processOptions = useMemo(
-    () => (isGroupScope ? [...processes] : [{ id: "", display_text: t("allProcess") }, ...processes]),
-    [processes, isGroupScope, t],
-  );
+  const filteredProcesses = useMemo(() => {
+    const list = isGroupScope ? [...processes] : [{ id: "", display_text: t("allProcess") }, ...processes];
+    if (!processSearch.trim() || isGroupScope) return list;
+    const s = processSearch.toLowerCase();
+    const allLabel = t("allProcess").toLowerCase();
+    return list.filter((p) => {
+      const text = (p.display_text || "").toLowerCase();
+      return text.includes(s) || (p.id === "" && allLabel.includes(s));
+    });
+  }, [processes, processSearch, t, isGroupScope]);
 
-  const getItemLabel = useCallback((idx) => processOptions[idx]?.display_text ?? "", [processOptions]);
-
-  const { highlightIdx, setHighlightIdx, listRef, handleButtonKeyDown, highlightClass } = useListboxKeyboard({
+  const { highlightIdx, setHighlightIdx, listRef, handleListKeyDown, handleButtonKeyDown, highlightClass } = useListboxKeyboard({
     open: processDropdownOpen,
-    itemCount: processOptions.length,
-    getItemLabel,
+    itemCount: filteredProcesses.length,
+    resetToken: processSearch,
   });
 
   const selectedProcessLabel = useMemo(() => {
@@ -88,9 +93,9 @@ export default function DomainReportFilters({
                       isOpen: processDropdownOpen,
                       onToggleOpen: () => setProcessDropdownOpen(true),
                       onClose: () => setProcessDropdownOpen(false),
-                      len: processOptions.length,
+                      len: filteredProcesses.length,
                       onSelectIndex: (idx) => {
-                        const p = processOptions[idx];
+                        const p = filteredProcesses[idx];
                         if (p) {
                           setProcessId(p.id);
                           setProcessDropdownOpen(false);
@@ -103,8 +108,33 @@ export default function DomainReportFilters({
                 </button>
                 {processDropdownOpen && (
                   <div className="custom-select-dropdown show">
+                    {!isGroupScope && (
+                      <div className="custom-select-search">
+                        <input
+                          type="text"
+                          placeholder={t("searchProcess")}
+                          autoComplete="off"
+                          value={processSearch}
+                          onChange={(e) => setProcessSearch(e.target.value)}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            handleListKeyDown(e, {
+                              len: filteredProcesses.length,
+                              onSelectIndex: (idx) => {
+                                const p = filteredProcesses[idx];
+                                if (p) {
+                                  setProcessId(p.id);
+                                  setProcessDropdownOpen(false);
+                                }
+                              },
+                              onClose: () => setProcessDropdownOpen(false),
+                            });
+                          }}
+                        />
+                      </div>
+                    )}
                     <div className="custom-select-options" ref={listRef}>
-                      {processOptions.map((p, idx) => (
+                      {filteredProcesses.map((p, idx) => (
                         <div
                           key={p.id || "all"}
                           className={`custom-select-option ${String(p.id) === String(processId) ? "selected" : ""}${highlightClass(idx)}`}
@@ -115,6 +145,9 @@ export default function DomainReportFilters({
                           {p.display_text}
                         </div>
                       ))}
+                      {filteredProcesses.length === 0 && (
+                        <div className="custom-select-no-results">{t("noResultsFound")}</div>
+                      )}
                     </div>
                   </div>
                 )}

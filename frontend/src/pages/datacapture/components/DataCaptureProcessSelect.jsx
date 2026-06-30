@@ -1,15 +1,17 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useListboxKeyboard } from "../../../components/useListboxKeyboard.js";
 
 const CONTAINER_EDGE_PAD = 8;
 const PORTAL_GAP = 1;
+const PROCESS_SEARCH_RESERVE = 52;
+const PORTAL_DROPDOWN_CAP = 280;
 const MIN_DROPDOWN_HEIGHT = 120;
 
 function layoutProcessPortalDropdown(
   buttonEl,
   containerEl,
-  { minMenu = MIN_DROPDOWN_HEIGHT, dropdownCap = 280 } = {},
+  { searchReserve = PROCESS_SEARCH_RESERVE, minMenu = MIN_DROPDOWN_HEIGHT, dropdownCap = PORTAL_DROPDOWN_CAP } = {},
 ) {
   const btnRect = buttonEl.getBoundingClientRect();
   const bounds = containerEl?.getBoundingClientRect();
@@ -29,7 +31,7 @@ function layoutProcessPortalDropdown(
   const openBelow = spaceBelow >= minMenu || spaceBelow >= spaceAbove;
   const available = openBelow ? spaceBelow : spaceAbove;
   const dropdownMaxHeight = Math.min(dropdownCap, Math.max(80, available));
-  const optionsMaxHeight = Math.max(60, dropdownMaxHeight);
+  const optionsMaxHeight = Math.max(60, dropdownMaxHeight - searchReserve);
 
   return {
     optionsMaxHeight,
@@ -54,8 +56,11 @@ export default function DataCaptureProcessSelect({
   processOpen,
   setProcessOpen,
   selectedProcess,
-  processTypeAheadPrefix,
-  setProcessTypeAheadPrefix,
+  processFilter,
+  setProcessFilter,
+  processSearchInputRef,
+  processListTruncated,
+  processRowsCount,
   visibleProcesses,
   selectProcessRow,
   displayTextFromProcessRow,
@@ -67,17 +72,10 @@ export default function DataCaptureProcessSelect({
   const [menuStyle, setMenuStyle] = useState(null);
   const [optionsMaxHeight, setOptionsMaxHeight] = useState(250);
 
-  const getItemLabel = useCallback(
-    (idx) => displayTextFromProcessRow(visibleProcesses[idx]),
-    [visibleProcesses, displayTextFromProcessRow],
-  );
-
-  const { highlightIdx, setHighlightIdx, listRef, handleButtonKeyDown, highlightClass } = useListboxKeyboard({
+  const { highlightIdx, setHighlightIdx, listRef, handleListKeyDown, handleButtonKeyDown, highlightClass } = useListboxKeyboard({
     open: processOpen,
     itemCount: visibleProcesses.length,
-    resetToken: `${processTypeAheadPrefix}:${visibleProcesses.length}`,
-    getItemLabel,
-    onTypeAheadChange: setProcessTypeAheadPrefix,
+    resetToken: processFilter,
   });
 
   const positionMenu = useCallback(() => {
@@ -126,11 +124,39 @@ export default function DataCaptureProcessSelect({
         id="capture_process_dropdown"
         style={menuStyle}
       >
+        <div className="custom-select-search">
+          <input
+            ref={processSearchInputRef}
+            type="text"
+            placeholder={t("searchProcess")}
+            autoComplete="off"
+            value={processFilter}
+            onChange={(e) => setProcessFilter(e.target.value.toUpperCase())}
+            onKeyDown={(e) => {
+              handleListKeyDown(e, {
+                len: visibleProcesses.length,
+                onSelectIndex: (idx) => {
+                  const row = visibleProcesses[idx];
+                  if (row) void selectProcessRow(row);
+                },
+                onClose: () => setProcessOpen(false),
+              });
+            }}
+          />
+        </div>
         <div
           ref={listRef}
           className="custom-select-options dc-react-process-options"
           style={{ flex: "1 1 auto", minHeight: 0, maxHeight: optionsMaxHeight }}
         >
+          {processListTruncated ? (
+            <div
+              className="custom-select-option custom-select-option--hint"
+              style={{ cursor: "default", opacity: 0.85 }}
+            >
+              {t("typeToSearchProcesses", { count: processRowsCount })}
+            </div>
+          ) : null}
           {visibleProcesses.map((row, idx) => (
             <div
               key={row.id}

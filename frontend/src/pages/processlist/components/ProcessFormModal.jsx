@@ -64,24 +64,25 @@ export default function ProcessFormModal({
   const ro = Boolean(readOnly);
   const { submitting, guardSubmit } = useSubmitGuard(true);
   const [copyOpen, setCopyOpen] = useState(false);
+  const [copySearch, setCopySearch] = useState("");
   const [currencyOpen, setCurrencyOpen] = useState(false);
 
   const copyOptions = useMemo(() => sortedCopyFromOptions(form.existingProcesses), [form.existingProcesses]);
-  const copyListCount = copyOptions.length + 1;
+  const filteredCopy = useMemo(() => {
+    const q = copySearch.trim().toLowerCase();
+    if (!q) return copyOptions;
+    return copyOptions.filter((p) => {
+      const line = `${p.process_name || ""} ${p.description_name || ""}`.toLowerCase();
+      return line.includes(q);
+    });
+  }, [copyOptions, copySearch]);
 
-  const getCopyItemLabel = useCallback(
-    (idx) => {
-      if (idx === 0) return t("clear");
-      const p = copyOptions[idx - 1];
-      return p ? `${p.process_name || t("unknown")} - ${p.description_name || t("noDescription")}` : "";
-    },
-    [copyOptions, t],
-  );
+  const copyListCount = filteredCopy.length + 1;
 
   const copyKeyboard = useListboxKeyboard({
     open: copyOpen,
     itemCount: copyListCount,
-    getItemLabel: getCopyItemLabel,
+    resetToken: copySearch,
   });
 
   const currencyListCount = currencies.length + 1;
@@ -136,6 +137,7 @@ export default function ProcessFormModal({
                       open={copyOpen}
                       onOpenChange={setCopyOpen}
                       disabled={ro}
+                      hasSearch
                       onButtonKeyDown={(e) => {
                         copyKeyboard.handleButtonKeyDown(e, {
                           isOpen: copyOpen,
@@ -146,11 +148,13 @@ export default function ProcessFormModal({
                             if (idx === 0) {
                               setForm((prev) => ({ ...prev, copy_from: "" }));
                               setCopyOpen(false);
+                              setCopySearch("");
                             } else {
-                              const p = copyOptions[idx - 1];
+                              const p = filteredCopy[idx - 1];
                               if (p) {
                                 setForm((prev) => ({ ...prev, copy_from: String(p.process_id ?? "") }));
                                 setCopyOpen(false);
+                                setCopySearch("");
                               }
                             }
                           },
@@ -164,6 +168,36 @@ export default function ProcessFormModal({
                     >
                       {({ optionsMaxHeight }) => (
                         <>
+                          <div className="custom-select-search">
+                            <input
+                              type="text"
+                              placeholder={t("searchProcess")}
+                              autoComplete="off"
+                              value={copySearch}
+                              disabled={ro}
+                              onChange={(e) => setCopySearch(e.target.value)}
+                              onKeyDown={(e) => {
+                                copyKeyboard.handleListKeyDown(e, {
+                                  len: copyListCount,
+                                  onSelectIndex: (idx) => {
+                                    if (idx === 0) {
+                                      setForm((prev) => ({ ...prev, copy_from: "" }));
+                                      setCopyOpen(false);
+                                      setCopySearch("");
+                                    } else {
+                                      const p = filteredCopy[idx - 1];
+                                      if (p) {
+                                        setForm((prev) => ({ ...prev, copy_from: String(p.process_id ?? "") }));
+                                        setCopyOpen(false);
+                                        setCopySearch("");
+                                      }
+                                    }
+                                  },
+                                  onClose: () => setCopyOpen(false),
+                                });
+                              }}
+                            />
+                          </div>
                           <div
                             ref={copyKeyboard.listRef}
                             className="custom-select-options"
@@ -177,11 +211,12 @@ export default function ProcessFormModal({
                               onClick={() => {
                                 setForm((prev) => ({ ...prev, copy_from: "" }));
                                 setCopyOpen(false);
+                                setCopySearch("");
                               }}
                             >
                               {t("clear")}
                             </div>
-                            {copyOptions.map((p, idx) => {
+                            {filteredCopy.map((p, idx) => {
                               const kbIdx = idx + 1;
                               return (
                               <div
@@ -193,6 +228,7 @@ export default function ProcessFormModal({
                                 onClick={() => {
                                   setForm((prev) => ({ ...prev, copy_from: String(p.process_id ?? "") }));
                                   setCopyOpen(false);
+                                  setCopySearch("");
                                 }}
                               >
                                 {`${p.process_name || t("unknown")} - ${p.description_name || t("noDescription")}`}
