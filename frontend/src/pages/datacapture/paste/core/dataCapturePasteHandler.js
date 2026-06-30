@@ -3,7 +3,6 @@ import {
   isGridPasteBlockedTarget,
   clipboardLooksLikeGridPaste,
   resolvePasteCell,
-  isTypingModeCell,
 } from "./dataCaptureClipboard.js";
 import { getDefaultPasteAnchorCell } from "./dataCapturePasteApply.js";
 import { parseCitibetPasteData } from "./dataCapturePasteDetect.js";
@@ -135,13 +134,6 @@ export function handleGlobalGridPaste(e) {
 export function handleCellPasteEvent(e) {
   const cell = resolvePasteCell(e.target);
 
-  if (isTypingModeCell(cell)) {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log("Paste blocked: cell is in typing mode");
-    return;
-  }
-
   e.preventDefault();
 
   const pastedData = getClipboardPlainText(e);
@@ -164,6 +156,7 @@ export function handleCellPasteEvent(e) {
 
   if (captureType === "1.Text") {
     if (handleTextModePaste(e, pastedData, cell)) return;
+    invokeGenericPasteFallback(e, pastedData);
     return;
   }
 
