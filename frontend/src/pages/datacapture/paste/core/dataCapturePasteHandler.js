@@ -161,6 +161,7 @@ export function handleCellPasteEvent(e) {
 
   if (captureType === "1.Text") {
     if (handleTextModePaste(e, pastedData, cell)) return;
+    return;
   }
 
   const citibetParsed = parseCitibetPasteData(pastedData, captureType);
