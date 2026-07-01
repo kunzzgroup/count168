@@ -600,7 +600,8 @@ function applyPdfMoneyStyle(cell, rawValue) {
 }
 
 const PDF_LOGO_PATH = "images/count_whitelogo.png";
-const PDF_LOGO_MAX_HEIGHT_MM = 10;
+const PDF_HEADER_BAND_HEIGHT_MM = 22;
+const PDF_LOGO_IN_BAND_HEIGHT_MM = 9;
 const PDF_BRAND_BAR_RGB = [0, 44, 73];
 
 async function loadPdfLogoAsset() {
@@ -629,16 +630,36 @@ async function loadPdfLogoAsset() {
   }
 }
 
-/** EAZYCOUNT logo with brand bar — top-left placement on A4 portrait PDF. */
-function drawPdfBrandLogo(doc, logo, x, y) {
-  if (!logo?.dataUrl) return { width: 0, height: 0 };
-  const pad = 1.5;
-  const h = PDF_LOGO_MAX_HEIGHT_MM;
-  const w = h * (logo.dims.w / logo.dims.h);
+/** Full-width header band: logo left, title + meta centered in bar. */
+function drawPdfLetterhead(doc, logo, pageW, marginX, title, meta) {
+  const bandH = PDF_HEADER_BAND_HEIGHT_MM;
+
   doc.setFillColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
-  doc.roundedRect(x, y, w + pad * 2, h + pad * 2, 1.2, 1.2, "F");
-  doc.addImage(logo.dataUrl, "PNG", x + pad, y + pad, w, h);
-  return { width: w + pad * 2, height: h + pad * 2 };
+  doc.rect(0, 0, pageW, bandH, "F");
+
+  if (logo?.dataUrl) {
+    const h = PDF_LOGO_IN_BAND_HEIGHT_MM;
+    const w = h * (logo.dims.w / logo.dims.h);
+    const logoY = (bandH - h) / 2;
+    doc.addImage(logo.dataUrl, "PNG", marginX, logoY, w, h);
+  }
+
+  const textMidY = bandH / 2;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(255, 255, 255);
+  doc.text(title, pageW / 2, textMidY - 2.5, { align: "center" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(203, 213, 225);
+  doc.text(meta, pageW / 2, textMidY + 4, { align: "center" });
+
+  const sepY = bandH + 5;
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.35);
+  doc.line(marginX, sepY, pageW - marginX, sepY);
+  return sepY + 7;
 }
 
 /** A4 portrait — column widths total 190mm; Date fits dd/mm/yyyy on one line. */
@@ -674,10 +695,7 @@ export async function downloadMemberReportPdf({
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const marginX = 10;
-  const logoY = 8;
   const logo = await loadPdfLogoAsset();
-  const logoBox = drawPdfBrandLogo(doc, logo, marginX, logoY);
-  let cursorY = logoBox.height ? logoY + logoBox.height + 6 : 14;
 
   const headerSection = buildMemberReportSectionData({
     rows: sections?.[0]?.rows || [],
@@ -689,17 +707,14 @@ export async function downloadMemberReportPdf({
     lang,
   });
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.setTextColor(0, 44, 73);
-  doc.text(headerSection.docTitle, marginX, cursorY);
-  cursorY += 7;
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(71, 85, 105);
-  doc.text(headerSection.docMeta, marginX, cursorY);
-  cursorY += 9;
+  let cursorY = drawPdfLetterhead(
+    doc,
+    logo,
+    pageW,
+    marginX,
+    headerSection.docTitle,
+    headerSection.docMeta,
+  );
 
   const sectionList = sections || [];
   sectionList.forEach((section, sectionIdx) => {
