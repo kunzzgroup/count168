@@ -8,7 +8,10 @@ import {
   buildMaintenancePeriodPresets,
   parseDmy,
 } from "../../maintenance/shared/maintenanceDateHelpers.js";
-import { closeMaintenanceCalendarPopup } from "../../../utils/date/dateRangePicker.js";
+import {
+  closeMaintenanceCalendarPopup,
+  ensureMaintenanceDateRangePicker,
+} from "../../../utils/date/dateRangePicker.js";
 import {
   buildCombinedMemberReportPrintHtml,
   buildMemberReportFilename,
@@ -78,12 +81,10 @@ export default function PaymentHistoryExportPdfModal({
 
   const exportModalTitle = useMemo(() => {
     const code = accountContextLabel?.code || "";
-    const template = m.exportPdfTitleWithAccount || "{{account}} - WIN/LOSE REPORT";
-    if (code) {
-      return template.replace(/\{\{account\}\}/g, code).replace(/\{account\}/g, code);
-    }
-    return m.exportPdfTitle || "WIN/LOSE REPORT";
-  }, [accountContextLabel, m.exportPdfTitleWithAccount, m.exportPdfTitle]);
+    const reportTitle = String(m.exportPdfTitle || "WIN/LOSE REPORT").trim();
+    if (code) return `${code} - ${reportTitle}`;
+    return reportTitle;
+  }, [accountContextLabel, m.exportPdfTitle]);
 
   const exportCodes = useMemo(
     () => exportCurrencyCodes(isAllSelected, selectedCurrencies, currencies),
@@ -147,6 +148,12 @@ export default function PaymentHistoryExportPdfModal({
   useEffect(() => {
     if (!open) closeMaintenanceCalendarPopup();
   }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    ensureMaintenanceDateRangePicker();
+    window.MaintenanceDateRangePicker?.bindPickers?.();
+  }, [open, pickerInstanceId]);
 
   useEffect(() => {
     if (!open) return;

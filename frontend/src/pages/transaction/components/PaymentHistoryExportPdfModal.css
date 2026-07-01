@@ -37,9 +37,9 @@
 }
 
 .transaction-payment-history-export-modal {
-  --export-modal-text: 1.1875rem;
+  --export-modal-text: 1.4rem;
   --export-modal-date-range-w: var(--drp-popup-width, clamp(316px, 22vw, 336px));
-  --export-modal-label-w: 7.75rem;
+  --export-modal-label-w: 8.75rem;
   --export-modal-content-w: calc(var(--export-modal-label-w) + 14px + var(--export-modal-date-range-w));
   --user-gc-segment-padding: 4px clamp(10px, 1.2vw, 18px);
   width: min(100%, max(var(--export-modal-content-w), 520px));
@@ -98,7 +98,7 @@
   display: grid;
   grid-template-columns: var(--export-modal-label-w) minmax(0, 1fr);
   column-gap: 14px;
-  row-gap: 8px;
+  row-gap: 6px;
   align-items: center;
 }
 
@@ -108,7 +108,7 @@
 
 .transaction-payment-history-export-modal__field-hint {
   grid-column: 2;
-  margin: 2px 0 4px;
+  margin: 0;
   max-width: var(--export-modal-date-range-w);
   padding: 0;
   font-size: 0.875rem;
@@ -133,7 +133,8 @@
 
 .transaction-payment-history-export-modal__inline-label--currency {
   align-self: start;
-  padding-top: 0.35rem;
+  padding-top: 0;
+  margin-top: 2px;
 }
 
 .transaction-payment-history-export-modal__inline-control--currency {
