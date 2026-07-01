@@ -78,7 +78,7 @@ export default function PaymentHistoryExportPdfModal({
 
   const exportModalTitle = useMemo(() => {
     const code = accountContextLabel?.code || "";
-    const template = m.exportPdfTitleWithAccount || "{account} WIN/LOSE REPORT";
+    const template = m.exportPdfTitleWithAccount || "{{account}} WIN/LOSE REPORT";
     if (code) return template.replace("{account}", code);
     return m.exportPdfTitle || "WIN/LOSE REPORT";
   }, [accountContextLabel, m.exportPdfTitleWithAccount, m.exportPdfTitle]);
