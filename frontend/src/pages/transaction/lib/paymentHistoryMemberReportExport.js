@@ -216,6 +216,13 @@ function remarkCell(row) {
   return String(raw).toUpperCase();
 }
 
+/** PDF remark: break at word boundaries so labels like STARTING BALANCE do not split mid-word. */
+function pdfRemarkText(row) {
+  const text = remarkCell(row);
+  if (!text || text === "-" || !/\s/.test(text)) return text;
+  return text.trim().split(/\s+/).join("\n");
+}
+
 /** Account currencies for export modal (member report scope). */
 export async function fetchPaymentHistoryExportCurrencies(accountId, companyId, signal) {
   const id = Number(accountId) || 0;
@@ -575,7 +582,7 @@ function rowToTableCells(row, lang) {
     formatPaymentHistoryMoney(row.cr_dr),
     formatPaymentHistoryMoney(row.balance),
     formatMemberRowDescription(lang, row),
-    remarkCell(row),
+    pdfRemarkText(row),
   ];
 }
 
@@ -750,8 +757,8 @@ const PDF_TABLE_COLUMN_STYLES = {
   3: { cellWidth: 20, halign: "right", overflow: "hidden" },
   4: { cellWidth: 20, halign: "right", overflow: "hidden" },
   5: { cellWidth: 24, halign: "right", overflow: "hidden" },
-  6: { cellWidth: 46, overflow: "linebreak" },
-  7: { cellWidth: 20, halign: "center", overflow: "linebreak" },
+  6: { cellWidth: 42, overflow: "linebreak" },
+  7: { cellWidth: 24, halign: "center", overflow: "linebreak" },
 };
 
 /**
