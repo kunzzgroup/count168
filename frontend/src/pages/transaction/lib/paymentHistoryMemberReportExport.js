@@ -602,7 +602,10 @@ function applyPdfMoneyStyle(cell, rawValue) {
 
 const PDF_LOGO_PATH = "images/count_brandlogo.png";
 const PDF_LOGO_HEIGHT_MM = 8;
-const PDF_HEADER_ROW_HEIGHT_MM = 12;
+const PDF_LOGO_TOP_TRIM_MM = 1.1;
+const PDF_TITLE_FONT_PT = 14;
+const PDF_META_FONT_PT = 9;
+const PDF_DATE_FONT_PT = 8;
 const PDF_HEADER_TOP_MM = 10;
 const PDF_FIRST_PAGE_TOP_MARGIN_MM = 30;
 const PDF_OTHER_PAGE_TOP_MARGIN_MM = 22;
@@ -665,38 +668,53 @@ function formatPdfReportDatetime() {
   return `${d}/${m}/${y} ${h}:${min} ${ampm}`;
 }
 
+function pdfCapHeightMm(fontSizePt) {
+  return fontSizePt * 0.352778 * 0.72;
+}
+
+function pdfLineHeightMm(fontSizePt) {
+  return fontSizePt * 0.352778 * 1.15;
+}
+
 function drawPdfPageHeader(doc, { logo, pageW, marginX, reportDateText, title, meta, showTitle }) {
-  const topY = PDF_HEADER_TOP_MM;
-  const rowH = PDF_HEADER_ROW_HEIGHT_MM;
-  const rowMidY = topY + rowH / 2;
+  const capTopY = PDF_HEADER_TOP_MM;
+  let blockBottomY = capTopY;
 
   if (logo?.dataUrl) {
     const imgH = PDF_LOGO_HEIGHT_MM;
     const imgW = imgH * (logo.dims.w / logo.dims.h);
-    doc.addImage(logo.dataUrl, "PNG", marginX, topY, imgW, imgH);
+    const logoTopY = capTopY - PDF_LOGO_TOP_TRIM_MM;
+    doc.addImage(logo.dataUrl, "PNG", marginX, logoTopY, imgW, imgH);
+    blockBottomY = Math.max(blockBottomY, logoTopY + imgH);
   }
 
   const rightX = pageW - marginX;
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
+  doc.setFontSize(PDF_DATE_FONT_PT);
   doc.setTextColor(100, 116, 139);
-  doc.text(reportDateText, rightX, topY + 2.5, { align: "right" });
+  const dateBaselineY = capTopY + pdfCapHeightMm(PDF_DATE_FONT_PT);
+  doc.text(reportDateText, rightX, dateBaselineY, { align: "right" });
+  blockBottomY = Math.max(blockBottomY, dateBaselineY);
 
   if (showTitle && title) {
     const centerX = pageW / 2;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
+    doc.setFontSize(PDF_TITLE_FONT_PT);
     doc.setTextColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
-    doc.text(title, centerX, rowMidY - 2, { align: "center" });
+    const titleBaselineY = capTopY + pdfCapHeightMm(PDF_TITLE_FONT_PT);
+    doc.text(title, centerX, titleBaselineY, { align: "center" });
+    blockBottomY = Math.max(blockBottomY, titleBaselineY);
     if (meta) {
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
+      doc.setFontSize(PDF_META_FONT_PT);
       doc.setTextColor(100, 116, 139);
-      doc.text(meta, centerX, rowMidY + 3.5, { align: "center" });
+      const metaBaselineY = titleBaselineY + pdfLineHeightMm(PDF_META_FONT_PT);
+      doc.text(meta, centerX, metaBaselineY, { align: "center" });
+      blockBottomY = Math.max(blockBottomY, metaBaselineY);
     }
   }
 
-  const sepY = topY + rowH + 4;
+  const sepY = blockBottomY + 4;
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.35);
   doc.line(marginX, sepY, pageW - marginX, sepY);
