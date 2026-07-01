@@ -84,8 +84,6 @@ function isCalendarDismissIgnoredTarget(target) {
   return !!(
     target.closest(".date-range-picker") ||
     target.closest(`#${CALENDAR_POPUP_ID}`) ||
-    target.closest(".transaction-calendar-presets") ||
-    target.closest(".transaction-calendar-preset") ||
     target.closest(".report-date-range-picker-container") ||
     target.closest(".transaction-payment-history-export-modal") ||
     target.closest(".bank-form-day-picker") ||
@@ -779,7 +777,6 @@ export function ensureMaintenanceDateRangePicker() {
         "calendar-popup--above-export-modal",
         !!picker.closest?.(".transaction-payment-history-export-modal"),
       );
-      const fromExportModal = !!picker.closest?.(".transaction-payment-history-export-modal");
       let rect = picker.getBoundingClientRect();
       let barWidth = rect.width;
       const bankWrap =
@@ -836,15 +833,9 @@ export function ensureMaintenanceDateRangePicker() {
           const popupWidth = Math.min(Math.max(window.innerWidth * 0.22, 316), 336);
           const maxLeft = window.innerWidth - popupWidth - 12;
           popup.style.left = `${Math.max(12, Math.min(rect.left, maxLeft))}px`;
-          if (fromExportModal) {
-            popup.style.width = "";
-            popup.style.minWidth = "";
-            popup.style.maxWidth = "calc(100vw - 24px)";
-          } else {
-            popup.style.width = "";
-            popup.style.minWidth = "";
-            popup.style.maxWidth = "";
-          }
+          popup.style.width = "";
+          popup.style.minWidth = "";
+          popup.style.maxWidth = "";
         }
       } else {
         popup.classList.remove("calendar-popup--match-anchor");
