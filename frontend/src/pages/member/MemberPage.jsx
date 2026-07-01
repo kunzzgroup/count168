@@ -271,6 +271,7 @@ export default function MemberPage() {
       ...base,
       exportPdf: t("exportPdf"),
       exportPdfTitle: t("exportPdfTitle"),
+      exportPdfTitleWithAccount: t("exportPdfTitleWithAccount"),
       exportPdfHint: t("exportPdfHint"),
       exportPdfCurrency: t("exportPdfCurrency"),
       exportPdfDateRange: t("exportPdfDateRange"),

@@ -8,6 +8,7 @@ import {
   buildMaintenancePeriodPresets,
   parseDmy,
 } from "../../maintenance/shared/maintenanceDateHelpers.js";
+import { closeMaintenanceCalendarPopup } from "../../../utils/date/dateRangePicker.js";
 import {
   buildCombinedMemberReportPrintHtml,
   buildMemberReportFilename,
@@ -75,10 +76,21 @@ export default function PaymentHistoryExportPdfModal({
   const [error, setError] = useState("");
   const abortRef = useRef(null);
 
+  const exportModalTitle = useMemo(() => {
+    const code = accountContextLabel?.code || "";
+    const template = m.exportPdfTitleWithAccount || "{account} WIN/LOSE REPORT";
+    if (code) return template.replace("{account}", code);
+    return m.exportPdfTitle || "WIN/LOSE REPORT";
+  }, [accountContextLabel, m.exportPdfTitleWithAccount, m.exportPdfTitle]);
+
   const exportCodes = useMemo(
     () => exportCurrencyCodes(isAllSelected, selectedCurrencies, currencies),
     [isAllSelected, selectedCurrencies, currencies],
   );
+
+  useEffect(() => {
+    if (!open) closeMaintenanceCalendarPopup();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -233,25 +245,16 @@ export default function PaymentHistoryExportPdfModal({
       aria-modal="true"
       aria-labelledby="payment-history-export-title"
       onClick={(e) => {
-        if (e.target === e.currentTarget && !exporting) onClose?.();
+        if (e.target === e.currentTarget && !exporting) {
+          closeMaintenanceCalendarPopup();
+          onClose?.();
+        }
       }}
     >
       <div className="transaction-payment-history-export-modal">
         <div className="transaction-payment-history-export-modal__header">
           <div className="transaction-payment-history-export-modal__heading">
-            <h3 id="payment-history-export-title">{m.exportPdfTitle}</h3>
-            {accountContextLabel ? (
-              <p className="transaction-payment-history-export-modal__subtitle">
-                <span className="transaction-payment-history-export-modal__account-code">
-                  {accountContextLabel.code}
-                </span>
-                {accountContextLabel.name ? (
-                  <span className="transaction-payment-history-export-modal__account-name">
-                    {accountContextLabel.name}
-                  </span>
-                ) : null}
-              </p>
-            ) : null}
+            <h3 id="payment-history-export-title">{exportModalTitle}</h3>
           </div>
           <button
             type="button"

@@ -14,10 +14,12 @@
 }
 
 .transaction-payment-history-export-modal {
-  --export-modal-text: 1.25rem;
+  --export-modal-text: 1.1875rem;
   --export-modal-date-range-w: var(--drp-popup-width, clamp(316px, 22vw, 336px));
-  --export-modal-label-w: 9.5rem;
-  width: min(100%, 680px);
+  --export-modal-label-w: 7.75rem;
+  width: fit-content;
+  max-width: min(100%, 520px);
+  min-width: min(100%, 420px);
   max-height: none;
   overflow: visible;
   border-radius: 16px;
@@ -34,8 +36,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 28px 32px 24px;
+  gap: 12px;
+  padding: 22px 24px 18px;
   border-bottom: 1px solid #e8eef5;
 }
 
@@ -46,33 +48,12 @@
 
 .transaction-payment-history-export-modal__header h3 {
   margin: 0;
-  font-size: 1.75rem;
+  font-size: 1.375rem;
   font-weight: 700;
   color: #0f172a;
-  letter-spacing: -0.01em;
-  line-height: 1.3;
-}
-
-.transaction-payment-history-export-modal__subtitle {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  margin: 8px 0 0;
-  line-height: 1.4;
-}
-
-.transaction-payment-history-export-modal__account-code {
-  font-size: var(--export-modal-text);
-  font-weight: 600;
-  color: #334155;
   letter-spacing: 0.01em;
-}
-
-.transaction-payment-history-export-modal__account-name {
-  font-size: var(--export-modal-text);
-  font-weight: 400;
-  color: #94a3b8;
+  line-height: 1.35;
+  text-transform: uppercase;
 }
 
 .transaction-payment-history-export-modal__close {
@@ -81,10 +62,10 @@
 }
 
 .transaction-payment-history-export-modal__body {
-  padding: 28px 32px 12px;
+  padding: 22px 24px 10px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 
@@ -116,7 +97,7 @@
   grid-template-columns: var(--export-modal-label-w) auto;
   justify-content: start;
   align-items: center;
-  gap: 14px 20px;
+  gap: 12px 14px;
   width: 100%;
 }
 
@@ -255,6 +236,10 @@
   z-index: 10060;
 }
 
+#calendar-popup.calendar-popup--above-export-modal {
+  z-index: 10060 !important;
+}
+
 .transaction-payment-history-export-modal__currency-pills {
   display: flex;
   flex-wrap: wrap;
@@ -346,8 +331,8 @@
 .transaction-payment-history-export-modal__actions {
   display: flex;
   justify-content: flex-end;
-  gap: 16px;
-  padding: 24px 32px 28px;
+  gap: 12px;
+  padding: 18px 24px 22px;
   margin-top: 4px;
   border-top: 1px solid #e8eef5;
 }
@@ -360,8 +345,8 @@
   justify-content: center;
   gap: 8px;
   box-sizing: border-box;
-  min-width: 148px;
-  padding: 14px 28px;
+  min-width: 132px;
+  padding: 12px 22px;
   border: none;
   border-radius: 8px;
   font-family: var(--font-heading-page), -apple-system, sans-serif;

@@ -72,7 +72,7 @@ export function closeMaintenanceCalendarPopup() {
   if (!popup || popup.getAttribute("data-open") !== "true") return;
   popup.removeAttribute("data-open");
   popup.setAttribute("aria-hidden", "true");
-  popup.classList.remove("calendar-popup--match-anchor");
+  popup.classList.remove("calendar-popup--match-anchor", "calendar-popup--above-export-modal");
   popup.style.display = "none";
   document.body.style.removeProperty("--bank-toolbar-date-width");
   const bankFooter = document.getElementById("calendar-popup-bank-footer");
@@ -85,6 +85,7 @@ function isCalendarDismissIgnoredTarget(target) {
     target.closest(".date-range-picker") ||
     target.closest(`#${CALENDAR_POPUP_ID}`) ||
     target.closest(".report-date-range-picker-container") ||
+    target.closest(".transaction-payment-history-export-modal") ||
     target.closest(".bank-form-day-picker") ||
     target.closest(".bank-form-datepicker-wrap") ||
     target.closest(".form-datepicker-wrap")
@@ -768,6 +769,14 @@ export function ensureMaintenanceDateRangePicker() {
         stashCommittedRangeFromHidden(activeRangeBinding);
       }
       syncRangeStateFromHiddenInputs();
+      // Escape ancestor stacking contexts (e.g. Member Win/Loss filter bar isolation).
+      if (popup.parentElement !== document.body) {
+        document.body.appendChild(popup);
+      }
+      popup.classList.toggle(
+        "calendar-popup--above-export-modal",
+        !!picker.closest?.(".transaction-payment-history-export-modal"),
+      );
       let rect = picker.getBoundingClientRect();
       let barWidth = rect.width;
       const bankWrap =
