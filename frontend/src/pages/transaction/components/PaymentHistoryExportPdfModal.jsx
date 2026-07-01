@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { portalToDocumentBody } from "../../../components/ProcessModalPortal.jsx";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { TRANSACTION_I18N } from "../../../translateFile/pages/transactionTranslate.js";
@@ -20,7 +20,7 @@ import {
   resolveExportCurrenciesDefault,
   ymdRangeToDmy,
 } from "../lib/paymentHistoryMemberReportExport.js";
-import { applyCurrencyToggle } from "../../member/memberPageHelpers.js";
+import { applyCurrencyToggle, splitWinLossAccountBands } from "../../member/memberPageHelpers.js";
 import "./PaymentHistoryExportPdfModal.css";
 
 function ExportPdfIcon() {
@@ -87,6 +87,60 @@ export default function PaymentHistoryExportPdfModal({
     () => exportCurrencyCodes(isAllSelected, selectedCurrencies, currencies),
     [isAllSelected, selectedCurrencies, currencies],
   );
+
+  const currencyButtonsRef = useRef(null);
+  const currencyMeasureRef = useRef(null);
+  const [currencyLayout, setCurrencyLayout] = useState({ containerWidth: 0, segmentWidths: [] });
+
+  const currencyCells = useMemo(() => {
+    const codes = Array.isArray(currencies) ? currencies : [];
+    const cells = [];
+    if (codes.length > 1) cells.push({ type: "all" });
+    codes.forEach((code) => cells.push({ type: "code", code }));
+    return cells;
+  }, [currencies]);
+
+  const currencyFilterBands = useMemo(
+    () =>
+      splitWinLossAccountBands(
+        currencyCells,
+        currencyLayout.segmentWidths,
+        currencyLayout.containerWidth,
+      ),
+    [currencyCells, currencyLayout.containerWidth, currencyLayout.segmentWidths],
+  );
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const container = currencyButtonsRef.current;
+    const measure = currencyMeasureRef.current;
+    if (!container || !measure) return undefined;
+
+    const update = () => {
+      const containerWidth = Math.max(container.clientWidth, 0);
+      const buttons = measure.querySelectorAll("button.user-gc-segment");
+      const segmentWidths = Array.from(buttons).map((btn) => btn.offsetWidth);
+      setCurrencyLayout((prev) => {
+        if (
+          prev.containerWidth === containerWidth
+          && prev.segmentWidths.length === segmentWidths.length
+          && prev.segmentWidths.every((w, i) => w === segmentWidths[i])
+        ) {
+          return prev;
+        }
+        return { containerWidth, segmentWidths };
+      });
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(container);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      ro.disconnect();
+    };
+  }, [open, currencyCells, isAllSelected, selectedCurrencies, m.all]);
 
   useEffect(() => {
     if (!open) closeMaintenanceCalendarPopup();
@@ -307,35 +361,69 @@ export default function PaymentHistoryExportPdfModal({
                   <p className="transaction-payment-history-export-modal__empty">{m.exportPdfNoCurrencies}</p>
                 ) : (
                   <div
-                    className="transaction-payment-history-export-modal__currency-pills"
+                    className="transaction-payment-history-export-modal__currency-pills user-gc-inline-pills"
+                    ref={currencyButtonsRef}
                     role="group"
                     aria-label={m.exportPdfCurrency}
                   >
-                    <div className="transaction-payment-history-export-modal__currency-segments">
-                      {currencies.length > 1 ? (
-                        <button
-                          type="button"
-                          className={`transaction-payment-history-export-modal__currency-segment${isAllSelected ? " is-on" : ""}`}
-                          data-currency-code="ALL"
-                          onClick={handleSelectAllCurrencies}
-                        >
-                          {m.all || "ALL"}
-                        </button>
-                      ) : null}
-                      {currencies.map((code) => (
-                        <button
-                          key={code}
-                          type="button"
-                          className={`transaction-payment-history-export-modal__currency-segment${
-                            !isAllSelected && selectedCurrencies.includes(code) ? " is-on" : ""
-                          }`}
-                          data-currency-code={code}
-                          onClick={() => handleToggleCurrency(code)}
-                        >
-                          {code}
-                        </button>
-                      ))}
+                    <div
+                      ref={currencyMeasureRef}
+                      className="transaction-payment-history-export-modal__currency-measure"
+                      aria-hidden="true"
+                    >
+                      {currencyCells.map((cell) =>
+                        cell.type === "all" ? (
+                          <button key="export-ccy-measure-all" type="button" tabIndex={-1} className="user-gc-segment">
+                            {m.all || "ALL"}
+                          </button>
+                        ) : (
+                          <button
+                            key={`export-ccy-measure-${cell.code}`}
+                            type="button"
+                            tabIndex={-1}
+                            className="user-gc-segment"
+                          >
+                            {cell.code}
+                          </button>
+                        ),
+                      )}
                     </div>
+                    {currencyFilterBands.map((band, segIdx) => (
+                      <div
+                        key={`export-ccy-band-${segIdx}`}
+                        className="user-gc-segment-group transaction-payment-history-export-modal__currency-segments"
+                        style={{
+                          width: "fit-content",
+                          maxWidth: "100%",
+                        }}
+                      >
+                        {band.map((cell) =>
+                          cell.type === "all" ? (
+                            <button
+                              key="all"
+                              type="button"
+                              className={`user-gc-segment${isAllSelected ? " is-on" : ""}`}
+                              data-currency-code="ALL"
+                              onClick={handleSelectAllCurrencies}
+                            >
+                              {m.all || "ALL"}
+                            </button>
+                          ) : (
+                            <button
+                              key={cell.code}
+                              type="button"
+                              className={`user-gc-segment${
+                                !isAllSelected && selectedCurrencies.includes(cell.code) ? " is-on" : ""
+                              }`}
+                              data-currency-code={cell.code}
+                              onClick={() => handleToggleCurrency(cell.code)}
+                            >
+                              {cell.code}
+                            </button>
+                          ),
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
