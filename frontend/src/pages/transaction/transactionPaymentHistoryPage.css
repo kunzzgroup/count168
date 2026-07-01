@@ -900,7 +900,8 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
 .transaction-payment-history-export-modal {
   --export-modal-text: 1.1875rem;
   --export-modal-date-range-w: var(--drp-popup-width, clamp(316px, 22vw, 336px));
-  width: min(100%, 680px);
+  --export-modal-label-w: 8.5rem;
+  width: min(100%, 560px);
   max-height: none;
   overflow: visible;
   border-radius: 16px;
@@ -972,11 +973,12 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
 
 .transaction-payment-history-export-modal__hint {
   margin: 0;
-  padding: 14px 16px;
-  border-radius: 10px;
-  background: #f1f5f9;
-  font-size: var(--export-modal-text);
-  line-height: 1.55;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: calc(var(--export-modal-text) * 0.92);
+  line-height: 1.5;
   color: #64748b;
 }
 
@@ -988,10 +990,10 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
 
 .transaction-payment-history-export-modal__inline-row {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: var(--export-modal-label-w) auto;
   justify-content: start;
   align-items: center;
-  gap: 12px 18px;
+  gap: 12px 16px;
   width: 100%;
 }
 
