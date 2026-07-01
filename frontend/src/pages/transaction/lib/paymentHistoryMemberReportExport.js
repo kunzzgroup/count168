@@ -1,4 +1,4 @@
-import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { formatDmyFromYmd } from "../../maintenance/shared/maintenanceDateHelpers.js";
 import { computeTableTotals, formatPaymentHistoryMoney } from "../../member/memberPageHelpers.js";
 import { parseJsonResponse } from "../../member/memberWinLossApi.js";
@@ -599,6 +599,48 @@ function applyPdfMoneyStyle(cell, rawValue) {
   }
 }
 
+const PDF_LOGO_PATH = "images/count_whitelogo.png";
+const PDF_LOGO_MAX_HEIGHT_MM = 10;
+const PDF_BRAND_BAR_RGB = [0, 44, 73];
+
+async function loadPdfLogoAsset() {
+  try {
+    const res = await fetch(assetUrl(PDF_LOGO_PATH), {
+      credentials: "same-origin",
+      cache: "force-cache",
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+    const dims = await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ w: img.naturalWidth || 1, h: img.naturalHeight || 1 });
+      img.onerror = () => resolve({ w: 1, h: 1 });
+      img.src = dataUrl;
+    });
+    return { dataUrl, dims };
+  } catch {
+    return null;
+  }
+}
+
+/** EAZYCOUNT logo with brand bar — top-left placement on A4 portrait PDF. */
+function drawPdfBrandLogo(doc, logo, x, y) {
+  if (!logo?.dataUrl) return { width: 0, height: 0 };
+  const pad = 1.5;
+  const h = PDF_LOGO_MAX_HEIGHT_MM;
+  const w = h * (logo.dims.w / logo.dims.h);
+  doc.setFillColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
+  doc.roundedRect(x, y, w + pad * 2, h + pad * 2, 1.2, 1.2, "F");
+  doc.addImage(logo.dataUrl, "PNG", x + pad, y + pad, w, h);
+  return { width: w + pad * 2, height: h + pad * 2 };
+}
+
 /** A4 portrait — column widths total 190mm; Date fits dd/mm/yyyy on one line. */
 const PDF_TABLE_COLUMN_STYLES = {
   0: { cellWidth: 24, halign: "left", overflow: "hidden" },
@@ -632,7 +674,10 @@ export async function downloadMemberReportPdf({
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const marginX = 10;
-  let cursorY = 14;
+  const logoY = 8;
+  const logo = await loadPdfLogoAsset();
+  const logoBox = drawPdfBrandLogo(doc, logo, marginX, logoY);
+  let cursorY = logoBox.height ? logoY + logoBox.height + 6 : 14;
 
   const headerSection = buildMemberReportSectionData({
     rows: sections?.[0]?.rows || [],
