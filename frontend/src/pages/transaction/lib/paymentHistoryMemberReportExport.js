@@ -599,16 +599,16 @@ function applyPdfMoneyStyle(cell, rawValue) {
   }
 }
 
-/** A4 portrait — column widths total ~190mm (210mm page − 10mm margins). */
+/** A4 portrait — column widths total 190mm; Rate/Remark wide enough for full header text. */
 const PDF_TABLE_COLUMN_STYLES = {
-  0: { cellWidth: 21 },
-  1: { cellWidth: 23 },
-  2: { cellWidth: 11, halign: "right" },
-  3: { cellWidth: 19, halign: "right" },
-  4: { cellWidth: 19, halign: "right" },
-  5: { cellWidth: 19, halign: "right" },
-  6: { cellWidth: 65 },
-  7: { cellWidth: 13, halign: "center" },
+  0: { cellWidth: 20 },
+  1: { cellWidth: 22 },
+  2: { cellWidth: 16, halign: "right" },
+  3: { cellWidth: 18, halign: "right" },
+  4: { cellWidth: 18, halign: "right" },
+  5: { cellWidth: 20, halign: "right" },
+  6: { cellWidth: 58 },
+  7: { cellWidth: 18, halign: "center" },
 };
 
 /**
@@ -719,6 +719,8 @@ export async function downloadMemberReportPdf({
         textColor: 255,
         fontStyle: "bold",
         fontSize: 9,
+        minCellHeight: 8,
+        valign: "middle",
       },
       footStyles: {
         fillColor: [238, 244, 255],
@@ -729,6 +731,9 @@ export async function downloadMemberReportPdf({
       alternateRowStyles: { fillColor: [244, 247, 252] },
       columnStyles: PDF_TABLE_COLUMN_STYLES,
       didParseCell: (hookData) => {
+        if (hookData.section === "head") {
+          hookData.cell.styles.cellPadding = { top: 3, right: 2, bottom: 3, left: 2 };
+        }
         if (hookData.section === "body") {
           const row = sourceRows[hookData.row.index];
           if (row?.row_type === "bf") {
