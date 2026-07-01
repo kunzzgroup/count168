@@ -599,8 +599,8 @@ function applyPdfMoneyStyle(cell, rawValue) {
   }
 }
 
-const PDF_LOGO_PATH = "images/count_logo.png";
-const PDF_LOGO_ICON_HEIGHT_MM = 10;
+const PDF_LOGO_PATH = "images/count_brandlogo.png";
+const PDF_LOGO_HEIGHT_MM = 10;
 const PDF_HEADER_ROW_HEIGHT_MM = 14;
 const PDF_HEADER_TOP_MM = 10;
 const PDF_FIRST_PAGE_TOP_MARGIN_MM = 30;
@@ -653,14 +653,10 @@ function drawPdfPageHeader(doc, { logo, pageW, marginX, reportDateText, title, m
   const rowMidY = topY + rowH / 2;
 
   if (logo?.dataUrl) {
-    const imgH = PDF_LOGO_ICON_HEIGHT_MM;
+    const imgH = PDF_LOGO_HEIGHT_MM;
     const imgW = imgH * (logo.dims.w / logo.dims.h);
     const imgY = topY + (rowH - imgH) / 2;
     doc.addImage(logo.dataUrl, "PNG", marginX, imgY, imgW, imgH);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
-    doc.text("EAZYCOUNT", marginX + imgW + 2.5, rowMidY + 1.2);
   }
 
   const rightX = pageW - marginX;
