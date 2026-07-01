@@ -264,31 +264,32 @@ export default function PaymentHistoryExportPdfModal({
         </div>
 
         <div className="transaction-payment-history-export-modal__body">
-          <p className="transaction-payment-history-export-modal__hint">{m.exportPdfHint}</p>
-
           <div className="transaction-payment-history-export-modal__form">
-            <div className="transaction-payment-history-export-modal__inline-row transaction-payment-history-export-modal__inline-row--date">
-              <span className="transaction-payment-history-export-modal__inline-label">
-                {m.exportPdfDateRange}:
-              </span>
-              <div className="transaction-payment-history-export-modal__inline-control transaction-payment-history-export-modal__inline-control--date">
-                <ReportDatePicker
-                  dateFrom={dateFromYmd}
-                  dateTo={dateToYmd}
-                  onRangeChange={handleRangeChange}
-                  containerClass="transaction-payment-history-export-date"
-                  label=""
-                  placeholder={m.exportPdfSelectDateRange}
-                  selectEndDateHint={m.exportPdfSelectEndDate}
-                  captureDateStyle
-                  instanceId={pickerInstanceId}
-                  shareCalendarPopup={shareCalendarPopup}
-                  periodPresets={periodPresets}
-                  periodShortcutsAria={m.exportPdfPeriod}
-                  monthLabels={m.monthsShort}
-                  weekdaysShort={m.weekdaysShort}
-                />
+            <div className="transaction-payment-history-export-modal__field">
+              <div className="transaction-payment-history-export-modal__inline-row transaction-payment-history-export-modal__inline-row--date">
+                <span className="transaction-payment-history-export-modal__inline-label">
+                  {m.exportPdfDateRange}:
+                </span>
+                <div className="transaction-payment-history-export-modal__inline-control transaction-payment-history-export-modal__inline-control--date">
+                  <ReportDatePicker
+                    dateFrom={dateFromYmd}
+                    dateTo={dateToYmd}
+                    onRangeChange={handleRangeChange}
+                    containerClass="transaction-payment-history-export-date"
+                    label=""
+                    placeholder={m.exportPdfSelectDateRange}
+                    selectEndDateHint={m.exportPdfSelectEndDate}
+                    captureDateStyle
+                    instanceId={pickerInstanceId}
+                    shareCalendarPopup={shareCalendarPopup}
+                    periodPresets={periodPresets}
+                    periodShortcutsAria={m.exportPdfPeriod}
+                    monthLabels={m.monthsShort}
+                    weekdaysShort={m.weekdaysShort}
+                  />
+                </div>
               </div>
+              <p className="transaction-payment-history-export-modal__field-hint">{m.exportPdfHint}</p>
             </div>
 
             <div className="transaction-payment-history-export-modal__inline-row transaction-payment-history-export-modal__inline-row--currency">

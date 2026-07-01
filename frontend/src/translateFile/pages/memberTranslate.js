@@ -60,7 +60,7 @@ export const MEMBER_I18N = {
     period: "Period",
     exportPdf: "Export PDF",
     exportPdfTitle: "Win/Loss Report",
-    exportPdfHint: "Same data as the Win/Loss table below.",
+    exportPdfHint: "Same as Win/Loss table below.",
     exportPdfCurrency: "Currency",
     exportPdfDateRange: "Date Range",
     exportPdfSelectDateRange: "Select date range",
