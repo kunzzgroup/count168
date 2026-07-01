@@ -599,11 +599,11 @@ function applyPdfMoneyStyle(cell, rawValue) {
   }
 }
 
-const PDF_LOGO_PATH = "images/count_whitelogo.png";
-const PDF_LOGO_BOX_HEIGHT_MM = 12;
-const PDF_LOGO_BOX_PAD_MM = 2.5;
+const PDF_LOGO_PATH = "images/count_logo.png";
+const PDF_LOGO_ICON_HEIGHT_MM = 10;
+const PDF_HEADER_ROW_HEIGHT_MM = 14;
 const PDF_HEADER_TOP_MM = 10;
-const PDF_FIRST_PAGE_TOP_MARGIN_MM = 50;
+const PDF_FIRST_PAGE_TOP_MARGIN_MM = 30;
 const PDF_OTHER_PAGE_TOP_MARGIN_MM = 22;
 const PDF_BRAND_BAR_RGB = [0, 44, 73];
 const PDF_TOTAL_PAGES_PLACEHOLDER = "{nb}";
@@ -647,59 +647,48 @@ function formatPdfReportDatetime() {
   return `${d}/${m}/${y} ${h}:${min} ${ampm}`;
 }
 
-function drawPdfTopBar(doc, { logo, pageW, marginX, reportDateText, pageText }) {
+function drawPdfPageHeader(doc, { logo, pageW, marginX, reportDateText, pageText, title, meta, showTitle }) {
   const topY = PDF_HEADER_TOP_MM;
-  const boxH = PDF_LOGO_BOX_HEIGHT_MM;
+  const rowH = PDF_HEADER_ROW_HEIGHT_MM;
+  const rowMidY = topY + rowH / 2;
 
   if (logo?.dataUrl) {
-    const imgH = boxH - PDF_LOGO_BOX_PAD_MM * 2;
+    const imgH = PDF_LOGO_ICON_HEIGHT_MM;
     const imgW = imgH * (logo.dims.w / logo.dims.h);
-    const boxW = imgW + PDF_LOGO_BOX_PAD_MM * 2;
-    doc.setFillColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
-    doc.rect(marginX, topY, boxW, boxH, "F");
-    doc.addImage(
-      logo.dataUrl,
-      "PNG",
-      marginX + PDF_LOGO_BOX_PAD_MM,
-      topY + PDF_LOGO_BOX_PAD_MM,
-      imgW,
-      imgH,
-    );
+    const imgY = topY + (rowH - imgH) / 2;
+    doc.addImage(logo.dataUrl, "PNG", marginX, imgY, imgW, imgH);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
+    doc.text("EAZYCOUNT", marginX + imgW + 2.5, rowMidY + 1.2);
   }
 
   const rightX = pageW - marginX;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
-  doc.text(reportDateText, rightX, topY + 4, { align: "right" });
-  doc.text(pageText, rightX, topY + 9, { align: "right" });
+  doc.text(reportDateText, rightX, rowMidY - 2.5, { align: "right" });
+  doc.text(pageText, rightX, rowMidY + 2.5, { align: "right" });
 
-  const sepY = topY + boxH + 4;
+  if (showTitle && title) {
+    const centerX = pageW / 2;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
+    doc.text(title, centerX, rowMidY - 2, { align: "center" });
+    if (meta) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text(meta, centerX, rowMidY + 3.5, { align: "center" });
+    }
+  }
+
+  const sepY = topY + rowH + 4;
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.35);
   doc.line(marginX, sepY, pageW - marginX, sepY);
-  return sepY;
-}
-
-/** Logo badge + report meta row, optional title block below separator (page 1 only). */
-function drawPdfPageHeader(doc, { logo, pageW, marginX, reportDateText, pageText, title, meta, showTitle }) {
-  const sepY = drawPdfTopBar(doc, { logo, pageW, marginX, reportDateText, pageText });
-  if (!showTitle) return sepY + 4;
-
-  let cursorY = sepY + 9;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.setTextColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
-  doc.text(title, marginX, cursorY);
-  cursorY += 7;
-
-  if (meta) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text(meta, marginX, cursorY);
-  }
-  return cursorY + 5;
+  return sepY + 4;
 }
 
 /** A4 portrait — column widths total 190mm; Date fits dd/mm/yyyy on one line. */
