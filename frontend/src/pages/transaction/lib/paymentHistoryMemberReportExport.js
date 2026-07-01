@@ -282,6 +282,9 @@ export function resolveExportCurrenciesDefault(scopeCurrency, currencies) {
   if (!list.length) {
     return { isAllSelected: true, codes: [] };
   }
+  if (list.length === 1) {
+    return { isAllSelected: false, codes: [list[0]] };
+  }
   const raw = String(scopeCurrency || "")
     .trim()
     .toUpperCase();
@@ -305,9 +308,12 @@ export function resolveExportCurrenciesDefault(scopeCurrency, currencies) {
 export function exportCurrencyCodes(isAllSelected, selectedCurrencies, availableCurrencies) {
   const list = Array.isArray(availableCurrencies) ? availableCurrencies : [];
   if (!list.length) return [];
+  if (list.length === 1) {
+    const code = list[0];
+    return (selectedCurrencies || []).includes(code) ? [code] : [];
+  }
   if (isAllSelected) return [...list];
-  const picked = (selectedCurrencies || []).filter((c) => list.includes(c));
-  return picked.length ? picked : [...list];
+  return (selectedCurrencies || []).filter((c) => list.includes(c));
 }
 
 export function ymdRangeToDmy(dateFromYmd, dateToYmd) {
@@ -605,7 +611,6 @@ const PDF_LOGO_HEIGHT_MM = 8;
 const PDF_LOGO_TOP_TRIM_MM = 1.1;
 const PDF_TITLE_FONT_PT = 14;
 const PDF_META_FONT_PT = 9;
-const PDF_DATE_FONT_PT = 8;
 const PDF_HEADER_TOP_MM = 10;
 const PDF_FIRST_PAGE_TOP_MARGIN_MM = 30;
 const PDF_OTHER_PAGE_TOP_MARGIN_MM = 22;
@@ -655,19 +660,6 @@ async function loadPdfLogoAsset() {
   return null;
 }
 
-function formatPdfReportDatetime() {
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  const d = pad(now.getDate());
-  const m = pad(now.getMonth() + 1);
-  const y = now.getFullYear();
-  let h = now.getHours();
-  const ampm = h >= 12 ? "PM" : "AM";
-  h = h % 12 || 12;
-  const min = pad(now.getMinutes());
-  return `${d}/${m}/${y} ${h}:${min} ${ampm}`;
-}
-
 function pdfCapHeightMm(fontSizePt) {
   return fontSizePt * 0.352778 * 0.72;
 }
@@ -676,7 +668,7 @@ function pdfLineHeightMm(fontSizePt) {
   return fontSizePt * 0.352778 * 1.15;
 }
 
-function drawPdfPageHeader(doc, { logo, pageW, marginX, reportDateText, title, meta, showTitle }) {
+function drawPdfPageHeader(doc, { logo, pageW, marginX, title, meta, showTitle }) {
   const capTopY = PDF_HEADER_TOP_MM;
   let blockBottomY = capTopY;
 
@@ -687,14 +679,6 @@ function drawPdfPageHeader(doc, { logo, pageW, marginX, reportDateText, title, m
     doc.addImage(logo.dataUrl, "PNG", marginX, logoTopY, imgW, imgH);
     blockBottomY = Math.max(blockBottomY, logoTopY + imgH);
   }
-
-  const rightX = pageW - marginX;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(PDF_DATE_FONT_PT);
-  doc.setTextColor(100, 116, 139);
-  const dateBaselineY = capTopY + pdfCapHeightMm(PDF_DATE_FONT_PT);
-  doc.text(reportDateText, rightX, dateBaselineY, { align: "right" });
-  blockBottomY = Math.max(blockBottomY, dateBaselineY);
 
   if (showTitle && title) {
     const centerX = pageW / 2;
@@ -774,7 +758,6 @@ export async function downloadMemberReportPdf({
   });
 
   const t = (key, params) => getMemberText(lang, key, params);
-  const reportDateText = formatPdfReportDatetime();
   let titleDrawn = false;
   let cursorY = PDF_FIRST_PAGE_TOP_MARGIN_MM;
 
@@ -845,7 +828,6 @@ export async function downloadMemberReportPdf({
           logo,
           pageW,
           marginX,
-          reportDateText,
           title: headerSection.docTitle,
           meta: headerSection.docMeta,
           showTitle,
