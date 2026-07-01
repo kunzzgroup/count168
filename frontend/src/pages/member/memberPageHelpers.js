@@ -512,6 +512,10 @@ export function sanitizeCurrencySelection(available, isAllSelected, selectedCurr
   if (!available.length) {
     return { isAllSelected: true, selectedCurrencies: [] };
   }
+  // 仅一个币种时不显示 All 按钮，应直接高亮该币种
+  if (available.length === 1) {
+    return { isAllSelected: false, selectedCurrencies: [available[0]] };
+  }
   if (isAllSelected) {
     return { isAllSelected: true, selectedCurrencies: [] };
   }
