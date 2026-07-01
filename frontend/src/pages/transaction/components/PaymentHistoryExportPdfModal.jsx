@@ -232,8 +232,8 @@ export default function PaymentHistoryExportPdfModal({
         <div className="transaction-payment-history-export-modal__body">
           <p className="transaction-payment-history-export-modal__hint">{m.exportPdfHint}</p>
 
-          <div className="transaction-payment-history-export-modal__form">
-            <div className="transaction-payment-history-export-modal__field transaction-payment-history-export-modal__field--date">
+          <div className="transaction-payment-history-export-modal__form transaction-bottom-filters">
+            <div className="transaction-payment-history-export-modal__field transaction-payment-history-export-modal__field--date transaction-outlined-field-col transaction-outlined-field-col--date">
               <ReportDatePicker
                 dateFrom={dateFromYmd}
                 dateTo={dateToYmd}
@@ -242,6 +242,7 @@ export default function PaymentHistoryExportPdfModal({
                 label={m.exportPdfDateRange}
                 placeholder={m.exportPdfSelectDateRange}
                 selectEndDateHint={m.exportPdfSelectEndDate}
+                outlinedFloatingLabel
                 captureDateStyle
                 instanceId={pickerInstanceId}
                 shareCalendarPopup={shareCalendarPopup}
@@ -253,30 +254,38 @@ export default function PaymentHistoryExportPdfModal({
             </div>
 
             <div className="transaction-payment-history-export-modal__field transaction-payment-history-export-modal__field--currency">
-              <span className="transaction-payment-history-export-modal__label">{m.exportPdfCurrency}</span>
-              {loadingCurrencies ? (
-                <p className="transaction-payment-history-export-modal__loading">{m.loading}</p>
-              ) : currencies.length === 0 ? (
-                <p className="transaction-payment-history-export-modal__empty">{m.exportPdfNoCurrencies}</p>
-              ) : singleCurrency ? (
-                <span className="transaction-payment-history-export-currency-badge">{selectedCurrency}</span>
-              ) : (
-                <div className="transaction-payment-history-export-segment" role="group" aria-label={m.exportPdfCurrency}>
-                  {currencies.map((code) => (
-                    <button
-                      key={code}
-                      type="button"
-                      className={`transaction-payment-history-export-segment__btn${selectedCurrency === code ? " is-on" : ""}`}
-                      onClick={() => {
-                        setSelectedCurrency(code);
-                        setError("");
-                      }}
-                    >
-                      {code}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div id="currency-buttons-wrapper" className="user-gc-inline-row">
+                <span className="user-gc-inline-label">{m.exportPdfCurrency}</span>
+                {loadingCurrencies ? (
+                  <p className="transaction-payment-history-export-modal__loading">{m.loading}</p>
+                ) : currencies.length === 0 ? (
+                  <p className="transaction-payment-history-export-modal__empty">{m.exportPdfNoCurrencies}</p>
+                ) : (
+                  <div
+                    className="user-gc-inline-pills transaction-currency-pills"
+                    role="group"
+                    aria-label={m.exportPdfCurrency}
+                  >
+                    <div className="user-gc-segment-group transaction-currency-segments" id="currency-buttons-container">
+                      {currencies.map((code) => (
+                        <button
+                          key={code}
+                          type="button"
+                          className={`user-gc-segment${selectedCurrency === code ? " is-on" : ""}`}
+                          data-currency-code={code}
+                          disabled={singleCurrency}
+                          onClick={() => {
+                            setSelectedCurrency(code);
+                            setError("");
+                          }}
+                        >
+                          {code}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
