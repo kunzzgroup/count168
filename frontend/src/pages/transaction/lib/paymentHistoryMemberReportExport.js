@@ -12,6 +12,199 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+function parseMoneyNumber(value) {
+  if (value === "-" || value === null || value === undefined) return null;
+  const cleaned = String(value).replace(/,/g, "").trim();
+  if (cleaned === "" || cleaned === "-") return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatMoneyHtml(value) {
+  const n = parseMoneyNumber(value);
+  const display = formatPaymentHistoryMoney(value);
+  if (n === null) return '<span class="amt amt--empty">–</span>';
+  if (n === 0) return '<span class="amt amt--zero">-</span>';
+  const tone = n > 0 ? "pos" : "neg";
+  return `<span class="amt amt--${tone}">${escapeHtml(display)}</span>`;
+}
+
+function moneyCellClass(value) {
+  const n = parseMoneyNumber(value);
+  if (n === 0) return "num num--zero";
+  return "num";
+}
+
+/** Print CSS aligned with Member Win/Loss table (`member-winloss-table--by-currency`). */
+const MEMBER_REPORT_PRINT_CSS = `
+  @page { size: A4 portrait; margin: 12mm 10mm; }
+  * { box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    color: #0f172a;
+    font-size: 10pt;
+    line-height: 1.25;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .doc-header {
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #002c49;
+  }
+  .doc-title {
+    margin: 0 0 4px;
+    font-size: 14pt;
+    font-weight: 700;
+    color: #002c49;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .doc-meta {
+    margin: 0;
+    font-size: 9.5pt;
+    font-weight: 600;
+    color: #475569;
+  }
+  .report-section {
+    margin: 0 0 18px;
+    page-break-inside: avoid;
+  }
+  .report-section + .report-section {
+    page-break-before: always;
+    margin-top: 0;
+    padding-top: 4px;
+  }
+  .section-title {
+    margin: 0 0 8px;
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1f2937;
+    letter-spacing: 0.01em;
+  }
+  .section-meta {
+    margin: 0 0 10px;
+    font-size: 9pt;
+    font-weight: 600;
+    color: #64748b;
+  }
+  table.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    border: 1px solid #e2e8f0;
+    font-size: 9.5pt;
+  }
+  table.report-table col.col-date { width: 11%; }
+  table.report-table col.col-product { width: 12%; }
+  table.report-table col.col-rate { width: 6%; }
+  table.report-table col.col-winloss,
+  table.report-table col.col-crdr,
+  table.report-table col.col-balance { width: 10%; }
+  table.report-table col.col-description { width: 34%; }
+  table.report-table col.col-remark { width: 7%; }
+  table.report-table thead { display: table-header-group; }
+  table.report-table tfoot { display: table-footer-group; }
+  table.report-table th {
+    background: #002c49;
+    color: #ffffff;
+    padding: 7px 8px;
+    border: 1px solid #1e3a5f;
+    font-size: 9.5pt;
+    font-weight: 700;
+    text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  table.report-table th.col-rate,
+  table.report-table th.col-winloss,
+  table.report-table th.col-crdr,
+  table.report-table th.col-balance {
+    text-align: right;
+  }
+  table.report-table td {
+    padding: 6px 8px;
+    border: 1px solid #e8edf3;
+    font-size: 9.5pt;
+    font-weight: 600;
+    color: #0f172a;
+    vertical-align: middle;
+    word-break: break-word;
+  }
+  table.report-table tbody tr:nth-child(odd) td { background: #ffffff; }
+  table.report-table tbody tr:nth-child(even) td { background: #f4f7fc; }
+  table.report-table tbody tr.row-bf td {
+    background: #eef4ff !important;
+    color: #1e3a5f;
+  }
+  table.report-table td.col-date { white-space: nowrap; }
+  table.report-table td.col-product { text-align: left; }
+  table.report-table td.col-rate,
+  table.report-table td.col-remark {
+    text-align: right;
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
+  }
+  table.report-table td.col-remark { text-align: center; }
+  table.report-table td.col-description {
+    text-align: left;
+    text-transform: uppercase;
+  }
+  table.report-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.report-table tbody td.num--zero { text-align: center; }
+  table.report-table .amt {
+    display: inline-block;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    min-width: 3.5rem;
+  }
+  table.report-table .amt--pos { color: #172a9f; }
+  table.report-table .amt--neg { color: #b91c1c; }
+  table.report-table .amt--zero {
+    color: #002c49;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+  table.report-table .amt--empty {
+    color: #cbd5e1;
+    font-weight: 400;
+  }
+  table.report-table tr.total-row td {
+    background: #eef4ff !important;
+    color: #0f172a !important;
+    font-weight: 700;
+    border-color: #e2e8f0;
+    border-top: 2px solid #d6e3f2;
+  }
+  table.report-table td.total-label {
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  table.report-table tr.total-row td.num { text-align: right; }
+  @media print {
+    body { width: auto; }
+    .report-section { page-break-inside: auto; }
+    table.report-table tr { page-break-inside: avoid; }
+  }
+`;
+
+const REPORT_TABLE_COLGROUP = `<colgroup>
+  <col class="col-date" />
+  <col class="col-product" />
+  <col class="col-rate" />
+  <col class="col-winloss" />
+  <col class="col-crdr" />
+  <col class="col-balance" />
+  <col class="col-description" />
+  <col class="col-remark" />
+</colgroup>`;
+
 function productCell(row) {
   if (row?.is_bank_process_transaction) return row.card_owner || "-";
   return row?.product || "-";
@@ -123,55 +316,75 @@ export function ymdRangeToDmy(dateFromYmd, dateToYmd) {
   };
 }
 
-function buildPrintDocumentHtml({ title, subtitle, headers, bodyRows, footerRow }) {
-  const headCells = headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
-  const body = bodyRows
-    .map(
-      (cells) =>
-        `<tr>${cells.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`,
-    )
+function buildReportTableHead(headers) {
+  const colClasses = [
+    "col-date",
+    "col-product",
+    "col-rate",
+    "col-winloss",
+    "col-crdr",
+    "col-balance",
+    "col-description",
+    "col-remark",
+  ];
+  const cells = headers
+    .map((h, i) => `<th class="${colClasses[i] || ""}">${escapeHtml(h)}</th>`)
     .join("");
-  const foot = footerRow
-    ? `<tfoot><tr class="total">${footerRow.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr></tfoot>`
-    : "";
+  return `<thead><tr>${cells}</tr></thead>`;
+}
 
+function buildReportDataRowHtml(row, lang) {
+  const bfClass = row?.row_type === "bf" ? " row-bf" : "";
+  return `<tr class="data-row${bfClass}">
+    <td class="col-date">${escapeHtml(row.date || "-")}</td>
+    <td class="col-product">${escapeHtml(productCell(row))}</td>
+    <td class="col-rate">${escapeHtml(row.rate || "-")}</td>
+    <td class="${moneyCellClass(row.win_loss)}">${formatMoneyHtml(row.win_loss)}</td>
+    <td class="${moneyCellClass(row.cr_dr)}">${formatMoneyHtml(row.cr_dr)}</td>
+    <td class="${moneyCellClass(row.balance)}">${formatMoneyHtml(row.balance)}</td>
+    <td class="col-description">${escapeHtml(formatMemberRowDescription(lang, row))}</td>
+    <td class="col-remark">${escapeHtml(remarkCell(row))}</td>
+  </tr>`;
+}
+
+function buildReportFooterHtml(totalLabel, totalWinLoss, totalCrDr, closingBalance) {
+  return `<tfoot><tr class="total-row">
+    <td class="total-label" colspan="3">${escapeHtml(totalLabel)}</td>
+    <td class="num">${formatMoneyHtml(totalWinLoss.toString())}</td>
+    <td class="num">${formatMoneyHtml(totalCrDr.toString())}</td>
+    <td class="num">${formatMoneyHtml(closingBalance.toString())}</td>
+    <td colspan="2"></td>
+  </tr></tfoot>`;
+}
+
+function buildPrintShellHtml({ documentTitle, bodyContent }) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>${escapeHtml(title)}</title>
-  <style>
-    @page { size: A4 portrait; margin: 10mm; }
-    * { box-sizing: border-box; }
-    html, body { width: 210mm; min-height: 297mm; }
-    body {
-      font-family: "Segoe UI", Arial, sans-serif;
-      color: #0f172a;
-      margin: 0;
-      padding: 0;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    h1 { margin: 0 0 4px; font-size: 15px; }
-    .sub { margin: 0 0 10px; color: #475569; font-size: 10px; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8.5px; }
-    th, td { border: 1px solid #b8cfe8; padding: 4px 5px; text-align: left; vertical-align: top; word-break: break-word; }
-    th { background: linear-gradient(180deg, #dce9f8 0%, #c5daf2 100%); color: #1e3a5f; font-weight: 700; }
-    tr:nth-child(even) td { background: #f8fafc; }
-    tr.total td { font-weight: 700; background: #eff6ff; }
-    .num { text-align: right; white-space: nowrap; }
-  </style>
+  <title>${escapeHtml(documentTitle)}</title>
+  <style>${MEMBER_REPORT_PRINT_CSS}</style>
 </head>
-<body>
-  <h1>${escapeHtml(title)}</h1>
-  <p class="sub">${escapeHtml(subtitle)}</p>
-  <table>
-    <thead><tr>${headCells}</tr></thead>
+<body>${bodyContent}</body>
+</html>`;
+}
+
+function buildPrintDocumentHtml({ title, subtitle, headers, rows, footerLabel, totalWinLoss, totalCrDr, closingBalance, lang }) {
+  const head = buildReportTableHead(headers);
+  const body = (rows || []).map((row) => buildReportDataRowHtml(row, lang)).join("");
+  const foot = buildReportFooterHtml(footerLabel, totalWinLoss, totalCrDr, closingBalance);
+  const content = `
+  <header class="doc-header">
+    <h1 class="doc-title">${escapeHtml(title)}</h1>
+    <p class="doc-meta">${escapeHtml(subtitle)}</p>
+  </header>
+  <table class="report-table">
+    ${REPORT_TABLE_COLGROUP}
+    ${head}
     <tbody>${body}</tbody>
     ${foot}
-  </table>
-</body>
-</html>`;
+  </table>`;
+  return buildPrintShellHtml({ documentTitle: title, bodyContent: content });
 }
 
 export function buildMemberReportPrintHtml({
@@ -183,7 +396,7 @@ export function buildMemberReportPrintHtml({
   dateTo,
   lang,
 }) {
-  const { title, subtitle, headers, bodyRows, footerRow } = buildMemberReportSectionData({
+  const section = buildMemberReportSectionData({
     rows,
     currency,
     accountCode,
@@ -192,7 +405,17 @@ export function buildMemberReportPrintHtml({
     dateTo,
     lang,
   });
-  return buildPrintDocumentHtml({ title, subtitle, headers, bodyRows, footerRow });
+  return buildPrintDocumentHtml({
+    title: section.docTitle,
+    subtitle: section.docMeta,
+    headers: section.headers,
+    rows: section.rows,
+    footerLabel: section.footerLabel,
+    totalWinLoss: section.totalWinLoss,
+    totalCrDr: section.totalCrDr,
+    closingBalance: section.closingBalance,
+    lang,
+  });
 }
 
 function buildMemberReportSectionData({
@@ -206,58 +429,46 @@ function buildMemberReportSectionData({
 }) {
   const t = (key, params) => getMemberText(lang, key, params);
   const { totalWinLoss, totalCrDr, closingBalance } = computeTableTotals(rows);
-  const title = t("currencyTitle", { currency });
-  const subtitle = `${accountCode}${accountName ? ` (${accountName})` : ""} · ${dateFrom} – ${dateTo}`;
-  const headers = [
-    t("colDate"),
-    t("colIdProduct"),
-    t("colRate"),
-    t("colWinLoss"),
-    t("colCrDr"),
-    t("colBalance"),
-    t("colDescription"),
-    t("colRemark"),
-  ];
-  const bodyRows = (rows || []).map((row) => [
-    row.date || "-",
-    productCell(row),
-    row.rate || "-",
-    formatPaymentHistoryMoney(row.win_loss),
-    formatPaymentHistoryMoney(row.cr_dr),
-    formatPaymentHistoryMoney(row.balance),
-    formatMemberRowDescription(lang, row),
-    remarkCell(row),
-  ]);
-  const footerRow = [
-    t("totalRow", { currency }),
-    "",
-    "",
-    formatPaymentHistoryMoney(totalWinLoss.toString()),
-    formatPaymentHistoryMoney(totalCrDr.toString()),
-    formatPaymentHistoryMoney(closingBalance.toString()),
-    "",
-    "",
-  ];
-  return { title, subtitle, headers, bodyRows, footerRow };
+  const accountLabel = `${accountCode}${accountName ? ` (${accountName})` : ""}`;
+  const dateLabel = `${dateFrom} – ${dateTo}`;
+  return {
+    currencyTitle: t("currencyTitle", { currency }),
+    docTitle: `${accountCode} - ${t("exportPdfTitle")}`,
+    docMeta: `${accountLabel} · ${dateLabel}`,
+    sectionMeta: `${accountLabel} · ${dateLabel}`,
+    headers: [
+      t("colDate"),
+      t("colIdProduct"),
+      t("colRate"),
+      t("colWinLoss"),
+      t("colCrDr"),
+      t("colBalance"),
+      t("colDescription"),
+      t("colRemark"),
+    ],
+    rows: rows || [],
+    footerLabel: t("totalRow", { currency }),
+    totalWinLoss,
+    totalCrDr,
+    closingBalance,
+  };
 }
 
-function buildMemberReportSectionHtml(sectionData) {
-  const { title, subtitle, headers, bodyRows, footerRow } = sectionData;
-  const headCells = headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
-  const body = bodyRows
-    .map(
-      (cells) =>
-        `<tr>${cells.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`,
-    )
-    .join("");
-  const foot = footerRow
-    ? `<tfoot><tr class="total">${footerRow.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr></tfoot>`
-    : "";
+function buildMemberReportSectionHtml(sectionData, lang) {
+  const head = buildReportTableHead(sectionData.headers);
+  const body = (sectionData.rows || []).map((row) => buildReportDataRowHtml(row, lang)).join("");
+  const foot = buildReportFooterHtml(
+    sectionData.footerLabel,
+    sectionData.totalWinLoss,
+    sectionData.totalCrDr,
+    sectionData.closingBalance,
+  );
   return `<section class="report-section">
-  <h1>${escapeHtml(title)}</h1>
-  <p class="sub">${escapeHtml(subtitle)}</p>
-  <table>
-    <thead><tr>${headCells}</tr></thead>
+  <h2 class="section-title">${escapeHtml(sectionData.currencyTitle)}</h2>
+  <p class="section-meta">${escapeHtml(sectionData.sectionMeta)}</p>
+  <table class="report-table">
+    ${REPORT_TABLE_COLGROUP}
+    ${head}
     <tbody>${body}</tbody>
     ${foot}
   </table>
@@ -273,6 +484,15 @@ export function buildCombinedMemberReportPrintHtml({
   dateTo,
   lang,
 }) {
+  const firstSection = buildMemberReportSectionData({
+    rows: sections?.[0]?.rows || [],
+    currency: sections?.[0]?.currency || "",
+    accountCode,
+    accountName,
+    dateFrom,
+    dateTo,
+    lang,
+  });
   const sectionHtml = (sections || [])
     .map(({ currency, rows }) =>
       buildMemberReportSectionHtml(
@@ -285,43 +505,19 @@ export function buildCombinedMemberReportPrintHtml({
           dateTo,
           lang,
         }),
+        lang,
       ),
     )
     .join("");
-  const firstCurrency = sections?.[0]?.currency || "Report";
-  const docTitle = `${firstCurrency}${sections?.length > 1 ? ` +${sections.length - 1}` : ""}`;
+  const docTitle = firstSection.docTitle;
+  const bodyContent = `
+  <header class="doc-header">
+    <h1 class="doc-title">${escapeHtml(firstSection.docTitle)}</h1>
+    <p class="doc-meta">${escapeHtml(firstSection.docMeta)}</p>
+  </header>
+  ${sectionHtml}`;
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>${escapeHtml(docTitle)}</title>
-  <style>
-    @page { size: A4 portrait; margin: 10mm; }
-    * { box-sizing: border-box; }
-    html, body { width: 210mm; min-height: 297mm; }
-    body {
-      font-family: "Segoe UI", Arial, sans-serif;
-      color: #0f172a;
-      margin: 0;
-      padding: 0;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .report-section { page-break-after: always; }
-    .report-section:last-child { page-break-after: auto; }
-    h1 { margin: 0 0 4px; font-size: 15px; }
-    .sub { margin: 0 0 10px; color: #475569; font-size: 10px; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8.5px; }
-    th, td { border: 1px solid #b8cfe8; padding: 4px 5px; text-align: left; vertical-align: top; word-break: break-word; }
-    th { background: linear-gradient(180deg, #dce9f8 0%, #c5daf2 100%); color: #1e3a5f; font-weight: 700; }
-    tr:nth-child(even) td { background: #f8fafc; }
-    tr.total td { font-weight: 700; background: #eff6ff; }
-    .num { text-align: right; white-space: nowrap; }
-  </style>
-</head>
-<body>${sectionHtml}</body>
-</html>`;
+  return buildPrintShellHtml({ documentTitle: docTitle, bodyContent });
 }
 
 /**
