@@ -97,7 +97,7 @@
 .transaction-payment-history-export-modal__form {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
 }
 
 .transaction-payment-history-export-modal__field {
@@ -107,7 +107,7 @@
 }
 
 .transaction-payment-history-export-modal__field-hint {
-  margin: 10px 0 0 calc(var(--export-modal-label-w) + 18px);
+  margin: 6px 0 0 calc(var(--export-modal-label-w) + 18px);
   max-width: var(--export-modal-date-range-w);
   padding: 0;
   font-size: 0.875rem;
@@ -294,14 +294,14 @@
 
 .transaction-payment-history-export-modal__currency-measure .user-gc-segment,
 .transaction-payment-history-export-modal__currency-segments .user-gc-segment {
-  padding: var(--user-gc-segment-padding);
+  padding: var(--user-gc-segment-padding) !important;
   box-sizing: border-box;
   width: auto;
   min-width: max-content;
   max-width: none;
-  font-size: 1.4rem;
-  font-weight: var(--font-weight-semibold, 600);
-  line-height: 1.25;
+  font-size: 1.4rem !important;
+  font-weight: var(--font-weight-semibold, 600) !important;
+  line-height: 1.25 !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -377,6 +377,14 @@
 .transaction-payment-history-export-modal__currency-segments .user-gc-segment:disabled {
   cursor: default;
   opacity: 0.6;
+}
+
+/* Beat list-badge-scale.css (11px !important on .user-gc-segment under ec-auth-shell) */
+body.ec-auth-shell .transaction-payment-history-export-overlay .transaction-payment-history-export-modal__currency-measure .user-gc-segment,
+body.ec-auth-shell .transaction-payment-history-export-overlay .transaction-payment-history-export-modal__currency-segments .user-gc-segment {
+  font-size: 1.4rem !important;
+  line-height: 1.25 !important;
+  padding: var(--user-gc-segment-padding) !important;
 }
 
 .transaction-payment-history-export-modal__loading,
