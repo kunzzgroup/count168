@@ -178,6 +178,19 @@ function searchMoneyNonZero($value): bool
     return money_cmp(money_abs($value ?? '0'), '0.00001') > 0;
 }
 
+/** 与列表四列展示一致：HALF_UP 到分后 B/F、Win/Loss、Cr/Dr、Balance 是否皆为 0 */
+function searchApiRowAllDisplayZero(string $bf, string $wl, string $crDr, string $balance): bool
+{
+    $bfDisp = searchMoneyHalfUp2(trunc2($bf));
+    $wlDisp = searchMoneyHalfUp2($wl);
+    $crDisp = searchMoneyHalfUp2($crDr);
+    $balDisp = searchMoneyHalfUp2($balance);
+    return !searchMoneyNonZero($bfDisp)
+        && !searchMoneyNonZero($wlDisp)
+        && !searchMoneyNonZero($crDisp)
+        && !searchMoneyNonZero($balDisp);
+}
+
 function searchMoneyIsZero($value): bool
 {
     return money_cmp($value ?? '0', '0', 8) === 0;
@@ -1509,10 +1522,14 @@ try {
         // 账户 × 币别组合：只要存在 account_currency 表就始终走「现代路径」枚举 active + 交易币别。
         // 切勿在 hide_zero_balance=1 时改走 Legacy（仅从 DCD 推币别）：会漏掉大量组合行，
         // 前端再隐藏零余额后合计永远少半边账（典型 ±0.37 级尾差）。
+        // 默认隐藏零余额时：不仅凭 account_currency 勾选生成组合，避免无流水账号（如 AG069）出现在当日表。
+        $omitAcOnlyCombos = $hide_zero_balance && !$show_capture_only && !$show_inactive;
         if ($has_account_currency_table) {
-            // === 现代路径：从 bulk_ac 批量数据读取，无需逐账户查询 ===
-            foreach ($bulk_ac[$account_id] ?? [] as $cid => $code) {
-                addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+            // === 现代路径：Show all 0 balance 时从 bulk_ac 枚举 Edit Account 勾选的币别 ===
+            if (!$omitAcOnlyCombos) {
+                foreach ($bulk_ac[$account_id] ?? [] as $cid => $code) {
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                }
             }
             // 若指定了 currency 筛选，只保留筛选内的
             if (!empty($filter_currency_codes)) {
@@ -1967,23 +1984,23 @@ try {
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
 
-        // Layer 2：(账户+币种) 级筛选；仅按 Win/Loss、Cr/Dr、Balance 列实际金额，不用 activity 标志。
+        // Layer 2：(账户+币种) 级筛选；按 B/F、Win/Loss、Cr/Dr、Balance 展示金额，不用 activity 标志。
         // 勾选 Show 0 balance（hide_zero_balance=0）时不做此处裁剪。
         $wl_stat_chk = trunc2($wlPack['win_loss_full'] ?? $win_loss);
         $cr_stat_chk = trunc2($cr_dr);
         $balance_stat_chk = trunc2(money_add(money_add(trunc2($bf), $wl_stat_chk, 8), $cr_stat_chk, 8));
         if ($hide_zero_balance && !$show_capture_only && !$show_inactive) {
-            if (!searchMoneyNonZero($wl_stat_chk) && !searchMoneyNonZero($cr_stat_chk) && !searchMoneyNonZero($balance_stat_chk)) {
+            if (searchApiRowAllDisplayZero($bf, $wl_stat_chk, $cr_stat_chk, $balance_stat_chk)) {
                 continue;
             }
         }
         if ($hide_zero_balance && $show_capture_only && !$show_inactive) {
-            if (!searchMoneyNonZero($wl_stat_chk) && !searchMoneyNonZero($balance_stat_chk)) {
+            if (!searchMoneyNonZero(searchMoneyHalfUp2($wl_stat_chk)) && !searchMoneyNonZero(searchMoneyHalfUp2($balance_stat_chk))) {
                 continue;
             }
         }
         if ($hide_zero_balance && $show_inactive && !$show_capture_only) {
-            if (!searchMoneyNonZero($cr_stat_chk) && !searchMoneyNonZero($balance_stat_chk)) {
+            if (!searchMoneyNonZero(searchMoneyHalfUp2($cr_stat_chk)) && !searchMoneyNonZero(searchMoneyHalfUp2($balance_stat_chk))) {
                 continue;
             }
         }

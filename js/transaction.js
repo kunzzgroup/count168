@@ -3117,13 +3117,29 @@
         return wl !== null && MoneyDecimal.toDecimal(wl).abs().gt(TX_FILTER_EPS);
     }
 
-    // 未勾选 Show 0 balance：Win/Loss、Cr/Dr、Balance 三者皆≈0 时隐藏；任一有金额或期末有余额则显示。
+    /** B/F、Win/Loss、Cr/Dr、Balance 四列展示值是否皆为 ≈0（与后端 searchApiRowAllDisplayZero 对齐） */
+    function rowAllMoneyColumnsDisplayZero(row) {
+        const probe = (val, fallback) => {
+            const raw = (val !== undefined && val !== null && String(val).trim() !== '')
+                ? String(val).replace(/,/g, '').trim()
+                : fallback;
+            return parseBalanceValue(raw);
+        };
+        const bf = probe(row.bf, row.bf);
+        if (bf !== null && MoneyDecimal.toDecimal(bf).abs().gt(TX_FILTER_EPS)) return false;
+        const wl = probe(row.win_loss_full, row.win_loss);
+        if (wl !== null && MoneyDecimal.toDecimal(wl).abs().gt(TX_FILTER_EPS)) return false;
+        const crdr = probe(row.cr_dr, row.cr_dr);
+        if (crdr !== null && MoneyDecimal.toDecimal(crdr).abs().gt(TX_FILTER_EPS)) return false;
+        const bal = probe(row.balance_full, row.balance);
+        if (bal !== null && MoneyDecimal.toDecimal(bal).abs().gt(TX_FILTER_EPS)) return false;
+        return true;
+    }
+
+    // 未勾选 Show 0 balance：四列皆≈0 时隐藏；任一有金额则显示。
     function rowPassesHideZeroBalanceFilter(showZero, row) {
         if (showZero) return true;
-        if (!rowIsZeroBalance(row)) return true;
-        if (rowHasPeriodCrdr(row)) return true;
-        if (rowHasPeriodWinLoss(row)) return true;
-        return false;
+        return !rowAllMoneyColumnsDisplayZero(row);
     }
 
     // ==================== 根据 Show 0 balance 过滤前端行并渲染 ====================
