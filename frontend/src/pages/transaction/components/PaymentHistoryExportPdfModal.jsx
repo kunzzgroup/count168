@@ -20,6 +20,7 @@ import {
   ymdRangeToDmy,
 } from "../lib/paymentHistoryMemberReportExport.js";
 import { applyCurrencyToggle } from "../../member/memberPageHelpers.js";
+import "./PaymentHistoryExportPdfModal.css";
 
 function ExportPdfIcon() {
   return (

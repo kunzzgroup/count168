@@ -139,7 +139,7 @@ export const MEMBER_I18N = {
     period: "快捷区间",
     exportPdf: "导出 PDF",
     exportPdfTitle: "输赢报表",
-    exportPdfHint: "与下方输赢表数据一致。",
+    exportPdfHint: "与下方输赢表一致。",
     exportPdfCurrency: "货币",
     exportPdfDateRange: "日期范围",
     exportPdfSelectDateRange: "选择日期范围",

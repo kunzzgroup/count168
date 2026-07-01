@@ -21,7 +21,6 @@ import "../../../public/css/userlist.css";
 import "../../../public/css/date-range-picker.css";
 import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
-import "../transaction/transactionPaymentHistoryPage.css";
 import AvatarPickerModal from "../../components/AvatarPickerModal.jsx";
 import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
 import ExpirationReminderModal from "../../components/ExpirationReminderModal.jsx";
