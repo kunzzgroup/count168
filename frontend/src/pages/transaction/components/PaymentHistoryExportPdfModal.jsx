@@ -267,11 +267,11 @@ export default function PaymentHistoryExportPdfModal({
           <p className="transaction-payment-history-export-modal__hint">{m.exportPdfHint}</p>
 
           <div className="transaction-payment-history-export-modal__form">
-            <div className="transaction-payment-history-export-modal__inline-row">
+            <div className="transaction-payment-history-export-modal__inline-row transaction-payment-history-export-modal__inline-row--date">
               <span className="transaction-payment-history-export-modal__inline-label">
                 {m.exportPdfDateRange}:
               </span>
-              <div className="transaction-payment-history-export-modal__inline-control">
+              <div className="transaction-payment-history-export-modal__inline-control transaction-payment-history-export-modal__inline-control--date">
                 <ReportDatePicker
                   dateFrom={dateFromYmd}
                   dateTo={dateToYmd}
@@ -291,11 +291,11 @@ export default function PaymentHistoryExportPdfModal({
               </div>
             </div>
 
-            <div className="transaction-payment-history-export-modal__inline-row">
+            <div className="transaction-payment-history-export-modal__inline-row transaction-payment-history-export-modal__inline-row--currency">
               <span className="transaction-payment-history-export-modal__inline-label">
                 {m.exportPdfCurrency}:
               </span>
-              <div className="transaction-payment-history-export-modal__inline-control">
+              <div className="transaction-payment-history-export-modal__inline-control transaction-payment-history-export-modal__inline-control--currency">
                 {loadingCurrencies ? (
                   <p className="transaction-payment-history-export-modal__loading">{m.loading}</p>
                 ) : currencies.length === 0 ? (

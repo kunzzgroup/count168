@@ -899,6 +899,7 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
 
 .transaction-payment-history-export-modal {
   --export-modal-text: 1.1875rem;
+  --export-modal-date-range-w: var(--drp-popup-width, clamp(316px, 22vw, 336px));
   width: min(100%, 680px);
   max-height: none;
   overflow: visible;
@@ -987,7 +988,8 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
 
 .transaction-payment-history-export-modal__inline-row {
   display: grid;
-  grid-template-columns: minmax(7rem, auto) minmax(0, 1fr);
+  grid-template-columns: auto auto;
+  justify-content: start;
   align-items: center;
   gap: 12px 18px;
   width: 100%;
@@ -1004,26 +1006,36 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
   min-width: 0;
 }
 
-/* Date range — self-contained pill bar (override global date-range-picker + transaction-page rules) */
+.transaction-payment-history-export-modal__inline-control--date {
+  width: var(--export-modal-date-range-w);
+  max-width: 100%;
+}
+
+.transaction-payment-history-export-modal__inline-control--currency {
+  width: auto;
+  max-width: 100%;
+}
+
+/* Date range — compact pill bar (same width as Member / Transaction page) */
 .transaction-payment-history-export-modal .maintenance-label {
   display: none;
 }
 
-.transaction-payment-history-export-modal .report-filter-group,
-.transaction-payment-history-export-modal .report-date-range-picker-container {
+.transaction-payment-history-export-modal__inline-control--date .report-filter-group,
+.transaction-payment-history-export-modal__inline-control--date .report-date-range-picker-container {
   width: 100% !important;
   min-width: 0 !important;
   max-width: 100% !important;
   gap: 0;
 }
 
-.transaction-payment-history-export-modal .transaction-date-range-group {
+.transaction-payment-history-export-modal__inline-control--date .transaction-date-range-group {
   width: 100% !important;
   min-width: 0 !important;
   max-width: 100% !important;
 }
 
-.transaction-payment-history-export-modal .transaction-date-range-group .date-range-picker {
+.transaction-payment-history-export-modal__inline-control--date .transaction-date-range-group .date-range-picker {
   display: flex !important;
   align-items: center !important;
   justify-content: flex-start !important;
@@ -1046,23 +1058,23 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
     box-shadow 0.16s ease;
 }
 
-.transaction-payment-history-export-modal .transaction-date-range-group .date-range-picker:hover {
+.transaction-payment-history-export-modal__inline-control--date .transaction-date-range-group .date-range-picker:hover {
   border-color: rgba(59, 130, 246, 0.74) !important;
   background: #ffffff !important;
   box-shadow: 0 7px 18px rgba(37, 99, 235, 0.13) !important;
 }
 
-.transaction-payment-history-export-modal .transaction-date-range-group .date-range-picker:focus-visible {
+.transaction-payment-history-export-modal__inline-control--date .transaction-date-range-group .date-range-picker:focus-visible {
   outline: none;
   border-color: #3b82f6 !important;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14) !important;
 }
 
-.transaction-payment-history-export-modal .transaction-date-range-group .date-range-picker i {
+.transaction-payment-history-export-modal__inline-control--date .transaction-date-range-group .date-range-picker i {
   margin: 0 !important;
 }
 
-.transaction-payment-history-export-modal .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+.transaction-payment-history-export-modal__inline-control--date .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1080,7 +1092,7 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
   flex: 0 0 auto;
 }
 
-.transaction-payment-history-export-modal .transaction-date-range-group .date-range-picker [id^="date-range-display"] {
+.transaction-payment-history-export-modal__inline-control--date .transaction-date-range-group .date-range-picker [id^="date-range-display"] {
   display: flex;
   align-items: center;
   flex: 1 1 auto !important;
@@ -1097,7 +1109,7 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
   text-overflow: ellipsis;
 }
 
-.transaction-payment-history-export-modal .transaction-date-range-group .date-range-picker .transaction-date-range-chevron {
+.transaction-payment-history-export-modal__inline-control--date .transaction-date-range-group .date-range-picker .transaction-date-range-chevron {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1109,7 +1121,7 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
   transition: color 0.16s ease, transform 0.16s ease;
 }
 
-.transaction-payment-history-export-modal .transaction-date-range-group .date-range-picker:hover .transaction-date-range-chevron {
+.transaction-payment-history-export-modal__inline-control--date .transaction-date-range-group .date-range-picker:hover .transaction-date-range-chevron {
   color: #2563eb !important;
   transform: translateY(1px);
 }
