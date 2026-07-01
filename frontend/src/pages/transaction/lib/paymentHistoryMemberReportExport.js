@@ -599,19 +599,20 @@ function applyPdfMoneyStyle(cell, rawValue) {
   }
 }
 
+/** A4 portrait — column widths total ~190mm (210mm page − 10mm margins). */
 const PDF_TABLE_COLUMN_STYLES = {
-  0: { cellWidth: 24 },
-  1: { cellWidth: 26 },
-  2: { cellWidth: 14, halign: "right" },
-  3: { cellWidth: 26, halign: "right" },
-  4: { cellWidth: 26, halign: "right" },
-  5: { cellWidth: 28, halign: "right" },
-  6: { cellWidth: "auto" },
-  7: { cellWidth: 22, halign: "center" },
+  0: { cellWidth: 21 },
+  1: { cellWidth: 23 },
+  2: { cellWidth: 11, halign: "right" },
+  3: { cellWidth: 19, halign: "right" },
+  4: { cellWidth: 19, halign: "right" },
+  5: { cellWidth: 19, halign: "right" },
+  6: { cellWidth: 65 },
+  7: { cellWidth: 13, halign: "center" },
 };
 
 /**
- * Generate a proper A4 landscape PDF and trigger download (no browser print dialog).
+ * Generate a proper A4 portrait PDF and trigger download (no browser print dialog).
  */
 export async function downloadMemberReportPdf({
   sections,
@@ -627,8 +628,9 @@ export async function downloadMemberReportPdf({
     import("jspdf-autotable"),
   ]);
 
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
   const marginX = 10;
   let cursorY = 14;
 
@@ -668,7 +670,7 @@ export async function downloadMemberReportPdf({
     const sourceRows = section.rows || [];
 
     if (sectionList.length > 1) {
-      if (sectionIdx > 0 && cursorY > 170) {
+      if (sectionIdx > 0 && cursorY > pageH - 40) {
         doc.addPage();
         cursorY = 14;
       }
@@ -704,8 +706,8 @@ export async function downloadMemberReportPdf({
       theme: "grid",
       styles: {
         font: "helvetica",
-        fontSize: 10,
-        cellPadding: 3,
+        fontSize: 9,
+        cellPadding: 2.5,
         lineColor: [232, 237, 243],
         lineWidth: 0.2,
         textColor: [15, 23, 42],
@@ -716,13 +718,13 @@ export async function downloadMemberReportPdf({
         fillColor: [0, 44, 73],
         textColor: 255,
         fontStyle: "bold",
-        fontSize: 10,
+        fontSize: 9,
       },
       footStyles: {
         fillColor: [238, 244, 255],
         textColor: [15, 23, 42],
         fontStyle: "bold",
-        fontSize: 10,
+        fontSize: 9,
       },
       alternateRowStyles: { fillColor: [244, 247, 252] },
       columnStyles: PDF_TABLE_COLUMN_STYLES,
