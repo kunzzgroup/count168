@@ -11,6 +11,29 @@
   overflow-y: auto;
   background: rgba(15, 23, 42, 0.38);
   backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+.transaction-payment-history-export-overlay .transaction-payment-history-export-modal {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.transaction-payment-history-export-overlay__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: default;
+  pointer-events: auto;
+}
+
+.transaction-payment-history-export-overlay__backdrop:disabled {
+  cursor: not-allowed;
 }
 
 .transaction-payment-history-export-modal {
@@ -239,12 +262,10 @@
   transform: translateY(1px);
 }
 
-.transaction-payment-history-export-overlay .calendar-popup.calendar-popup--transaction-range {
-  z-index: 10060;
-}
-
+.transaction-payment-history-export-overlay .calendar-popup.calendar-popup--transaction-range,
 #calendar-popup.calendar-popup--above-export-modal {
-  z-index: 10060 !important;
+  z-index: 100001 !important;
+  pointer-events: auto;
 }
 
 .transaction-payment-history-export-modal__currency-pills {
