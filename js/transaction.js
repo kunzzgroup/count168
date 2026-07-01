@@ -3106,19 +3106,21 @@
         return crdr !== null && MoneyDecimal.toDecimal(crdr).abs().gt(TX_FILTER_EPS);
     }
 
-    /** 当期 Win/Loss 列实际金额是否非零（不看 has_win_loss_transactions 等后端 activity 标志） */
+    /** 当期 Win/Loss 列展示金额是否非零 */
     function rowHasPeriodWinLoss(row) {
-        const rawWinLoss = (row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== '')
-            ? String(row.win_loss_full).replace(/,/g, '').trim()
-            : row.win_loss;
-        const wl = parseBalanceValue(rawWinLoss);
+        const wl = parseBalanceValue(String(row.win_loss ?? '').replace(/,/g, '').trim());
         return wl !== null && MoneyDecimal.toDecimal(wl).abs().gt(TX_FILTER_EPS);
     }
 
-    // 未勾选 Show all 0 balance：Balance 列展示为 0.00 时隐藏。
-    function rowPassesHideZeroBalanceFilter(showZero, row) {
+    // 未勾选 Show all 0 balance：默认隐藏 Balance 为 0 的行；
+    // 若同时勾选 Payment / Win-Loss Only，当期 Cr/Dr 或 Win/Loss 有金额时仍保留（即使 Balance 为 0）。
+    function rowPassesHideZeroBalanceFilter(showZero, row, opts) {
+        opts = opts || {};
         if (showZero) return true;
-        return !rowIsZeroBalance(row);
+        if (!rowIsZeroBalance(row)) return true;
+        if (opts.showPaymentOnly && rowHasPeriodCrdr(row)) return true;
+        if (opts.showWinLossOnly && rowHasPeriodWinLoss(row)) return true;
+        return false;
     }
 
     // ==================== 根据 Show 0 balance 过滤前端行并渲染 ====================
@@ -3162,7 +3164,8 @@
             // 不做回退：过滤后为空时应保持空结果，避免误判为筛选失效
         }
 
-        const filterFn = (row) => rowPassesHideZeroBalanceFilter(showZero, row);
+        const filterOpts = { showPaymentOnly, showWinLossOnly };
+        const filterFn = (row) => rowPassesHideZeroBalanceFilter(showZero, row, filterOpts);
 
         filteredLeft = filteredLeft.filter(filterFn);
         filteredRight = filteredRight.filter(filterFn);
@@ -3226,7 +3229,11 @@
         let filteredLeft = lastSearchData.left_table.filter(shouldShow);
         let filteredRight = lastSearchData.right_table.filter(shouldShow);
 
-        const filterFn = (row) => rowPassesHideZeroBalanceFilter(showZeroEarly, row);
+        const filterOpts = {
+            showPaymentOnly,
+            showWinLossOnly: document.getElementById('show_capture_only')?.checked || false
+        };
+        const filterFn = (row) => rowPassesHideZeroBalanceFilter(showZeroEarly, row, filterOpts);
         filteredLeft = filteredLeft.filter(filterFn);
         filteredRight = filteredRight.filter(filterFn);
 

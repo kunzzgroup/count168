@@ -1997,6 +1997,13 @@ try {
                 continue;
             }
         }
+        if ($hide_zero_balance && $show_capture_only && $show_inactive) {
+            if (!searchMoneyNonZero(searchMoneyHalfUp2($wl_stat_chk))
+                && !searchMoneyNonZero(searchMoneyHalfUp2($cr_stat_chk))
+                && searchApiBalanceDisplayZero($balance_stat_chk)) {
+                continue;
+            }
+        }
 
         // 4. 计算 Balance：先按 6 位统计口径运算，再在展示层 half-up 到 2 位。
         $bf_stat = trunc2($bf);
