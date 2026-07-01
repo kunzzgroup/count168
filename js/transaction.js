@@ -4087,38 +4087,35 @@
     }
 
     // ==================== 日期选择器 ====================
-    function getDefaultCaptureDateRange() {
+    function getDefaultCaptureDateString() {
         const pageDefaults = window.TRANSACTION_PAGE || {};
-        const serverFrom = (pageDefaults.defaultDateFrom || '').trim();
-        const serverTo = (pageDefaults.defaultDateTo || '').trim();
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(serverFrom) && /^\d{2}\/\d{2}\/\d{4}$/.test(serverTo)) {
-            return { from: serverFrom, to: serverTo };
+        const serverDefault = (pageDefaults.defaultCaptureDate || '').trim();
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(serverDefault)) {
+            return serverDefault;
         }
 
-        const fmt = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-        const untilHour = Number.isFinite(Number(pageDefaults.earlyWindowUntilHour))
-            ? Number(pageDefaults.earlyWindowUntilHour)
-            : 12;
-        const today = new Date();
-        const todayStr = fmt(today);
-        // 中午之前：默认「昨天 → 今天」两天范围，避免半夜录入的账号因日期对不上而看不见。
-        if (today.getHours() < untilHour) {
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-            return { from: fmt(yesterday), to: todayStr };
+        const cutoffHour = Number.isFinite(Number(pageDefaults.businessDayCutoffHour))
+            ? Number(pageDefaults.businessDayCutoffHour)
+            : 6;
+        const date = new Date();
+        if (date.getHours() < cutoffHour) {
+            date.setDate(date.getDate() - 1);
         }
-        return { from: todayStr, to: todayStr };
+        const d = date.getDate();
+        const m = date.getMonth() + 1;
+        const y = date.getFullYear();
+        return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
     }
 
-    // 若 Capture Date 未填，则按做账时段默认（中午前用「昨天→今天」，中午后用单日「今天」）。
+    // 若 Capture Date 未填，则默认设为做账营业日（凌晨 cutoff 前仍看昨天）。
     function ensureDefaultDates() {
         const df = document.getElementById('date_from');
         const dt = document.getElementById('date_to');
         if (!df || !dt) return;
         if ((df.value || '').trim() && (dt.value || '').trim()) return;
-        const range = getDefaultCaptureDateRange();
-        if (!(df.value || '').trim()) df.value = range.from;
-        if (!(dt.value || '').trim()) dt.value = range.to;
+        const str = getDefaultCaptureDateString();
+        if (!(df.value || '').trim()) df.value = str;
+        if (!(dt.value || '').trim()) dt.value = str;
     }
 
     function initDatePickers() {
