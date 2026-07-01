@@ -589,6 +589,8 @@ function moneyTone(value) {
 function applyPdfMoneyStyle(cell, rawValue) {
   const tone = moneyTone(rawValue);
   cell.styles.halign = "right";
+  cell.styles.overflow = "hidden";
+  cell.styles.whiteSpace = "nowrap";
   if (tone === "pos") {
     cell.styles.textColor = [23, 42, 159];
     cell.styles.fontStyle = "bold";
@@ -744,12 +746,12 @@ function drawPdfPageFooter(doc, { pageW, pageH, pageLabel }) {
 const PDF_TABLE_COLUMN_STYLES = {
   0: { cellWidth: 24, halign: "left", overflow: "hidden", fontStyle: "bold" },
   1: { cellWidth: 22, overflow: "hidden", fontStyle: "bold" },
-  2: { cellWidth: 16, halign: "right", overflow: "hidden" },
-  3: { cellWidth: 18, halign: "right", overflow: "hidden" },
-  4: { cellWidth: 18, halign: "right", overflow: "hidden" },
-  5: { cellWidth: 20, halign: "right", overflow: "hidden" },
-  6: { cellWidth: 50, overflow: "linebreak" },
-  7: { cellWidth: 22, halign: "center", overflow: "linebreak" },
+  2: { cellWidth: 14, halign: "right", overflow: "hidden" },
+  3: { cellWidth: 20, halign: "right", overflow: "hidden" },
+  4: { cellWidth: 20, halign: "right", overflow: "hidden" },
+  5: { cellWidth: 24, halign: "right", overflow: "hidden" },
+  6: { cellWidth: 46, overflow: "linebreak" },
+  7: { cellWidth: 20, halign: "center", overflow: "linebreak" },
 };
 
 /**
@@ -905,7 +907,7 @@ export async function downloadMemberReportPdf({
         lineColor: [232, 237, 243],
         lineWidth: 0.2,
         textColor: [15, 23, 42],
-        overflow: "linebreak",
+        overflow: "hidden",
         valign: "middle",
       },
       headStyles: {
@@ -943,6 +945,7 @@ export async function downloadMemberReportPdf({
           if (hookData.column.index === 5) applyPdfMoneyStyle(hookData.cell, row?.balance);
           if (hookData.column.index === 6) {
             hookData.cell.styles.fontStyle = "bold";
+            hookData.cell.styles.overflow = "linebreak";
           }
           if (hookData.column.index === 2 || hookData.column.index === 7) {
             hookData.cell.styles.textColor = [100, 116, 139];
@@ -956,6 +959,9 @@ export async function downloadMemberReportPdf({
           if (col === 3) applyPdfMoneyStyle(hookData.cell, sectionData.totalWinLoss.toString());
           if (col === 4) applyPdfMoneyStyle(hookData.cell, sectionData.totalCrDr.toString());
           if (col === 5) applyPdfMoneyStyle(hookData.cell, sectionData.closingBalance.toString());
+          if (col === 6 || col === 7) {
+            hookData.cell.styles.overflow = "linebreak";
+          }
         }
       },
     });
