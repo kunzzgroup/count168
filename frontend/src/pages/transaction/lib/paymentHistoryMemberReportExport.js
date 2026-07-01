@@ -1,4 +1,5 @@
 import { assetUrl, buildApiUrl } from "../../../utils/core/apiUrl.js";
+import pdfBrandLogoUrl from "../../../assets/images/count_brandlogo.png?url";
 import { formatDmyFromYmd } from "../../maintenance/shared/maintenanceDateHelpers.js";
 import { computeTableTotals, formatPaymentHistoryMoney } from "../../member/memberPageHelpers.js";
 import { parseJsonResponse } from "../../member/memberWinLossApi.js";
@@ -608,30 +609,47 @@ const PDF_OTHER_PAGE_TOP_MARGIN_MM = 22;
 const PDF_BRAND_BAR_RGB = [0, 44, 73];
 const PDF_FOOTER_BOTTOM_MM = 10;
 
+function resolvePdfLogoUrls(relativePath) {
+  const clean = String(relativePath || "").replace(/^\//, "");
+  const urls = [];
+  const base = String(import.meta.env?.BASE_URL || "/");
+  const basePath = base.endsWith("/") ? base : `${base}/`;
+  urls.push(new URL(clean, `${window.location.origin}${basePath}`).href);
+  urls.push(assetUrl(clean));
+  urls.push(new URL(`/${clean}`, window.location.origin).href);
+  return [...new Set(urls)];
+}
+
 async function loadPdfLogoAsset() {
-  try {
-    const res = await fetch(assetUrl(PDF_LOGO_PATH), {
-      credentials: "same-origin",
-      cache: "force-cache",
-    });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
-    const dims = await new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve({ w: img.naturalWidth || 1, h: img.naturalHeight || 1 });
-      img.onerror = () => resolve({ w: 1, h: 1 });
-      img.src = dataUrl;
-    });
-    return { dataUrl, dims };
-  } catch {
-    return null;
+  const urls = [pdfBrandLogoUrl, ...resolvePdfLogoUrls(PDF_LOGO_PATH)];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        credentials: "same-origin",
+        cache: "force-cache",
+      });
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      const dims = await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ w: img.naturalWidth || 1, h: img.naturalHeight || 1 });
+        img.onerror = () => resolve({ w: 1, h: 1 });
+        img.src = dataUrl;
+      });
+      if (dims.w > 1 && dims.h > 1) {
+        return { dataUrl, dims };
+      }
+    } catch {
+      /* try next URL */
+    }
   }
+  return null;
 }
 
 function formatPdfReportDatetime() {
