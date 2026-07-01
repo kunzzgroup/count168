@@ -79,20 +79,41 @@ export async function fetchMemberReportHistory({ accountId, companyId, dateFrom,
 }
 
 export function resolveExportCurrencyDefault(scopeCurrency, currencies) {
+  return resolveExportCurrenciesDefault(scopeCurrency, currencies).codes[0] || "";
+}
+
+/** Initial multi-select state for export modal (comma-separated scope currency or ALL). */
+export function resolveExportCurrenciesDefault(scopeCurrency, currencies) {
   const list = Array.isArray(currencies) ? currencies : [];
+  if (!list.length) {
+    return { isAllSelected: true, codes: [] };
+  }
   const raw = String(scopeCurrency || "")
     .trim()
     .toUpperCase();
-  if (!raw) return list[0] || "";
+  if (!raw || raw === "ALL") {
+    return { isAllSelected: true, codes: [] };
+  }
   const parts = raw
     .split(",")
     .map((c) => c.trim())
     .filter(Boolean);
-  if (parts.length === 1 && list.includes(parts[0])) return parts[0];
-  for (const code of parts) {
-    if (list.includes(code)) return code;
+  const matched = parts.filter((p) => list.includes(p));
+  if (!matched.length) {
+    return { isAllSelected: true, codes: [] };
   }
-  return list[0] || "";
+  if (matched.length === list.length) {
+    return { isAllSelected: true, codes: [] };
+  }
+  return { isAllSelected: false, codes: matched };
+}
+
+export function exportCurrencyCodes(isAllSelected, selectedCurrencies, availableCurrencies) {
+  const list = Array.isArray(availableCurrencies) ? availableCurrencies : [];
+  if (!list.length) return [];
+  if (isAllSelected) return [...list];
+  const picked = (selectedCurrencies || []).filter((c) => list.includes(c));
+  return picked.length ? picked : [...list];
 }
 
 export function ymdRangeToDmy(dateFromYmd, dateToYmd) {
@@ -162,6 +183,27 @@ export function buildMemberReportPrintHtml({
   dateTo,
   lang,
 }) {
+  const { title, subtitle, headers, bodyRows, footerRow } = buildMemberReportSectionData({
+    rows,
+    currency,
+    accountCode,
+    accountName,
+    dateFrom,
+    dateTo,
+    lang,
+  });
+  return buildPrintDocumentHtml({ title, subtitle, headers, bodyRows, footerRow });
+}
+
+function buildMemberReportSectionData({
+  rows,
+  currency,
+  accountCode,
+  accountName,
+  dateFrom,
+  dateTo,
+  lang,
+}) {
   const t = (key, params) => getMemberText(lang, key, params);
   const { totalWinLoss, totalCrDr, closingBalance } = computeTableTotals(rows);
   const title = t("currencyTitle", { currency });
@@ -196,7 +238,90 @@ export function buildMemberReportPrintHtml({
     "",
     "",
   ];
-  return buildPrintDocumentHtml({ title, subtitle, headers, bodyRows, footerRow });
+  return { title, subtitle, headers, bodyRows, footerRow };
+}
+
+function buildMemberReportSectionHtml(sectionData) {
+  const { title, subtitle, headers, bodyRows, footerRow } = sectionData;
+  const headCells = headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
+  const body = bodyRows
+    .map(
+      (cells) =>
+        `<tr>${cells.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`,
+    )
+    .join("");
+  const foot = footerRow
+    ? `<tfoot><tr class="total">${footerRow.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr></tfoot>`
+    : "";
+  return `<section class="report-section">
+  <h1>${escapeHtml(title)}</h1>
+  <p class="sub">${escapeHtml(subtitle)}</p>
+  <table>
+    <thead><tr>${headCells}</tr></thead>
+    <tbody>${body}</tbody>
+    ${foot}
+  </table>
+</section>`;
+}
+
+/** One print document with a table per selected currency (page break between sections). */
+export function buildCombinedMemberReportPrintHtml({
+  sections,
+  accountCode,
+  accountName,
+  dateFrom,
+  dateTo,
+  lang,
+}) {
+  const sectionHtml = (sections || [])
+    .map(({ currency, rows }) =>
+      buildMemberReportSectionHtml(
+        buildMemberReportSectionData({
+          rows,
+          currency,
+          accountCode,
+          accountName,
+          dateFrom,
+          dateTo,
+          lang,
+        }),
+      ),
+    )
+    .join("");
+  const firstCurrency = sections?.[0]?.currency || "Report";
+  const docTitle = `${firstCurrency}${sections?.length > 1 ? ` +${sections.length - 1}` : ""}`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(docTitle)}</title>
+  <style>
+    @page { size: A4 portrait; margin: 10mm; }
+    * { box-sizing: border-box; }
+    html, body { width: 210mm; min-height: 297mm; }
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: #0f172a;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .report-section { page-break-after: always; }
+    .report-section:last-child { page-break-after: auto; }
+    h1 { margin: 0 0 4px; font-size: 15px; }
+    .sub { margin: 0 0 10px; color: #475569; font-size: 10px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8.5px; }
+    th, td { border: 1px solid #b8cfe8; padding: 4px 5px; text-align: left; vertical-align: top; word-break: break-word; }
+    th { background: linear-gradient(180deg, #dce9f8 0%, #c5daf2 100%); color: #1e3a5f; font-weight: 700; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    tr.total td { font-weight: 700; background: #eff6ff; }
+    .num { text-align: right; white-space: nowrap; }
+  </style>
+</head>
+<body>${sectionHtml}</body>
+</html>`;
 }
 
 /**
@@ -238,9 +363,17 @@ export function renderReportToWindow(win, { html, documentTitle }) {
   }
 }
 
-export function buildMemberReportFilename({ accountCode, currency, dateFrom, dateTo }) {
+export function buildMemberReportFilename({ accountCode, currency, currencies, dateFrom, dateTo }) {
   const code = String(accountCode || "account").replace(/[^\w.-]+/g, "_");
-  const cu = String(currency || "CCY").toUpperCase();
+  const list = Array.isArray(currencies) && currencies.length
+    ? currencies
+    : [String(currency || "CCY").toUpperCase()];
+  const cu =
+    list.length === 1
+      ? list[0]
+      : list.length <= 3
+        ? list.join("-")
+        : "MULTI";
   const from = String(dateFrom || "").replace(/\//g, "-");
   const to = String(dateTo || "").replace(/\//g, "-");
   return `WinLoss-${code}-${cu}-${from}-${to}`;

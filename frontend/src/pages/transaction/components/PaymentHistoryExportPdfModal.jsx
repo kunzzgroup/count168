@@ -9,15 +9,17 @@ import {
   parseDmy,
 } from "../../maintenance/shared/maintenanceDateHelpers.js";
 import {
+  buildCombinedMemberReportPrintHtml,
   buildMemberReportFilename,
-  buildMemberReportPrintHtml,
+  exportCurrencyCodes,
   fetchMemberReportHistory,
   fetchPaymentHistoryExportCurrencies,
   openReportPrintWindow,
   renderReportToWindow,
-  resolveExportCurrencyDefault,
+  resolveExportCurrenciesDefault,
   ymdRangeToDmy,
 } from "../lib/paymentHistoryMemberReportExport.js";
+import { applyCurrencyToggle } from "../../member/memberPageHelpers.js";
 
 function ExportPdfIcon() {
   return (
@@ -65,12 +67,17 @@ export default function PaymentHistoryExportPdfModal({
   const [dateFromYmd, setDateFromYmd] = useState(initialFromYmd);
   const [dateToYmd, setDateToYmd] = useState(initialToYmd);
   const [currencies, setCurrencies] = useState([]);
-  const [selectedCurrency, setSelectedCurrency] = useState("");
+  const [isAllSelected, setIsAllSelected] = useState(true);
+  const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const abortRef = useRef(null);
-  const singleCurrency = currencies.length === 1;
+
+  const exportCodes = useMemo(
+    () => exportCurrencyCodes(isAllSelected, selectedCurrencies, currencies),
+    [isAllSelected, selectedCurrencies, currencies],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -85,7 +92,8 @@ export default function PaymentHistoryExportPdfModal({
     const companyId = scope?.companyId;
     if (!accountId || !companyId) {
       setCurrencies([]);
-      setSelectedCurrency("");
+      setIsAllSelected(true);
+      setSelectedCurrencies([]);
       return undefined;
     }
     if (abortRef.current) abortRef.current.abort();
@@ -96,13 +104,16 @@ export default function PaymentHistoryExportPdfModal({
     void fetchPaymentHistoryExportCurrencies(accountId, companyId, controller.signal)
       .then((list) => {
         if (controller.signal.aborted) return;
+        const defaults = resolveExportCurrenciesDefault(scope?.currency, list);
         setCurrencies(list);
-        setSelectedCurrency(resolveExportCurrencyDefault(scope?.currency, list));
+        setIsAllSelected(defaults.isAllSelected);
+        setSelectedCurrencies(defaults.codes);
       })
       .catch((err) => {
         if (err?.name === "AbortError" || controller.signal.aborted) return;
         setCurrencies([]);
-        setSelectedCurrency("");
+        setIsAllSelected(true);
+        setSelectedCurrencies([]);
         setError(err?.message || m.exportPdfLoadCurrenciesFailed);
       })
       .finally(() => {
@@ -117,17 +128,31 @@ export default function PaymentHistoryExportPdfModal({
     setError("");
   }, []);
 
+  const handleToggleCurrency = useCallback(
+    (code) => {
+      const next = applyCurrencyToggle(currencies, isAllSelected, selectedCurrencies, code);
+      setIsAllSelected(next.isAllSelected);
+      setSelectedCurrencies(next.selectedCurrencies);
+      setError("");
+    },
+    [currencies, isAllSelected, selectedCurrencies],
+  );
+
+  const handleSelectAllCurrencies = useCallback(() => {
+    setIsAllSelected(true);
+    setSelectedCurrencies([]);
+    setError("");
+  }, []);
+
   const handleExport = useCallback(async () => {
     const accountId = scope?.accountDbId;
     const { dateFrom, dateTo } = ymdRangeToDmy(dateFromYmd, dateToYmd);
-    const currency = String(selectedCurrency || "")
-      .trim()
-      .toUpperCase();
+    const codes = exportCodes;
     if (!dateFrom || !dateTo) {
       setError(m.pleaseSelectDateRange);
       return;
     }
-    if (!currency) {
+    if (!codes.length) {
       setError(m.pleaseSelectCurrency);
       return;
     }
@@ -143,23 +168,32 @@ export default function PaymentHistoryExportPdfModal({
     setExporting(true);
     setError("");
     try {
-      const rows = await fetchMemberReportHistory({
-        accountId,
-        companyId: scope.companyId,
-        dateFrom,
-        dateTo,
-        currency,
-      });
-      const html = buildMemberReportPrintHtml({
-        rows,
-        currency,
+      const sections = await Promise.all(
+        codes.map(async (currency) => {
+          const rows = await fetchMemberReportHistory({
+            accountId,
+            companyId: scope.companyId,
+            dateFrom,
+            dateTo,
+            currency,
+          });
+          return { currency, rows };
+        }),
+      );
+      const html = buildCombinedMemberReportPrintHtml({
+        sections,
         accountCode,
         accountName,
         dateFrom,
         dateTo,
         lang,
       });
-      const filename = buildMemberReportFilename({ accountCode, currency, dateFrom, dateTo });
+      const filename = buildMemberReportFilename({
+        accountCode,
+        currencies: codes,
+        dateFrom,
+        dateTo,
+      });
       renderReportToWindow(printWin, { html, documentTitle: filename });
       onClose?.();
     } catch (err) {
@@ -181,7 +215,7 @@ export default function PaymentHistoryExportPdfModal({
     scope,
     dateFromYmd,
     dateToYmd,
-    selectedCurrency,
+    exportCodes,
     accountCode,
     accountName,
     lang,
@@ -273,17 +307,25 @@ export default function PaymentHistoryExportPdfModal({
                     aria-label={m.exportPdfCurrency}
                   >
                     <div className="transaction-payment-history-export-modal__currency-segments">
+                      {currencies.length > 1 ? (
+                        <button
+                          type="button"
+                          className={`transaction-payment-history-export-modal__currency-segment${isAllSelected ? " is-on" : ""}`}
+                          data-currency-code="ALL"
+                          onClick={handleSelectAllCurrencies}
+                        >
+                          {m.all || "ALL"}
+                        </button>
+                      ) : null}
                       {currencies.map((code) => (
                         <button
                           key={code}
                           type="button"
-                          className={`transaction-payment-history-export-modal__currency-segment${selectedCurrency === code ? " is-on" : ""}`}
+                          className={`transaction-payment-history-export-modal__currency-segment${
+                            !isAllSelected && selectedCurrencies.includes(code) ? " is-on" : ""
+                          }`}
                           data-currency-code={code}
-                          disabled={singleCurrency}
-                          onClick={() => {
-                            setSelectedCurrency(code);
-                            setError("");
-                          }}
+                          onClick={() => handleToggleCurrency(code)}
                         >
                           {code}
                         </button>
@@ -314,7 +356,7 @@ export default function PaymentHistoryExportPdfModal({
           <button
             type="button"
             className="transaction-payment-history-export-modal__btn transaction-payment-history-export-modal__btn--primary"
-            disabled={exporting || loadingCurrencies || !selectedCurrency}
+            disabled={exporting || loadingCurrencies || exportCodes.length === 0}
             onClick={() => void handleExport()}
           >
             <ExportPdfIcon />

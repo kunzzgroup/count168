@@ -287,6 +287,7 @@ export default function MemberPage() {
       exportPdfMissingAccount: t("exportPdfMissingAccount"),
       pleaseSelectDateRange: t("pleaseSelectDateRange"),
       pleaseSelectCurrency: t("pleaseSelectCurrency"),
+      all: t("all"),
       close: t("close"),
       loading: t("loading"),
     };
@@ -295,8 +296,8 @@ export default function MemberPage() {
   const exportScope = useMemo(() => {
     const acc = linkedAccounts.find((row) => Number(row.id) === Number(viewAccountId));
     const currencyPref = isAllSelected
-      ? selectedCurrencies[0] || availableCurrencies[0] || ""
-      : selectedCurrencies[0] || availableCurrencies[0] || "";
+      ? availableCurrencies.join(",")
+      : selectedCurrencies.join(",");
     return {
       accountDbId: viewAccountId,
       companyId,
