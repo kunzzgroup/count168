@@ -671,7 +671,7 @@ function pdfLineHeightMm(fontSizePt) {
 function drawPdfPageHeader(doc, { logo, pageW, marginX, title, meta, showTitle }) {
   const capTopY = PDF_HEADER_TOP_MM;
   let blockBottomY = capTopY;
-  const rightX = pageW - marginX;
+  const leftX = marginX;
 
   let logoImgW = 0;
   if (logo?.dataUrl) {
@@ -679,7 +679,7 @@ function drawPdfPageHeader(doc, { logo, pageW, marginX, title, meta, showTitle }
     const imgW = imgH * (logo.dims.w / logo.dims.h);
     logoImgW = imgW;
     const logoTopY = capTopY - PDF_LOGO_TOP_TRIM_MM;
-    doc.addImage(logo.dataUrl, "PNG", marginX, logoTopY, imgW, imgH);
+    doc.addImage(logo.dataUrl, "PNG", pageW - marginX - imgW, logoTopY, imgW, imgH);
     blockBottomY = Math.max(blockBottomY, logoTopY + imgH);
   }
 
@@ -689,14 +689,14 @@ function drawPdfPageHeader(doc, { logo, pageW, marginX, title, meta, showTitle }
     doc.setFontSize(PDF_TITLE_FONT_PT);
     doc.setTextColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
     const titleBaselineY = capTopY + pdfCapHeightMm(PDF_TITLE_FONT_PT);
-    doc.text(title, rightX, titleBaselineY, { align: "right", maxWidth: titleMaxW });
+    doc.text(title, leftX, titleBaselineY, { align: "left", maxWidth: titleMaxW });
     blockBottomY = Math.max(blockBottomY, titleBaselineY);
     if (meta) {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(PDF_META_FONT_PT);
       doc.setTextColor(100, 116, 139);
       const metaBaselineY = titleBaselineY + pdfLineHeightMm(PDF_META_FONT_PT);
-      doc.text(meta, rightX, metaBaselineY, { align: "right", maxWidth: titleMaxW });
+      doc.text(meta, leftX, metaBaselineY, { align: "left", maxWidth: titleMaxW });
       blockBottomY = Math.max(blockBottomY, metaBaselineY);
     }
   }
