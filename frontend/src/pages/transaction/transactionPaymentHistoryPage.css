@@ -891,15 +891,16 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 24px;
+  overflow-y: auto;
   background: rgba(15, 23, 42, 0.38);
   backdrop-filter: blur(4px);
 }
 
 .transaction-payment-history-export-modal {
-  width: min(100%, 480px);
-  max-height: min(94dvh, 600px);
-  overflow: auto;
+  width: min(100%, 560px);
+  max-height: none;
+  overflow: visible;
   border-radius: 14px;
   background: #ffffff;
   border: 1px solid rgba(148, 163, 184, 0.35);
@@ -1109,55 +1110,50 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
   z-index: 10060;
 }
 
-.transaction-payment-history-export-modal .user-gc-inline-row {
-  display: flex;
-  align-items: center;
-  gap: clamp(8px, 0.75vw, 14px);
-  min-width: 0;
+.transaction-payment-history-export-modal__field--currency {
+  gap: 10px;
 }
 
-.transaction-payment-history-export-modal .user-gc-inline-label {
-  flex: 0 0 auto;
-  min-width: 5.5rem;
+.transaction-payment-history-export-modal__currency-label {
   font-size: clamp(11px, 0.85vw, 13px);
   font-weight: 600;
   color: #64748b;
   letter-spacing: 0.02em;
 }
 
-.transaction-payment-history-export-modal #currency-buttons-wrapper .transaction-currency-pills {
-  margin-left: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--user-gc-inline-pills-gap, 4px);
-  flex: 1 1 0;
+.transaction-payment-history-export-modal__currency-pills {
+  display: block;
+  width: 100%;
   min-width: 0;
+  overflow: visible;
 }
 
-.transaction-payment-history-export-modal #currency-buttons-wrapper .transaction-currency-segments {
+.transaction-payment-history-export-modal__currency-segments {
   display: inline-flex;
   flex-direction: row;
   flex-wrap: wrap;
   align-items: stretch;
+  width: 100%;
   max-width: 100%;
   border: 1px solid var(--color-border, #e5e7eb);
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible;
   background: var(--color-surface, #ffffff);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
-.transaction-payment-history-export-modal #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment {
-  flex: 0 0 auto;
+.transaction-payment-history-export-modal__currency-segment {
+  flex: 1 1 auto;
+  min-width: 3.5rem;
   margin: 0;
-  padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
+  padding: 8px 14px;
   border: none;
   border-right: 1px solid var(--color-border, #e5e7eb);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
   background: var(--color-surface, #ffffff);
   color: #1f2937;
-  font-size: 1.4rem !important;
-  font-weight: var(--font-weight-semibold) !important;
+  font-size: 0.9375rem;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
@@ -1165,32 +1161,29 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.transaction-payment-history-export-modal #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment:last-child {
+.transaction-payment-history-export-modal__currency-segment:last-child {
   border-right: none;
 }
 
-.transaction-payment-history-export-modal #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment:hover:not(:disabled):not(.is-on) {
+.transaction-payment-history-export-modal__currency-segment:hover:not(:disabled):not(.is-on) {
   background: #f8fafc;
 }
 
-.transaction-payment-history-export-modal #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment:focus-visible {
+.transaction-payment-history-export-modal__currency-segment:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 2px #6366f1;
   position: relative;
   z-index: 1;
 }
 
-.transaction-payment-history-export-modal #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment.is-on {
+.transaction-payment-history-export-modal__currency-segment.is-on {
   background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
   color: #ffffff;
   border-right-color: rgba(255, 255, 255, 0.28);
+  border-bottom-color: rgba(255, 255, 255, 0.28);
 }
 
-.transaction-payment-history-export-modal #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment.is-on + .user-gc-segment.is-on {
-  border-left: 1px solid rgba(255, 255, 255, 0.28);
-}
-
-.transaction-payment-history-export-modal #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment:disabled {
+.transaction-payment-history-export-modal__currency-segment:disabled {
   cursor: default;
 }
 
