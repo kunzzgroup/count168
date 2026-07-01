@@ -18,6 +18,7 @@
   --export-modal-date-range-w: var(--drp-popup-width, clamp(316px, 22vw, 336px));
   --export-modal-label-w: 7.75rem;
   --export-modal-content-w: calc(var(--export-modal-label-w) + 14px + var(--export-modal-date-range-w));
+  --user-gc-segment-padding: 4px clamp(10px, 1.2vw, 18px);
   width: min(100%, max(var(--export-modal-content-w), 520px));
   max-width: min(100%, 600px);
   min-width: min(100%, 420px);
@@ -270,12 +271,15 @@
   z-index: -1;
 }
 
-.transaction-payment-history-export-modal__currency-measure .user-gc-segment {
-  padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
+.transaction-payment-history-export-modal__currency-measure .user-gc-segment,
+.transaction-payment-history-export-modal__currency-segments .user-gc-segment {
+  padding: var(--user-gc-segment-padding);
   box-sizing: border-box;
   width: auto;
   min-width: max-content;
-  font-size: calc(var(--export-modal-text) * 0.94);
+  max-width: none;
+  font-size: 1.4rem;
+  font-weight: var(--font-weight-semibold, 600);
   line-height: 1.25;
   display: inline-flex;
   align-items: center;
@@ -302,24 +306,17 @@
 
 .transaction-payment-history-export-modal__currency-segments .user-gc-segment {
   flex: 0 0 auto;
+  flex-shrink: 0;
   margin: 0;
-  padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
   border: none;
   border-right: 1px solid var(--color-border, #e5e7eb);
   background: var(--color-surface, #ffffff);
   color: #1f2937;
-  font-size: calc(var(--export-modal-text) * 0.94);
-  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
-  line-height: 1.25;
-  width: auto;
-  min-width: max-content;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  overflow: visible;
+  text-overflow: clip;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
