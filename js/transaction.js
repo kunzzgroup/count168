@@ -3093,12 +3093,10 @@
 
     const TX_FILTER_EPS = '0.00001';
 
+    /** 与列表 Balance 列展示值一致（勿用 balance_full，避免尾差导致界面 0.00 仍显示） */
     function rowIsZeroBalance(row) {
-        const balanceProbe = (row.balance_full !== undefined && row.balance_full !== null && String(row.balance_full).trim() !== '')
-            ? String(row.balance_full).replace(/,/g, '').trim()
-            : row.balance;
-        const num = parseBalanceValue(balanceProbe);
-        if (num === null) return false;
+        const num = parseBalanceValue(String(row.balance ?? '').replace(/,/g, '').trim());
+        if (num === null) return true;
         return MoneyDecimal.toDecimal(num).abs().lte(TX_FILTER_EPS);
     }
 
@@ -3117,29 +3115,10 @@
         return wl !== null && MoneyDecimal.toDecimal(wl).abs().gt(TX_FILTER_EPS);
     }
 
-    /** B/F、Win/Loss、Cr/Dr、Balance 四列展示值是否皆为 ≈0（与后端 searchApiRowAllDisplayZero 对齐） */
-    function rowAllMoneyColumnsDisplayZero(row) {
-        const probe = (val, fallback) => {
-            const raw = (val !== undefined && val !== null && String(val).trim() !== '')
-                ? String(val).replace(/,/g, '').trim()
-                : fallback;
-            return parseBalanceValue(raw);
-        };
-        const bf = probe(row.bf, row.bf);
-        if (bf !== null && MoneyDecimal.toDecimal(bf).abs().gt(TX_FILTER_EPS)) return false;
-        const wl = probe(row.win_loss_full, row.win_loss);
-        if (wl !== null && MoneyDecimal.toDecimal(wl).abs().gt(TX_FILTER_EPS)) return false;
-        const crdr = probe(row.cr_dr, row.cr_dr);
-        if (crdr !== null && MoneyDecimal.toDecimal(crdr).abs().gt(TX_FILTER_EPS)) return false;
-        const bal = probe(row.balance_full, row.balance);
-        if (bal !== null && MoneyDecimal.toDecimal(bal).abs().gt(TX_FILTER_EPS)) return false;
-        return true;
-    }
-
-    // 未勾选 Show 0 balance：四列皆≈0 时隐藏；任一有金额则显示。
+    // 未勾选 Show all 0 balance：Balance 列展示为 0.00 时隐藏。
     function rowPassesHideZeroBalanceFilter(showZero, row) {
         if (showZero) return true;
-        return !rowAllMoneyColumnsDisplayZero(row);
+        return !rowIsZeroBalance(row);
     }
 
     // ==================== 根据 Show 0 balance 过滤前端行并渲染 ====================

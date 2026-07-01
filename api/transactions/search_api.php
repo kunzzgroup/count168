@@ -178,17 +178,10 @@ function searchMoneyNonZero($value): bool
     return money_cmp(money_abs($value ?? '0'), '0.00001') > 0;
 }
 
-/** 与列表四列展示一致：HALF_UP 到分后 B/F、Win/Loss、Cr/Dr、Balance 是否皆为 0 */
-function searchApiRowAllDisplayZero(string $bf, string $wl, string $crDr, string $balance): bool
+/** Balance 列展示值（HALF_UP 到分）是否为 0；与「Show all 0 balance」默认隐藏规则一致 */
+function searchApiBalanceDisplayZero(string $balance): bool
 {
-    $bfDisp = searchMoneyHalfUp2(trunc2($bf));
-    $wlDisp = searchMoneyHalfUp2($wl);
-    $crDisp = searchMoneyHalfUp2($crDr);
-    $balDisp = searchMoneyHalfUp2($balance);
-    return !searchMoneyNonZero($bfDisp)
-        && !searchMoneyNonZero($wlDisp)
-        && !searchMoneyNonZero($crDisp)
-        && !searchMoneyNonZero($balDisp);
+    return !searchMoneyNonZero(searchMoneyHalfUp2($balance));
 }
 
 function searchMoneyIsZero($value): bool
@@ -1585,8 +1578,8 @@ try {
                     $account_currency_ids[(int) $ac['currency_id']] = true;
                 }
             }
-            // 兜底：仍无币别但有 currency 筛选时，直接挂上筛选的币别
-            if (empty($account_currencies) && !empty($filter_currency_codes)) {
+            // 兜底：仍无币别但有 currency 筛选时挂上筛选币别（Show all 0 balance 时用于列出 active 货币下的空行）
+            if (empty($account_currencies) && !empty($filter_currency_codes) && !$omitAcOnlyCombos) {
                 foreach ($filter_currency_codes as $fcc) {
                     $code = strtoupper($fcc);
                     if (!isset($currency_map[$code]))
@@ -1984,13 +1977,13 @@ try {
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
 
-        // Layer 2：(账户+币种) 级筛选；按 B/F、Win/Loss、Cr/Dr、Balance 展示金额，不用 activity 标志。
+        // Layer 2：(账户+币种) 级筛选。默认仅按 Balance 列展示值隐藏 0 balance（须勾选 Show all 0 balance 才显示）。
         // 勾选 Show 0 balance（hide_zero_balance=0）时不做此处裁剪。
         $wl_stat_chk = trunc2($wlPack['win_loss_full'] ?? $win_loss);
         $cr_stat_chk = trunc2($cr_dr);
         $balance_stat_chk = trunc2(money_add(money_add(trunc2($bf), $wl_stat_chk, 8), $cr_stat_chk, 8));
         if ($hide_zero_balance && !$show_capture_only && !$show_inactive) {
-            if (searchApiRowAllDisplayZero($bf, $wl_stat_chk, $cr_stat_chk, $balance_stat_chk)) {
+            if (searchApiBalanceDisplayZero($balance_stat_chk)) {
                 continue;
             }
         }
