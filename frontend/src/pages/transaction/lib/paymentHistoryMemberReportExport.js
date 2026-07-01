@@ -559,6 +559,206 @@ export function renderReportToWindow(win, { html, documentTitle }) {
   }
 }
 
+function rowToTableCells(row, lang) {
+  return [
+    row.date || "-",
+    productCell(row),
+    row.rate || "-",
+    formatPaymentHistoryMoney(row.win_loss),
+    formatPaymentHistoryMoney(row.cr_dr),
+    formatPaymentHistoryMoney(row.balance),
+    formatMemberRowDescription(lang, row),
+    remarkCell(row),
+  ];
+}
+
+function moneyTone(value) {
+  const n = parseMoneyNumber(value);
+  if (n === null) return "empty";
+  if (n === 0) return "zero";
+  return n > 0 ? "pos" : "neg";
+}
+
+function applyPdfMoneyStyle(cell, rawValue) {
+  const tone = moneyTone(rawValue);
+  cell.styles.halign = "right";
+  if (tone === "pos") {
+    cell.styles.textColor = [23, 42, 159];
+    cell.styles.fontStyle = "bold";
+  } else if (tone === "neg") {
+    cell.styles.textColor = [185, 28, 28];
+    cell.styles.fontStyle = "bold";
+  } else if (tone === "zero") {
+    cell.styles.textColor = [0, 44, 73];
+    cell.styles.fontStyle = "bold";
+    cell.styles.halign = "center";
+  } else {
+    cell.styles.textColor = [203, 213, 225];
+    cell.styles.fontStyle = "normal";
+    cell.styles.halign = "center";
+  }
+}
+
+const PDF_TABLE_COLUMN_STYLES = {
+  0: { cellWidth: 24 },
+  1: { cellWidth: 26 },
+  2: { cellWidth: 14, halign: "right" },
+  3: { cellWidth: 26, halign: "right" },
+  4: { cellWidth: 26, halign: "right" },
+  5: { cellWidth: 28, halign: "right" },
+  6: { cellWidth: "auto" },
+  7: { cellWidth: 22, halign: "center" },
+};
+
+/**
+ * Generate a proper A4 landscape PDF and trigger download (no browser print dialog).
+ */
+export async function downloadMemberReportPdf({
+  sections,
+  accountCode,
+  accountName,
+  dateFrom,
+  dateTo,
+  lang,
+  filename,
+}) {
+  const [{ jsPDF }, { autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const marginX = 10;
+  let cursorY = 14;
+
+  const headerSection = buildMemberReportSectionData({
+    rows: sections?.[0]?.rows || [],
+    currency: sections?.[0]?.currency || "",
+    accountCode,
+    accountName,
+    dateFrom,
+    dateTo,
+    lang,
+  });
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(0, 44, 73);
+  doc.text(headerSection.docTitle, marginX, cursorY);
+  cursorY += 7;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(71, 85, 105);
+  doc.text(headerSection.docMeta, marginX, cursorY);
+  cursorY += 9;
+
+  const sectionList = sections || [];
+  sectionList.forEach((section, sectionIdx) => {
+    const sectionData = buildMemberReportSectionData({
+      rows: section.rows,
+      currency: section.currency,
+      accountCode,
+      accountName,
+      dateFrom,
+      dateTo,
+      lang,
+    });
+    const sourceRows = section.rows || [];
+
+    if (sectionList.length > 1) {
+      if (sectionIdx > 0 && cursorY > 170) {
+        doc.addPage();
+        cursorY = 14;
+      }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(31, 41, 55);
+      doc.text(sectionData.currencyTitle, marginX, cursorY);
+      cursorY += 6;
+    }
+
+    const body = sourceRows.map((row) => rowToTableCells(row, lang));
+    const foot = [
+      [
+        {
+          content: sectionData.footerLabel,
+          colSpan: 3,
+          styles: { halign: "left", fontStyle: "bold" },
+        },
+        formatPaymentHistoryMoney(sectionData.totalWinLoss.toString()),
+        formatPaymentHistoryMoney(sectionData.totalCrDr.toString()),
+        formatPaymentHistoryMoney(sectionData.closingBalance.toString()),
+        { content: "", colSpan: 2 },
+      ],
+    ];
+
+    autoTable(doc, {
+      startY: cursorY,
+      margin: { left: marginX, right: marginX },
+      tableWidth: pageW - marginX * 2,
+      head: [sectionData.headers],
+      body,
+      foot,
+      theme: "grid",
+      styles: {
+        font: "helvetica",
+        fontSize: 10,
+        cellPadding: 3,
+        lineColor: [232, 237, 243],
+        lineWidth: 0.2,
+        textColor: [15, 23, 42],
+        overflow: "linebreak",
+        valign: "middle",
+      },
+      headStyles: {
+        fillColor: [0, 44, 73],
+        textColor: 255,
+        fontStyle: "bold",
+        fontSize: 10,
+      },
+      footStyles: {
+        fillColor: [238, 244, 255],
+        textColor: [15, 23, 42],
+        fontStyle: "bold",
+        fontSize: 10,
+      },
+      alternateRowStyles: { fillColor: [244, 247, 252] },
+      columnStyles: PDF_TABLE_COLUMN_STYLES,
+      didParseCell: (hookData) => {
+        if (hookData.section === "body") {
+          const row = sourceRows[hookData.row.index];
+          if (row?.row_type === "bf") {
+            hookData.cell.styles.fillColor = [238, 244, 255];
+            hookData.cell.styles.textColor = [30, 58, 95];
+          }
+          if (hookData.column.index === 3) applyPdfMoneyStyle(hookData.cell, row?.win_loss);
+          if (hookData.column.index === 4) applyPdfMoneyStyle(hookData.cell, row?.cr_dr);
+          if (hookData.column.index === 5) applyPdfMoneyStyle(hookData.cell, row?.balance);
+          if (hookData.column.index === 6) {
+            hookData.cell.styles.fontStyle = "bold";
+          }
+          if (hookData.column.index === 2 || hookData.column.index === 7) {
+            hookData.cell.styles.textColor = [100, 116, 139];
+          }
+        }
+        if (hookData.section === "foot") {
+          const col = hookData.column.index;
+          if (col === 3) applyPdfMoneyStyle(hookData.cell, sectionData.totalWinLoss.toString());
+          if (col === 4) applyPdfMoneyStyle(hookData.cell, sectionData.totalCrDr.toString());
+          if (col === 5) applyPdfMoneyStyle(hookData.cell, sectionData.closingBalance.toString());
+        }
+      },
+    });
+
+    cursorY = (doc.lastAutoTable?.finalY || cursorY) + 12;
+  });
+
+  const safeName = String(filename || "WinLoss-Report").replace(/[<>:"/\\|?*]+/g, "_");
+  doc.save(`${safeName}.pdf`);
+}
+
 export function buildMemberReportFilename({ accountCode, currency, currencies, dateFrom, dateTo }) {
   const code = String(accountCode || "account").replace(/[^\w.-]+/g, "_");
   const list = Array.isArray(currencies) && currencies.length

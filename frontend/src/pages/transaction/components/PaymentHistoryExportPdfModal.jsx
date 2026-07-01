@@ -13,13 +13,11 @@ import {
   ensureMaintenanceDateRangePicker,
 } from "../../../utils/date/dateRangePicker.js";
 import {
-  buildCombinedMemberReportPrintHtml,
   buildMemberReportFilename,
+  downloadMemberReportPdf,
   exportCurrencyCodes,
   fetchMemberReportHistory,
   fetchPaymentHistoryExportCurrencies,
-  openReportPrintWindow,
-  renderReportToWindow,
   resolveExportCurrenciesDefault,
   ymdRangeToDmy,
 } from "../lib/paymentHistoryMemberReportExport.js";
@@ -236,11 +234,12 @@ export default function PaymentHistoryExportPdfModal({
       setError(m.exportPdfMissingAccount);
       return;
     }
-    const printWin = openReportPrintWindow(m.exportPdfExporting);
-    if (!printWin) {
-      setError(m.exportPdfPopupBlocked);
-      return;
-    }
+    const filename = buildMemberReportFilename({
+      accountCode,
+      currencies: codes,
+      dateFrom,
+      dateTo,
+    });
     setExporting(true);
     setError("");
     try {
@@ -256,33 +255,18 @@ export default function PaymentHistoryExportPdfModal({
           return { currency, rows };
         }),
       );
-      const html = buildCombinedMemberReportPrintHtml({
+      await downloadMemberReportPdf({
         sections,
         accountCode,
         accountName,
         dateFrom,
         dateTo,
         lang,
+        filename,
       });
-      const filename = buildMemberReportFilename({
-        accountCode,
-        currencies: codes,
-        dateFrom,
-        dateTo,
-      });
-      renderReportToWindow(printWin, { html, documentTitle: filename });
       onClose?.();
     } catch (err) {
-      try {
-        if (printWin && !printWin.closed) printWin.close();
-      } catch {
-        /* ignore */
-      }
       if (err?.name === "AbortError") return;
-      if (err?.message === "Popup blocked") {
-        setError(m.exportPdfPopupBlocked);
-        return;
-      }
       setError(err?.message || m.exportPdfFailed);
     } finally {
       setExporting(false);
