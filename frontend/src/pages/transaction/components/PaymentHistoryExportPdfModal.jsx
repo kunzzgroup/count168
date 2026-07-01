@@ -33,15 +33,6 @@ function ExportPdfIcon() {
   );
 }
 
-function InfoIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.75" />
-      <path d="M12 10v6M12 7.5v.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 export default function PaymentHistoryExportPdfModal({
   open,
   onClose,
@@ -212,11 +203,20 @@ export default function PaymentHistoryExportPdfModal({
     >
       <div className="transaction-payment-history-export-modal">
         <div className="transaction-payment-history-export-modal__header">
-          <div className="transaction-payment-history-export-modal__title-row">
-            <span className="transaction-payment-history-export-modal__title-icon" aria-hidden="true">
-              <ExportPdfIcon />
-            </span>
+          <div className="transaction-payment-history-export-modal__heading">
             <h3 id="payment-history-export-title">{m.exportPdfTitle}</h3>
+            {accountContextLabel ? (
+              <p className="transaction-payment-history-export-modal__subtitle">
+                <span className="transaction-payment-history-export-modal__account-code">
+                  {accountContextLabel.code}
+                </span>
+                {accountContextLabel.name ? (
+                  <span className="transaction-payment-history-export-modal__account-name">
+                    {accountContextLabel.name}
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -229,26 +229,8 @@ export default function PaymentHistoryExportPdfModal({
           </button>
         </div>
 
-        {accountContextLabel ? (
-          <div className="transaction-payment-history-export-modal__account">
-            <span className="transaction-payment-history-export-modal__account-code">
-              {accountContextLabel.code}
-            </span>
-            {accountContextLabel.name ? (
-              <span className="transaction-payment-history-export-modal__account-name">
-                {accountContextLabel.name}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-
         <div className="transaction-payment-history-export-modal__body">
-          <p className="transaction-payment-history-export-modal__hint">
-            <span className="transaction-payment-history-export-modal__hint-icon" aria-hidden="true">
-              <InfoIcon />
-            </span>
-            <span>{m.exportPdfHint}</span>
-          </p>
+          <p className="transaction-payment-history-export-modal__hint">{m.exportPdfHint}</p>
 
           <div className="transaction-payment-history-export-modal__form">
             <div className="transaction-payment-history-export-modal__field transaction-payment-history-export-modal__field--date">
@@ -279,12 +261,12 @@ export default function PaymentHistoryExportPdfModal({
               ) : singleCurrency ? (
                 <span className="transaction-payment-history-export-currency-badge">{selectedCurrency}</span>
               ) : (
-                <div className="transaction-payment-history-export-chips" role="group" aria-label={m.exportPdfCurrency}>
+                <div className="transaction-payment-history-export-segment" role="group" aria-label={m.exportPdfCurrency}>
                   {currencies.map((code) => (
                     <button
                       key={code}
                       type="button"
-                      className={`transaction-payment-history-export-chip${selectedCurrency === code ? " is-on" : ""}`}
+                      className={`transaction-payment-history-export-segment__btn${selectedCurrency === code ? " is-on" : ""}`}
                       onClick={() => {
                         setSelectedCurrency(code);
                         setError("");
