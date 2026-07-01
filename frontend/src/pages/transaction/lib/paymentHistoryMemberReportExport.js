@@ -599,16 +599,16 @@ function applyPdfMoneyStyle(cell, rawValue) {
   }
 }
 
-/** A4 portrait — column widths total 190mm; Rate/Remark wide enough for full header text. */
+/** A4 portrait — column widths total 190mm; Date fits dd/mm/yyyy on one line. */
 const PDF_TABLE_COLUMN_STYLES = {
-  0: { cellWidth: 20 },
-  1: { cellWidth: 22 },
-  2: { cellWidth: 16, halign: "right" },
-  3: { cellWidth: 18, halign: "right" },
-  4: { cellWidth: 18, halign: "right" },
-  5: { cellWidth: 20, halign: "right" },
-  6: { cellWidth: 58 },
-  7: { cellWidth: 18, halign: "center" },
+  0: { cellWidth: 24, halign: "left", overflow: "hidden" },
+  1: { cellWidth: 22, overflow: "hidden" },
+  2: { cellWidth: 16, halign: "right", overflow: "hidden" },
+  3: { cellWidth: 18, halign: "right", overflow: "hidden" },
+  4: { cellWidth: 18, halign: "right", overflow: "hidden" },
+  5: { cellWidth: 20, halign: "right", overflow: "hidden" },
+  6: { cellWidth: 54, overflow: "linebreak" },
+  7: { cellWidth: 18, halign: "center", overflow: "hidden" },
 };
 
 /**
@@ -739,6 +739,10 @@ export async function downloadMemberReportPdf({
           if (row?.row_type === "bf") {
             hookData.cell.styles.fillColor = [238, 244, 255];
             hookData.cell.styles.textColor = [30, 58, 95];
+          }
+          if (hookData.column.index === 0) {
+            hookData.cell.styles.overflow = "hidden";
+            hookData.cell.styles.whiteSpace = "nowrap";
           }
           if (hookData.column.index === 3) applyPdfMoneyStyle(hookData.cell, row?.win_loss);
           if (hookData.column.index === 4) applyPdfMoneyStyle(hookData.cell, row?.cr_dr);
