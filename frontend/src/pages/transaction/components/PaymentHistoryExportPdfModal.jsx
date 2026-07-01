@@ -298,13 +298,17 @@ export default function PaymentHistoryExportPdfModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="payment-history-export-title"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !exporting) {
+    >
+      <button
+        type="button"
+        className="transaction-payment-history-export-overlay__backdrop"
+        aria-label={m.close}
+        disabled={exporting}
+        onClick={() => {
           closeMaintenanceCalendarPopup();
           onClose?.();
-        }
-      }}
-    >
+        }}
+      />
       <div className="transaction-payment-history-export-modal">
         <div className="transaction-payment-history-export-modal__header">
           <div className="transaction-payment-history-export-modal__heading">

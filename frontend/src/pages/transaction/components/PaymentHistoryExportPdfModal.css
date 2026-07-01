@@ -11,6 +11,29 @@
   overflow-y: auto;
   background: rgba(15, 23, 42, 0.38);
   backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+.transaction-payment-history-export-overlay .transaction-payment-history-export-modal {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.transaction-payment-history-export-overlay__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: default;
+  pointer-events: auto;
+}
+
+.transaction-payment-history-export-overlay__backdrop:disabled {
+  cursor: not-allowed;
 }
 
 .transaction-payment-history-export-modal {
@@ -239,12 +262,84 @@
   transform: translateY(1px);
 }
 
-.transaction-payment-history-export-overlay .calendar-popup.calendar-popup--transaction-range {
-  z-index: 10060;
+.transaction-payment-history-export-overlay .calendar-popup.calendar-popup--transaction-range,
+#calendar-popup.calendar-popup--above-export-modal {
+  z-index: 100001 !important;
+  pointer-events: auto;
 }
 
-#calendar-popup.calendar-popup--above-export-modal {
-  z-index: 10060 !important;
+#calendar-popup.calendar-popup--above-export-modal[style*="display: block"] {
+  display: grid !important;
+  grid-template-columns: var(--drp-preset-col, clamp(76px, 5.6vw, 96px)) 1fr;
+  gap: 0;
+  width: var(--drp-popup-width, clamp(316px, 22vw, 336px));
+  max-width: calc(100vw - 24px);
+  min-width: var(--drp-popup-width, clamp(316px, 22vw, 336px));
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.16);
+}
+
+#calendar-popup.calendar-popup--above-export-modal .transaction-calendar-presets {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 6px;
+  border-right: 1px solid rgba(226, 232, 240, 0.95);
+  background: linear-gradient(180deg, #fbfdff 0%, #f8fbff 100%);
+  pointer-events: auto;
+}
+
+#calendar-popup.calendar-popup--above-export-modal .transaction-calendar-preset {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 25px;
+  padding: 5px 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #334155;
+  font-family: var(--font-heading-page);
+  font-size: var(--text-tiny, 0.8125rem);
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+#calendar-popup.calendar-popup--above-export-modal .transaction-calendar-preset:hover,
+#calendar-popup.calendar-popup--above-export-modal .transaction-calendar-preset:focus-visible {
+  outline: none;
+  background: rgba(59, 130, 246, 0.1);
+  color: #1d4ed8;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.15);
+}
+
+#calendar-popup.calendar-popup--above-export-modal .transaction-calendar-preset.is-active {
+  background: var(--btn-add-gradient, linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%));
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.2);
+}
+
+#calendar-popup.calendar-popup--above-export-modal .transaction-calendar-panel {
+  position: relative;
+  z-index: 1;
+  padding: 10px 10px 12px;
+  background: #ffffff;
+  pointer-events: auto;
 }
 
 .transaction-payment-history-export-modal__currency-pills {
