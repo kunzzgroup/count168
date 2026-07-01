@@ -79,7 +79,9 @@ export default function PaymentHistoryExportPdfModal({
   const exportModalTitle = useMemo(() => {
     const code = accountContextLabel?.code || "";
     const template = m.exportPdfTitleWithAccount || "{{account}} WIN/LOSE REPORT";
-    if (code) return template.replace("{account}", code);
+    if (code) {
+      return template.replace(/\{\{account\}\}/g, code).replace(/\{account\}/g, code);
+    }
     return m.exportPdfTitle || "WIN/LOSE REPORT";
   }, [accountContextLabel, m.exportPdfTitleWithAccount, m.exportPdfTitle]);
 
@@ -327,38 +329,33 @@ export default function PaymentHistoryExportPdfModal({
 
         <div className="transaction-payment-history-export-modal__body">
           <div className="transaction-payment-history-export-modal__form">
-            <div className="transaction-payment-history-export-modal__field">
-              <div className="transaction-payment-history-export-modal__inline-row transaction-payment-history-export-modal__inline-row--date">
-                <span className="transaction-payment-history-export-modal__inline-label">
-                  {m.exportPdfDateRange}:
-                </span>
-                <div className="transaction-payment-history-export-modal__inline-control transaction-payment-history-export-modal__inline-control--date">
-                  <ReportDatePicker
-                    dateFrom={dateFromYmd}
-                    dateTo={dateToYmd}
-                    onRangeChange={handleRangeChange}
-                    containerClass="transaction-payment-history-export-date"
-                    label=""
-                    placeholder={m.exportPdfSelectDateRange}
-                    selectEndDateHint={m.exportPdfSelectEndDate}
-                    captureDateStyle
-                    instanceId={pickerInstanceId}
-                    shareCalendarPopup={shareCalendarPopup}
-                    periodPresets={periodPresets}
-                    periodShortcutsAria={m.exportPdfPeriod}
-                    monthLabels={m.monthsShort}
-                    weekdaysShort={m.weekdaysShort}
-                  />
-                </div>
-              </div>
-              <p className="transaction-payment-history-export-modal__field-hint">{m.exportPdfHint}</p>
+            <span className="transaction-payment-history-export-modal__inline-label transaction-payment-history-export-modal__inline-label--date">
+              {m.exportPdfDateRange}:
+            </span>
+            <div className="transaction-payment-history-export-modal__inline-control transaction-payment-history-export-modal__inline-control--date">
+              <ReportDatePicker
+                dateFrom={dateFromYmd}
+                dateTo={dateToYmd}
+                onRangeChange={handleRangeChange}
+                containerClass="transaction-payment-history-export-date"
+                label=""
+                placeholder={m.exportPdfSelectDateRange}
+                selectEndDateHint={m.exportPdfSelectEndDate}
+                captureDateStyle
+                instanceId={pickerInstanceId}
+                shareCalendarPopup={shareCalendarPopup}
+                periodPresets={periodPresets}
+                periodShortcutsAria={m.exportPdfPeriod}
+                monthLabels={m.monthsShort}
+                weekdaysShort={m.weekdaysShort}
+              />
             </div>
+            <p className="transaction-payment-history-export-modal__field-hint">{m.exportPdfHint}</p>
 
-            <div className="transaction-payment-history-export-modal__inline-row transaction-payment-history-export-modal__inline-row--currency">
-              <span className="transaction-payment-history-export-modal__inline-label">
-                {m.exportPdfCurrency}:
-              </span>
-              <div className="transaction-payment-history-export-modal__inline-control transaction-payment-history-export-modal__inline-control--currency">
+            <span className="transaction-payment-history-export-modal__inline-label transaction-payment-history-export-modal__inline-label--currency">
+              {m.exportPdfCurrency}:
+            </span>
+            <div className="transaction-payment-history-export-modal__inline-control transaction-payment-history-export-modal__inline-control--currency">
                 {loadingCurrencies ? (
                   <p className="transaction-payment-history-export-modal__loading">{m.loading}</p>
                 ) : currencies.length === 0 ? (
@@ -430,7 +427,6 @@ export default function PaymentHistoryExportPdfModal({
                     ))}
                   </div>
                 )}
-              </div>
             </div>
           </div>
 

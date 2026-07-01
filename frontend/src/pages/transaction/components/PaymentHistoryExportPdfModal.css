@@ -95,19 +95,20 @@
 
 
 .transaction-payment-history-export-modal__form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: var(--export-modal-label-w) minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 8px;
+  align-items: center;
 }
 
 .transaction-payment-history-export-modal__field {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  display: contents;
 }
 
 .transaction-payment-history-export-modal__field-hint {
-  margin: 6px 0 0 calc(var(--export-modal-label-w) + 18px);
+  grid-column: 2;
+  margin: 2px 0 4px;
   max-width: var(--export-modal-date-range-w);
   padding: 0;
   font-size: 0.875rem;
@@ -118,19 +119,27 @@
 }
 
 .transaction-payment-history-export-modal__inline-row {
-  display: grid;
-  grid-template-columns: var(--export-modal-label-w) auto;
-  justify-content: start;
-  align-items: center;
-  gap: 12px 14px;
-  width: 100%;
+  display: contents;
 }
 
 .transaction-payment-history-export-modal__inline-label {
+  justify-self: end;
+  text-align: right;
   font-size: var(--export-modal-text);
   font-weight: 700;
   color: #1f2937;
   white-space: nowrap;
+}
+
+.transaction-payment-history-export-modal__inline-label--currency {
+  align-self: start;
+  padding-top: 0.35rem;
+}
+
+.transaction-payment-history-export-modal__inline-control--currency {
+  align-self: start;
+  width: 100%;
+  max-width: 100%;
 }
 
 .transaction-payment-history-export-modal__inline-control {
@@ -140,16 +149,11 @@
 .transaction-payment-history-export-modal__inline-control--date {
   width: var(--export-modal-date-range-w);
   max-width: 100%;
+  justify-self: start;
 }
 
 .transaction-payment-history-export-modal__inline-row--currency {
-  grid-template-columns: var(--export-modal-label-w) minmax(0, 1fr);
-  align-items: start;
-}
-
-.transaction-payment-history-export-modal__inline-control--currency {
-  width: 100%;
-  max-width: 100%;
+  display: contents;
 }
 
 /* Date range — compact pill bar (same width as Member / Transaction page) */
