@@ -717,8 +717,8 @@ function drawPdfPageFooter(doc, { pageW, pageH, pageLabel }) {
 
 /** A4 portrait — column widths total 190mm; Date fits dd/mm/yyyy on one line. */
 const PDF_TABLE_COLUMN_STYLES = {
-  0: { cellWidth: 24, halign: "left", overflow: "hidden" },
-  1: { cellWidth: 22, overflow: "hidden" },
+  0: { cellWidth: 24, halign: "left", overflow: "hidden", fontStyle: "bold" },
+  1: { cellWidth: 22, overflow: "hidden", fontStyle: "bold" },
   2: { cellWidth: 16, halign: "right", overflow: "hidden" },
   3: { cellWidth: 18, halign: "right", overflow: "hidden" },
   4: { cellWidth: 18, halign: "right", overflow: "hidden" },
