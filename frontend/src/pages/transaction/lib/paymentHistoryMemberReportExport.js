@@ -703,6 +703,7 @@ export async function downloadMemberReportPdf({
       head: [sectionData.headers],
       body,
       foot,
+      showFoot: "lastPage",
       theme: "grid",
       styles: {
         font: "helvetica",
