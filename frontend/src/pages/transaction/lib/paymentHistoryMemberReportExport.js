@@ -606,7 +606,7 @@ const PDF_HEADER_TOP_MM = 10;
 const PDF_FIRST_PAGE_TOP_MARGIN_MM = 30;
 const PDF_OTHER_PAGE_TOP_MARGIN_MM = 22;
 const PDF_BRAND_BAR_RGB = [0, 44, 73];
-const PDF_TOTAL_PAGES_PLACEHOLDER = "{nb}";
+const PDF_FOOTER_BOTTOM_MM = 10;
 
 async function loadPdfLogoAsset() {
   try {
@@ -647,7 +647,7 @@ function formatPdfReportDatetime() {
   return `${d}/${m}/${y} ${h}:${min} ${ampm}`;
 }
 
-function drawPdfPageHeader(doc, { logo, pageW, marginX, reportDateText, pageText, title, meta, showTitle }) {
+function drawPdfPageHeader(doc, { logo, pageW, marginX, reportDateText, title, meta, showTitle }) {
   const topY = PDF_HEADER_TOP_MM;
   const rowH = PDF_HEADER_ROW_HEIGHT_MM;
   const rowMidY = topY + rowH / 2;
@@ -667,8 +667,7 @@ function drawPdfPageHeader(doc, { logo, pageW, marginX, reportDateText, pageText
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
-  doc.text(reportDateText, rightX, rowMidY - 2.5, { align: "right" });
-  doc.text(pageText, rightX, rowMidY + 2.5, { align: "right" });
+  doc.text(reportDateText, rightX, rowMidY + 1, { align: "right" });
 
   if (showTitle && title) {
     const centerX = pageW / 2;
@@ -689,6 +688,13 @@ function drawPdfPageHeader(doc, { logo, pageW, marginX, reportDateText, pageText
   doc.setLineWidth(0.35);
   doc.line(marginX, sepY, pageW - marginX, sepY);
   return sepY + 4;
+}
+
+function drawPdfPageFooter(doc, { pageW, pageH, pageLabel }) {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139);
+  doc.text(pageLabel, pageW / 2, pageH - PDF_FOOTER_BOTTOM_MM, { align: "center" });
 }
 
 /** A4 portrait — column widths total 190mm; Date fits dd/mm/yyyy on one line. */
@@ -789,6 +795,7 @@ export async function downloadMemberReportPdf({
         top: sectionIdx === 0 ? PDF_FIRST_PAGE_TOP_MARGIN_MM : PDF_OTHER_PAGE_TOP_MARGIN_MM,
         left: marginX,
         right: marginX,
+        bottom: PDF_FOOTER_BOTTOM_MM + 4,
       },
       tableWidth: pageW - marginX * 2,
       head: [sectionData.headers],
@@ -803,19 +810,19 @@ export async function downloadMemberReportPdf({
         }
         const showTitle = !titleDrawn && pageNum === 1 && sectionIdx === 0;
         if (showTitle) titleDrawn = true;
-        const pageText = t("exportPdfPageOf", {
-          page: pageNum,
-          total: PDF_TOTAL_PAGES_PLACEHOLDER,
-        });
         drawPdfPageHeader(doc, {
           logo,
           pageW,
           marginX,
           reportDateText,
-          pageText,
           title: headerSection.docTitle,
           meta: headerSection.docMeta,
           showTitle,
+        });
+        drawPdfPageFooter(doc, {
+          pageW,
+          pageH,
+          pageLabel: t("exportPdfPageLabel", { page: pageNum }),
         });
       },
       styles: {
@@ -879,10 +886,6 @@ export async function downloadMemberReportPdf({
 
     cursorY = (doc.lastAutoTable?.finalY || tableStartY || PDF_FIRST_PAGE_TOP_MARGIN_MM) + 12;
   });
-
-  if (typeof doc.putTotalPages === "function") {
-    doc.putTotalPages(PDF_TOTAL_PAGES_PLACEHOLDER);
-  }
 
   const safeName = String(filename || "WinLoss-Report").replace(/[<>:"/\\|?*]+/g, "_");
   doc.save(`${safeName}.pdf`);
