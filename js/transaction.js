@@ -4087,33 +4087,17 @@
     }
 
     // ==================== 日期选择器 ====================
-    function getDefaultCaptureDateString() {
-        const pageDefaults = window.TRANSACTION_PAGE || {};
-        const serverDefault = (pageDefaults.defaultCaptureDate || '').trim();
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(serverDefault)) {
-            return serverDefault;
-        }
-
-        const cutoffHour = Number.isFinite(Number(pageDefaults.businessDayCutoffHour))
-            ? Number(pageDefaults.businessDayCutoffHour)
-            : 6;
-        const date = new Date();
-        if (date.getHours() < cutoffHour) {
-            date.setDate(date.getDate() - 1);
-        }
-        const d = date.getDate();
-        const m = date.getMonth() + 1;
-        const y = date.getFullYear();
-        return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
-    }
-
-    // 若 Capture Date 未填，则默认设为做账营业日（凌晨 cutoff 前仍看昨天）。
+    // 若 Capture Date 未填，则默认设为今天（保证首次进入页面自动搜「当天」）
     function ensureDefaultDates() {
         const df = document.getElementById('date_from');
         const dt = document.getElementById('date_to');
         if (!df || !dt) return;
         if ((df.value || '').trim() && (dt.value || '').trim()) return;
-        const str = getDefaultCaptureDateString();
+        const today = new Date();
+        const d = today.getDate();
+        const m = today.getMonth() + 1;
+        const y = today.getFullYear();
+        const str = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
         if (!(df.value || '').trim()) df.value = str;
         if (!(dt.value || '').trim()) dt.value = str;
     }
