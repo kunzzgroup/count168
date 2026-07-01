@@ -17,8 +17,9 @@
   --export-modal-text: 1.1875rem;
   --export-modal-date-range-w: var(--drp-popup-width, clamp(316px, 22vw, 336px));
   --export-modal-label-w: 7.75rem;
-  width: fit-content;
-  max-width: min(100%, 520px);
+  --export-modal-content-w: calc(var(--export-modal-label-w) + 14px + var(--export-modal-date-range-w));
+  width: min(100%, max(var(--export-modal-content-w), 520px));
+  max-width: min(100%, 600px);
   min-width: min(100%, 420px);
   max-height: none;
   overflow: visible;
@@ -117,8 +118,13 @@
   max-width: 100%;
 }
 
+.transaction-payment-history-export-modal__inline-row--currency {
+  grid-template-columns: var(--export-modal-label-w) minmax(0, 1fr);
+  align-items: start;
+}
+
 .transaction-payment-history-export-modal__inline-control--currency {
-  width: auto;
+  width: 100%;
   max-width: 100%;
 }
 
@@ -251,39 +257,41 @@
 }
 
 .transaction-payment-history-export-modal__currency-segments {
-  display: inline-flex;
+  display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   align-items: stretch;
-  width: auto;
+  gap: 8px;
+  width: 100%;
   max-width: 100%;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--color-surface, #ffffff);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  background: transparent;
+  box-shadow: none;
 }
 
 .transaction-payment-history-export-modal__currency-segment {
   flex: 0 0 auto;
-  min-width: 5rem;
+  min-width: 3.25rem;
   margin: 0;
-  padding: 12px 24px;
-  border: none;
-  border-right: 1px solid var(--color-border, #e5e7eb);
+  padding: 10px 16px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
   background: var(--color-surface, #ffffff);
   color: #1f2937;
-  font-size: var(--export-modal-text);
+  font-size: calc(var(--export-modal-text) * 0.94);
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
   line-height: 1.25;
-  transition: background 0.15s ease, color 0.15s ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .transaction-payment-history-export-modal__currency-segment:last-child {
-  border-right: none;
+  border-right: 1px solid var(--color-border, #e5e7eb);
 }
 
 .transaction-payment-history-export-modal__currency-segment:hover:not(:disabled):not(.is-on) {
@@ -300,11 +308,11 @@
 .transaction-payment-history-export-modal__currency-segment.is-on {
   background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
   color: #ffffff;
-  border-right-color: rgba(255, 255, 255, 0.28);
+  border-color: transparent;
 }
 
 .transaction-payment-history-export-modal__currency-segment.is-on + .transaction-payment-history-export-modal__currency-segment.is-on {
-  border-left: 1px solid rgba(255, 255, 255, 0.28);
+  border-left: 1px solid transparent;
 }
 
 .transaction-payment-history-export-modal__currency-segment:disabled {
