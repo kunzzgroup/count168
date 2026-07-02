@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-const phpTarget = process.env.VITE_PHP_PROXY_TARGET || "http://127.0.0.1/c168_mobile";
+const phpTarget = process.env.VITE_PHP_PROXY_TARGET || "http://127.0.0.1:8000";
 
 /** Cloudflare Rocket Loader breaks Vite ES modules on count168.site */
 function cloudflareModuleFix() {
@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => ({
     proxy: {
       "/api": { target: phpTarget, changeOrigin: true },
       "/images": { target: phpTarget, changeOrigin: true },
-      "/reset-password": { target: phpTarget.replace(/\/c168_mobile\/?$/, "") || "http://127.0.0.1", changeOrigin: true },
+      "/reset-password": { target: phpTarget, changeOrigin: true },
     },
   },
   build: {
