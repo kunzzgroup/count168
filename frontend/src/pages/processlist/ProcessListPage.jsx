@@ -45,6 +45,9 @@ import {
   processListCacheHasRows,
   emptyCopyFromSyncFields,
   buildCopyFromFormPatch,
+  invalidateProcessListCompanyCache,
+  buildOptimisticProcessRows,
+  mergeProcessRowsById,
 } from "./processListHelpers.js";
 import {
   fetchGamesProcessListSlice,
@@ -570,14 +573,16 @@ export default function ProcessListPage() {
   const fetchRows = useCallback(
     async (opts = {}) => {
       const silent = !!opts.silent;
+      const force = !!opts.force;
       const cid = opts.companyId != null ? Number(opts.companyId) : Number(companyId);
       if (!Number.isFinite(cid) || cid <= 0) return;
 
       const fetchGen = ++fetchGenRef.current;
-      const shouldAwaitEmpty = rowsRef.current.length === 0;
+      const shouldAwaitEmpty = rowsRef.current.length === 0 && !force;
       if (shouldAwaitEmpty) setAwaitingRows(true);
+      if (force) setAwaitingRows(false);
 
-      if (fetchAbortRef.current) fetchAbortRef.current.abort();
+      if (!opts.keepInFlight && fetchAbortRef.current) fetchAbortRef.current.abort();
       const ac = new AbortController();
       fetchAbortRef.current = ac;
       try {
@@ -589,7 +594,7 @@ export default function ProcessListPage() {
         });
         if (ac.signal.aborted || fetchGen !== fetchGenRef.current) return;
         if (!Array.isArray(slice.rows)) {
-          if (!silent) notify(t("failedLoadProcessList"), "danger");
+          if (!silent && !force) notify(t("failedLoadProcessList"), "danger");
           return;
         }
         if (Number(activeCompanyIdRef.current) !== cid) return;
@@ -601,12 +606,22 @@ export default function ProcessListPage() {
           currencyCodes: slice.currencyCodes,
         });
         setRows((prev) => {
-          if (silent && processRowsFingerprint(prev) === processRowsFingerprint(nextRows)) {
+          if (!force && silent && processRowsFingerprint(prev) === processRowsFingerprint(nextRows)) {
             return prev;
+          }
+          const preserveIds = Array.isArray(opts.preserveIds)
+            ? opts.preserveIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+            : [];
+          if (force && preserveIds.length > 0) {
+            const serverIds = new Set(nextRows.map((row) => Number(row.id)));
+            const pending = (prev || []).filter(
+              (row) => preserveIds.includes(Number(row.id)) && !serverIds.has(Number(row.id)),
+            );
+            return pending.length > 0 ? mergeProcessRowsById(nextRows, pending) : nextRows;
           }
           return nextRows;
         });
-        if (!silent) {
+        if (!silent || force) {
           listPaginationCompanyRef.current = String(cid);
           resetProcessListPagination();
           syncUrl({ companyId: cid });
@@ -615,7 +630,7 @@ export default function ProcessListPage() {
         }
       } catch (err) {
         if (ac.signal.aborted || err?.name === "AbortError" || fetchGen !== fetchGenRef.current) return;
-        if (!silent) notify(t("failedLoadProcessList"), "danger");
+        if (!silent && !force) notify(t("failedLoadProcessList"), "danger");
       } finally {
         if (fetchGen === fetchGenRef.current) {
           setAwaitingRows(false);
@@ -1407,12 +1422,21 @@ export default function ProcessListPage() {
       notify(message, "success");
       notifyTransactionDataChanged("processlist-react");
       setModalOpen(false);
-      const cachePrefix = `company:${Number(submitCompanyId)}|`;
-      for (const key of processListCacheRef.current.keys()) {
-        if (key.startsWith(cachePrefix)) processListCacheRef.current.delete(key);
+
+      const optimisticRows = buildOptimisticProcessRows(created, form, { currencies, days });
+      if (optimisticRows.length > 0) {
+        setRows((prev) => mergeProcessRowsById(prev, optimisticRows));
+        setAwaitingRows(false);
+        resetProcessListPagination();
       }
-      void loadFormMeta(submitCompanyId);
-      fetchRows({ companyId: submitCompanyId });
+
+      invalidateProcessListCompanyCache(processListCacheRef, submitCompanyId);
+      await loadFormMeta(submitCompanyId);
+      await fetchRows({
+        companyId: submitCompanyId,
+        force: true,
+        preserveIds: optimisticRows.map((row) => row.id),
+      });
     } catch {
       notify(t("createFailed"), "danger");
     }
