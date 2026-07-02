@@ -1183,11 +1183,14 @@ export default function ProcessListPage() {
         return;
       }
 
+      setForm((prev) => ({ ...prev, copy_from: id }));
+
       try {
         const url = new URL(buildApiUrl("api/processes/addprocess_api.php"));
         url.searchParams.set("action", "copy_from");
         url.searchParams.set("process_id", id);
-        if (companyId) url.searchParams.set("company_id", String(companyId));
+        const scopeId = activeCompanyId ?? companyId;
+        if (scopeId) url.searchParams.set("company_id", String(scopeId));
 
         const res = await fetch(url.toString(), { credentials: "include" });
         const json = await res.json();
@@ -1209,14 +1212,14 @@ export default function ProcessListPage() {
 
         setForm((prev) => ({
           ...prev,
-          copy_from: String(data.source_process_id ?? id),
+          copy_from: id,
           ...patch,
         }));
       } catch {
         notify(t("failedLoadProcess"), "danger");
       }
     },
-    [companyId, currencies, descriptions, t],
+    [activeCompanyId, companyId, currencies, descriptions, t],
   );
 
   const openEdit = async (id) => {
@@ -1372,7 +1375,8 @@ export default function ProcessListPage() {
     fd.append("remark", form.remark || "");
     if (form.copy_from) fd.append("copy_from", form.copy_from);
     fd.append("permission", "Games");
-    if (companyId) fd.append("company_id", String(companyId));
+    const submitCompanyId = activeCompanyId ?? companyId;
+    if (submitCompanyId) fd.append("company_id", String(submitCompanyId));
 
     try {
       const res = await fetch(buildApiUrl("api/processes/addprocess_api.php"), {
@@ -1385,8 +1389,13 @@ export default function ProcessListPage() {
         notify(json.message || json.error || t("createFailed"), "danger");
         return;
       }
-      let message = json.message || t("processAdded");
       const d = json.data;
+      const created = Array.isArray(d?.created_processes) ? d.created_processes : [];
+      if (created.length === 0) {
+        notify(json.message || json.error || t("createFailed"), "danger");
+        return;
+      }
+      let message = json.message || t("processAdded");
       if (d && typeof d === "object") {
         if (d.copy_from_used && Number(d.source_templates_found) === 0) message += ` (${t("copyNoTemplates")})`;
         if (d.copy_from_used && d.sync_source_set) message += ` [${t("copySyncEnabled")}]`;
@@ -1398,7 +1407,12 @@ export default function ProcessListPage() {
       notify(message, "success");
       notifyTransactionDataChanged("processlist-react");
       setModalOpen(false);
-      fetchRows();
+      const cachePrefix = `company:${Number(submitCompanyId)}|`;
+      for (const key of processListCacheRef.current.keys()) {
+        if (key.startsWith(cachePrefix)) processListCacheRef.current.delete(key);
+      }
+      void loadFormMeta(submitCompanyId);
+      fetchRows({ companyId: submitCompanyId });
     } catch {
       notify(t("createFailed"), "danger");
     }
