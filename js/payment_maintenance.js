@@ -70,6 +70,8 @@
         let ownerCompanies = [];
         let selectedCurrency = null; // 单选，只保存一个货币代码
         let selectedPermission = null;
+        let lastSearchData = [];
+        let searchInputDebounce = null;
 
 
 
@@ -284,6 +286,54 @@
             });
         }
 
+        function getSearchFilterValue() {
+            const el = document.getElementById('filter_search');
+            return el ? el.value.trim().toUpperCase() : '';
+        }
+
+        function filterPaymentRowsBySearch(data) {
+            const q = getSearchFilterValue();
+            if (!q) return data || [];
+            return (data || []).filter(row => {
+                const haystack = [
+                    row.account,
+                    row.from_account,
+                    row.description,
+                    row.remark,
+                    row.created_by,
+                    row.deleted_by,
+                    row.currency,
+                    row.amount,
+                    row.dts_created,
+                    row.transaction_type
+                ].map(v => String(v || '').toUpperCase()).join(' ');
+                return haystack.includes(q);
+            });
+        }
+
+        function refreshTableFromCache(options = {}) {
+            const { silent = false } = options || {};
+            const filtered = filterPaymentRowsBySearch(lastSearchData);
+            fillTable(filtered);
+
+            const selectAllCheckbox = document.getElementById('select_all_payment');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = false;
+            }
+            updateDeleteButtonState();
+
+            if (filtered.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('tableContainer').style.display = 'none';
+                if (!silent && lastSearchData.length > 0 && getSearchFilterValue()) {
+                    showNotification('No matching records', 'info');
+                }
+            } else {
+                document.getElementById('emptyState').style.display = 'none';
+                document.getElementById('tableContainer').style.display = 'block';
+            }
+        }
+
         // Search function
         function searchData() {
             const transactionType = document.getElementById('filter_transaction_type').value;
@@ -321,25 +371,28 @@
                 .then(data => {
                     if (data.success) {
                         console.log('✅ 搜索成功:', data.data);
-                        
+
+                        lastSearchData = Array.isArray(data.data) ? data.data : [];
+                        const filtered = filterPaymentRowsBySearch(lastSearchData);
+
                         // 填充表格
-                        fillTable(data.data);
-                        
+                        fillTable(filtered);
+
                         // 重置 Select All 复选框状态
                         const selectAllCheckbox = document.getElementById('select_all_payment');
                         if (selectAllCheckbox) {
                             selectAllCheckbox.checked = false;
                         }
-                        
+
                         // 更新Delete按钮状态
                         updateDeleteButtonState();
-                        
-                        if (data.data.length === 0) {
+
+                        if (filtered.length === 0) {
                             document.getElementById('emptyState').style.display = 'block';
                             document.getElementById('tableContainer').style.display = 'none';
-                            showNotification('No data found', 'info');
+                            showNotification(lastSearchData.length === 0 ? 'No data found' : 'No matching records', 'info');
                         } else {
-                            showNotification(`Found ${data.data.length} record(s)`, 'success');
+                            showNotification(`Found ${filtered.length} record(s)`, 'success');
                         }
                     } else {
                         showNotification(data.message || 'Search failed', 'error');
@@ -609,6 +662,30 @@
             if (transactionTypeSelect) {
                 transactionTypeSelect.addEventListener('change', () => {
                     searchData();
+                });
+            }
+
+            const searchInput = document.getElementById('filter_search');
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    if (searchInputDebounce) {
+                        clearTimeout(searchInputDebounce);
+                    }
+                    searchInputDebounce = setTimeout(() => {
+                        if (lastSearchData.length > 0) {
+                            refreshTableFromCache({ silent: true });
+                        }
+                    }, 300);
+                });
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (lastSearchData.length > 0) {
+                            refreshTableFromCache();
+                        } else {
+                            searchData();
+                        }
+                    }
                 });
             }
         }

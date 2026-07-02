@@ -138,6 +138,7 @@ h1 {
 
 /* Search Section Styles - 模仿 customer_report.php */
 .maintenance-search-section {
+    --maintenance-control-height: clamp(36px, 2.8vw, 40px);
     padding: 10px 20px;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
@@ -155,11 +156,51 @@ h1 {
     flex-wrap: wrap;
 }
 
+.maintenance-search-section .maintenance-search-container {
+    position: relative;
+}
+
+.maintenance-search-section .maintenance-search-container .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 25%;
+    z-index: 2;
+    width: clamp(10px, 0.83vw, 16px);
+    height: clamp(14px, 0.83vw, 16px);
+    pointer-events: none;
+    object-fit: contain;
+    color: #64748b;
+}
+
+.maintenance-search-section .maintenance-search-input {
+    width: 100%;
+    padding: 7px 2px clamp(6px, 0.42vw, 8px) clamp(20px, 2.08vw, 32px) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 6px;
+    font-size: clamp(10px, 0.8vw, 15px);
+    background: rgba(255, 255, 255, 1);
+    color: #000000ff;
+    box-shadow: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.maintenance-search-section .maintenance-search-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
 .maintenance-form-group {
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 0.52vw, 10px);
     min-width: clamp(150px, 12.5vw, 240px);
+}
+
+.maintenance-form-group.maintenance-search-inline {
+    min-width: clamp(165px, 13vw, 250px);
+    max-width: clamp(165px, 13vw, 250px);
 }
 
 .maintenance-label {
