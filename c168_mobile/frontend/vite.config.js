@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => ({
     proxy: {
       "/api": { target: phpTarget, changeOrigin: true },
       "/images": { target: phpTarget, changeOrigin: true },
+      "/reset-password": { target: phpTarget.replace(/\/c168_mobile\/?$/, "") || "http://127.0.0.1", changeOrigin: true },
     },
   },
   build: {

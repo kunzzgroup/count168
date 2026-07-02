@@ -9,6 +9,10 @@ export default function MobileShell({ requireAuth = true }) {
   const [loading, setLoading] = useState(requireAuth);
 
   useEffect(() => {
+    document.body.classList.remove("bg");
+  }, []);
+
+  useEffect(() => {
     if (!requireAuth) {
       setLoading(false);
       return;
@@ -17,7 +21,7 @@ export default function MobileShell({ requireAuth = true }) {
     (async () => {
       const data = await fetchCurrentUser();
       if (!cancelled) {
-        setUser(data?.user || data);
+        setUser(data);
         setLoading(false);
       }
     })();

@@ -1,0 +1,20 @@
+:root {
+  --text-h2: clamp(1rem, 0.5vw + 0.9rem, 1.125rem);
+  --text-base: 1rem;
+  --text-small: 0.875rem;
+
+  --login-bg-start: #004ff9;
+  --login-bg-end: #56ccf2;
+  --login-surface: rgba(255, 255, 255, 0.95);
+  --login-text: #333333;
+  --login-muted: #666666;
+  --login-danger: #dc3545;
+  --login-radius-xl: 28px;
+  --login-radius-pill: 999px;
+  --login-shell-width: 380px;
+  --login-shell-max-width: 388px;
+  --login-submit-height: 46px;
+  --login-submit-pad-x: 15px;
+  --login-card-min-height: 378px;
+  --login-card-min-height-narrow: 460px;
+}
