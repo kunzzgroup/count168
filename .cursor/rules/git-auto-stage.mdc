@@ -1,0 +1,14 @@
+---
+description: Agent 改完代码后自动 git stage，便于 Source Control 里直接 review/commit
+alwaysApply: true
+---
+
+# Git auto stage
+
+After you finish modifying files in this repo:
+
+1. Run `git add` for every file you changed (source only — never stage `frontend/dist`, secrets, or `.env`).
+2. Do this before ending the task, after the work is done and any required build passes.
+3. Do **not** run `git commit` unless the user explicitly asks to commit.
+
+If `git add` is blocked by Cursor permissions, tell the user to allow `git add` in **Cursor Settings → Agents → Auto-Run → Command Allowlist**.

@@ -1,0 +1,30 @@
+---
+description: count168test 项目架构与定位指南（改代码前必读）
+alwaysApply: true
+---
+
+# Project context
+
+EazyCount / count168：PHP + MySQL API + React SPA 多租户账房系统。
+
+**改代码前先读** 根目录 `AGENTS.md` 和目标模块的 `README.md`（如 `frontend/src/pages/datacapture/README.md`）。
+
+## 快速定位
+
+- 页面 UI → `frontend/src/pages/{domain}/`
+- 路由 → `frontend/src/utils/routing/pageRoutes.js`（`spaPath(pageKey)`）
+- API → `api/{domain}/*_api.php`
+- 全局 PHP → `includes/`（config、session、permissions、tenant）
+- 数据库 → `database/schema/` + `database/migrations/`
+
+## 关键约定
+
+- 时区 `Asia/Kuala_Lumpur`；金额用 `decimal.js` / `money_decimal.php`，禁止浮点直接算钱
+- 多租户：`company_id`、集团 `group_id`；改 scope 前读 `tenant_scope.php`
+- API 响应新旧格式并存，改单个端点时保持该文件原有风格
+- 纯 React SPA，不加载 `js/*.js` 遗留脚本
+- 本地凭据在 `includes/config.local.php`，勿提交
+
+## 数据排查
+
+优先用 MCP MySQL 查真实数据；配置见 `docs/mcp-setup.md`。
