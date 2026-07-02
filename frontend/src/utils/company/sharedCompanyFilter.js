@@ -38,6 +38,8 @@ export {
   getLoginScope,
   isCompanyLogin,
   isGroupLogin,
+  resolveAssignedScopeGroupIds,
+  userHasExplicitAssignedScope,
 } from "./loginScope.js";
 
 export const DASHBOARD_GROUP_FILTER_KEY = "dashboard_group_filter";
