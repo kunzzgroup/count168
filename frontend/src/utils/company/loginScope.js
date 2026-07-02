@@ -166,6 +166,11 @@ export function filterCompaniesForAssignedScope(companies, me) {
   });
 }
 
+/** Login scope + admin-assigned company/group scope (all GC filter pages). */
+export function filterCompaniesForUserScope(companies, me) {
+  return filterCompaniesForAssignedScope(filterCompaniesForLoginScope(companies, me), me);
+}
+
 /**
  * May the session call transaction scope APIs for this company_id?
  * Mirrors tx_resolve_request_company_id / gc_session_can_access_company_id (frontend-safe).
