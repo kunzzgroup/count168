@@ -278,33 +278,6 @@ body.announcement-page .page-header h1 {
     font-size: 16px;
 }
 
-.notification {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 12px 20px;
-    border-radius: 8px;
-    color: white;
-    font-weight: 500;
-    z-index: 10000;
-    opacity: 0;
-    transform: translateX(100%);
-    transition: all 0.3s;
-}
-
-.notification.show {
-    opacity: 1;
-    transform: translateX(0);
-}
-
-.notification.success {
-    background: #10b981;
-}
-
-.notification.error {
-    background: #ef4444;
-}
-
 /* 横线样式 - 超出container */
 .separator-line {
     width: 100vw;
