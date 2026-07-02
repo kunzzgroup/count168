@@ -10,8 +10,10 @@ import HeroSummaryCard from "./HeroSummaryCard.jsx";
 
 export default function DashboardPage() {
   const dash = useMobileDashboard();
-  const { i18n, kpi, loading, error } = dash;
+  const { i18n, kpi, loading, error, me, blocked } = dash;
   const [filterOpen, setFilterOpen] = useState(false);
+
+  if (blocked) return null;
 
   const kpiCards = [
     { variant: "profit", label: i18n.profit, value: kpi?.profit, compare: kpi?.comparisons?.profit },
@@ -28,7 +30,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <MobileShell i18n={i18n}>
+    <MobileShell i18n={i18n} me={me}>
       <div className="w-full max-w-full overflow-x-hidden px-3 pb-2 pt-[58px]">
         <header className="flex items-center justify-between py-1.5">
           <h1 className="text-[22px] font-semibold tracking-tight text-slate-900">{i18n.dashboard}</h1>

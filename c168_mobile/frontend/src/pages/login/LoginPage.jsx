@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { LOGIN_I18N, localizeAuthApiMessage } from "../../translateFile/authTranslate.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
+import { resolveMobileLandingPath } from "../../utils/mobilePermissions.js";
 import { useAuthBackground } from "./useAuthBackground.js";
 
 const LOGIN_ASSET_RETRY_KEY = "ec_mobile_login_asset_retry";
@@ -24,8 +25,8 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function resolvePostLoginPath(data, role) {
-  const userType = String(data.user_type || "").toLowerCase();
+function resolvePostLoginPath(data, role, me) {
+  const userType = String(data.user_type || me?.user_type || "").toLowerCase();
   const redirect = String(data.redirect || "").trim();
 
   if (role === "member" || userType === "member") {
@@ -39,6 +40,7 @@ function resolvePostLoginPath(data, role) {
     return "/user-secondary-password";
   }
 
+  if (me) return resolveMobileLandingPath(me);
   return "/dashboard";
 }
 
@@ -194,7 +196,7 @@ export default function LoginPage() {
           navigate("/user-secondary-password", { replace: true });
           return;
         }
-        navigate("/dashboard", { replace: true });
+        navigate(resolveMobileLandingPath(user), { replace: true });
       } catch (err) {
         if (err?.name === "AbortError") return;
       }
@@ -305,7 +307,35 @@ export default function LoginPage() {
 
       if (data.status === "success" && data.redirect) {
         sessionStorage.removeItem(LOGIN_ASSET_RETRY_KEY);
-        navigate(resolvePostLoginPath(data, role), { replace: true });
+        const redirect = String(data.redirect || "").trim();
+        if (/owner[-_]secondary[-_]password/i.test(redirect) || redirect === "/owner-secondary-password") {
+          navigate("/owner-secondary-password", { replace: true });
+          return;
+        }
+        if (/user[-_]secondary[-_]password/i.test(redirect) || redirect === "/user-secondary-password") {
+          navigate("/user-secondary-password", { replace: true });
+          return;
+        }
+        if (role === "member" || String(data.user_type || "").toLowerCase() === "member") {
+          navigate("/member", { replace: true });
+          return;
+        }
+
+        let me = null;
+        try {
+          const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), {
+            credentials: "include",
+            cache: "no-store",
+          });
+          const meJson = await meRes.json();
+          if (meRes.ok && meJson?.success && meJson?.data) {
+            me = meJson.data;
+          }
+        } catch {
+          /* fall through */
+        }
+
+        navigate(resolvePostLoginPath(data, role, me), { replace: true });
         return;
       }
 

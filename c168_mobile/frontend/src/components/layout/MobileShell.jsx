@@ -1,14 +1,9 @@
 import { NavLink } from "react-router-dom";
+import { mobileNavItems } from "../../utils/mobilePermissions.js";
 
-const NAV_ITEMS = [
-  { to: "/dashboard", icon: "fa-house", key: "navHome" },
-  { to: "/report", icon: "fa-file-lines", key: "navReport" },
-  { to: "/transaction", icon: "fa-money-bill-transfer", key: "navTransaction" },
-  { to: "/more", icon: "fa-ellipsis", key: "navMore" },
-];
-
-export default function MobileShell({ children, i18n }) {
+export default function MobileShell({ children, i18n, me }) {
   const labels = i18n || { navHome: "Home", navReport: "Report", navTransaction: "Transaction", navMore: "More" };
+  const navItems = mobileNavItems(me);
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#f2f5fb]">
@@ -20,7 +15,7 @@ export default function MobileShell({ children, i18n }) {
         aria-label="Main"
       >
         <div className="mx-auto flex max-w-md items-stretch justify-around">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

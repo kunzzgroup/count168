@@ -19,6 +19,7 @@ import {
 import { computeDisplayConvertedAmount, fetchFrankfurterRates } from "../lib/frankfurterRates.js";
 import { DEMO_BOOTSTRAP, dashboardDataIsUsable } from "../lib/demoDashboard.js";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
+import { canAccessDashboard, resolveMobileLandingPath } from "../utils/mobilePermissions.js";
 
 const COMPANIES_API = "api/transactions/get_owner_companies_api.php";
 
@@ -83,6 +84,7 @@ export function useMobileDashboard() {
   const [chartVisible, setChartVisible] = useState({ 0: true, 1: true, 2: true, 3: true });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [blocked, setBlocked] = useState(false);
 
   const groupIds = useMemo(() => sortedUniqueGroupIds(companies), [companies]);
 
@@ -137,6 +139,11 @@ export function useMobileDashboard() {
         }
         if (String(user.user_type || "").toLowerCase() === "member") {
           navigate("/member", { replace: true });
+          return;
+        }
+        if (!canAccessDashboard(user)) {
+          setBlocked(true);
+          navigate(resolveMobileLandingPath(user), { replace: true });
           return;
         }
         setMe(user);
@@ -414,6 +421,7 @@ export function useMobileDashboard() {
     summaryValue,
     loading,
     error,
+    blocked,
     logout,
   };
 }
