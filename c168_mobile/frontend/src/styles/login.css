@@ -1,6 +1,5 @@
-﻿body.bg {
+body.bg {
   color-scheme: light;
-  /* Latin + CJK in one stack so toggling zh/en does not swap entire font metrics */
   font-family:
     "Segoe UI",
     "Microsoft YaHei UI",
@@ -11,12 +10,14 @@
     Geneva,
     Verdana,
     sans-serif;
-  background: url("/images/count_bg.png") center/cover no-repeat;
-  min-height: 100vh;
+  background:
+    linear-gradient(135deg, rgba(0, 79, 249, 0.35), rgba(86, 204, 242, 0.35)),
+    url("/images/count_bg.png") center/cover no-repeat;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
   position: relative;
   overflow-x: hidden;
 }
@@ -24,11 +25,7 @@
 /* #root: relax flex min-size; column width lock lives in src/styles/login-surface-lock.css (imported last in main.jsx) */
 body.bg #root {
   min-width: 0;
-  width: 100%;
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 html:has(body.bg) {
@@ -692,6 +689,59 @@ button.sc-login-lang-seg.active {
   }
   50% {
     text-shadow: 0 1px 10px rgba(147, 197, 253, 0.85);
+  }
+}
+
+.sc-login-column {
+  width: 100%;
+  max-width: var(--login-shell-max-width);
+  min-width: 0;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+body.bg .sc-login-input-row {
+  cursor: var(--login-input-cursor);
+}
+
+body.bg .sc-login-input {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 12px 22px 12px 42px;
+  border-width: 2px;
+  border-style: solid;
+  border-color: var(--login-bg-end);
+  border-radius: var(--login-radius-pill);
+  font-size: var(--text-base);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  color: var(--login-text, #333333);
+  color-scheme: light;
+  caret-color: var(--login-text, #333333);
+  cursor: var(--login-input-cursor);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+body.bg .sc-login-input:focus {
+  outline: none;
+  border-color: var(--login-bg-start);
+  box-shadow: 0 0 0 3px rgba(0, 79, 249, 0.1);
+}
+
+body.bg .sc-login-input::placeholder {
+  color: var(--login-bg-end);
+  font-weight: 400;
+}
+
+.sc-login-maintenance-item {
+  font-size: 14px;
+}
+
+@media (max-width: 480px) {
+  :root {
+    --login-card-min-height-narrow: 380px;
   }
 }
 

@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { LOGIN_I18N, localizeAuthApiMessage } from "../translateFile/auth/authTranslate.js";
-import { apiUrl, spaPath } from "../lib/api.js";
-import { useAuthBackground } from "./login/useAuthBackground.js";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { LOGIN_I18N, localizeAuthApiMessage } from "../../translateFile/authTranslate.js";
+import { buildApiUrl } from "../../utils/apiUrl.js";
+import { useAuthBackground } from "./useAuthBackground.js";
 
-const LOGIN_ASSET_RETRY_KEY = "ec_login_asset_retry";
-const RESET_PASSWORD_PATH = "/reset-password/d56cf733-0468-4ca0-a14a-231425bc3e83";
+const LOGIN_ASSET_RETRY_KEY = "ec_mobile_login_asset_retry";
 
 function tryLoginPageReloadOnce() {
   if (sessionStorage.getItem(LOGIN_ASSET_RETRY_KEY)) {
@@ -23,6 +22,24 @@ function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text ?? "";
   return div.innerHTML;
+}
+
+function resolvePostLoginPath(data, role) {
+  const userType = String(data.user_type || "").toLowerCase();
+  const redirect = String(data.redirect || "").trim();
+
+  if (role === "member" || userType === "member") {
+    return "/member";
+  }
+
+  if (/owner[-_]secondary[-_]password/i.test(redirect) || redirect === "/owner-secondary-password") {
+    return "/owner-secondary-password";
+  }
+  if (/user[-_]secondary[-_]password/i.test(redirect) || redirect === "/user-secondary-password") {
+    return "/user-secondary-password";
+  }
+
+  return "/dashboard";
 }
 
 function AlertModal({ open, title, message, confirmText, onClose }) {
@@ -70,27 +87,10 @@ function AlertModal({ open, title, message, confirmText, onClose }) {
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const roleFromUrl = searchParams.get("role") === "member" ? "member" : "admin";
 
   const [role, setRole] = useState(roleFromUrl);
-
-  const setLoginRole = useCallback(
-    (nextRole) => {
-      setRole(nextRole);
-      const next = new URLSearchParams(searchParams);
-      if (nextRole === "member") {
-        next.set("role", "member");
-      } else {
-        next.delete("role");
-      }
-      const qs = next.toString();
-      navigate(qs ? `${spaPath("login")}?${qs}` : spaPath("login"), { replace: true });
-    },
-    [navigate, searchParams],
-  );
-
   const [companyId, setCompanyId] = useState("");
   const [userField, setUserField] = useState("");
   const [password, setPassword] = useState("");
@@ -104,6 +104,20 @@ export default function LoginPage() {
   const langThumbRef = useRef(null);
   const prevLangRef = useRef(lang);
   const i18n = useMemo(() => LOGIN_I18N[lang] || LOGIN_I18N.en, [lang]);
+
+  const setLoginRole = useCallback(
+    (nextRole) => {
+      setRole(nextRole);
+      const next = new URLSearchParams(searchParams);
+      if (nextRole === "member") {
+        next.set("role", "member");
+      } else {
+        next.delete("role");
+      }
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
 
   useEffect(() => {
     setRole(roleFromUrl);
@@ -158,7 +172,7 @@ export default function LoginPage() {
     const controller = new AbortController();
     (async () => {
       try {
-        const res = await fetch(apiUrl("api/session/current_user_api.php"), {
+        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), {
           credentials: "include",
           cache: "no-store",
           signal: controller.signal,
@@ -167,16 +181,20 @@ export default function LoginPage() {
         if (cancelled || !res.ok || !json?.success || !json?.data) return;
 
         const user = json.data;
+        const userType = String(user.user_type || "").toLowerCase();
+        if (userType === "member") {
+          navigate("/member", { replace: true });
+          return;
+        }
         if (user.needs_owner_secondary) {
-          window.location.href = "/owner-secondary-password/41ed85ee-645d-4cb9-b269-10dfc9e9ccdc";
+          navigate("/owner-secondary-password", { replace: true });
           return;
         }
         if (user.needs_user_secondary) {
-          window.location.href = "/user-secondary-password/d6bcd362-fad8-4124-9225-f6d3adc9b70d";
+          navigate("/user-secondary-password", { replace: true });
           return;
         }
-        const redirect = location.state?.from || "/home";
-        navigate(redirect, { replace: true });
+        navigate("/dashboard", { replace: true });
       } catch (err) {
         if (err?.name === "AbortError") return;
       }
@@ -185,7 +203,7 @@ export default function LoginPage() {
       cancelled = true;
       controller.abort();
     };
-  }, [navigate, location.state]);
+  }, [navigate]);
 
   const showNotice = useCallback(
     (message, title) => {
@@ -204,7 +222,7 @@ export default function LoginPage() {
     const ac = new AbortController();
     (async () => {
       try {
-        const res = await fetch(apiUrl("api/maintenance/get_public_api.php"), {
+        const res = await fetch(buildApiUrl("api/maintenance/get_public_api.php"), {
           signal: ac.signal,
           credentials: "include",
         });
@@ -230,7 +248,7 @@ export default function LoginPage() {
       try {
         const fd = new FormData();
         fd.append("company_id", v);
-        await fetch(apiUrl("api/company/verify_api.php"), { method: "POST", body: fd });
+        await fetch(buildApiUrl("api/company/verify_api.php"), { method: "POST", body: fd });
       } catch {
         /* silent */
       }
@@ -263,7 +281,7 @@ export default function LoginPage() {
         if (rememberMe) fd.append("remember_me", "1");
       }
 
-      const res = await fetch(apiUrl("api/session/login_api.php"), {
+      const res = await fetch(buildApiUrl("api/session/login_api.php"), {
         method: "POST",
         body: fd,
         credentials: "include",
@@ -274,33 +292,27 @@ export default function LoginPage() {
       try {
         data = raw ? JSON.parse(raw) : {};
       } catch {
-        const msg = res.ok
-          ? i18n.loginInvalidResponse
-          : i18n.loginServerError.replace("{status}", String(res.status));
+        const proxyOffline = res.status === 500 && /ECONNREFUSED|proxy error/i.test(raw);
+        const msg = proxyOffline
+          ? i18n.loginBackendOffline
+          : res.ok
+            ? i18n.loginInvalidResponse
+            : i18n.loginServerError.replace("{status}", String(res.status));
         if (tryLoginPageReloadOnce()) return;
         showNotice(msg);
         return;
       }
 
-      if (data.status === "success") {
+      if (data.status === "success" && data.redirect) {
         sessionStorage.removeItem(LOGIN_ASSET_RETRY_KEY);
-        const redirect = String(data.redirect || "");
-        if (/owner[-_]secondary[-_]password/i.test(redirect)) {
-          window.location.href = "/owner-secondary-password/41ed85ee-645d-4cb9-b269-10dfc9e9ccdc";
-          return;
-        }
-        if (/user[-_]secondary[-_]password/i.test(redirect)) {
-          window.location.href = "/user-secondary-password/d6bcd362-fad8-4124-9225-f6d3adc9b70d";
-          return;
-        }
-        navigate(location.state?.from || "/home", { replace: true });
+        navigate(resolvePostLoginPath(data, role), { replace: true });
         return;
       }
 
       showNotice(localizeAuthApiMessage(data.message, lang) || i18n.loginFailed);
     } catch {
       if (tryLoginPageReloadOnce()) return;
-      showNotice(i18n.loginError);
+      showNotice(i18n.loginBackendOffline);
     } finally {
       setSubmitting(false);
     }
@@ -318,9 +330,7 @@ export default function LoginPage() {
                 {[...maintenanceList, ...maintenanceList].map((item, index) => (
                   <div className="sc-login-maintenance-item" key={`${item.id}-${index}`}>
                     <span className="sc-login-maintenance-dot" />
-                    <span className="sc-login-maintenance-label">
-                      {item.prefix || i18n.maintenanceLabel}
-                    </span>
+                    <span className="sc-login-maintenance-label">{item.prefix || i18n.maintenanceLabel}</span>
                     <span dangerouslySetInnerHTML={{ __html: escapeHtml(item.content) }} />
                   </div>
                 ))}
@@ -358,6 +368,7 @@ export default function LoginPage() {
                     className="sc-login-input"
                     placeholder={i18n.companyPlaceholder}
                     required
+                    autoComplete="organization"
                     value={companyId}
                     onChange={(e) => setCompanyId(e.target.value.toUpperCase())}
                   />
@@ -371,6 +382,7 @@ export default function LoginPage() {
                     className="sc-login-input"
                     placeholder={userPlaceholder}
                     required
+                    autoComplete="username"
                     value={userField}
                     onChange={(e) => setUserField(e.target.value.toUpperCase())}
                   />
@@ -384,6 +396,7 @@ export default function LoginPage() {
                     className="sc-login-input"
                     placeholder={i18n.passwordPlaceholder}
                     required
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
@@ -401,9 +414,9 @@ export default function LoginPage() {
                     <span className="sc-login-remember-text">{i18n.rememberMe}</span>
                   </label>
                   {role === "admin" && (
-                    <a href={RESET_PASSWORD_PATH} className="sc-login-forgot-link">
+                    <Link to="/reset-password" className="sc-login-forgot-link">
                       {i18n.forgotPassword}
-                    </a>
+                    </Link>
                   )}
                 </div>
 

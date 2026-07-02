@@ -1,46 +1,29 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import MobileShell from "./components/MobileShell.jsx";
-import LoginPage from "./pages/LoginPage.jsx";
-import HomePage from "./pages/HomePage.jsx";
-import PlaceholderPage from "./pages/PlaceholderPage.jsx";
-import ProfilePage from "./pages/ProfilePage.jsx";
-
-function AppRoutes() {
-  const basename = import.meta.env.PROD ? "/c168_mobile" : undefined;
-
-  return (
-    <BrowserRouter basename={basename}>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<MobileShell requireAuth />}>
-          <Route index element={<Navigate to="/home" replace />} />
-          <Route path="home" element={<HomePage />} />
-          <Route
-            path="capture"
-            element={
-              <PlaceholderPage
-                title="数据采集"
-                description="移动端采集流程将独立设计，支持触控优化与简化字段。"
-              />
-            }
-          />
-          <Route
-            path="transaction"
-            element={
-              <PlaceholderPage
-                title="交易"
-                description="移动端交易查询与快捷操作模块，排版与桌面版不同。"
-              />
-            }
-          />
-          <Route path="profile" element={<ProfilePage />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/home" replace />} />
-      </Routes>
-    </BrowserRouter>
-  );
-}
+import { Navigate, Route, Routes } from "react-router-dom";
+import DashboardPage from "./pages/dashboard/DashboardPage.jsx";
+import LoginPage from "./pages/login/LoginPage.jsx";
+import StubPage from "./pages/StubPage.jsx";
 
 export default function App() {
-  return <AppRoutes />;
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/dashboard" element={<DashboardPage />} />
+      <Route path="/home" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/member" element={<StubPage title="会员 Win/Loss" backTo="/login" />} />
+      <Route path="/report" element={<StubPage title="报表 Report" backTo="/dashboard" />} />
+      <Route path="/transaction" element={<StubPage title="交易 Transaction" backTo="/dashboard" />} />
+      <Route path="/more" element={<StubPage title="更多功能" backTo="/dashboard" />} />
+      <Route path="/reset-password" element={<StubPage title="重置密码" />} />
+      <Route
+        path="/owner-secondary-password"
+        element={<StubPage title="业主二级密码" backTo="/login" />}
+      />
+      <Route
+        path="/user-secondary-password"
+        element={<StubPage title="用户二级密码" backTo="/login" />}
+      />
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
 }
