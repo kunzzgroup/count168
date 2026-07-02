@@ -2393,6 +2393,14 @@ export default function AccountListPage() {
     setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
     setHiddenCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
     setCurrencies((prev) => prev.filter((c) => Number(c.id) !== id));
+    setSettingCurrencyId((prev) => {
+      if (Number(prev) === id) {
+        setSettingLinked(new Set());
+        setSettingInitial(new Set());
+        return null;
+      }
+      return prev;
+    });
   }, []);
 
   const requestCurrencyDelete = useCallback(
@@ -2442,6 +2450,50 @@ export default function AccountListPage() {
       notify(t("failedDeleteCurrency"), "danger");
     }
   }, [dropCurrencyFromUi, forceCurrencyDeletePrompt, notify, notifyApi, requestCurrencyDelete, t]);
+
+  /** Delete currency from Currency Setting page (no edit-account unlink). */
+  const removeSettingCurrency = async (currencyId) => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
+    const id = Number(currencyId);
+    const currencyRow = currencies.find((c) => Number(c.id) === id);
+    if (currencyRow?.deletable === false) {
+      notify(t("apiCurrencySyncedFromSubsidiary"), "danger");
+      return;
+    }
+    if (settingCurrencyId != null && Number(settingCurrencyId) === id) {
+      notify(t("deselectCurrencyBeforeDelete"), "danger");
+      return;
+    }
+
+    try {
+      const otherAccountsInUse = await fetchAccountsUsingCurrency(id);
+      const { success, json, msg } = await requestCurrencyDelete(id);
+      if (success) {
+        dropCurrencyFromUi(id);
+        notifyApi(msg, "currencyDeleted", "success");
+        return;
+      }
+      if (isHistoricalOnlyCurrencyDeleteBlock(msg, otherAccountsInUse)) {
+        const code = currencies.find((c) => Number(c.id) === id)?.code || "";
+        setForceCurrencyDeletePrompt({
+          id,
+          code: toUpper(String(code)),
+          detail: formatCurrencyUsageDetail(lang, msg),
+        });
+        return;
+      }
+      const apiData =
+        otherAccountsInUse.length > 0
+          ? { ...(json?.data || {}), accounts_in_use: otherAccountsInUse }
+          : json?.data ?? null;
+      await handleCurrencyDeleteBlocked(id, { ...json, data: apiData }, msg);
+    } catch {
+      notify(t("failedDeleteCurrency"), "danger");
+    }
+  };
 
   /** Permanently delete currency; only when deselected. Unlink from current account if still linked in DB. */
   const removeModalCurrency = async (currencyId) => {
@@ -3022,7 +3074,7 @@ export default function AccountListPage() {
         onClose={() => setForceCurrencyDeletePrompt(null)}
         t={t}
       />
-      <CurrencySettingModal open={currencySettingOpen} onClose={() => setCurrencySettingOpen(false)} currencies={currencies} settingCurrencyId={settingCurrencyId} setSettingCurrencyId={setSettingCurrencyId} settingLinked={settingLinked} setSettingLinked={setSettingLinked} settingSearch={settingSearch} setSettingSearch={setSettingSearch} settingRole={settingRole} setSettingRole={setSettingRole} onLoadCurrencyLinks={loadCurrencyLinks} onClearCurrencySelection={clearCurrencySettingSelection} onSave={saveCurrencySetting} accounts={accounts} roles={roles} currencyInput={currencyInput} setCurrencyInput={setCurrencyInput} onCreateCurrency={createCurrency} t={t} />
+      <CurrencySettingModal open={currencySettingOpen} onClose={() => setCurrencySettingOpen(false)} currencies={currencies} settingCurrencyId={settingCurrencyId} setSettingCurrencyId={setSettingCurrencyId} settingLinked={settingLinked} setSettingLinked={setSettingLinked} settingSearch={settingSearch} setSettingSearch={setSettingSearch} settingRole={settingRole} setSettingRole={setSettingRole} onLoadCurrencyLinks={loadCurrencyLinks} onClearCurrencySelection={clearCurrencySettingSelection} onSave={saveCurrencySetting} accounts={accounts} roles={roles} currencyInput={currencyInput} setCurrencyInput={setCurrencyInput} onCreateCurrency={createCurrency} onRemoveCurrency={removeSettingCurrency} t={t} />
       <LinkAccountModal open={linkModalOpen} accounts={linkAccountsPool} currentAccountId={linkingAccountId} selectedIds={selectedLinkedIds} setSelectedIds={setSelectedLinkedIds} linkType={linkType} setLinkType={setLinkType} searchTerm={linkSearchTerm} setSearchTerm={setLinkSearchTerm} onSave={saveLinks} onClose={() => setLinkModalOpen(false)} t={t} />
     </>
   );
