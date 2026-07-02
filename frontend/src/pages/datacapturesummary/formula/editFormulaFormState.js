@@ -190,35 +190,6 @@ export function createEmptyEditFormulaForm(processValue = "") {
   };
 }
 
-const EDIT_FORM_DIRTY_KEYS = [
-  "formula",
-  "sourcePercent",
-  "accountId",
-  "currencyId",
-  "inputMethod",
-  "description",
-  "clickedColumns",
-];
-
-/** Baseline for edit-form dirty detection (save-relevant fields only). */
-export function snapshotEditFormulaFormForCompare(form) {
-  const snap = {};
-  for (const key of EDIT_FORM_DIRTY_KEYS) {
-    snap[key] = String(form?.[key] ?? "").trim();
-  }
-  return snap;
-}
-
-export function isEditFormulaFormDirty(current, baseline) {
-  if (!baseline) return true;
-  const cur = snapshotEditFormulaFormForCompare(current);
-  const base =
-    baseline && typeof baseline === "object" && "formula" in baseline
-      ? baseline
-      : snapshotEditFormulaFormForCompare(baseline);
-  return EDIT_FORM_DIRTY_KEYS.some((key) => cur[key] !== base[key]);
-}
-
 export function rowToEditFormulaForm(row) {
   if (!row) return createEmptyEditFormulaForm();
   const formulaText =

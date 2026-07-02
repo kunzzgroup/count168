@@ -12,9 +12,7 @@ import {
   computeFormulaDisplayPreview,
   createBlankEditFormulaForm,
   insertCapturedCellIntoForm,
-  isEditFormulaFormDirty,
   resolveDefaultDescriptionSelects,
-  snapshotEditFormulaFormForCompare,
   rowToEditFormulaForm,
 } from "../formula/editFormulaFormState.js";
 import { applyFormulaSaveToRows } from "../formula/summaryFormulaSaveTarget.js";
@@ -115,7 +113,6 @@ export function useSummaryEditFormulaPure({
   const [currencies, setCurrencies] = useState([]);
   const anchorRef = useRef(null);
   const saveInFlightRef = useRef(false);
-  const initialFormSnapshotRef = useRef(null);
   const [saving, setSaving] = useState(false);
 
   const idProductSelectOptions = useMemo(
@@ -212,7 +209,6 @@ export function useSummaryEditFormulaPure({
     setForm(null);
     setAnchorRow(null);
     anchorRef.current = null;
-    initialFormSnapshotRef.current = null;
     document.body.style.overflow = "";
   }, []);
 
@@ -226,9 +222,12 @@ export function useSummaryEditFormulaPure({
       const initial =
         nextMode === "new" ? createBlankEditFormulaForm(row) : rowToEditFormulaForm(row);
       const dataDefaults = resolveDefaultDescriptionSelects(tableData, row);
-      const openedForm = computeFormulaDisplayPreview({ ...initial, ...dataDefaults }, row);
-      initialFormSnapshotRef.current = snapshotEditFormulaFormForCompare(openedForm);
-      setForm(openedForm);
+      setForm(
+        computeFormulaDisplayPreview(
+          { ...initial, ...dataDefaults },
+          row
+        )
+      );
       setOpen(true);
       document.body.style.overflow = "hidden";
       if (initial.accountId) {
@@ -337,14 +336,6 @@ export function useSummaryEditFormulaPure({
     const anchor = anchorRef.current;
     const formToSave = formSnapshot || form;
     if (!anchor || !formToSave) return;
-
-    if (
-      mode === "edit" &&
-      !isEditFormulaFormDirty(formToSave, initialFormSnapshotRef.current)
-    ) {
-      closeEditFormula();
-      return;
-    }
 
     saveInFlightRef.current = true;
     setSaving(true);
