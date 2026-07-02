@@ -3093,48 +3093,27 @@
 
     const TX_FILTER_EPS = '0.00001';
 
+    /** 与列表 Balance 列展示值一致（勿用 balance_full，避免尾差导致界面 0.00 仍显示） */
     function rowIsZeroBalance(row) {
-        const balanceProbe = (row.balance_full !== undefined && row.balance_full !== null && String(row.balance_full).trim() !== '')
-            ? String(row.balance_full).replace(/,/g, '').trim()
-            : row.balance;
-        const num = parseBalanceValue(balanceProbe);
-        if (num === null) return false;
+        const num = parseBalanceValue(String(row.balance ?? '').replace(/,/g, '').trim());
+        if (num === null) return true;
         return MoneyDecimal.toDecimal(num).abs().lte(TX_FILTER_EPS);
     }
 
-    /** 当期（Capture Date 范围内）是否有 Payment/CONTRA 等 Cr/Dr 动账 */
+    /** 当期 Cr/Dr 列实际金额是否非零（不看 has_crdr_transactions 等后端 activity 标志） */
     function rowHasPeriodCrdr(row) {
-        const byFlag = (typeof row.has_crdr_transactions === 'boolean')
-            ? row.has_crdr_transactions
-            : ((typeof row.has_crdr_transactions === 'number')
-                ? row.has_crdr_transactions !== 0
-                : parseInt(row.has_crdr_transactions || '0', 10) !== 0);
         const crdr = parseBalanceValue(row.cr_dr);
-        const byValue = crdr !== null && MoneyDecimal.toDecimal(crdr).abs().gt(TX_FILTER_EPS);
-        return byFlag || byValue;
+        return crdr !== null && MoneyDecimal.toDecimal(crdr).abs().gt(TX_FILTER_EPS);
     }
 
-    /** 当期是否有 Win/Loss 动账（含轧差为 0 但本期有 DCD / WIN-LOSE 明细的情况） */
+    /** 当期 Win/Loss 列展示金额是否非零 */
     function rowHasPeriodWinLoss(row) {
-        const byFlagTxn = (typeof row.has_win_loss_transactions === 'boolean')
-            ? row.has_win_loss_transactions
-            : ((typeof row.has_win_loss_transactions === 'number')
-                ? row.has_win_loss_transactions !== 0
-                : parseInt(row.has_win_loss_transactions || '0', 10) !== 0);
-        const byFlagIdProduct = (typeof row.has_period_id_product_rows === 'boolean')
-            ? row.has_period_id_product_rows
-            : ((typeof row.has_period_id_product_rows === 'number')
-                ? row.has_period_id_product_rows !== 0
-                : parseInt(row.has_period_id_product_rows || '0', 10) !== 0);
-        if (byFlagTxn || byFlagIdProduct) return true;
-        const rawWinLoss = (row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== '')
-            ? String(row.win_loss_full).replace(/,/g, '').trim()
-            : row.win_loss;
-        const wl = parseBalanceValue(rawWinLoss);
+        const wl = parseBalanceValue(String(row.win_loss ?? '').replace(/,/g, '').trim());
         return wl !== null && MoneyDecimal.toDecimal(wl).abs().gt(TX_FILTER_EPS);
     }
 
-    // 未勾选 Show 0 balance：Balance≈0 一律隐藏；例外：勾选 Payment/Win-Loss Only 且当期有对应动账时仍显示。
+    // 未勾选 Show all 0 balance：默认隐藏 Balance 为 0 的行；
+    // 若同时勾选 Payment / Win-Loss Only，当期 Cr/Dr 或 Win/Loss 有金额时仍保留（即使 Balance 为 0）。
     function rowPassesHideZeroBalanceFilter(showZero, row, opts) {
         opts = opts || {};
         if (showZero) return true;
@@ -3212,18 +3191,8 @@
             return;
         }
 
-        const hasTxn = row => {
-            if (typeof row.has_crdr_transactions === 'boolean') {
-                return row.has_crdr_transactions;
-            }
-            if (typeof row.has_crdr_transactions === 'number') {
-                return row.has_crdr_transactions !== 0;
-            }
-            return parseInt(row.has_crdr_transactions || '0', 10) !== 0;
-        };
-
-        const filteredLeft = lastSearchData.left_table.filter(hasTxn);
-        const filteredRight = lastSearchData.right_table.filter(hasTxn);
+        const filteredLeft = lastSearchData.left_table.filter(rowHasPeriodCrdr);
+        const filteredRight = lastSearchData.right_table.filter(rowHasPeriodCrdr);
 
         if (filteredLeft.length === 0 && filteredRight.length === 0) {
             showNotification('No PAYMENT/CONTRA/CLAIM transactions in current date range', 'info');
@@ -3260,10 +3229,11 @@
         let filteredLeft = lastSearchData.left_table.filter(shouldShow);
         let filteredRight = lastSearchData.right_table.filter(shouldShow);
 
-        const filterFn = (row) => rowPassesHideZeroBalanceFilter(showZeroEarly, row, {
-            showPaymentOnly: true,
-            showWinLossOnly
-        });
+        const filterOpts = {
+            showPaymentOnly,
+            showWinLossOnly: document.getElementById('show_capture_only')?.checked || false
+        };
+        const filterFn = (row) => rowPassesHideZeroBalanceFilter(showZeroEarly, row, filterOpts);
         filteredLeft = filteredLeft.filter(filterFn);
         filteredRight = filteredRight.filter(filterFn);
 

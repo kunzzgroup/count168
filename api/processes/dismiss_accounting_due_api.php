@@ -194,6 +194,7 @@ try {
     $today = date('Y-m-d');
     
     $inserted = 0;
+    $dismissedProcessIds = [];
     bmp_ensureMaintenanceResendPendingTable($pdo);
     ensureAccountingDueDismissedTable($pdo);
     $insPap = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type) VALUES (?, ?, ?, ?)");
@@ -211,6 +212,7 @@ try {
         if (!$stmt->fetch()) {
             continue;
         }
+        $dismissedProcessIds[$processId] = true;
         // 强制按前端当前账期类型删除（正常出账模式）：不再自动改写为 resend_consolidated_range。
         $skippedType = toSkippedPeriodType($periodType);
         $postDate = $today;
@@ -328,7 +330,17 @@ try {
         }
     }
 
-    jsonResponse(true, $inserted === 1 ? '已从待入账列表移除 1 条' : '已从待入账列表移除 ' . $inserted . ' 条', ['dismissed' => $inserted]);
+    $relaxClearedCount = 0;
+    foreach (array_keys($dismissedProcessIds) as $clearedProcessId) {
+        if (bmp_clearAccountingResendRelaxState($pdo, $companyId, (int) $clearedProcessId)) {
+            $relaxClearedCount++;
+        }
+    }
+
+    jsonResponse(true, $inserted === 1 ? '已从待入账列表移除 1 条' : '已从待入账列表移除 ' . $inserted . ' 条', [
+        'dismissed' => $inserted,
+        'resend_relax_cleared' => $relaxClearedCount,
+    ]);
 } catch (Exception $e) {
     http_response_code(400);
     jsonResponse(false, $e->getMessage(), null);

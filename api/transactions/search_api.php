@@ -178,6 +178,184 @@ function searchMoneyNonZero($value): bool
     return money_cmp(money_abs($value ?? '0'), '0.00001') > 0;
 }
 
+/** Balance 列展示值（HALF_UP 到分）是否为 0；与「Show all 0 balance」默认隐藏规则一致 */
+function searchApiBalanceDisplayZero(string $balance): bool
+{
+    return !searchMoneyNonZero(searchMoneyHalfUp2($balance));
+}
+
+/** account.id 与 account.account_id(code) → 数字 id，供 DCD account_id 字段解析 */
+function searchApiBuildAccountRefToIdMap(PDO $pdo, int $company_id): array
+{
+    $map = [];
+    $stmt = $pdo->prepare("
+        SELECT a.id, a.account_id
+        FROM account a
+        INNER JOIN account_company ac ON a.id = ac.account_id
+        WHERE ac.company_id = ?
+    ");
+    $stmt->execute([$company_id]);
+    while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $id = (int) $r['id'];
+        $map[(string) $id] = $id;
+        $code = trim((string) ($r['account_id'] ?? ''));
+        if ($code !== '') {
+            $map[$code] = $id;
+        }
+    }
+    return $map;
+}
+
+/** 日期范围内有 Win/Loss 动账的 account.id（DCD / WIN·LOSE·ADJ / RATE_MIDDLEMAN） */
+function searchApiPeriodWinLossAccountIds(
+    PDO $pdo,
+    int $company_id,
+    string $date_from_db,
+    string $date_to_db,
+    array $refToId
+): array {
+    $ids = [];
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_ref
+        FROM data_capture_details dcd
+        INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+        WHERE dcd.company_id = ?
+          AND dc.company_id = ?
+          AND dc.capture_date BETWEEN ? AND ?
+    ");
+    $stmt->execute([$company_id, $company_id, $date_from_db, $date_to_db]);
+    while ($ref = $stmt->fetchColumn()) {
+        $ref = trim((string) $ref);
+        if ($ref !== '' && isset($refToId[$ref])) {
+            $ids[(int) $refToId[$ref]] = true;
+        }
+    }
+
+    $contra = contraApprovedWhere($pdo, 't');
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT t.account_id AS aid
+        FROM transactions t
+        WHERE t.company_id = ?
+          AND t.account_id IS NOT NULL
+          AND t.transaction_date BETWEEN ? AND ?
+          AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
+          $contra
+        UNION
+        SELECT DISTINCT t.from_account_id AS aid
+        FROM transactions t
+        WHERE t.company_id = ?
+          AND t.from_account_id IS NOT NULL
+          AND t.transaction_date BETWEEN ? AND ?
+          AND t.transaction_type IN ('WIN', 'LOSE')
+          $contra
+    ");
+    $stmt->execute([
+        $company_id, $date_from_db, $date_to_db,
+        $company_id, $date_from_db, $date_to_db,
+    ]);
+    while ($aid = $stmt->fetchColumn()) {
+        $aid = (int) $aid;
+        if ($aid > 0) {
+            $ids[$aid] = true;
+        }
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT e.account_id AS aid
+        FROM transaction_entry e
+        INNER JOIN transactions h ON e.header_id = h.id
+        WHERE h.company_id = ?
+          AND e.company_id = ?
+          AND e.account_id IS NOT NULL
+          AND e.entry_type = 'RATE_MIDDLEMAN'
+          AND h.transaction_date BETWEEN ? AND ?
+    ");
+    $stmt->execute([$company_id, $company_id, $date_from_db, $date_to_db]);
+    while ($aid = $stmt->fetchColumn()) {
+        $aid = (int) $aid;
+        if ($aid > 0) {
+            $ids[$aid] = true;
+        }
+    }
+
+    return array_keys($ids);
+}
+
+/** 日期范围内有 Payment/Cr·Dr 动账的 account.id */
+function searchApiPeriodPaymentAccountIds(
+    PDO $pdo,
+    int $company_id,
+    string $date_from_db,
+    string $date_to_db
+): array {
+    $ids = [];
+    $contra = contraApprovedWhere($pdo, 't');
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT t.account_id AS aid
+        FROM transactions t
+        WHERE t.company_id = ?
+          AND t.account_id IS NOT NULL
+          AND t.transaction_date BETWEEN ? AND ?
+          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+          $contra
+        UNION
+        SELECT DISTINCT t.from_account_id AS aid
+        FROM transactions t
+        WHERE t.company_id = ?
+          AND t.from_account_id IS NOT NULL
+          AND t.transaction_date BETWEEN ? AND ?
+          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+          $contra
+    ");
+    $stmt->execute([
+        $company_id, $date_from_db, $date_to_db,
+        $company_id, $date_from_db, $date_to_db,
+    ]);
+    while ($aid = $stmt->fetchColumn()) {
+        $aid = (int) $aid;
+        if ($aid > 0) {
+            $ids[$aid] = true;
+        }
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT e.account_id AS aid
+        FROM transaction_entry e
+        INNER JOIN transactions h ON e.header_id = h.id
+        WHERE h.company_id = ?
+          AND e.company_id = ?
+          AND e.account_id IS NOT NULL
+          AND e.entry_type IN ('RATE_FIRST_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_FROM', 'RATE_TRANSFER_TO')
+          AND h.transaction_date BETWEEN ? AND ?
+    ");
+    $stmt->execute([$company_id, $company_id, $date_from_db, $date_to_db]);
+    while ($aid = $stmt->fetchColumn()) {
+        $aid = (int) $aid;
+        if ($aid > 0) {
+            $ids[$aid] = true;
+        }
+    }
+
+    return array_keys($ids);
+}
+
+function searchApiEmptyListJson(): string
+{
+    return json_encode([
+        'success' => true,
+        'data' => [
+            'left_table' => [],
+            'right_table' => [],
+            'totals' => [
+                'left' => ['bf' => '0.00', 'win_loss' => '0.00', 'cr_dr' => '0.00', 'balance' => '0.00'],
+                'right' => ['bf' => '0.00', 'win_loss' => '0.00', 'cr_dr' => '0.00', 'balance' => '0.00'],
+                'summary' => ['bf' => '0.00', 'win_loss' => '0.00', 'cr_dr' => '0.00', 'balance' => '0.00'],
+            ],
+            'active_currency_codes' => [],
+        ],
+    ], JSON_UNESCAPED_UNICODE);
+}
+
 function searchMoneyIsZero($value): bool
 {
     return money_cmp($value ?? '0', '0', 8) === 0;
@@ -828,6 +1006,7 @@ try {
     }
     $show_inactive = isset($_GET['show_inactive']) && $_GET['show_inactive'] === '1';
     $show_capture_only = isset($_GET['show_capture_only']) && $_GET['show_capture_only'] === '1';
+    $periodOnlyCombos = $show_capture_only || $show_inactive;
     $hide_zero_balance = isset($_GET['hide_zero_balance']) && $_GET['hide_zero_balance'] === '1';
     /** 诊断用：附带 Win/Loss 按来源桶汇总与非零明细（与列表Σ win_loss_full 对齐）；不传或!=1 则无此字段且不写入缓存键 */
     $debug_wl_total = isset($_GET['debug_wl_total']) && (string) $_GET['debug_wl_total'] === '1';
@@ -944,7 +1123,7 @@ try {
     // 超短时微缓存（按用户 + 查询条件），用于吸收短时间内重复请求，减轻数据库压力。
     // 仅缓存极短时间，兼顾实时性与加载速度。
     $cache_file = null;
-    $cache_ttl_seconds = 3;
+    $cache_ttl_seconds = $periodOnlyCombos ? 15 : 3;
     $cache_dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search_cache';
     if (!is_dir($cache_dir)) {
         @mkdir($cache_dir, 0777, true);
@@ -1014,146 +1193,29 @@ try {
     // （show_inactive 参数对应前端 "Show Payment Only" 复选框，与账户状态过滤无关）
 
     // 添加条件：Show Win/Loss Only 和/或 Show Payment Only
-    // 过滤逻辑分两层：
-    //   Layer 1（SQL WHERE）：账户级别 EXISTS 过滤，减少账户集合
-    //   Layer 2（foreach 循环内）：(账户 + 货币) 组合级别过滤，精确到每行
-    // 两层设计对称，Win/Loss Only 与 Payment Only 处理方式完全一致。
-    if ($show_capture_only && $show_inactive) {
-        // 两者都勾选：账户在日期范围内有 Win/Loss（Data Capture / WIN/LOSE / RATE_MIDDLEMAN）或有 Payment（Cr/Dr）即显示
-        // Bug修复：
-        // 1. dcd.account_id 可能存储 account_code（字符串），必须用 CAST + account_code 双重匹配
-        // 2. 补全 company_id 防止跨公司数据泄漏
-        // 3. 新增 RATE_MIDDLEMAN 分支：手续费收益也属于 Win/Loss，不能被此处 EXISTS 过滤掉
-        $where_conditions[] = "(
-            EXISTS (
-                SELECT 1 FROM data_capture_details dcd
-                JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE dcd.company_id = ?
-                  AND dc.company_id = ?
-                  AND (
-                      CAST(dcd.account_id AS CHAR) = CAST(a.id AS CHAR)
-                      OR TRIM(COALESCE(dcd.account_id, '')) = TRIM(a.account_id)
-                  )
-                  AND dc.capture_date BETWEEN ? AND ?
-            )
-            OR EXISTS (
-                SELECT 1 FROM transactions t_wl
-                WHERE t_wl.company_id = ?
-                  AND (t_wl.account_id = a.id OR t_wl.from_account_id = a.id)
-                  AND t_wl.transaction_date BETWEEN ? AND ?
-                  AND t_wl.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
-            )
-            OR EXISTS (
-                SELECT 1 FROM transaction_entry e
-                JOIN transactions h ON e.header_id = h.id
-                WHERE h.company_id = ?
-                  AND e.company_id = ?
-                  AND e.account_id = a.id
-                  AND e.entry_type = 'RATE_MIDDLEMAN'
-                  AND h.transaction_date BETWEEN ? AND ?
-            )
-            OR EXISTS (
-                SELECT 1 FROM transactions t
-                WHERE t.company_id = ?
-                  AND (t.account_id = a.id OR t.from_account_id = a.id)
-                  AND t.transaction_date BETWEEN ? AND ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
-                  " . contraApprovedWhere($pdo, 't') . "
-            )
-        )";
-        $params[] = $company_id;
-        $params[] = $company_id;
-        $params[] = $date_from_db;
-        $params[] = $date_to_db;
-        $params[] = $company_id;
-        $params[] = $date_from_db;
-        $params[] = $date_to_db;
-        $params[] = $company_id;
-        $params[] = $company_id;
-        $params[] = $date_from_db;
-        $params[] = $date_to_db;
-        $params[] = $company_id;
-        $params[] = $date_from_db;
-        $params[] = $date_to_db;
-    } elseif ($show_capture_only) {
-        // 仅勾选 Show Win/Loss Only：账户在当前日期范围内，只要存在 Data Capture / WIN/LOSE / RATE_MIDDLEMAN 即显示
-        // Bug修复：
-        // 1. dcd.account_id 可能存储 account_code（字符串），必须用 CAST + account_code 双重匹配
-        // 2. 补全 company_id 防止跨公司数据泄漏
-        // 3. 新增 RATE_MIDDLEMAN 分支：手续费收益也属于 Win/Loss，不能被此处 EXISTS 过滤掉
-        $where_conditions[] = "(
-            EXISTS (
-                SELECT 1
-                FROM data_capture_details dcd
-                JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE dcd.company_id = ?
-                  AND dc.company_id = ?
-                  AND (
-                      CAST(dcd.account_id AS CHAR) = CAST(a.id AS CHAR)
-                      OR TRIM(COALESCE(dcd.account_id, '')) = TRIM(a.account_id)
-                  )
-                  AND dc.capture_date BETWEEN ? AND ?
-            )
-            OR EXISTS (
-                SELECT 1 FROM transactions t_wl
-                WHERE t_wl.company_id = ?
-                  AND (t_wl.account_id = a.id OR t_wl.from_account_id = a.id)
-                  AND t_wl.transaction_date BETWEEN ? AND ?
-                  AND t_wl.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
-            )
-            OR EXISTS (
-                SELECT 1 FROM transaction_entry e
-                JOIN transactions h ON e.header_id = h.id
-                WHERE h.company_id = ?
-                  AND e.company_id = ?
-                  AND e.account_id = a.id
-                  AND e.entry_type = 'RATE_MIDDLEMAN'
-                  AND h.transaction_date BETWEEN ? AND ?
-            )
-        )";
-        $params[] = $company_id;
-        $params[] = $company_id;
-        $params[] = $date_from_db;
-        $params[] = $date_to_db;
-        $params[] = $company_id;
-        $params[] = $date_from_db;
-        $params[] = $date_to_db;
-        $params[] = $company_id;
-        $params[] = $company_id;
-        $params[] = $date_from_db;
-        $params[] = $date_to_db;
-    } elseif ($show_inactive) {
-        // 仅勾选 Show Payment Only：账户在日期范围内必须有 PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM 交易才显示
-        // Bug修复：原来此处不做后端过滤，依赖前端 has_crdr_transactions 判断；
-        // 但 has_crdr_transactions 会被 RATE 分录（非 RATE_MIDDLEMAN）污染（count > 0），
-        // 导致纯 Win/Loss 账户（仅有 RATE 交易）也通过了前端过滤，错误出现在 Payment Only 视图中。
-        // 现在改为后端 SQL 层面强制过滤，与 Show Win/Loss Only 的处理方式对称。
-        $where_conditions[] = "(
-            EXISTS (
-                SELECT 1 FROM transactions t
-                WHERE t.company_id = ?
-                  AND (t.account_id = a.id OR t.from_account_id = a.id)
-                  AND t.transaction_date BETWEEN ? AND ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
-                  " . contraApprovedWhere($pdo, 't') . "
-            )
-            OR EXISTS (
-                SELECT 1 FROM transaction_entry e
-                JOIN transactions h ON e.header_id = h.id
-                WHERE h.company_id = ?
-                  AND e.company_id = ?
-                  AND e.account_id = a.id
-                  AND e.entry_type IN ('RATE_FIRST_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_FROM', 'RATE_TRANSFER_TO')
-                  AND h.transaction_date BETWEEN ? AND ?
-            )
-        )";
-        $params[] = $company_id;
-        $params[] = $date_from_db;
-        $params[] = $date_to_db;
-        $params[] = $company_id;
-        $params[] = $company_id;
-        $params[] = $date_from_db;
-        $params[] = $date_to_db;
+    // Layer 1：先批量查出本期有动账的 account.id，再用 IN 过滤（比逐行 EXISTS 快一个数量级）。
+    // Layer 2（foreach 循环内）：(账户 + 货币) 组合级别过滤，精确到每行。
+    if ($periodOnlyCombos) {
+        $activeIdSet = [];
+        if ($show_capture_only) {
+            $refToId = searchApiBuildAccountRefToIdMap($pdo, $company_id);
+            foreach (searchApiPeriodWinLossAccountIds($pdo, $company_id, $date_from_db, $date_to_db, $refToId) as $aid) {
+                $activeIdSet[(int) $aid] = true;
+            }
+        }
+        if ($show_inactive) {
+            foreach (searchApiPeriodPaymentAccountIds($pdo, $company_id, $date_from_db, $date_to_db) as $aid) {
+                $activeIdSet[(int) $aid] = true;
+            }
+        }
+        $periodActivityAccountIds = array_keys($activeIdSet);
+        if (empty($periodActivityAccountIds)) {
+            echo searchApiEmptyListJson();
+            exit;
+        }
+        $periodPh = implode(',', array_fill(0, count($periodActivityAccountIds), '?'));
+        $where_conditions[] = "a.id IN ($periodPh)";
+        $params = array_merge($params, $periodActivityAccountIds);
     }
     // 默认（不勾选任何过滤）：不限制账户列表，返回全部账户
 
@@ -1196,19 +1258,7 @@ try {
     $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if (empty($accounts)) {
-        echo json_encode([
-            'success' => true,
-            'data' => [
-                'left_table' => [],
-                'right_table' => [],
-                'totals' => [
-                'left' => ['bf' => '0.00', 'win_loss' => '0.00', 'cr_dr' => '0.00', 'balance' => '0.00'],
-                'right' => ['bf' => '0.00', 'win_loss' => '0.00', 'cr_dr' => '0.00', 'balance' => '0.00'],
-                'summary' => ['bf' => '0.00', 'win_loss' => '0.00', 'cr_dr' => '0.00', 'balance' => '0.00']
-                ],
-                'active_currency_codes' => []
-            ]
-        ]);
+        echo searchApiEmptyListJson();
         exit;
     }
 
@@ -1410,14 +1460,15 @@ try {
     $bulk_ac = []; // [account_id][currency_id] => currency_code  (来自 account_currency 表)
     $bulk_txn_cur_prd = []; // [account_id][currency_id] => currency_code  (本期 transactions)
     $bulk_dcd_cur = []; // [acc_str][currency_id] => currency_code      (DCD 历史，截至 date_to)
+    $bulk_dcd_cur_prd = []; // [acc_str][currency_id] => currency_code  (DCD 本期，Show Win/Loss Only 用)
     $bulk_txn_cur_all = []; // [account_id][currency_id] => currency_code  (全历史 transactions，legacy 兜底)
 
     if (!empty($accounts)) {
         $all_ids = array_column($accounts, 'id');
         $all_ph = implode(',', array_fill(0, count($all_ids), '?'));
 
-        // 1. account_currency 批量
-        if ($has_account_currency_table) {
+        // 1. account_currency 批量（Payment/Win-Loss Only 只需本期币别，跳过全量 active 货币）
+        if ($has_account_currency_table && !$periodOnlyCombos) {
             $st = $pdo->prepare("
                 SELECT ac.account_id, ac.currency_id, UPPER(c.code) AS currency_code
                 FROM account_currency ac
@@ -1456,49 +1507,74 @@ try {
                 $bulk_txn_cur_prd[(int) $r['acc_id']][(int) $r['currency_id']] = strtoupper($r['currency_code']);
             }
 
-            // 2b. 全历史交易币别（legacy 路径 DCD 为空时兜底）
+            // 2b. 全历史交易币别（Payment/Win-Loss Only 只需本期，跳过全历史扫描）
+            if (!$periodOnlyCombos) {
+                try {
+                    $st = $pdo->prepare("
+                        SELECT DISTINCT t.account_id, t.currency_id, UPPER(c.code) AS currency_code
+                        FROM transactions t INNER JOIN currency c ON t.currency_id = c.id
+                        WHERE t.account_id IN ($all_ph) AND t.currency_id IS NOT NULL
+                          AND t.company_id = ? AND c.company_id = ?
+                        UNION
+                        SELECT DISTINCT t.from_account_id, t.currency_id, UPPER(c.code) AS currency_code
+                        FROM transactions t INNER JOIN currency c ON t.currency_id = c.id
+                        WHERE t.from_account_id IN ($all_ph) AND t.currency_id IS NOT NULL
+                          AND t.company_id = ? AND c.company_id = ?
+                    ");
+                    $st->execute(array_merge($all_ids, [$company_id, $company_id], $all_ids, [$company_id, $company_id]));
+                    while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                        if ($r['account_id'] !== null) {
+                            $bulk_txn_cur_all[(int) $r['account_id']][(int) $r['currency_id']] = strtoupper($r['currency_code']);
+                        }
+                    }
+                } catch (PDOException $e) {
+                }
+            }
+        }
+
+        // 3. DCD 币别：全历史（默认列表）或仅本期（Show Win/Loss Only）
+        if (!$periodOnlyCombos) {
             try {
                 $st = $pdo->prepare("
-                    SELECT DISTINCT t.account_id, t.currency_id, UPPER(c.code) AS currency_code
-                    FROM transactions t INNER JOIN currency c ON t.currency_id = c.id
-                    WHERE t.account_id IN ($all_ph) AND t.currency_id IS NOT NULL
-                      AND t.company_id = ? AND c.company_id = ?
-                    UNION
-                    SELECT DISTINCT t.from_account_id, t.currency_id, UPPER(c.code) AS currency_code
-                    FROM transactions t INNER JOIN currency c ON t.currency_id = c.id
-                    WHERE t.from_account_id IN ($all_ph) AND t.currency_id IS NOT NULL
-                      AND t.company_id = ? AND c.company_id = ?
+                    SELECT DISTINCT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str,
+                           dcd.currency_id, UPPER(c.code) AS currency_code
+                    FROM data_capture_details dcd
+                    INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+                    INNER JOIN currency c ON dcd.currency_id = c.id
+                    WHERE dcd.company_id = ? AND dc.company_id = ? AND c.company_id = ?
+                      AND dc.capture_date <= ?
+                      AND dcd.currency_id IS NOT NULL
                 ");
-                $st->execute(array_merge($all_ids, [$company_id, $company_id], $all_ids, [$company_id, $company_id]));
+                $st->execute([$company_id, $company_id, $company_id, $date_to_db]);
                 while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-                    if ($r['account_id'] !== null) {
-                        $bulk_txn_cur_all[(int) $r['account_id']][(int) $r['currency_id']] = strtoupper($r['currency_code']);
-                    }
+                    $bulk_dcd_cur[$r['acc_str']][(int) $r['currency_id']] = strtoupper($r['currency_code']);
                 }
             } catch (PDOException $e) {
             }
         }
-
-        // 3. DCD 历史币别（截至 date_to，用于 legacy 路径）
-        try {
-            $st = $pdo->prepare("
-                SELECT DISTINCT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str,
-                       dcd.currency_id, UPPER(c.code) AS currency_code
-                FROM data_capture_details dcd
-                INNER JOIN data_captures dc ON dcd.capture_id = dc.id
-                INNER JOIN currency c ON dcd.currency_id = c.id
-                WHERE dcd.company_id = ? AND dc.company_id = ? AND c.company_id = ?
-                  AND dc.capture_date <= ?
-                  AND dcd.currency_id IS NOT NULL
-            ");
-            $st->execute([$company_id, $company_id, $company_id, $date_to_db]);
-            while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-                $bulk_dcd_cur[$r['acc_str']][(int) $r['currency_id']] = strtoupper($r['currency_code']);
+        if ($show_capture_only) {
+            try {
+                $st = $pdo->prepare("
+                    SELECT DISTINCT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str,
+                           dcd.currency_id, UPPER(c.code) AS currency_code
+                    FROM data_capture_details dcd
+                    INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+                    INNER JOIN currency c ON dcd.currency_id = c.id
+                    WHERE dcd.company_id = ? AND dc.company_id = ? AND c.company_id = ?
+                      AND dc.capture_date BETWEEN ? AND ?
+                      AND dcd.currency_id IS NOT NULL
+                ");
+                $st->execute([$company_id, $company_id, $company_id, $date_from_db, $date_to_db]);
+                while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                    $bulk_dcd_cur_prd[$r['acc_str']][(int) $r['currency_id']] = strtoupper($r['currency_code']);
+                }
+            } catch (PDOException $e) {
             }
-        } catch (PDOException $e) {
         }
     }
     // ====== END BULK PRE-LOAD ======
+
+    $dcdCurForCombos = $show_capture_only ? $bulk_dcd_cur_prd : ($periodOnlyCombos ? [] : $bulk_dcd_cur);
 
     foreach ($accounts as $account) {
         $account_id = $account['id'];
@@ -1509,10 +1585,14 @@ try {
         // 账户 × 币别组合：只要存在 account_currency 表就始终走「现代路径」枚举 active + 交易币别。
         // 切勿在 hide_zero_balance=1 时改走 Legacy（仅从 DCD 推币别）：会漏掉大量组合行，
         // 前端再隐藏零余额后合计永远少半边账（典型 ±0.37 级尾差）。
+        // 默认隐藏零余额 / Payment·Win-Loss Only：不枚举 account_currency 全量勾选，只保留本期有流水的币别组合。
+        $omitAcOnlyCombos = ($hide_zero_balance && !$periodOnlyCombos) || $periodOnlyCombos;
         if ($has_account_currency_table) {
-            // === 现代路径：从 bulk_ac 批量数据读取，无需逐账户查询 ===
-            foreach ($bulk_ac[$account_id] ?? [] as $cid => $code) {
-                addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+            // === 现代路径：Show all 0 balance 时从 bulk_ac 枚举 Edit Account 勾选的币别 ===
+            if (!$omitAcOnlyCombos) {
+                foreach ($bulk_ac[$account_id] ?? [] as $cid => $code) {
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                }
             }
             // 若指定了 currency 筛选，只保留筛选内的
             if (!empty($filter_currency_codes)) {
@@ -1529,30 +1609,32 @@ try {
                 foreach ($bulk_txn_cur_prd[$account_id] ?? [] as $cid => $code) {
                     addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
                 }
-                foreach ($bulk_txn_cur_all[$account_id] ?? [] as $cid => $code) {
-                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                if (!$periodOnlyCombos) {
+                    foreach ($bulk_txn_cur_all[$account_id] ?? [] as $cid => $code) {
+                        addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                    }
                 }
             }
-            // 补充：DCD 历史/本期曾出现过的币别（account_id 可能存数字 id 或 account_code）
+            // 补充：DCD 曾出现过的币别（Win/Loss Only 用本期 DCD；默认列表用全历史）
             $acc_code_str = trim((string) ($account['account_id'] ?? ''));
-            foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
+            foreach ($dcdCurForCombos[$acc_str] ?? [] as $cid => $code) {
                 addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
             }
             if ($acc_code_str !== '' && $acc_code_str !== $acc_str) {
-                foreach ($bulk_dcd_cur[$acc_code_str] ?? [] as $cid => $code) {
+                foreach ($dcdCurForCombos[$acc_code_str] ?? [] as $cid => $code) {
                     addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
                 }
             }
             if (!searchApiTxnHasCurrencyId($pdo)) {
-                // 旧环境：从 DCD 本期数据补充
+                // 旧环境：从 DCD 数据补充
                 if (!empty($filter_currency_codes)) {
-                    foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
+                    foreach ($dcdCurForCombos[$acc_str] ?? [] as $cid => $code) {
                         if (in_array($code, $filter_currency_codes)) {
                             addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
                         }
                     }
                     if ($acc_code_str !== '' && $acc_code_str !== $acc_str) {
-                        foreach ($bulk_dcd_cur[$acc_code_str] ?? [] as $cid => $code) {
+                        foreach ($dcdCurForCombos[$acc_code_str] ?? [] as $cid => $code) {
                             if (in_array($code, $filter_currency_codes)) {
                                 addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
                             }
@@ -1568,8 +1650,8 @@ try {
                     $account_currency_ids[(int) $ac['currency_id']] = true;
                 }
             }
-            // 兜底：仍无币别但有 currency 筛选时，直接挂上筛选的币别
-            if (empty($account_currencies) && !empty($filter_currency_codes)) {
+            // 兜底：仍无币别但有 currency 筛选时挂上筛选币别（Show all 0 balance 时用于列出 active 货币下的空行）
+            if (empty($account_currencies) && !empty($filter_currency_codes) && !$omitAcOnlyCombos) {
                 foreach ($filter_currency_codes as $fcc) {
                     $code = strtoupper($fcc);
                     if (!isset($currency_map[$code]))
@@ -1578,14 +1660,18 @@ try {
                 }
             }
         } else {
-            // === Legacy 路径：从 bulk_dcd_cur 批量数据读取 ===
-            foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
+            // === Legacy 路径 ===
+            foreach ($dcdCurForCombos[$acc_str] ?? [] as $cid => $code) {
                 addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
             }
-            // 若 DCD 无数据，从全历史交易兜底
             if (empty($account_currencies)) {
-                foreach ($bulk_txn_cur_all[$account_id] ?? [] as $cid => $code) {
+                foreach ($bulk_txn_cur_prd[$account_id] ?? [] as $cid => $code) {
                     addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                }
+                if (!$periodOnlyCombos) {
+                    foreach ($bulk_txn_cur_all[$account_id] ?? [] as $cid => $code) {
+                        addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                    }
                 }
             }
             // 添加 filter 或全公司币别
@@ -1967,39 +2053,39 @@ try {
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
 
-        // Layer 2：(账户+币种) 级筛选。
-        // 勿仅因「本期无 Win/Loss 动账」就整行丢弃——否则仅剩 B/F 或 Cr/Dr 轧差的户被藏起来，
-        // 合计缺少对家，左右脚 Win/Loss/Balance 永不平。
-        // 勾选 Show 0 balance（hide_zero_balance=0）时不做此处裁剪：否则与前端「展示零余额」冲突，
-        // 典型如 RATE 轧差后 cr_dr/has_crdr 均为 0 的组合行会被误删。
-        if ($hide_zero_balance && $show_capture_only && !$show_inactive) {
-            $hasAnyPeriodWinLoss = $has_win_loss_transactions || $has_period_id_product_rows;
-            if (!$hasAnyPeriodWinLoss) {
-                $bf_near = trunc2($bf);
-                $cr_near = trunc2($cr_dr);
-                $wl_full_chk = $wlPack['win_loss_full'] ?? '0';
-                if (!searchMoneyNonZero($bf_near) && !searchMoneyNonZero($cr_near) && !searchMoneyNonZero($wl_full_chk)) {
-                    continue;
-                }
+        // Layer 2：(账户+币种) 级筛选。默认仅按 Balance 列展示值隐藏 0 balance（须勾选 Show all 0 balance 才显示）。
+        // 勾选 Show 0 balance（hide_zero_balance=0）时不做此处裁剪。
+        $wl_stat_chk = trunc2($wlPack['win_loss_full'] ?? $win_loss);
+        $cr_stat_chk = trunc2($cr_dr);
+        $balance_stat_chk = trunc2(money_add(money_add(trunc2($bf), $wl_stat_chk, 8), $cr_stat_chk, 8));
+        if ($hide_zero_balance && !$show_capture_only && !$show_inactive) {
+            if (searchApiBalanceDisplayZero($balance_stat_chk)) {
+                continue;
             }
         }
-        // 对称：勿仅因本期无 PAYMENT 类 Cr/Dr 动账就丢弃——无 Cr/Dr 交易但仍承担 Win/Loss 或期初轧差的户要保留。
+        if ($hide_zero_balance && $show_capture_only && !$show_inactive) {
+            if (!searchMoneyNonZero(searchMoneyHalfUp2($wl_stat_chk)) && !searchMoneyNonZero(searchMoneyHalfUp2($balance_stat_chk))) {
+                continue;
+            }
+        }
         if ($hide_zero_balance && $show_inactive && !$show_capture_only) {
-            if (!$has_crdr_transactions) {
-                $bf_near = trunc2($bf);
-                $cr_near = trunc2($cr_dr);
-                $wl_full_chk = $wlPack['win_loss_full'] ?? '0';
-                if (!searchMoneyNonZero($bf_near) && !searchMoneyNonZero($cr_near) && !searchMoneyNonZero($wl_full_chk)) {
-                    continue;
-                }
+            if (!searchMoneyNonZero(searchMoneyHalfUp2($cr_stat_chk)) && !searchMoneyNonZero(searchMoneyHalfUp2($balance_stat_chk))) {
+                continue;
+            }
+        }
+        if ($hide_zero_balance && $show_capture_only && $show_inactive) {
+            if (!searchMoneyNonZero(searchMoneyHalfUp2($wl_stat_chk))
+                && !searchMoneyNonZero(searchMoneyHalfUp2($cr_stat_chk))
+                && searchApiBalanceDisplayZero($balance_stat_chk)) {
+                continue;
             }
         }
 
         // 4. 计算 Balance：先按 6 位统计口径运算，再在展示层 half-up 到 2 位。
         $bf_stat = trunc2($bf);
-        $win_loss_stat = trunc2($wlPack['win_loss_full'] ?? $win_loss);
-        $cr_dr_stat = trunc2($cr_dr);
-        $balance_full = trunc2(money_add(money_add($bf_stat, $win_loss_stat, 8), $cr_dr_stat, 8));
+        $win_loss_stat = $wl_stat_chk;
+        $cr_dr_stat = $cr_stat_chk;
+        $balance_full = $balance_stat_chk;
         $bf_display = searchMoneyHalfUp2($bf_stat);
         $win_loss_display = searchMoneyHalfUp2($win_loss_stat);
         $cr_dr_display = searchMoneyHalfUp2($cr_dr_stat);
@@ -3202,7 +3288,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         $rateCrDrRows = (int) ($entry['cr_dr_rows_period'] ?? 0);
         return [
             'value' => $cr_dr_disp,
-            'has_transactions' => $payment_txn_count > 0 || searchMoneyNonZero($cr_dr_disp) || $rateCrDrRows > 0,
+            'has_transactions' => searchMoneyNonZero($cr_dr_disp),
         ];
     }
 
@@ -3358,7 +3444,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
 
     return [
         'value' => trunc2($cr_dr),
-        'has_transactions' => $transaction_count > 0 || searchMoneyNonZero($cr_dr),
+        'has_transactions' => searchMoneyNonZero($cr_dr),
     ];
 }
 ?>
