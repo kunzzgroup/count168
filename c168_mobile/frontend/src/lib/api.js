@@ -23,8 +23,8 @@ export async function fetchCurrentUser() {
   });
   if (!res.ok) return null;
   const data = await res.json().catch(() => null);
-  if (!data || !data.success || !data.data) return null;
-  return data.data;
+  if (!data || data.status !== "success") return null;
+  return data;
 }
 
 export async function loginWithCredentials({ companyId, loginId, password, role }) {

@@ -24,11 +24,7 @@
 /* #root: relax flex min-size; column width lock lives in src/styles/login-surface-lock.css (imported last in main.jsx) */
 body.bg #root {
   min-width: 0;
-  width: 100%;
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 html:has(body.bg) {

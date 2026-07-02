@@ -1,78 +1,62 @@
-# C168 手机特别版（count168test 子目录）
+# C168 Mobile（手机特别版）
 
-手机版前端在 `c168_mobile/frontend/`，后端与桌面版**共用**根目录的 `api/`、`includes/`、`images/`（同一数据库、同一登录会话）。
+独立于桌面版 [count168-mobile](../count168-mobile) 的移动端项目，使用单独 Git 仓库：[kunzzit01/c168_mobile](https://github.com/kunzzit01/c168_mobile.git)。
 
-## 线上（count168.site）
+## 架构说明
 
-- 访问：`https://count168.site/c168_mobile/`
-- 代码目录：`/var/www/count168/c168_mobile/`
-- 数据库：使用 `/var/www/count168/includes/config.local.php`（与桌面版相同，手机版无需单独配置）
-- Nginx 路由已写在 `deploy/nginx/count168.site.amazon-linux.conf`（HTTPS 环境请同步到 `count168.site-le-ssl.conf`）
+| 项目 | 路径 | Git 远程 |
+|------|------|----------|
+| 桌面版 | `htdocs/count168-mobile` | `kunzzgroups/count168test` |
+| **手机版** | `htdocs/c168_mobile` | `kunzzit01/c168_mobile` |
 
-推送 `main` 后 GitHub Actions 会部署整个 `count168test` 仓库；确保已 `npm run build` 并提交 `c168_mobile/frontend/dist/`。
+- **前端**：本仓库 `frontend/`，React + Vite + Tailwind，移动端专属 UI
+- **后端**：通过目录联接（junction）复用桌面版的 `api/`、`includes/`、`images/`，共用同一数据库与登录会话
+- **互不影响**：桌面版 Git 文件不会被修改
 
-## 本地开发
+## 本地访问
 
-### 1. 安装与构建
+### 1. 首次安装
 
 ```powershell
-cd c168_mobile\frontend
+cd C:\xampp\htdocs\c168_mobile\frontend
 npm install
 npm run build
 ```
 
-### 2. 后端联接（XAMPP / 本地 Apache，首次执行）
+确保 XAMPP Apache 已启动，浏览器打开：
 
-在 `c168_mobile` 目录：
+**http://localhost/c168_mobile/**
 
-```powershell
-.\scripts\setup-junctions.ps1
-```
-
-会创建 `api`、`includes`、`images` 指向上一级（`count168test` 根目录）。
-
-### 3. 数据库
-
-编辑 **`includes/config.local.php`**（与桌面版共用）：
+### 2. 开发模式（热更新）
 
 ```powershell
-copy includes\config.local.php.example includes\config.local.php
-# 填入本机 MySQL 主机、库名、用户、密码
-```
-
-### 4. 开发模式（热更新）
-
-```powershell
-cd c168_mobile\frontend
+cd C:\xampp\htdocs\c168_mobile\frontend
 npm run dev
 ```
 
-打开 **http://localhost:5174/**（API 代理到 `http://127.0.0.1/c168_mobile`，需 XAMPP 将站点映射到含 `c168_mobile` 的路径）。
+打开 **http://localhost:5174/**（API 会代理到 `http://127.0.0.1/c168_mobile`）
 
-### 5. 本地 Apache 访问
+### 3. 后端联接（新机器克隆后执行一次）
 
-若整站放在 `htdocs/count168test`，可把 `htdocs/c168_mobile` 联接为本目录：
+若 `api`、`includes`、`images` 联接不存在，在 `c168_mobile` 目录执行：
 
 ```powershell
-cmd /c mklink /J C:\xampp\htdocs\c168_mobile "C:\path\to\count168test\c168_mobile"
+cmd /c mklink /J api "..\count168-mobile\api"
+cmd /c mklink /J includes "..\count168-mobile\includes"
+cmd /c mklink /J images "..\count168-mobile\images"
 ```
 
-然后访问 **http://localhost/c168_mobile/**
+桌面版需已存在且 `includes/config.local.php`（或 `config.php`）数据库配置可用。
 
-## EC2 首次部署手机版后（可选）
+## 推送到 GitHub
 
-Nginx 已转发 `/c168_mobile/api/` → `/api/`，一般不必建联接。若需本地文件路径一致：
-
-```bash
-bash /var/www/count168/c168_mobile/scripts/setup-symlinks.sh
+```powershell
+cd C:\xampp\htdocs\c168_mobile
+git add .
+git commit -m "Initial mobile edition scaffold"
+git push -u origin main
 ```
 
-## 目录说明
+## 后续开发
 
-| 路径 | 说明 |
-|------|------|
-| `c168_mobile/frontend/src/` | 手机版 React 源码 |
-| `c168_mobile/frontend/dist/` | 构建产物（需提交） |
-| `c168_mobile/api/` | 联接 → `../api`（git 忽略） |
-| `includes/config.php` | 默认数据库参数 |
-| `includes/config.local.php` | 本地/服务器真实密码（git 忽略） |
+在手机版 `frontend/src/pages/` 中独立添加页面与功能，无需改动桌面版代码。底部导航当前为：首页、采集、交易、我的（占位页可逐步替换为真实功能）。

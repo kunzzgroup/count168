@@ -72,11 +72,6 @@ if systemctl is-active --quiet nginx 2>/dev/null; then
   sudo systemctl reload nginx || true
 fi
 
-if [[ -x "$APP_ROOT/c168_mobile/scripts/setup-symlinks.sh" ]]; then
-  echo "==> c168_mobile backend symlinks"
-  bash "$APP_ROOT/c168_mobile/scripts/setup-symlinks.sh" || true
-fi
-
 echo "==> Deploy OK at $(date -Iseconds)"
 FRONTEND_INDEX="${APP_ROOT}/frontend/dist/index.html"
 if [[ -f "$FRONTEND_INDEX" ]]; then

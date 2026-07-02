@@ -25,20 +25,10 @@ body,
 
 body {
   margin: 0;
-  font-family:
-    "Segoe UI",
-    "Microsoft YaHei UI",
-    "Microsoft YaHei",
-    "PingFang SC",
-    system-ui,
-    sans-serif;
-  overscroll-behavior: none;
-}
-
-/* Logged-in mobile shell (login uses body.bg from login-shadcn.css) */
-body:not(.bg) {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   background: var(--m-bg);
   color: var(--m-text);
+  overscroll-behavior: none;
 }
 
 .m-app {
