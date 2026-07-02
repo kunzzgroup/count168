@@ -62,9 +62,48 @@ function getBankToolbarUnifiedBlockWidth() {
   return Math.min(Math.max(BANK_TOOLBAR_CALENDAR_MIN_PX, needed), viewportCap);
 }
 
+function getCalendarPopupNodes() {
+  if (typeof document === "undefined") return [];
+  return [...document.querySelectorAll(`[id="${CALENDAR_POPUP_ID}"]`)];
+}
+
+/** Prefer the open popup, otherwise the in-page copy tied to the active picker. */
+function resolveCalendarPopup(pickerEl) {
+  const popups = getCalendarPopupNodes();
+  if (!popups.length) return null;
+
+  const openPopup = popups.find(isCalendarPopupVisuallyOpen);
+  if (openPopup) return openPopup;
+
+  const pageRoot = pickerEl?.closest?.(
+    ".ec-page-shell__content, .dashboard-container, .transaction-container, .container, main, #root",
+  );
+  const inPagePopup = pageRoot?.querySelector?.(`#${CALENDAR_POPUP_ID}`);
+  if (inPagePopup) return inPagePopup;
+
+  const treePopup = popups.find((popup) => popup.parentElement !== document.body);
+  return treePopup || popups[0];
+}
+
+function dedupeStaleCalendarPopups(preferredPopup) {
+  const popups = getCalendarPopupNodes();
+  if (popups.length <= 1) return preferredPopup || popups[0] || null;
+
+  const keep =
+    preferredPopup && popups.includes(preferredPopup)
+      ? preferredPopup
+      : popups.find((popup) => popup.parentElement !== document.body) || popups[0];
+
+  popups.forEach((popup) => {
+    if (popup === keep) return;
+    hideCalendarPopupElement(popup);
+    popup.remove();
+  });
+  return keep;
+}
+
 export function isMaintenanceCalendarOpen() {
-  const popup = document.getElementById(CALENDAR_POPUP_ID);
-  return isCalendarPopupVisuallyOpen(popup);
+  return getCalendarPopupNodes().some(isCalendarPopupVisuallyOpen);
 }
 
 function isCalendarPopupVisuallyOpen(popup) {
@@ -87,9 +126,9 @@ function hideCalendarPopupElement(popup) {
 export function resetMaintenanceCalendarPopupOnNavigation() {
   if (typeof document === "undefined") return;
 
-  document.querySelectorAll(`[id="${CALENDAR_POPUP_ID}"]`).forEach((popup) => {
+  getCalendarPopupNodes().forEach((popup) => {
     hideCalendarPopupElement(popup);
-    if (popup.parentElement === document.body && popup.dataset.drpPortal === "true") {
+    if (popup.parentElement === document.body) {
       popup.remove();
     }
   });
@@ -101,9 +140,13 @@ export function resetMaintenanceCalendarPopupOnNavigation() {
 }
 
 export function closeMaintenanceCalendarPopup() {
-  const popup = document.getElementById(CALENDAR_POPUP_ID);
-  if (!popup || !isCalendarPopupVisuallyOpen(popup)) return;
-  hideCalendarPopupElement(popup);
+  let closed = false;
+  getCalendarPopupNodes().forEach((popup) => {
+    if (!isCalendarPopupVisuallyOpen(popup)) return;
+    hideCalendarPopupElement(popup);
+    closed = true;
+  });
+  if (!closed) return;
   document.body.removeAttribute("data-calendar-open");
   document.body.style.removeProperty("--bank-toolbar-date-width");
   const bankFooter = document.getElementById("calendar-popup-bank-footer");
@@ -127,10 +170,10 @@ function isCalendarDismissIgnoredTarget(target) {
 }
 
 function isPointerInsideCalendarPopup(event) {
-  const popup = document.getElementById(CALENDAR_POPUP_ID);
-  if (!popup) return false;
+  const popups = getCalendarPopupNodes();
+  if (!popups.length) return false;
   const path = typeof event.composedPath === "function" ? event.composedPath() : [];
-  if (path.includes(popup)) return true;
+  if (popups.some((popup) => path.includes(popup))) return true;
   return isCalendarDismissIgnoredTarget(event.target);
 }
 
@@ -812,7 +855,7 @@ export function ensureMaintenanceDateRangePicker() {
     const picker = pickerEl?.closest?.(".date-range-picker") || pickerEl || document.getElementById("date-range-picker");
     if (pickerEl || picker) setActiveRangeBindingFromTrigger(picker || pickerEl);
 
-    const popup = document.getElementById("calendar-popup");
+    const popup = dedupeStaleCalendarPopups(resolveCalendarPopup(picker));
     if (!popup || !picker) return;
 
     const presets = document.querySelector(".transaction-calendar-presets");

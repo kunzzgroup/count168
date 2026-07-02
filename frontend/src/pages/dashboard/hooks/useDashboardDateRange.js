@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { parseDdMmYyyyToYmd } from "../../../utils/date/dateUtils.js";
 import {
   bindMaintenanceCalendarDismissListeners,
+  closeMaintenanceCalendarPopup,
   ensureMaintenanceDateRangePicker,
+  resetMaintenanceCalendarPopupOnNavigation,
 } from "../../../utils/date/dateRangePicker.js";
 import { defaultDashboardDateRange, ymdToDmy } from "../lib/dashboardDateUtils.js";
 
@@ -87,6 +89,8 @@ export function useDashboardDateRange({ me, i18n, dateFrom, dateTo, setDateFrom,
     return () => {
       cancelled = true;
       dashDatePickerReadyRef.current = false;
+      closeMaintenanceCalendarPopup();
+      resetMaintenanceCalendarPopupOnNavigation();
     };
   }, [me, i18n.selectDateRange, i18n.selectEndDate, setDateFrom, setDateTo]);
 

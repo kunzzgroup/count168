@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from "react";
+import { Suspense, useLayoutEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import PageShellLoading from "./PageShellLoading.jsx";
 import { resetMaintenanceCalendarPopupOnNavigation } from "../utils/date/dateRangePicker.js";
@@ -7,7 +7,7 @@ import { resetMaintenanceCalendarPopupOnNavigation } from "../utils/date/dateRan
 export default function AnimatedOutlet() {
   const { pathname } = useLocation();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     resetMaintenanceCalendarPopupOnNavigation();
   }, [pathname]);
 
