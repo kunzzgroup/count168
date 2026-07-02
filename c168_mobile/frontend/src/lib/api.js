@@ -1,9 +1,11 @@
-const MOBILE_BASE = "/c168_mobile";
+const SITE_BASE = "/c168_mobile";
 
-/** Shared PHP API lives at site root (same repo as desktop SPA). */
 export function apiUrl(path) {
   const clean = String(path || "").replace(/^\//, "");
-  return `/${clean}`;
+  if (import.meta.env.DEV) {
+    return `/${clean}`;
+  }
+  return `${SITE_BASE}/${clean}`;
 }
 
 export function spaPath(segment = "") {
@@ -11,7 +13,7 @@ export function spaPath(segment = "") {
   if (import.meta.env.DEV) {
     return clean ? `/${clean}` : "/login";
   }
-  return clean ? `${MOBILE_BASE}/${clean}` : `${MOBILE_BASE}/login`;
+  return clean ? `${SITE_BASE}/${clean}` : `${SITE_BASE}/login`;
 }
 
 export async function fetchCurrentUser() {
