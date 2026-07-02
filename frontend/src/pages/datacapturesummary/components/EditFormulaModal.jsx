@@ -93,7 +93,22 @@ export default function EditFormulaModal({
 
   const lang = localStorage.getItem("login_lang") === "zh" ? "zh" : "en";
 
-  const setField = (patch) => onFormChange?.({ ...form, ...patch });
+  const setField = (patch) => onFormChange?.((prev) => ({ ...prev, ...patch }));
+
+  const readLiveFormSnapshot = () => ({
+    ...form,
+    formula: formulaInputRef.current?.value ?? form.formula ?? "",
+    sourcePercent:
+      document.getElementById("sourcePercent")?.value ?? form.sourcePercent ?? "",
+    description: document.getElementById("description")?.value ?? form.description ?? "",
+    inputMethod: document.getElementById("inputMethod")?.value ?? form.inputMethod ?? "",
+    currencyId: document.getElementById("currency")?.value ?? form.currencyId ?? "",
+    currencyLabel: (() => {
+      const sel = document.getElementById("currency");
+      const opt = sel?.selectedOptions?.[0];
+      return opt?.textContent?.trim() || form.currencyLabel || "";
+    })(),
+  });
 
   const handleOpenAddAccount = (e) => {
     e.preventDefault();
@@ -144,11 +159,14 @@ export default function EditFormulaModal({
           id="editFormulaForm"
           className="edit-formula-form-container"
           onKeyDown={(e) => {
-            // Enter = Save（账户下拉/数据网格已 preventDefault，故跳过；下拉打开时不触发）
-            if (e.key !== "Enter" || e.defaultPrevented || accountOpen) return
-            if (saveDisabled || saving) return
-            e.preventDefault()
-            onSave?.()
+            // Enter = Save（仅 input/select；无改动时由 onSave 直接关闭；按钮/网格/下拉不触发）
+            if (e.key !== "Enter" || e.defaultPrevented || accountOpen) return;
+            const tag = String(e.target?.tagName || "").toUpperCase();
+            if (tag === "BUTTON" || e.target?.closest?.(".formula-data-grid-item")) return;
+            if (saveDisabled || saving) return;
+            e.preventDefault();
+            e.stopPropagation();
+            onSave?.(readLiveFormSnapshot());
           }}
         >
           <div className="form-header">
@@ -453,7 +471,7 @@ export default function EditFormulaModal({
               id="editFormulaSaveBtn"
               className="btn btn-save"
               disabled={saveDisabled || saving}
-              onClick={onSave}
+              onClick={() => onSave?.(readLiveFormSnapshot())}
             >
               {saving ? t("saving") : t("save")}
             </button>
