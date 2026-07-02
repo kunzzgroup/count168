@@ -65,8 +65,7 @@ function fetchCaptureRecords(
     string $date_to_db,
     ?int $process_id,
     ?string $process_name,
-    string $scopeProcessFilter = '',
-    bool $isGroupScope = false
+    string $scopeProcessFilter = ''
 ) {
     $ledgerDc = dcBuildCaptureLedgerFilter($pdo, $scopeCtx, 'dc', 'data_captures');
     $ledgerDcd = dcBuildCaptureLedgerFilter($pdo, $scopeCtx, 'dcd', 'data_capture_details');
@@ -79,11 +78,8 @@ function fetchCaptureRecords(
         [$date_from_db, $date_to_db, $processCompanyId]
     );
     if ($process_id !== null) {
-        $processFilter = dcSqlBindProcessIdIn(
-            dcResolveRelatedProcessIds($pdo, $processCompanyId, $process_id, $isGroupScope)
-        );
-        $where_conditions[] = trim($processFilter['sql']);
-        $params = array_merge($params, $processFilter['params']);
+        $where_conditions[] = 'p.id = ?';
+        $params[] = $process_id;
     } elseif ($process_name) {
         $where_conditions[] = 'p.process_id = ?';
         $params[] = $process_name;
@@ -121,8 +117,7 @@ function fetchDeletedRecords(
     ?int $process_id,
     ?string $process_name,
     string $scopeProcessFilter = '',
-    string $scopeCompanySql = '',
-    bool $isGroupScope = false
+    string $scopeCompanySql = ''
 ) {
     $checkStmt = $pdo->query("SHOW TABLES LIKE 'data_captures_deleted'");
     if (!$checkStmt->rowCount()) {
@@ -131,11 +126,8 @@ function fetchDeletedRecords(
     $deletedWhereConditions = ["p.company_id = ?"];
     $deletedParams = [$company_id, $date_from_db, $date_to_db];
     if ($process_id !== null) {
-        $processFilter = dcSqlBindProcessIdIn(
-            dcResolveRelatedProcessIds($pdo, $company_id, $process_id, $isGroupScope)
-        );
-        $deletedWhereConditions[] = trim($processFilter['sql']);
-        $deletedParams = array_merge($deletedParams, $processFilter['params']);
+        $deletedWhereConditions[] = "p.id = ?";
+        $deletedParams[] = $process_id;
     } elseif ($process_name) {
         $deletedWhereConditions[] = "p.process_id = ?";
         $deletedParams[] = $process_name;
@@ -281,7 +273,7 @@ try {
     $process_param = isset($_GET['process']) && $_GET['process'] !== '' ? trim((string) $_GET['process']) : null;
     $process_id = null;
     $process_name = null;
-    // 按 process.id 筛选时，包含同一 process 代码下的所有相关 process 行
+    // 优先按唯一 process.id 精确过滤，避免同 process_id(代码) 下多条 process 混在一起
     if ($process_param !== null && $process_param !== '') {
         if (preg_match('/^\d+$/', $process_param)) {
             $process_id = (int) $process_param;
@@ -340,8 +332,7 @@ try {
         $date_to_db,
         $process_id,
         $process_name,
-        $scopeProcessFilter,
-        (bool) $capture_scope_group
+        $scopeProcessFilter
     );
     $deletedResults = [];
     try {
@@ -353,8 +344,7 @@ try {
             $process_id,
             $process_name,
             $scopeProcessFilter,
-            $scopeCompanySqlDeleted,
-            (bool) $capture_scope_group
+            $scopeCompanySqlDeleted
         );
     } catch (Exception $e) {
         error_log('查询已删除记录失败: ' . $e->getMessage());
