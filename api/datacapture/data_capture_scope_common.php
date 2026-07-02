@@ -546,6 +546,74 @@ function dcResolveProcessIdByCode(PDO $pdo, int $companyId, string $processCode,
     return $id > 0 ? $id : null;
 }
 
+/**
+ * Related process.id rows for list filters: all rows sharing the same process code,
+ * except group payroll codes where scope resolves to a single id.
+ *
+ * @return list<int>
+ */
+function dcResolveRelatedProcessIds(
+    PDO $pdo,
+    int $companyId,
+    int $processId,
+    bool $groupScope = false
+): array {
+    if ($processId <= 0 || $companyId <= 0) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT UPPER(TRIM(process_id)) FROM process WHERE id = ? AND company_id = ? LIMIT 1'
+    );
+    $stmt->execute([$processId, $companyId]);
+    $code = strtoupper(trim((string) ($stmt->fetchColumn() ?: '')));
+    if ($code === '') {
+        return [$processId];
+    }
+
+    if (dcIsGroupPayrollProcessCode($code)) {
+        $scoped = dcResolveProcessIdByCode($pdo, $companyId, $code, $groupScope);
+
+        return $scoped !== null && $scoped > 0 ? [$scoped] : [$processId];
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT id FROM process
+         WHERE company_id = ? AND UPPER(TRIM(process_id)) = ?
+         ORDER BY id ASC'
+    );
+    $stmt->execute([$companyId, $code]);
+    $ids = array_values(array_filter(
+        array_map(static fn ($id): int => (int) $id, $stmt->fetchAll(PDO::FETCH_COLUMN)),
+        static fn (int $id): bool => $id > 0
+    ));
+
+    return $ids !== [] ? $ids : [$processId];
+}
+
+/**
+ * SQL fragment + bind params for filtering process rows by id list.
+ *
+ * @return array{sql: string, params: list<int>}
+ */
+function dcSqlBindProcessIdIn(array $processIds, string $processAlias = 'p'): array
+{
+    $alias = preg_replace('/[^a-zA-Z0-9_]/', '', $processAlias) ?: 'p';
+    $safe = array_values(array_unique(array_filter(
+        array_map(static fn ($id): int => (int) $id, $processIds),
+        static fn (int $id): bool => $id > 0
+    )));
+    if ($safe === []) {
+        return ['sql' => ' AND 1=0 ', 'params' => []];
+    }
+    if (count($safe) === 1) {
+        return ['sql' => " AND {$alias}.id = ? ", 'params' => [$safe[0]]];
+    }
+    $placeholders = implode(',', array_fill(0, count($safe), '?'));
+
+    return ['sql' => " AND {$alias}.id IN ({$placeholders}) ", 'params' => $safe];
+}
+
 function dcCompanyGroupId(PDO $pdo, int $companyId): string
 {
     $stmt = $pdo->prepare('SELECT UPPER(TRIM(COALESCE(group_id, ""))) FROM company WHERE id = ? LIMIT 1');
