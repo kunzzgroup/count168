@@ -64,16 +64,46 @@ function getBankToolbarUnifiedBlockWidth() {
 
 export function isMaintenanceCalendarOpen() {
   const popup = document.getElementById(CALENDAR_POPUP_ID);
-  return popup?.getAttribute("data-open") === "true";
+  return isCalendarPopupVisuallyOpen(popup);
 }
 
-export function closeMaintenanceCalendarPopup() {
-  const popup = document.getElementById(CALENDAR_POPUP_ID);
-  if (!popup || popup.getAttribute("data-open") !== "true") return;
+function isCalendarPopupVisuallyOpen(popup) {
+  if (!popup) return false;
+  if (popup.getAttribute("data-open") === "true") return true;
+  const inlineDisplay = popup.style.display;
+  if (inlineDisplay && inlineDisplay !== "none") return true;
+  return getComputedStyle(popup).display !== "none";
+}
+
+function hideCalendarPopupElement(popup) {
+  if (!popup) return;
   popup.removeAttribute("data-open");
   popup.setAttribute("aria-hidden", "true");
   popup.classList.remove("calendar-popup--match-anchor", "calendar-popup--above-export-modal");
   popup.style.display = "none";
+}
+
+/** Close popup and remove body-portal copies left after SPA route changes. */
+export function resetMaintenanceCalendarPopupOnNavigation() {
+  if (typeof document === "undefined") return;
+
+  document.querySelectorAll(`[id="${CALENDAR_POPUP_ID}"]`).forEach((popup) => {
+    hideCalendarPopupElement(popup);
+    if (popup.parentElement === document.body && popup.dataset.drpPortal === "true") {
+      popup.remove();
+    }
+  });
+
+  document.body.removeAttribute("data-calendar-open");
+  document.body.style.removeProperty("--bank-toolbar-date-width");
+  const bankFooter = document.getElementById("calendar-popup-bank-footer");
+  if (bankFooter) bankFooter.style.display = "none";
+}
+
+export function closeMaintenanceCalendarPopup() {
+  const popup = document.getElementById(CALENDAR_POPUP_ID);
+  if (!popup || !isCalendarPopupVisuallyOpen(popup)) return;
+  hideCalendarPopupElement(popup);
   document.body.removeAttribute("data-calendar-open");
   document.body.style.removeProperty("--bank-toolbar-date-width");
   const bankFooter = document.getElementById("calendar-popup-bank-footer");
@@ -802,6 +832,7 @@ export function ensureMaintenanceDateRangePicker() {
       syncRangeStateFromHiddenInputs();
       // Escape ancestor stacking contexts (e.g. Member Win/Loss filter bar isolation).
       if (popup.parentElement !== document.body) {
+        popup.dataset.drpPortal = "true";
         document.body.appendChild(popup);
       }
       popup.classList.toggle(

@@ -1,10 +1,15 @@
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import PageShellLoading from "./PageShellLoading.jsx";
+import { resetMaintenanceCalendarPopupOnNavigation } from "../utils/date/dateRangePicker.js";
 
 /** Single outlet mount — no element cache (cache duplicated routes and cancelled data fetches). */
 export default function AnimatedOutlet() {
   const { pathname } = useLocation();
+
+  useEffect(() => {
+    resetMaintenanceCalendarPopupOnNavigation();
+  }, [pathname]);
 
   return (
     <main className="ec-page-shell" aria-live="polite">
