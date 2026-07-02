@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { parseDdMmYyyyToYmd } from "../../../utils/date/dateUtils.js";
 import {
   bindMaintenanceCalendarDismissListeners,
@@ -29,6 +29,11 @@ export function useDashboardDateRange({ me, i18n, dateFrom, dateTo, setDateFrom,
     ],
     [i18n]
   );
+
+  useLayoutEffect(() => {
+    resetMaintenanceCalendarPopupOnNavigation();
+    closeMaintenanceCalendarPopup();
+  }, []);
 
   useEffect(() => {
     bindMaintenanceCalendarDismissListeners();

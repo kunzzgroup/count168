@@ -3,6 +3,8 @@
  * `window.changeMonth`, `window.selectQuickRange`, `window.toggleQuickSelectDropdown` for DOM markup (#date-range-picker, #calendar-popup, …).
  */
 const CALENDAR_POPUP_ID = "calendar-popup";
+/** Remember original parent when portaling #calendar-popup to document.body. */
+const calendarPopupHomeParent = new WeakMap();
 /** Bank Process 顶栏：药丸与日历 dropdown 统一宽度下限（须容纳完整 dd/mm/yyyy - dd/mm/yyyy） */
 const BANK_TOOLBAR_CALENDAR_MIN_PX = 292;
 const BANK_TOOLBAR_DATE_RANGE_SAMPLE = "01/01/2026 - 31/12/2026";
@@ -120,6 +122,12 @@ function hideCalendarPopupElement(popup) {
   popup.setAttribute("aria-hidden", "true");
   popup.classList.remove("calendar-popup--match-anchor", "calendar-popup--above-export-modal");
   popup.style.display = "none";
+
+  const home = calendarPopupHomeParent.get(popup);
+  if (home?.isConnected && popup.parentElement === document.body) {
+    home.appendChild(popup);
+    calendarPopupHomeParent.delete(popup);
+  }
 }
 
 /** Close popup and remove body-portal copies left after SPA route changes. */
@@ -875,6 +883,7 @@ export function ensureMaintenanceDateRangePicker() {
       syncRangeStateFromHiddenInputs();
       // Escape ancestor stacking contexts (e.g. Member Win/Loss filter bar isolation).
       if (popup.parentElement !== document.body) {
+        calendarPopupHomeParent.set(popup, popup.parentElement);
         popup.dataset.drpPortal = "true";
         document.body.appendChild(popup);
       }
