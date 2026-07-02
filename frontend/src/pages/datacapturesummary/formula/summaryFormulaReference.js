@@ -3,7 +3,6 @@
  * Regenerate: node frontend/scripts/extract-summary-formula-reference.mjs
  */
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
-import { stripDuplicateTrailingMultiplier } from "../../../shared/formula/stripDuplicateTrailingMultiplier.js";
 import { evaluateExpression } from "./summaryFormulaEvaluate.js";
 import { parseIdProductColumnRef, removeThousandsSeparators } from "./summaryFormulaParseUtils.js";
 import { normalizeSummaryIdProductText } from "../lib/summaryIdProductUtils.js";
@@ -627,27 +626,19 @@ export function stripRedundantLiteralAfterDollarRefs(
     return s;
 }
 
-/** Normalize $ refs before expand/evaluate to avoid duplicate rate multipliers. */
+/** Trim formula before $/[id:n] expand/evaluate — preserve user-entered multipliers as-is (PHP parity). */
 export function normalizeFormulaBeforeReferenceExpand(
     formula,
-    processValueOverride = null,
-    clickedCellRefsOverride = undefined,
-    rowIndexOverride = null
+    _processValueOverride = null,
+    _clickedCellRefsOverride = undefined,
+    _rowIndexOverride = null
 ) {
-    let s = String(formula || '').trim();
-    if (!s) return s;
-    s = stripRedundantLiteralAfterDollarRefs(
-        s,
-        processValueOverride,
-        clickedCellRefsOverride,
-        rowIndexOverride
-    );
-    return s;
+    return String(formula || '').trim();
 }
 
-/** After $/[id:n] expansion, remove duplicate trailing multipliers. */
+/** After $/[id:n] expansion — no dedup; stacked identical multipliers are intentional. */
 export function normalizeFormulaAfterReferenceExpand(expr) {
-    return stripDuplicateTrailingMultiplier(String(expr || '').trim());
+    return String(expr || '').trim();
 }
 
 export function parseReferenceFormula(formula, processValueOverride = null, clickedCellRefsOverride = undefined, rowIndexOverride = null) {
