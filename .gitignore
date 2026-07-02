@@ -2,6 +2,7 @@ config.local.php
 includes/config.local.php
 node_modules/
 frontend/node_modules/
+c168_mobile/frontend/node_modules/
 .env
 .env.*
 .env.local
@@ -10,6 +11,11 @@ frontend/node_modules/
 .DS_Store
 Thumbs.db
 .cursor/
+
+# c168_mobile 后端联接（指向根目录 api/includes/images）
+c168_mobile/api/
+c168_mobile/includes/
+c168_mobile/images/
 
 # database: regenerable import intermediates
 database/generated/*.sql

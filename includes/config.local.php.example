@@ -3,6 +3,8 @@
  * EC2 / 本地覆盖数据库（复制为 config.local.php，已在 .gitignore）
  *
  *   cp includes/config.local.php.example includes/config.local.php
+ *
+ * 手机版 c168_mobile 共用本配置（联接 includes/ 或 Nginx 转发 API）。
  */
 $host = '127.0.0.1';
 $dbname = 'u857194726_c168site';

@@ -190,6 +190,22 @@ curl -sS -X POST https://count168.site/api/session/login_api.php \
 
 应返回 JSON（如 `Database connection failed` 或 `Username or password is incorrect`），而不是空白的 HTTP 500。
 
+## 手机版（c168_mobile）
+
+代码在仓库 `c168_mobile/`，访问 **`https://count168.site/c168_mobile/`**。
+
+- 数据库与桌面版相同：`/var/www/count168/includes/config.local.php`
+- `deploy/nginx/count168.site.amazon-linux.conf` 已含 `/c168_mobile/` 路由
+- **若已 certbot HTTPS**：把同样 `location` 块合并进 `/etc/nginx/conf.d/count168.site-le-ssl.conf`，然后 `sudo nginx -t && sudo systemctl reload nginx`
+- 部署后 `deploy.sh` 会自动执行 `c168_mobile/scripts/setup-symlinks.sh`（可选联接；API 主要靠 Nginx 转发）
+
+本地改手机版前端后：
+
+```bash
+cd c168_mobile/frontend && npm run build
+git add c168_mobile/frontend/dist/
+```
+
 ## 日常更新（push 自动部署 site + org）
 
 ```bash
