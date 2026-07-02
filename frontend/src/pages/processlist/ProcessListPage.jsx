@@ -61,7 +61,7 @@ import ProcessFormModal from "./components/ProcessFormModal.jsx";
 import DescriptionPickerModal from "./components/DescriptionPickerModal.jsx";
 import ProcessDeleteConfirmModal from "./components/ProcessDeleteConfirmModal.jsx";
 import AddProcessIcon from "./components/AddProcessIcon.jsx";
-import { getProcessListText } from "../../translateFile/pages/processListTranslate.js";
+import { getProcessListText, translateProcessListApiMessage } from "../../translateFile/pages/processListTranslate.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { useC168ProcessRouteGuard } from "./useC168ProcessRouteGuard.js";
 
@@ -134,6 +134,7 @@ export default function ProcessListPage() {
   const [toasts, setToasts] = useState([]);
   const [descriptionPickerOpen, setDescriptionPickerOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmError, setDeleteConfirmError] = useState("");
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   /** Partnership/Audit read_only 时禁用流程写操作 — synced from layout session */
   const sessionMe = sessionMeFromLayout;
@@ -162,9 +163,10 @@ export default function ProcessListPage() {
     requestAnimationFrame(() => {
       setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, visible: true } : t)));
     });
+    const durationMs = type === "danger" ? 6000 : 1500;
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 1500);
+    }, durationMs);
   }, []);
 
   // Layout phase (with BankProcessListPage): avoid deferred useEffect cleanup stripping body.process-page after route swap.
@@ -1457,6 +1459,7 @@ export default function ProcessListPage() {
       return;
     }
     if (!selectedIds.size) return;
+    setDeleteConfirmError("");
     setDeleteConfirmOpen(true);
   };
 
@@ -1471,6 +1474,7 @@ export default function ProcessListPage() {
       return;
     }
     setDeleteSubmitting(true);
+    setDeleteConfirmError("");
     try {
       const res = await fetch(buildApiUrl("api/processes/delete_processes_api.php"), {
         method: "POST",
@@ -1480,17 +1484,22 @@ export default function ProcessListPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        notify(json.message || json.error || t("deleteFailed"), "danger");
+        const msg = translateProcessListApiMessage(lang, json, t("deleteFailed"));
+        setDeleteConfirmError(msg);
+        notify(msg, "danger");
         return;
       }
       const n = json?.data?.deleted ?? selectedIds.size;
       notify(n === 1 ? t("processDeletedOne") : t("processDeletedMany", { count: n }), "success");
       notifyTransactionDataChanged("processlist-react");
       setDeleteConfirmOpen(false);
+      setDeleteConfirmError("");
       setSelectedIds(new Set());
       fetchRows();
     } catch {
-      notify(t("deleteFailed"), "danger");
+      const msg = t("deleteFailed");
+      setDeleteConfirmError(msg);
+      notify(msg, "danger");
     } finally {
       setDeleteSubmitting(false);
     }
@@ -1742,8 +1751,14 @@ export default function ProcessListPage() {
         open={deleteConfirmOpen}
         count={selectedIds.size}
         deleting={deleteSubmitting}
+        errorMessage={deleteConfirmError}
         confirmDisabled={processMutationsBlocked}
-        onCancel={() => !deleteSubmitting && setDeleteConfirmOpen(false)}
+        onCancel={() => {
+          if (!deleteSubmitting) {
+            setDeleteConfirmError("");
+            setDeleteConfirmOpen(false);
+          }
+        }}
         onConfirm={confirmDeleteProcesses}
         t={t}
       />
