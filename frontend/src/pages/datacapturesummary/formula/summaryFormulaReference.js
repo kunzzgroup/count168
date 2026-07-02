@@ -3,6 +3,7 @@
  * Regenerate: node frontend/scripts/extract-summary-formula-reference.mjs
  */
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
+import { parseTrailingSourceParenValue } from "../../../shared/formula/removeTrailingSourcePercent.js";
 import { evaluateExpression } from "./summaryFormulaEvaluate.js";
 import { parseIdProductColumnRef, removeThousandsSeparators } from "./summaryFormulaParseUtils.js";
 import { normalizeSummaryIdProductText } from "../lib/summaryIdProductUtils.js";
@@ -1090,30 +1091,23 @@ export function calculateFormulaResultFromExpression(formula, sourcePercentValue
         const sanitizedSourcePercent = removeThousandsSeparators(sourcePercentExpr);
         const decimalValue = MoneyDecimal.toDecimal(evaluateExpression(sanitizedSourcePercent), 0);
 
-        // If formula tail already matches Source, do not multiply Source again.
-        const formulaTrimmed = formulaBody.replace(/\s+/g, '');
-        const srcNorm = sourcePercentExpr.replace(/\s+/g, '');
-        let alreadyHasSource = formulaTrimmed.endsWith('*(' + srcNorm + ')') || formulaTrimmed.endsWith('*' + srcNorm);
-        if (!alreadyHasSource && formulaTrimmed.endsWith(')')) {
-            const lastClose = formulaTrimmed.length - 1;
-            let depth = 1;
-            let i = lastClose - 1;
-            while (i >= 0 && depth > 0) {
-                if (formulaTrimmed[i] === ')') depth++;
-                else if (formulaTrimmed[i] === '(') { depth--; if (depth === 0) break; }
-                i--;
-            }
-            if (depth === 0 && i >= 0) {
-                const beforeParen = formulaTrimmed.substring(0, i).trimEnd();
-                const trailingExpr = formulaTrimmed.substring(i + 1, lastClose);
-                if (beforeParen.endsWith('*') && trailingExpr && /^[0-9+\-*/().\s]+$/.test(trailingExpr.replace(/\s/g, ''))) {
-                    try {
-                        const trailingVal = MoneyDecimal.toDecimal(evaluateExpression(trailingExpr), 0);
-                        if (trailingVal.minus(decimalValue).abs().lt('0.0001')) {
-                            alreadyHasSource = true;
-                        }
-                    } catch (e) { /* ignore */ }
-                }
+        // Only skip external Source multiply when formula already ends with bracketed *(source),
+        // not when a formula-body multiplier happens to match Source numerically.
+        let alreadyHasSource = false;
+        const trailingSourceExpr = parseTrailingSourceParenValue(formulaBody);
+        if (trailingSourceExpr != null) {
+            try {
+                const srcDec = MoneyDecimal.toDecimal(
+                    evaluateExpression(removeThousandsSeparators(sanitizedSourcePercent)),
+                    0
+                );
+                const trailDec = MoneyDecimal.toDecimal(
+                    evaluateExpression(removeThousandsSeparators(trailingSourceExpr)),
+                    0
+                );
+                alreadyHasSource = srcDec.minus(trailDec).abs().lt("0.0001");
+            } catch {
+                alreadyHasSource = false;
             }
         }
 
