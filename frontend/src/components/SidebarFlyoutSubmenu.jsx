@@ -15,22 +15,18 @@ function resolveFooterBottomLimit(anchorEl) {
 
 function computeFlyoutPosition(anchorEl, flyoutEl) {
   const anchorRect = anchorEl.getBoundingClientRect();
-  const flyoutHeight = flyoutEl.offsetHeight;
   const flyoutWidth = flyoutEl.offsetWidth;
   const bottomLimit = resolveFooterBottomLimit(anchorEl);
 
-  let top = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
+  // Always align with anchor — never shift top upward; clip via maxHeight + scroll.
+  const top = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
   let left = anchorRect.right;
-
-  if (top + flyoutHeight > bottomLimit) {
-    top = Math.max(VIEWPORT_PAD, bottomLimit - flyoutHeight);
-  }
 
   if (left + flyoutWidth > window.innerWidth - VIEWPORT_PAD) {
     left = Math.max(VIEWPORT_PAD, window.innerWidth - flyoutWidth - VIEWPORT_PAD);
   }
 
-  const viewportMax = window.innerHeight - VIEWPORT_PAD * 2;
+  const viewportMax = Math.max(0, window.innerHeight - VIEWPORT_PAD - top);
   const footerMax = Math.max(0, bottomLimit - top);
   const maxHeight = Math.min(viewportMax, footerMax);
 
