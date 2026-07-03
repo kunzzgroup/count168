@@ -1,6 +1,7 @@
 /*
  * Sidebar scroll shell — imported last in main.jsx so it wins over stale rules in the app-shell bundle.
  * dist/css/sidebar.css (index.html link) is the production source of truth for full sidebar.css.
+ * Scrollbar chrome: dashboard-scrollbar.css end-of-file overrides + sidebar.css.
  */
 body.ec-auth-shell .informationmenu {
   height: 100vh !important;
@@ -24,6 +25,7 @@ body.ec-auth-shell .informationmenu-content {
   scrollbar-gutter: auto !important;
   scrollbar-width: none !important;
   scrollbar-color: transparent transparent !important;
+  -ms-overflow-style: none !important;
 }
 
 body.ec-auth-shell .informationmenu:hover .informationmenu-content,
@@ -35,11 +37,14 @@ body.ec-auth-shell .informationmenu-content:focus-within {
 body.ec-auth-shell .informationmenu-content::-webkit-scrollbar {
   width: 0 !important;
   height: 0 !important;
+  display: none !important;
+  background: transparent !important;
 }
 
 body.ec-auth-shell .informationmenu:hover .informationmenu-content::-webkit-scrollbar,
 body.ec-auth-shell .informationmenu-content:hover::-webkit-scrollbar,
 body.ec-auth-shell .informationmenu-content:focus-within::-webkit-scrollbar {
+  display: block !important;
   width: 3px !important;
   height: 3px !important;
 }
