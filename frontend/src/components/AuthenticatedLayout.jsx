@@ -210,10 +210,7 @@ export default function AuthenticatedLayout() {
   const path = location.pathname;
   const pageKey = pathnameToPageKey(path);
   const isDataCaptureSidebarActive =
-    pageKey === "datacapture" ||
-    pageKey === "datacapturesummary" ||
-    pageKey === "capture-maintenance" ||
-    pageKey === "transaction-maintenance";
+    pageKey === "datacapture" || pageKey === "datacapturesummary";
   const chromelessPaymentHistory = isPaymentHistoryChromelessPath(path, searchParams);
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1167,7 +1164,9 @@ export default function AuthenticatedLayout() {
           <SidebarLangSwitch lang={lang} onLanguageChange={applyLanguage} ariaLabel={i18n.switchLanguage} />
         </div>
 
-        <div className="informationmenu-content" ref={menuContentRef}>
+        <div className="sidebar-scroll-clip">
+        <div className="sidebar-scroll" ref={menuContentRef}>
+        <div className="informationmenu-content">
           <div className="content-separator" />
           {canAccess("home") && (
             <div className="informationmenu-section">
@@ -1477,6 +1476,8 @@ export default function AuthenticatedLayout() {
               </div>
             </div>
           )}
+        </div>
+        </div>
         </div>
 
         <div className="informationmenu-footer">

@@ -24,10 +24,25 @@ export function peekOwnershipCompaniesCache(monthKey = getOwnershipCurrentMonthK
   return cache.get(cacheKey(monthKey)) ?? null;
 }
 
-export async function prefetchOwnershipCompanies(monthKey = getOwnershipCurrentMonthKey()) {
+/** Drop cached company list so the next load hits the API (after join/ungroup/save). */
+export function invalidateOwnershipCompaniesCache(monthKey = getOwnershipCurrentMonthKey()) {
   const key = cacheKey(monthKey);
-  const hit = cache.get(key);
-  if (hit) return hit;
+  cache.delete(key);
+  inflight.delete(key);
+}
+
+export async function prefetchOwnershipCompanies(
+  monthKey = getOwnershipCurrentMonthKey(),
+  { force = false } = {},
+) {
+  const key = cacheKey(monthKey);
+  if (force) {
+    cache.delete(key);
+    inflight.delete(key);
+  } else {
+    const hit = cache.get(key);
+    if (hit) return hit;
+  }
 
   const pending = inflight.get(key);
   if (pending) return pending;

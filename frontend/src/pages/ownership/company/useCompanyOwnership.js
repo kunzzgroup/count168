@@ -373,13 +373,13 @@ export function useCompanyOwnership(shell) {
         const json = await res.json();
         if (isApiSuccess(json)) {
           showToast(`"${companyName}" joined group "${gid}"`, "success");
-          void fetchCompanies();
+          void fetchCompanies(selectedMonth, { force: true });
         } else showToast(getApiMessage(json, "Join group failed"), "error");
       } catch {
         showToast("Server error", "error");
       }
     },
-    [fetchCompanies, adminLocked, showToast],
+    [fetchCompanies, adminLocked, selectedMonth, showToast],
   );
 
   const ungroupCompany = useCallback(
@@ -400,13 +400,13 @@ export function useCompanyOwnership(shell) {
             delete next[cid];
             return next;
           });
-          void fetchCompanies();
+          void fetchCompanies(selectedMonth, { force: true });
         } else showToast(getApiMessage(json, "Ungroup failed"), "error");
       } catch {
         showToast("Server error", "error");
       }
     },
-    [fetchCompanies, adminLocked, showToast],
+    [fetchCompanies, adminLocked, selectedMonth, showToast],
   );
 
   const toggleSelectionMode = useCallback(() => {
@@ -458,13 +458,13 @@ export function useCompanyOwnership(shell) {
           showToast(`Added ${selectedCompanyIds.size} companies to ${gid}`, "success");
           setSelectedCompanyIds(new Set());
           setSelectionMode(false);
-          void fetchCompanies();
+          void fetchCompanies(selectedMonth, { force: true });
         } else showToast(`${ids.length - failed.length} succeeded, ${failed.length} failed`, "error");
       } catch {
         showToast("Server error", "error");
       }
     },
-    [fetchCompanies, adminLocked, selectedCompanyIds, showToast],
+    [fetchCompanies, adminLocked, selectedCompanyIds, selectedMonth, showToast],
   );
 
   const bulkUngroup = useCallback(async () => {
@@ -493,12 +493,12 @@ export function useCompanyOwnership(shell) {
         });
         setSelectedCompanyIds(new Set());
         setSelectionMode(false);
-        void fetchCompanies();
+        void fetchCompanies(selectedMonth, { force: true });
       } else showToast(`${ids.length - failed.length} succeeded, ${failed.length} failed`, "error");
     } catch {
       showToast("Server error", "error");
     }
-  }, [fetchCompanies, adminLocked, selectedCompanyIds, showToast]);
+  }, [fetchCompanies, adminLocked, selectedCompanyIds, selectedMonth, showToast]);
 
   return {
     groupFilter,

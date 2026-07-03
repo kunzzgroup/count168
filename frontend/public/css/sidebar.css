@@ -745,9 +745,9 @@
 }
 
 .informationmenu-content {
-    overflow-x: hidden;
-    flex: 1 1 auto;
-    min-height: 0;
+    overflow: visible;
+    flex: 0 0 auto;
+    min-height: min-content;
     display: flex;
     flex-direction: column;
     padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
@@ -2124,6 +2124,12 @@ body.ec-auth-shell .informationmenu .submenu-item {
     .informationmenu.is-collapsed .current-avatar {
         width: 36px;
         height: 36px;
+    }
+
+    .informationmenu.is-collapsed .sidebar-scroll-clip,
+    .informationmenu.is-collapsed .sidebar-scroll {
+        overflow-x: hidden;
+        overflow-y: auto;
     }
 
     .informationmenu.is-collapsed .informationmenu-content {
