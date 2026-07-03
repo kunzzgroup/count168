@@ -12,11 +12,12 @@ function cacheKey(monthKey) {
   return monthKey || getOwnershipCurrentMonthKey();
 }
 
-function companiesApiUrl(monthKey) {
+function companiesApiUrl(monthKey, force = false) {
   const monthQs = isOwnershipHistoricalMonth(monthKey)
     ? `&month=${encodeURIComponent(monthKey)}`
     : "";
-  return buildApiUrl(`api/ownership/get_companies_api.php?all=1${monthQs}`);
+  const bustQs = force ? `&_=${Date.now()}` : "";
+  return buildApiUrl(`api/ownership/get_companies_api.php?all=1${monthQs}${bustQs}`);
 }
 
 /** Read warm company list from sidebar hover prefetch (same shape as get_companies_api JSON). */
@@ -47,7 +48,7 @@ export async function prefetchOwnershipCompanies(
   const pending = inflight.get(key);
   if (pending) return pending;
 
-  const promise = fetch(companiesApiUrl(monthKey), { credentials: "include" })
+  const promise = fetch(companiesApiUrl(monthKey, force), { credentials: "include" })
     .then((res) => res.json())
     .then((json) => {
       if (isApiSuccess(json)) {

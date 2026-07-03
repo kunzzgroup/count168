@@ -12,6 +12,7 @@ require_once '../../includes/session_check.php';
 require_once '../../includes/config.php';
 require_once '../includes/ownership_history.php';
 require_once '../includes/ownership_schema.php';
+require_once __DIR__ . '/../domain/domain_groups_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -60,6 +61,11 @@ try {
     // Update group_id
     $updateStmt = $pdo->prepare("UPDATE company SET group_id = ? WHERE id = ?");
     $updateStmt->execute([$group_id, $company_id]);
+
+    // Keep group_company_map in sync (get_companies_api re-hydrates group_id from this map)
+    if (function_exists('domainApiSyncGroupCompanyMap')) {
+        domainApiSyncGroupCompanyMap($pdo, $owner_id);
+    }
 
     // Ungroup: drop stale Group Equity rows (owner_type = group) for this company
     if ($group_id === null

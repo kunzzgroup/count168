@@ -33,23 +33,26 @@ try {
         $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id);
         $fetched = getCompaniesByOwner($pdo, $owner_id, $fetchAll);
         foreach ($fetched as $c) {
+            // Ownership UI groups by native company.group_id — not partner/dashboard coalesced group_id
+            $nativeGroup = $c['native_group_id'] ?? $c['group_id'] ?? null;
             $companies[] = [
                 'id'              => $c['id'],
                 'name'            => $c['company_id'],
                 'company_id'      => $c['company_id'],
                 'expiration_date' => $c['expiration_date'] ?? null,
-                'group_id'        => $c['group_id'] ?? null,
+                'group_id'        => ($nativeGroup !== null && trim((string) $nativeGroup) !== '') ? $nativeGroup : null,
             ];
         }
     } else {
         $fetched = getCompaniesByUser($pdo, $current_user_id, $fetchAll);
         foreach ($fetched as $c) {
+            $nativeGroup = $c['native_group_id'] ?? $c['group_id'] ?? null;
             $companies[] = [
                 'id'              => $c['id'],
                 'name'            => $c['company_id'],
                 'company_id'      => $c['company_id'],
                 'expiration_date' => $c['expiration_date'] ?? null,
-                'group_id'        => $c['group_id'] ?? null,
+                'group_id'        => ($nativeGroup !== null && trim((string) $nativeGroup) !== '') ? $nativeGroup : null,
             ];
         }
     }

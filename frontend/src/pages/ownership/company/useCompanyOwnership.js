@@ -395,6 +395,9 @@ export function useCompanyOwnership(shell) {
         const json = await res.json();
         if (isApiSuccess(json)) {
           showToast(`"${companyName}" removed from group`, "success");
+          setAllCompanies((prev) =>
+            prev.map((c) => (Number(c.id) === cid ? { ...c, group_id: null } : c)),
+          );
           setCompanyStates((prev) => {
             const next = { ...prev };
             delete next[cid];
@@ -406,7 +409,7 @@ export function useCompanyOwnership(shell) {
         showToast("Server error", "error");
       }
     },
-    [fetchCompanies, adminLocked, selectedMonth, showToast],
+    [fetchCompanies, adminLocked, selectedMonth, setAllCompanies, showToast],
   );
 
   const toggleSelectionMode = useCallback(() => {
@@ -484,6 +487,10 @@ export function useCompanyOwnership(shell) {
       const failed = results.filter((r) => !isApiSuccess(r));
       if (failed.length === 0) {
         showToast(`Removed ${selectedCompanyIds.size} companies from group`, "success");
+        const idSet = new Set(ids.map((cid) => Number(cid)));
+        setAllCompanies((prev) =>
+          prev.map((c) => (idSet.has(Number(c.id)) ? { ...c, group_id: null } : c)),
+        );
         setCompanyStates((prev) => {
           const next = { ...prev };
           ids.forEach((cid) => {
@@ -498,7 +505,7 @@ export function useCompanyOwnership(shell) {
     } catch {
       showToast("Server error", "error");
     }
-  }, [fetchCompanies, adminLocked, selectedCompanyIds, selectedMonth, showToast]);
+  }, [fetchCompanies, adminLocked, selectedCompanyIds, selectedMonth, setAllCompanies, showToast]);
 
   return {
     groupFilter,
