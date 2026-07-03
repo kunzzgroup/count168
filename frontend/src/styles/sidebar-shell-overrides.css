@@ -1,0 +1,53 @@
+/*
+ * Sidebar scroll shell — imported last in main.jsx so it wins over stale rules in the app-shell bundle.
+ * dist/css/sidebar.css (index.html link) is the production source of truth for full sidebar.css.
+ */
+body.ec-auth-shell .informationmenu {
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+  min-height: 0 !important;
+}
+
+body.ec-auth-shell .informationmenu-header {
+  flex-shrink: 0 !important;
+}
+
+body.ec-auth-shell .informationmenu-content {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+body.ec-auth-shell .informationmenu-content::-webkit-scrollbar {
+  width: 4px !important;
+  height: 4px !important;
+}
+
+body.ec-auth-shell .informationmenu-content::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+body.ec-auth-shell .informationmenu-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border: none !important;
+  border-radius: 999px !important;
+}
+
+body.ec-auth-shell .informationmenu:hover .informationmenu-content::-webkit-scrollbar-thumb,
+body.ec-auth-shell .informationmenu-content:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.28) !important;
+}
+
+body.ec-auth-shell .informationmenu-footer {
+  flex-shrink: 0 !important;
+  background: var(--sidebar-shell-bg, #002d49) !important;
+  position: relative;
+  z-index: 2;
+}
