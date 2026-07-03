@@ -44,11 +44,13 @@ export default function SidebarFlyoutSubmenu({
 }) {
   const flyoutRef = useRef(null);
   const [pos, setPos] = useState({ top: 0, left: 0, maxHeight: 0 });
+  const [scrollable, setScrollable] = useState(false);
   const [positioned, setPositioned] = useState(false);
 
   useLayoutEffect(() => {
     if (!open) {
       setPositioned(false);
+      setScrollable(false);
       return undefined;
     }
 
@@ -58,6 +60,10 @@ export default function SidebarFlyoutSubmenu({
 
     const sync = () => {
       const next = computeFlyoutPosition(anchor, flyout);
+      const maxHeightPx =
+        next.maxHeight > 0 ? next.maxHeight : window.innerHeight - VIEWPORT_PAD * 2;
+      flyout.style.maxHeight = `${maxHeightPx}px`;
+      const needsScroll = flyout.scrollHeight > flyout.clientHeight + 1;
       setPos((prev) =>
         prev.top === next.top &&
         prev.left === next.left &&
@@ -65,6 +71,7 @@ export default function SidebarFlyoutSubmenu({
           ? prev
           : next,
       );
+      setScrollable(needsScroll);
       setPositioned(true);
     };
 
@@ -92,7 +99,7 @@ export default function SidebarFlyoutSubmenu({
   return createPortal(
     <div
       ref={flyoutRef}
-      className="submenu show"
+      className={`submenu show${scrollable ? " submenu--scrollable" : ""}`}
       id={id}
       style={{
         position: "fixed",
@@ -104,7 +111,6 @@ export default function SidebarFlyoutSubmenu({
         pointerEvents: "auto",
         zIndex: 4000,
         maxHeight: pos.maxHeight > 0 ? pos.maxHeight : `calc(100dvh - ${VIEWPORT_PAD * 2}px)`,
-        overflowY: "auto",
       }}
       aria-hidden={!open}
       onMouseEnter={onMouseEnter}
