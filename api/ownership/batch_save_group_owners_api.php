@@ -43,6 +43,20 @@ function ownershipPctOut($value): string {
     return money_out($value, 2);
 }
 
+$nativeOwnerId = 0;
+if (strtolower($_SESSION['role'] ?? '') === 'owner') {
+    $nativeOwnerId = (int) ($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+}
+if ($nativeOwnerId <= 0) {
+    $stmtOwn = $pdo->prepare('SELECT DISTINCT owner_id FROM company WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?)) LIMIT 1');
+    $stmtOwn->execute([$group_id]);
+    $nativeOwnerId = (int) $stmtOwn->fetchColumn();
+}
+if ($nativeOwnerId <= 0) {
+    $nativeOwnerId = ownership_history_resolve_group_owner_id($pdo, (string) $group_id);
+}
+ownership_enrich_external_partner_flags($owners, $nativeOwnerId);
+
 // Validate total percentage (external partners may hold equity; 0% allowed while unallocated)
 $total_percentage = '0.00';
 foreach ($owners as $owner) {

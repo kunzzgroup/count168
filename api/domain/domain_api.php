@@ -369,6 +369,10 @@ function domainApiDetachCompaniesFromOwner(PDO $pdo, array $companyDbIds, int $o
     if (domainApiTableExists($pdo, 'group_company_map')) {
         deleteByIds($pdo, 'group_company_map', 'company_id', $allowedIds);
     }
+
+    if (domainApiTableExists($pdo, 'company_auto_renew_request')) {
+        domainApiDeleteRowsByCompanyIds($pdo, 'company_auto_renew_request', $allowedIds);
+    }
 }
 
 function domainApiFindDetachedCompanyPk(PDO $pdo, string $companyCode): ?int
@@ -3855,6 +3859,15 @@ try {
                         normalizeIds(array_column($toHardDelete, 'id')),
                         array_map(static fn ($row) => (string) ($row['company_id'] ?? ''), $toHardDelete)
                     );
+                }
+
+                if (domainApiHasGroupsTable($pdo)) {
+                    $grpStmt = $pdo->prepare('SELECT id FROM `groups` WHERE owner_id = ?');
+                    $grpStmt->execute([$id]);
+                    $ownerGroupIds = normalizeIds($grpStmt->fetchAll(PDO::FETCH_COLUMN));
+                    if ($ownerGroupIds !== []) {
+                        deleteByIds($pdo, 'groups', 'id', $ownerGroupIds);
+                    }
                 }
                 
                 // 删除 owner 直接创建的数据 (data_captures / transactions)

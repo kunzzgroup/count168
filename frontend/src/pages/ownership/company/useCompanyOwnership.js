@@ -46,6 +46,32 @@ export function useCompanyOwnership(shell) {
   const [openGroupForCompanyId, setOpenGroupForCompanyId] = useState(null);
   const dragRef = useRef({ companyId: null, idx: null });
 
+  const patchCompaniesGroup = useCallback(
+    (patches) => {
+      setAllCompanies((prev) =>
+        prev.map((c) => {
+          const id = Number(c.id);
+          if (!patches.has(id)) return c;
+          const gid = patches.get(id);
+          return { ...c, group_id: gid || null };
+        }),
+      );
+    },
+    [setAllCompanies],
+  );
+
+  const clearCompanyEditorState = useCallback((companyIds) => {
+    const idSet = new Set((companyIds || []).map((id) => Number(id)));
+    setCompanyStates((prev) => {
+      const next = { ...prev };
+      idSet.forEach((id) => {
+        delete next[id];
+      });
+      return next;
+    });
+    setExpandedCompanyId((cur) => (cur != null && idSet.has(Number(cur)) ? null : cur));
+  }, []);
+
   useEffect(() => {
     const onDoc = (e) => {
       if (!e.target.closest?.(".own-group-btn-wrap")) setOpenGroupForCompanyId(null);
@@ -373,13 +399,25 @@ export function useCompanyOwnership(shell) {
         const json = await res.json();
         if (isApiSuccess(json)) {
           showToast(`"${companyName}" joined group "${gid}"`, "success");
-          void fetchCompanies(selectedMonth, { force: true });
+          patchCompaniesGroup(new Map([[Number(cid), gid]]));
+          clearCompanyEditorState([cid]);
+          setOpenGroupForCompanyId(null);
+          if (groupFilter === null) setGroupFilter(gid);
+          await fetchCompanies(selectedMonth, { force: true });
         } else showToast(getApiMessage(json, "Join group failed"), "error");
       } catch {
         showToast("Server error", "error");
       }
     },
-    [fetchCompanies, adminLocked, selectedMonth, showToast],
+    [
+      fetchCompanies,
+      adminLocked,
+      selectedMonth,
+      groupFilter,
+      patchCompaniesGroup,
+      clearCompanyEditorState,
+      showToast,
+    ],
   );
 
   const ungroupCompany = useCallback(
@@ -395,21 +433,15 @@ export function useCompanyOwnership(shell) {
         const json = await res.json();
         if (isApiSuccess(json)) {
           showToast(`"${companyName}" removed from group`, "success");
-          setAllCompanies((prev) =>
-            prev.map((c) => (Number(c.id) === cid ? { ...c, group_id: null } : c)),
-          );
-          setCompanyStates((prev) => {
-            const next = { ...prev };
-            delete next[cid];
-            return next;
-          });
-          void fetchCompanies(selectedMonth, { force: true });
+          patchCompaniesGroup(new Map([[Number(cid), null]]));
+          clearCompanyEditorState([cid]);
+          await fetchCompanies(selectedMonth, { force: true });
         } else showToast(getApiMessage(json, "Ungroup failed"), "error");
       } catch {
         showToast("Server error", "error");
       }
     },
-    [fetchCompanies, adminLocked, selectedMonth, setAllCompanies, showToast],
+    [fetchCompanies, adminLocked, selectedMonth, patchCompaniesGroup, clearCompanyEditorState, showToast],
   );
 
   const toggleSelectionMode = useCallback(() => {
@@ -459,15 +491,28 @@ export function useCompanyOwnership(shell) {
         const failed = results.filter((r) => !isApiSuccess(r));
         if (failed.length === 0) {
           showToast(`Added ${selectedCompanyIds.size} companies to ${gid}`, "success");
+          const patches = new Map(ids.map((cid) => [Number(cid), gid]));
+          patchCompaniesGroup(patches);
+          clearCompanyEditorState(ids);
           setSelectedCompanyIds(new Set());
           setSelectionMode(false);
-          void fetchCompanies(selectedMonth, { force: true });
+          if (groupFilter === null) setGroupFilter(gid);
+          await fetchCompanies(selectedMonth, { force: true });
         } else showToast(`${ids.length - failed.length} succeeded, ${failed.length} failed`, "error");
       } catch {
         showToast("Server error", "error");
       }
     },
-    [fetchCompanies, adminLocked, selectedCompanyIds, selectedMonth, showToast],
+    [
+      fetchCompanies,
+      adminLocked,
+      selectedCompanyIds,
+      selectedMonth,
+      groupFilter,
+      patchCompaniesGroup,
+      clearCompanyEditorState,
+      showToast,
+    ],
   );
 
   const bulkUngroup = useCallback(async () => {
@@ -487,25 +532,25 @@ export function useCompanyOwnership(shell) {
       const failed = results.filter((r) => !isApiSuccess(r));
       if (failed.length === 0) {
         showToast(`Removed ${selectedCompanyIds.size} companies from group`, "success");
-        const idSet = new Set(ids.map((cid) => Number(cid)));
-        setAllCompanies((prev) =>
-          prev.map((c) => (idSet.has(Number(c.id)) ? { ...c, group_id: null } : c)),
-        );
-        setCompanyStates((prev) => {
-          const next = { ...prev };
-          ids.forEach((cid) => {
-            delete next[cid];
-          });
-          return next;
-        });
+        const patches = new Map(ids.map((cid) => [Number(cid), null]));
+        patchCompaniesGroup(patches);
+        clearCompanyEditorState(ids);
         setSelectedCompanyIds(new Set());
         setSelectionMode(false);
-        void fetchCompanies(selectedMonth, { force: true });
+        await fetchCompanies(selectedMonth, { force: true });
       } else showToast(`${ids.length - failed.length} succeeded, ${failed.length} failed`, "error");
     } catch {
       showToast("Server error", "error");
     }
-  }, [fetchCompanies, adminLocked, selectedCompanyIds, selectedMonth, setAllCompanies, showToast]);
+  }, [
+    fetchCompanies,
+    adminLocked,
+    selectedCompanyIds,
+    selectedMonth,
+    patchCompaniesGroup,
+    clearCompanyEditorState,
+    showToast,
+  ]);
 
   return {
     groupFilter,

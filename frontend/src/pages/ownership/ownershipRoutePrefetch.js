@@ -48,7 +48,10 @@ export async function prefetchOwnershipCompanies(
   const pending = inflight.get(key);
   if (pending) return pending;
 
-  const promise = fetch(companiesApiUrl(monthKey, force), { credentials: "include" })
+  const promise = fetch(companiesApiUrl(monthKey, force), {
+    credentials: "include",
+    cache: force ? "no-store" : "default",
+  })
     .then((res) => res.json())
     .then((json) => {
       if (isApiSuccess(json)) {

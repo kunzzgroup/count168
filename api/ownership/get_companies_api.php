@@ -31,7 +31,7 @@ try {
         // when the user selects an external company (e.g. LOL selects JK's company TT).
         // Without this, we'd return JK's companies instead of LOL's.
         $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id);
-        $fetched = getCompaniesByOwner($pdo, $owner_id, $fetchAll);
+        $fetched = getCompaniesByOwner($pdo, $owner_id, $fetchAll, false, true);
         foreach ($fetched as $c) {
             // Ownership UI groups by native company.group_id — not partner/dashboard coalesced group_id
             $nativeGroup = $c['native_group_id'] ?? $c['group_id'] ?? null;

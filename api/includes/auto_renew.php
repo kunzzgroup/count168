@@ -1039,14 +1039,59 @@ function auto_renew_company_in_window(?string $expirationDate): bool
     return $days <= AUTO_RENEW_WINDOW_DAYS;
 }
 
+function auto_renew_purge_detached_domain_requests(PDO $pdo): void
+{
+    try {
+        $pdo->query("SELECT 1 FROM company_auto_renew_request LIMIT 1");
+    } catch (Exception $e) {
+        return;
+    }
+
+    try {
+        $pdo->exec("
+            DELETE r FROM company_auto_renew_request r
+            INNER JOIN company c ON c.id = r.company_id
+            WHERE r.entity_type = 'company'
+              AND c.owner_id IS NULL
+        ");
+    } catch (Exception $e) {
+        // ignore — best-effort cleanup
+    }
+
+    try {
+        $pdo->exec("
+            DELETE r FROM company_auto_renew_request r
+            LEFT JOIN `groups` g ON g.id = r.group_id
+            WHERE r.entity_type = 'group'
+              AND g.id IS NULL
+        ");
+    } catch (Exception $e) {
+        // ignore
+    }
+
+    try {
+        $pdo->exec("
+            DELETE r FROM company_auto_renew_request r
+            INNER JOIN `groups` g ON g.id = r.group_id
+            LEFT JOIN owner o ON o.id = g.owner_id
+            WHERE r.entity_type = 'group'
+              AND o.id IS NULL
+        ");
+    } catch (Exception $e) {
+        // ignore
+    }
+}
+
 function auto_renew_sync_window_requests(PDO $pdo): void
 {
     auto_renew_ensure_request_table($pdo);
     auto_renew_dedupe_request_rows($pdo);
+    auto_renew_purge_detached_domain_requests($pdo);
     $stmt = $pdo->query("
         SELECT id, expiration_date
         FROM company
         WHERE UPPER(TRIM(company_id)) <> 'C168'
+          AND owner_id IS NOT NULL
           AND expiration_date IS NOT NULL
           AND expiration_date <> ''
     ");
@@ -1069,7 +1114,8 @@ function auto_renew_sync_window_requests(PDO $pdo): void
     $groupStmt = $pdo->query("
         SELECT id, expiration_date
         FROM `groups`
-        WHERE expiration_date IS NOT NULL
+        WHERE owner_id IS NOT NULL
+          AND expiration_date IS NOT NULL
           AND expiration_date <> ''
           AND (status IS NULL OR LOWER(TRIM(status)) = 'active')
     ");
@@ -1115,6 +1161,7 @@ function auto_renew_count_pending_by_entity(PDO $pdo): array
           AND r.status = 'pending'
           AND r.expiration_snapshot = c.expiration_date
           AND UPPER(TRIM(c.company_id)) <> 'C168'
+          AND c.owner_id IS NOT NULL
           AND c.expiration_date IS NOT NULL
           AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays}
     ");
@@ -1164,6 +1211,7 @@ function auto_renew_status_map(PDO $pdo): array
         INNER JOIN company c ON c.id = r.company_id
         WHERE r.entity_type = 'company'
           AND UPPER(TRIM(c.company_id)) <> 'C168'
+          AND c.owner_id IS NOT NULL
           AND r.status = 'pending'
           AND r.expiration_snapshot = c.expiration_date
           AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays}
@@ -1190,6 +1238,7 @@ function auto_renew_status_map(PDO $pdo): array
         FROM company_auto_renew_request r
         INNER JOIN `groups` g ON g.id = r.group_id
         WHERE r.entity_type = 'group'
+          AND g.owner_id IS NOT NULL
           AND r.status = 'pending'
           AND r.expiration_snapshot = g.expiration_date
           AND DATEDIFF(g.expiration_date, CURDATE()) <= {$windowDays}
@@ -1383,6 +1432,7 @@ function auto_renew_fetch_company_approval_raw_rows(
             WHERE r.entity_type = 'company'
               AND r.status = ?
               AND UPPER(TRIM(c.company_id)) <> 'C168'
+              AND c.owner_id IS NOT NULL
               AND r.processed_at >= DATE_SUB(NOW(), INTERVAL {$historyDays} DAY)
         ";
         $params = [$filter];
@@ -1406,6 +1456,7 @@ function auto_renew_fetch_company_approval_raw_rows(
                AND r.expiration_snapshot = c.expiration_date
             LEFT JOIN owner o ON o.id = c.owner_id
             WHERE UPPER(TRIM(c.company_id)) <> 'C168'
+              AND c.owner_id IS NOT NULL
               AND c.expiration_date IS NOT NULL
               AND (
                     (r.status = 'pending' AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays})
@@ -1436,6 +1487,7 @@ function auto_renew_fetch_company_approval_raw_rows(
            AND r.expiration_snapshot = c.expiration_date
         LEFT JOIN owner o ON o.id = c.owner_id
         WHERE UPPER(TRIM(c.company_id)) <> 'C168'
+          AND c.owner_id IS NOT NULL
           AND c.expiration_date IS NOT NULL
           AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays}
           AND r.status = 'pending'
@@ -1488,6 +1540,7 @@ function auto_renew_fetch_group_approval_raw_rows(
             INNER JOIN `groups` g ON g.id = r.group_id
             LEFT JOIN owner o ON o.id = g.owner_id
             WHERE r.entity_type = 'group'
+              AND g.owner_id IS NOT NULL
               AND r.status = ?
               AND r.processed_at >= DATE_SUB(NOW(), INTERVAL {$historyDays} DAY)
         ";
@@ -1512,6 +1565,7 @@ function auto_renew_fetch_group_approval_raw_rows(
                AND r.expiration_snapshot = g.expiration_date
             LEFT JOIN owner o ON o.id = g.owner_id
             WHERE g.expiration_date IS NOT NULL
+              AND g.owner_id IS NOT NULL
               AND (
                     (r.status = 'pending' AND DATEDIFF(g.expiration_date, CURDATE()) <= {$windowDays})
                     OR (
@@ -1541,6 +1595,7 @@ function auto_renew_fetch_group_approval_raw_rows(
            AND r.expiration_snapshot = g.expiration_date
         LEFT JOIN owner o ON o.id = g.owner_id
         WHERE g.expiration_date IS NOT NULL
+          AND g.owner_id IS NOT NULL
           AND DATEDIFF(g.expiration_date, CURDATE()) <= {$windowDays}
           AND r.status = 'pending'
     ");
@@ -1611,6 +1666,7 @@ function auto_renew_count_window_requests(PDO $pdo, int $windowDays, ?string $en
            AND r.entity_type = 'company'
            AND r.expiration_snapshot = c.expiration_date
         WHERE UPPER(TRIM(c.company_id)) <> 'C168'
+          AND c.owner_id IS NOT NULL
           AND c.expiration_date IS NOT NULL
           AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays}
     ");
@@ -1637,6 +1693,7 @@ function auto_renew_count_window_requests(PDO $pdo, int $windowDays, ?string $en
                AND r.entity_type = 'group'
                AND r.expiration_snapshot = g.expiration_date
             WHERE g.expiration_date IS NOT NULL
+              AND g.owner_id IS NOT NULL
               AND DATEDIFF(g.expiration_date, CURDATE()) <= {$windowDays}
         ");
         $groupCounts = $groupStmt ? ($groupStmt->fetch(PDO::FETCH_ASSOC) ?: []) : [];

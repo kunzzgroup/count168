@@ -57,6 +57,11 @@ function ownershipPctOut($value): string {
     return money_out($value, 2);
 }
 
+$stmtNativeOwner = $pdo->prepare('SELECT owner_id FROM company WHERE id = ?');
+$stmtNativeOwner->execute([(int) $company_id]);
+$nativeOwnerId = (int) $stmtNativeOwner->fetchColumn();
+ownership_enrich_external_partner_flags($owners, $nativeOwnerId);
+
 // Validate total percentage (external partners may hold equity; 0% allowed while unallocated)
 $total_percentage = '0.00';
 foreach ($owners as $owner) {
