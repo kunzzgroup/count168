@@ -10,6 +10,7 @@ import ExpirationReminderModal from "./ExpirationReminderModal.jsx";
 import { AuthSessionProvider } from "../context/AuthSessionContext.jsx";
 import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
 import SidebarFlyoutSubmenu from "./SidebarFlyoutSubmenu.jsx";
+import { dismissAllPortalTooltips } from "./PortalTooltip.jsx";
 import { DASHBOARD_I18N } from "../translateFile/shell/dashboardTranslate.js";
 import { formatUserRoleDisplay, getUserListText } from "../translateFile/pages/userListTranslate.js";
 import { getExpirationReminderText } from "../translateFile/shell/expirationReminderTranslate.js";
@@ -217,7 +218,6 @@ export default function AuthenticatedLayout() {
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hoverSection, setHoverSection] = useState(null);
-  const [submenuPos, setSubmenuPos] = useState({ report: { top: 0, left: 0 }, maintenance: { top: 0, left: 0 } });
   const reportTitleRef = useRef(null);
   const maintenanceTitleRef = useRef(null);
   const submenuCloseTimerRef = useRef(null);
@@ -1061,20 +1061,12 @@ export default function AuthenticatedLayout() {
     setLang(normalized);
     applyLoginLang(normalized);
   };
-  const openHoverSubmenu = (section, el) => {
-    if (!el) return;
+  const openHoverSubmenu = (section) => {
     if (submenuCloseTimerRef.current) {
       clearTimeout(submenuCloseTimerRef.current);
       submenuCloseTimerRef.current = null;
     }
-    const rect = el.getBoundingClientRect();
-    setSubmenuPos((prev) => ({
-      ...prev,
-      [section]: {
-        top: Math.max(8, rect.top - 2),
-        left: rect.right,
-      },
-    }));
+    dismissAllPortalTooltips();
     setHoverSection(section);
   };
 
@@ -1092,22 +1084,6 @@ export default function AuthenticatedLayout() {
       submenuCloseTimerRef.current = null;
     }
   }, []);
-
-  useEffect(() => {
-    const root = menuContentRef.current;
-    if (!root || !hoverSection) return undefined;
-    const syncSubmenuPosition = () => {
-      const el =
-        hoverSection === "report" ? reportTitleRef.current : maintenanceTitleRef.current;
-      if (el) openHoverSubmenu(hoverSection, el);
-    };
-    root.addEventListener("scroll", syncSubmenuPosition, { passive: true });
-    window.addEventListener("resize", syncSubmenuPosition, { passive: true });
-    return () => {
-      root.removeEventListener("scroll", syncSubmenuPosition);
-      window.removeEventListener("resize", syncSubmenuPosition);
-    };
-  }, [hoverSection]);
 
   const sessionContextValue = useMemo(
     () => ({
@@ -1372,7 +1348,7 @@ export default function AuthenticatedLayout() {
                     data-section="report"
                     onMouseEnter={() => {
                       cancelCloseHoverSubmenu();
-                      openHoverSubmenu("report", reportTitleRef.current);
+                      openHoverSubmenu("report");
                     }}
                     role="presentation"
                   >
@@ -1386,8 +1362,7 @@ export default function AuthenticatedLayout() {
                 <SidebarFlyoutSubmenu
                   id="report-submenu"
                   open={hoverSection === "report"}
-                  top={submenuPos.report.top}
-                  left={submenuPos.report.left}
+                  anchorRef={reportTitleRef}
                   onMouseEnter={() => {
                     cancelCloseHoverSubmenu();
                     setHoverSection("report");
@@ -1422,7 +1397,7 @@ export default function AuthenticatedLayout() {
                     data-section="maintenance"
                     onMouseEnter={() => {
                       cancelCloseHoverSubmenu();
-                      openHoverSubmenu("maintenance", maintenanceTitleRef.current);
+                      openHoverSubmenu("maintenance");
                     }}
                     role="presentation"
                   >
@@ -1436,8 +1411,7 @@ export default function AuthenticatedLayout() {
                 <SidebarFlyoutSubmenu
                   id="maintenance-submenu"
                   open={hoverSection === "maintenance"}
-                  top={submenuPos.maintenance.top}
-                  left={submenuPos.maintenance.left}
+                  anchorRef={maintenanceTitleRef}
                   onMouseEnter={() => {
                     cancelCloseHoverSubmenu();
                     setHoverSection("maintenance");
