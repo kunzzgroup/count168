@@ -772,9 +772,8 @@
     border-radius: 25px 0 0 25px;
     margin: 0;
     position: relative;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    overflow: visible;
+    isolation: isolate;
     min-width: 0;
     text-decoration: none;
 }
@@ -789,21 +788,32 @@
 .informationmenu-section-title::before {
     content: '';
     position: absolute;
-    top: 0;
-    right: -100%;
-    width: 100%;
-    height: 100%;
+    inset: 0;
+    width: auto;
+    height: auto;
     background: transparent;
-    box-shadow: 
+    box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.4),
         inset 0 -1px 0 rgba(255, 255, 255, 0.4);
-    transition: right 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    z-index: -1;
-    border-radius: 25px 0 0 25px;
+    opacity: 0;
+    transition: opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 0;
+    pointer-events: none;
+    border-radius: inherit;
 }
 
-.informationmenu-section-title:hover::before {
-    right: 0;
+.informationmenu-section-title:hover::before,
+.informationmenu-section-title.current-page::before,
+.informationmenu-section-title.active::before {
+    opacity: 1;
+}
+
+.informationmenu-section-title .section-icon,
+.informationmenu-section-title .sidebar-menu-label,
+.informationmenu-section-title .sidebar-menu-label-wrap,
+.informationmenu-section-title .section-arrow {
+    position: relative;
+    z-index: 1;
 }
 
 .informationmenu-section-title:hover {
@@ -831,12 +841,14 @@
 .informationmenu-section-title.current-page {
     background: var(--sidebar-active-bg, #0e93f3);
     color: #fff;
-    transform: translate(5px);
-    box-shadow: 0 4px 20px #4facfe66;
+    transform: translateX(5px);
+    box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4);
 }
 
 .informationmenu-section-title.current-page::before {
-    right: 0;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .informationmenu-section-title.current-page .section-icon {
@@ -1018,9 +1030,23 @@
     background: rgba(255, 255, 255, 0.35);
 }
 
-.menu-item-wrapper:hover .informationmenu-section-title {
-    background: rgba(255, 255, 255, 0.25);
+.menu-item-wrapper:hover .informationmenu-section-title::before {
+    opacity: 1;
+}
+
+.menu-item-wrapper:hover .informationmenu-section-title:not(.current-page) {
+    background: rgba(255, 255, 255, 0.1);
     color: white;
+    transform: translateX(5px);
+    box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4);
+}
+
+.menu-item-wrapper:hover .informationmenu-section-title:not(.current-page) .section-icon {
+    transform: scale(1.1);
+}
+
+.menu-item-wrapper:hover .informationmenu-section-title:not(.current-page) .section-arrow {
+    transform: translateX(3px);
 }
 
 .submenu-content {
@@ -1122,7 +1148,8 @@
     letter-spacing: 0.02em;
 }
 
-/* Nav scroll rail — see src/styles/sidebar-scroll.css (Vite bundle, do not duplicate here) */
+/* Nav scroll rail — see src/styles/sidebar-scroll.css (Vite bundle).
+ * Menu pill halo/glow — canonical rules in this file (~.informationmenu-section-title); do not duplicate in sidebar-scroll.css. */
 
 /* Keep sidebar language switch size stable across pages/viewports */
 .informationmenu-header .sidebar-lang-switch-wrap {
@@ -2112,6 +2139,11 @@ body.ec-auth-shell .informationmenu .submenu-item {
 
     .informationmenu.is-collapsed .informationmenu-section-title:hover {
         transform: none;
+        box-shadow: none;
+    }
+
+    .informationmenu.is-collapsed .informationmenu-section-title::before {
+        opacity: 0;
     }
 
     .informationmenu.is-collapsed .section-icon {
@@ -2312,6 +2344,16 @@ body.ec-auth-shell #root > :is(
     position: relative;
     display: w-fit;
     max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.informationmenu-section-title .sidebar-menu-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     min-width: 0;
 }
 

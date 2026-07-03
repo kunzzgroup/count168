@@ -1,6 +1,6 @@
 /*
  * Sidebar nav scroll — match count168.org DOM (.informationmenu-content scrolls).
- * Hide native scrollbar on Windows; keep org ::before halo + outer glow (see sidebar.css base).
+ * Hide native scrollbar on Windows. Halo/glow lives in public/css/sidebar.css (post-bundle).
  */
 body.ec-auth-shell .informationmenu {
   display: flex;
