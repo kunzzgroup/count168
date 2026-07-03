@@ -1854,6 +1854,8 @@ body.ec-auth-shell .informationmenu .informationmenu-section-title {
     width: calc(100% + var(--sidebar-menu-pad-x, 1.6rem)) !important;
     max-width: none;
     box-sizing: border-box;
+    position: relative;
+    z-index: 1;
 }
 
 body.ec-auth-shell .informationmenu .informationmenu-section-title:hover,

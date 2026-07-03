@@ -27,6 +27,7 @@ body.ec-auth-shell .informationmenu-footer {
   width: 100%;
   max-width: 100%;
   overflow: hidden;
+  overflow-x: clip;
   position: relative;
   isolation: isolate;
   background: var(--sidebar-shell-bg, #002d49);
