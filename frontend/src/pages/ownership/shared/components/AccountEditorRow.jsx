@@ -212,6 +212,7 @@ export default function AccountEditorRow({
               isEditingPctRef.current = false;
             }}
             onInput={(e) => commitSliderPct(e.target.value)}
+            onChange={(e) => commitSliderPct(e.target.value)}
           />
           <div className="own-slider-labels">
             <span>0%</span>
