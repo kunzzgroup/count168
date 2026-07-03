@@ -51,10 +51,16 @@ export default function AccountEditorRow({
   const isEditingPctRef = useRef(false);
 
   useEffect(() => {
-    if (isEditingPctRef.current) return;
+    if (isEditingPctRef.current) {
+      if (Math.abs(storedPct - displayPct) < 0.001) {
+        isEditingPctRef.current = false;
+      } else {
+        return;
+      }
+    }
     setDisplayPct(storedPct);
     setInputValue(`${storedPct}%`);
-  }, [rowClientId, storedPct]);
+  }, [rowClientId, storedPct, displayPct]);
 
   useEffect(() => {
     requestAnimationFrame(() => applySliderBg(sliderRef.current, displayPct));
@@ -163,7 +169,7 @@ export default function AccountEditorRow({
         value={row.account_id}
         accounts={accountsForRowPicker(accounts, row.account_id)}
         displayLabel={row.account_label}
-        disabled={layoutLocked || row.is_external_partner}
+        disabled={layoutLocked || isPartnerRow}
         t={t}
         onChange={(id) => onUpdate(idx, "account_id", id)}
       />
@@ -184,7 +190,6 @@ export default function AccountEditorRow({
           }}
           onChange={(e) => setInputValue(e.target.value)}
           onBlur={(e) => {
-            isEditingPctRef.current = false;
             const next = Math.min(normalizePct(e.target.value), effectivePctMax);
             setDisplayPct(next);
             setInputValue(`${next}%`);
@@ -205,12 +210,8 @@ export default function AccountEditorRow({
             onPointerDown={() => {
               isEditingPctRef.current = true;
             }}
-            onPointerUp={() => {
-              isEditingPctRef.current = false;
-            }}
-            onPointerCancel={() => {
-              isEditingPctRef.current = false;
-            }}
+            onPointerUp={() => {}}
+            onPointerCancel={() => {}}
             onInput={(e) => commitSliderPct(e.target.value)}
             onChange={(e) => commitSliderPct(e.target.value)}
           />
