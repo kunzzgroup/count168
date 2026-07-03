@@ -211,9 +211,7 @@ export default function AuthenticatedLayout() {
   const pageKey = pathnameToPageKey(path);
   const isDataCaptureSidebarActive =
     pageKey === "datacapture" ||
-    pageKey === "datacapturesummary" ||
-    pageKey === "capture-maintenance" ||
-    pageKey === "transaction-maintenance";
+    pageKey === "datacapturesummary";
   const chromelessPaymentHistory = isPaymentHistoryChromelessPath(path, searchParams);
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
