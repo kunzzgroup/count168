@@ -1,6 +1,6 @@
 /*
- * Sidebar scroll rail only — menu chrome stays in public/css/sidebar.css (from org).
- * Geometry must match org: menu pills flush to the right edge; halo via bleed margins only.
+ * Sidebar nav scroll — macOS-like: no visible scrollbar on Windows, scroll still works.
+ * Single source of truth for scroll rail; do not duplicate in public/css/sidebar.css.
  */
 body.ec-auth-shell .informationmenu {
   display: flex;
@@ -8,38 +8,57 @@ body.ec-auth-shell .informationmenu {
   overflow: visible !important;
 }
 
-body.ec-auth-shell .informationmenu-header,
-body.ec-auth-shell .informationmenu-footer {
+body.ec-auth-shell .informationmenu-header {
   flex-shrink: 0;
+  position: relative;
+  z-index: 3;
 }
 
+body.ec-auth-shell .informationmenu-footer {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 3;
+}
+
+/* Clip parent — flex:1 rail; overflow hidden trims scrollbar drawn outside menu width */
 .sidebar-scroll-clip {
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
   max-width: 100%;
-  overflow: visible;
+  overflow: hidden;
   position: relative;
-  background: transparent;
-  box-sizing: border-box;
+  isolation: isolate;
+  background: var(--sidebar-shell-bg, #002d49);
+}
+
+/* Mask any sub-pixel bleed at the sidebar / content seam */
+body.ec-auth-shell .sidebar-scroll-clip::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--sidebar-shell-bg, #002d49);
+  pointer-events: none;
+  z-index: 2;
 }
 
 body.ec-auth-shell .sidebar-scroll-clip {
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
-/* Scrollbar hidden in right gutter; no horizontal inset on menu items */
+/* Scroll container — wider than clip so native scrollbar sits in clipped zone */
 .sidebar-scroll {
-  --sidebar-menu-halo-pad: 14px;
   height: 100%;
   max-height: 100%;
-  width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px));
+  width: calc(100% + var(--sidebar-scrollbar-clip-pad, 24px));
   max-width: none;
-  margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px));
-  padding: var(--sidebar-menu-halo-pad, 14px) var(--sidebar-scrollbar-clip-pad, 20px)
-    var(--sidebar-menu-halo-pad, 14px) 0;
+  padding-right: var(--sidebar-scrollbar-clip-pad, 24px);
+  margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 24px));
   box-sizing: border-box;
   overflow-x: hidden;
   overflow-y: auto;
@@ -51,45 +70,47 @@ body.ec-auth-shell .sidebar-scroll-clip {
   -ms-overflow-style: none;
 }
 
-/* Full-width pills (org): extend past scrollbar gutter; left bleed for box-shadow halo */
-body.ec-auth-shell .sidebar-scroll > .informationmenu-content {
-  flex: 0 0 auto !important;
-  min-height: min-content !important;
+body.ec-auth-shell .informationmenu-content {
   overflow: visible !important;
-  box-sizing: border-box !important;
-  width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px) + var(--sidebar-menu-halo-pad, 14px)) !important;
-  margin-left: calc(-1 * var(--sidebar-menu-halo-pad, 14px)) !important;
-  margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px)) !important;
-  padding-left: var(--sidebar-menu-halo-pad, 14px) !important;
+  overflow-x: clip !important;
+  flex: 0 0 auto;
+  min-height: min-content;
+  display: flex;
+  flex-direction: column;
   padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
+  width: 100%;
+  max-width: 100%;
 }
 
-body.ec-auth-shell .sidebar-scroll .informationmenu-section {
-  margin-bottom: 0;
+/* Keep hover/active chrome inside the visible rail (no white arc bleed at clip edge) */
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title::before {
+  width: calc(100% - 6px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.28);
 }
 
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title {
-  overflow: visible !important;
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover::before,
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page::before {
+  right: 0;
+  width: calc(100% - 6px);
 }
 
-body.ec-auth-shell .informationmenu:not(.is-collapsed) .sidebar-scroll .informationmenu-section-title:hover {
-  box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4) !important;
-  transform: translateX(5px) !important;
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page {
+  transform: none;
+  margin-left: 5px;
+  width: calc(100% - 5px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 4px 16px rgba(15, 120, 200, 0.35);
 }
 
-body.ec-auth-shell .informationmenu:not(.is-collapsed) .sidebar-scroll .informationmenu-section-title:hover::before {
-  right: 0 !important;
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
+  transform: none;
+  margin-left: 5px;
+  width: calc(100% - 5px);
+  box-shadow: 0 4px 16px rgba(79, 172, 254, 0.28);
 }
 
-body.ec-auth-shell .informationmenu:not(.is-collapsed) .sidebar-scroll .informationmenu-section-title.current-page {
-  box-shadow: 0 4px 20px #4facfe66 !important;
-  transform: translateX(5px) !important;
-}
-
-body.ec-auth-shell .informationmenu:not(.is-collapsed) .sidebar-scroll .informationmenu-section-title.current-page::before {
-  right: 0 !important;
-}
-
+/* WebKit / legacy — belt-and-suspenders with physical clip */
 .sidebar-scroll::-webkit-scrollbar,
 .sidebar-scroll::-webkit-scrollbar-track,
 .sidebar-scroll::-webkit-scrollbar-thumb,
@@ -99,29 +120,38 @@ body.ec-auth-shell .informationmenu:not(.is-collapsed) .sidebar-scroll .informat
   display: none !important;
   background: transparent !important;
   border: none !important;
+  box-shadow: none !important;
   appearance: none;
   -webkit-appearance: none;
   opacity: 0 !important;
 }
 
+/* Desktop-like: no scrollbar shadow on hover/focus — wheel/touch scroll still works */
 body.ec-auth-shell .informationmenu:hover .sidebar-scroll,
 body.ec-auth-shell .sidebar-scroll:hover,
 body.ec-auth-shell .sidebar-scroll:focus-within {
   scrollbar-width: none !important;
+  scrollbar-color: transparent transparent !important;
   -ms-overflow-style: none !important;
 }
 
 body.ec-auth-shell .informationmenu:hover .sidebar-scroll::-webkit-scrollbar,
 body.ec-auth-shell .sidebar-scroll:hover::-webkit-scrollbar,
-body.ec-auth-shell .sidebar-scroll:focus-within::-webkit-scrollbar {
-  display: none !important;
+body.ec-auth-shell .sidebar-scroll:focus-within::-webkit-scrollbar,
+body.ec-auth-shell .informationmenu:hover .sidebar-scroll::-webkit-scrollbar-track,
+body.ec-auth-shell .sidebar-scroll:hover::-webkit-scrollbar-track,
+body.ec-auth-shell .sidebar-scroll:focus-within::-webkit-scrollbar-track,
+body.ec-auth-shell .informationmenu:hover .sidebar-scroll::-webkit-scrollbar-thumb,
+body.ec-auth-shell .sidebar-scroll:hover::-webkit-scrollbar-thumb,
+body.ec-auth-shell .sidebar-scroll:focus-within::-webkit-scrollbar-thumb,
+body.ec-auth-shell .informationmenu:hover .sidebar-scroll::-webkit-scrollbar-corner,
+body.ec-auth-shell .sidebar-scroll:hover::-webkit-scrollbar-corner,
+body.ec-auth-shell .sidebar-scroll:focus-within::-webkit-scrollbar-corner {
   width: 0 !important;
   height: 0 !important;
-}
-
-@media (max-width: 1280px) {
-  .informationmenu.is-collapsed .sidebar-scroll {
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
+  display: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
 }
