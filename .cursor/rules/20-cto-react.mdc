@@ -28,6 +28,30 @@ alwaysApply: false
 
 前端字段名、响应结构须与 PHP 端一致；改消费端前先读对应 `*_api.php`。
 
+## Responsive（仅 Tablet 及以上，不支援手机）
+
+**支持范围**：min-width **768px** 起，共 4 档。**禁止**新增 `<768px` 的手机适配样式。
+
+| 档位 | min-width 范围 | Media query |
+|------|----------------|-------------|
+| ec-s | 768 – 991 | `@media (min-width: 768px) and (max-width: 991.98px)` |
+| ec-m | 992 – 1199 | `@media (min-width: 992px) and (max-width: 1199.98px)` |
+| ec-l | 1200 – 1439 | `@media (min-width: 1200px) and (max-width: 1439.98px)` |
+| ec-xl | ≥ 1440 | `@media (min-width: 1440px)` |
+
+### 约定
+
+- **<768px**：不支援；勿为手机单独布局。不新增 `max-width: 767px` 等断点。
+- 新 responsive 样式写在 `frontend/public/css/{page}.css`（build 同步 `dist/css/`）；禁止自创新断点（如 1024、1280、1366）。
+- 遗留 CSS 若已有非标准断点：本次改动尽量迁到上表 4 档，或注释「沿用遗留」勿混用两套。
+- 优先 `clamp()`、`max-width: 100%`；禁止只适配单一分辨率的死 px。
+- 全站布局变量（`--layout-*`）或 `global-13inch.css` → Standard Track + 确认闸门。
+- 单页、单组件按 4 档微调 → Fast Track 可接受。
+
+### Tailwind（若用 `className`）
+
+使用 `tailwind.config.js` 中的 `ec-s` / `ec-m` / `ec-l` / `ec-xl`，勿用未映射的默认 `sm`/`md`/`lg` 做 responsive。
+
 ## 验证
 
 改 `frontend/` 后任务结束前必须：
