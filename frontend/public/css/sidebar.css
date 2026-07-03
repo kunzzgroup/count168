@@ -2406,7 +2406,9 @@ body.ec-auth-shell .informationmenu .informationmenu-section-title:hover {
     transform: translateX(5px) !important;
     background: rgba(255, 255, 255, 0.12) !important;
     color: #fff !important;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55) !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+        0 4px 14px rgba(79, 172, 254, 0.32) !important;
     outline: none !important;
     text-shadow: none !important;
 }
@@ -2417,7 +2419,10 @@ body.ec-auth-shell .informationmenu .informationmenu-section-title:active {
     transform: translateX(5px) !important;
     background: var(--sidebar-active-bg, #0e93f3) !important;
     color: #fff !important;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7) !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.75),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 4px 18px rgba(15, 120, 200, 0.45) !important;
     outline: none !important;
     text-shadow: none !important;
     transition: none !important;
@@ -2428,7 +2433,10 @@ body.ec-auth-shell .informationmenu .informationmenu-section-title.current-page 
     transform: translateX(5px) !important;
     background: var(--sidebar-active-bg, #0e93f3) !important;
     color: #fff !important;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7) !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.75),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 4px 18px rgba(15, 120, 200, 0.45) !important;
     outline: none !important;
     text-shadow: none !important;
 }
