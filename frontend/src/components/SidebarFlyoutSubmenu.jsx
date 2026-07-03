@@ -4,18 +4,23 @@ import { createPortal } from "react-dom";
 const VIEWPORT_PAD = 8;
 const FOOTER_GAP = 4;
 
+function resolveFooterBottomLimit(anchorEl) {
+  const footer =
+    anchorEl.closest(".informationmenu")?.querySelector(".informationmenu-footer") ??
+    document.querySelector(".informationmenu-footer");
+  return footer
+    ? footer.getBoundingClientRect().top - FOOTER_GAP
+    : window.innerHeight - VIEWPORT_PAD;
+}
+
 function computeFlyoutPosition(anchorEl, flyoutEl) {
   const anchorRect = anchorEl.getBoundingClientRect();
   const flyoutHeight = flyoutEl.offsetHeight;
   const flyoutWidth = flyoutEl.offsetWidth;
+  const bottomLimit = resolveFooterBottomLimit(anchorEl);
 
   let top = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
   let left = anchorRect.right;
-
-  const footer = document.querySelector(".informationmenu-footer");
-  const bottomLimit = footer
-    ? footer.getBoundingClientRect().top - FOOTER_GAP
-    : window.innerHeight - VIEWPORT_PAD;
 
   if (top + flyoutHeight > bottomLimit) {
     top = Math.max(VIEWPORT_PAD, bottomLimit - flyoutHeight);
@@ -25,7 +30,11 @@ function computeFlyoutPosition(anchorEl, flyoutEl) {
     left = Math.max(VIEWPORT_PAD, window.innerWidth - flyoutWidth - VIEWPORT_PAD);
   }
 
-  return { top, left };
+  const viewportMax = window.innerHeight - VIEWPORT_PAD * 2;
+  const footerMax = Math.max(0, bottomLimit - top);
+  const maxHeight = Math.min(viewportMax, footerMax);
+
+  return { top, left, maxHeight };
 }
 
 /** Flyout submenu portaled to body — escapes sidebar overflow/transform clipping. */
@@ -38,7 +47,7 @@ export default function SidebarFlyoutSubmenu({
   children,
 }) {
   const flyoutRef = useRef(null);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [pos, setPos] = useState({ top: 0, left: 0, maxHeight: 0 });
   const [positioned, setPositioned] = useState(false);
 
   useLayoutEffect(() => {
@@ -54,26 +63,33 @@ export default function SidebarFlyoutSubmenu({
     const sync = () => {
       const next = computeFlyoutPosition(anchor, flyout);
       setPos((prev) =>
-        prev.top === next.top && prev.left === next.left ? prev : next,
+        prev.top === next.top &&
+        prev.left === next.left &&
+        prev.maxHeight === next.maxHeight
+          ? prev
+          : next,
       );
       setPositioned(true);
     };
 
     sync();
 
-    const menuContent = document.querySelector(".informationmenu-content");
+    const menuContent = anchor.closest(".informationmenu-content");
     menuContent?.addEventListener("scroll", sync, { passive: true });
     window.addEventListener("resize", sync, { passive: true });
+    window.addEventListener("ec:sidebar-layout-changed", sync);
 
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(sync) : null;
     ro?.observe(flyout);
+    ro?.observe(anchor);
 
     return () => {
       menuContent?.removeEventListener("scroll", sync);
       window.removeEventListener("resize", sync);
+      window.removeEventListener("ec:sidebar-layout-changed", sync);
       ro?.disconnect();
     };
-  }, [open, anchorRef, children]);
+  }, [open, anchorRef]);
 
   if (!open || typeof document === "undefined" || !document.body) return null;
 
@@ -91,7 +107,7 @@ export default function SidebarFlyoutSubmenu({
         transform: "translateX(0)",
         pointerEvents: "auto",
         zIndex: 4000,
-        maxHeight: `calc(100dvh - ${VIEWPORT_PAD * 2}px)`,
+        maxHeight: pos.maxHeight > 0 ? pos.maxHeight : `calc(100dvh - ${VIEWPORT_PAD * 2}px)`,
         overflowY: "auto",
       }}
       aria-hidden={!open}
