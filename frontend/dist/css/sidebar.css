@@ -1021,7 +1021,7 @@
     transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     pointer-events: none;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: visible;
     backdrop-filter: blur(10px);
     margin-left: 0px;
 }
@@ -1030,6 +1030,30 @@
     opacity: 1;
     transform: translateX(0);
     pointer-events: auto;
+}
+
+.submenu.submenu--scrollable {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+.submenu.submenu--scrollable::-webkit-scrollbar {
+    width: 3px;
+}
+
+.submenu.submenu--scrollable::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.submenu.submenu--scrollable::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 999px;
+}
+
+.submenu.submenu--scrollable:hover::-webkit-scrollbar-thumb,
+.submenu.submenu--scrollable:focus-within::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.22);
 }
 
 .menu-item-wrapper:hover .informationmenu-section-title {

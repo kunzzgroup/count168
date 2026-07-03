@@ -199,3 +199,30 @@ body.transaction-page .transaction-search-section .transaction-checkboxes.userli
     height: 0 !important;
     background: transparent !important;
 }
+
+/* Portaled sidebar flyout — override body * 12px scrollbar */
+body.ec-auth-shell .submenu.submenu--scrollable {
+    scrollbar-width: thin !important;
+    scrollbar-color: transparent transparent !important;
+}
+
+body.ec-auth-shell .submenu.submenu--scrollable::-webkit-scrollbar {
+    width: 3px !important;
+    height: 3px !important;
+}
+
+body.ec-auth-shell .submenu.submenu--scrollable::-webkit-scrollbar-track {
+    background: transparent !important;
+    border: none !important;
+}
+
+body.ec-auth-shell .submenu.submenu--scrollable::-webkit-scrollbar-thumb {
+    background: transparent !important;
+    border: none !important;
+    min-height: 24px;
+}
+
+body.ec-auth-shell .submenu.submenu--scrollable:hover::-webkit-scrollbar-thumb,
+body.ec-auth-shell .submenu.submenu--scrollable:focus-within::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.22) !important;
+}

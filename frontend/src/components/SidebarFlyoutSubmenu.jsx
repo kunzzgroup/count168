@@ -13,24 +13,40 @@ function resolveFooterBottomLimit(anchorEl) {
     : window.innerHeight - VIEWPORT_PAD;
 }
 
+function measureFlyoutNaturalHeight(flyoutEl) {
+  const savedMax = flyoutEl.style.maxHeight;
+  flyoutEl.style.maxHeight = "none";
+  const height = flyoutEl.scrollHeight;
+  flyoutEl.style.maxHeight = savedMax;
+  return height;
+}
+
 function computeFlyoutPosition(anchorEl, flyoutEl) {
   const anchorRect = anchorEl.getBoundingClientRect();
-  const flyoutWidth = flyoutEl.offsetWidth;
+  const flyoutWidth = flyoutEl.offsetWidth || 160;
   const bottomLimit = resolveFooterBottomLimit(anchorEl);
+  const viewportBottom = window.innerHeight - VIEWPORT_PAD;
+  const naturalHeight = measureFlyoutNaturalHeight(flyoutEl);
 
-  // Always align with anchor — never shift top upward; clip via maxHeight + scroll.
-  const top = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
   let left = anchorRect.right;
-
   if (left + flyoutWidth > window.innerWidth - VIEWPORT_PAD) {
     left = Math.max(VIEWPORT_PAD, window.innerWidth - flyoutWidth - VIEWPORT_PAD);
   }
 
-  const viewportMax = Math.max(0, window.innerHeight - VIEWPORT_PAD - top);
-  const footerMax = Math.max(0, bottomLimit - top);
-  const maxHeight = Math.min(viewportMax, footerMax);
+  const anchorTop = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
+  let top = anchorTop;
+  let available = Math.min(bottomLimit - top, viewportBottom - top);
 
-  return { top, left, maxHeight };
+  // Near footer: grow upward so the menu is not clipped to one row.
+  if (naturalHeight > available) {
+    top = Math.max(VIEWPORT_PAD, bottomLimit - naturalHeight);
+    available = Math.min(bottomLimit - top, viewportBottom - top);
+  }
+
+  const scrollable = naturalHeight > available;
+  const maxHeight = scrollable ? Math.max(available, 0) : null;
+
+  return { top, left, maxHeight, scrollable };
 }
 
 /** Flyout submenu portaled to body — escapes sidebar overflow/transform clipping. */
@@ -43,7 +59,7 @@ export default function SidebarFlyoutSubmenu({
   children,
 }) {
   const flyoutRef = useRef(null);
-  const [pos, setPos] = useState({ top: 0, left: 0, maxHeight: 0 });
+  const [pos, setPos] = useState({ top: 0, left: 0, maxHeight: null, scrollable: false });
   const [positioned, setPositioned] = useState(false);
 
   useLayoutEffect(() => {
@@ -61,7 +77,8 @@ export default function SidebarFlyoutSubmenu({
       setPos((prev) =>
         prev.top === next.top &&
         prev.left === next.left &&
-        prev.maxHeight === next.maxHeight
+        prev.maxHeight === next.maxHeight &&
+        prev.scrollable === next.scrollable
           ? prev
           : next,
       );
@@ -70,8 +87,10 @@ export default function SidebarFlyoutSubmenu({
 
     sync();
 
-    const menuContent = anchor.closest(".informationmenu-content");
-    menuContent?.addEventListener("scroll", sync, { passive: true });
+    const menuScroll =
+      anchor.closest(".informationmenu-scroll") ??
+      anchor.closest(".informationmenu-content");
+    menuScroll?.addEventListener("scroll", sync, { passive: true });
     window.addEventListener("resize", sync, { passive: true });
     window.addEventListener("ec:sidebar-layout-changed", sync);
 
@@ -80,7 +99,7 @@ export default function SidebarFlyoutSubmenu({
     ro?.observe(anchor);
 
     return () => {
-      menuContent?.removeEventListener("scroll", sync);
+      menuScroll?.removeEventListener("scroll", sync);
       window.removeEventListener("resize", sync);
       window.removeEventListener("ec:sidebar-layout-changed", sync);
       ro?.disconnect();
@@ -89,10 +108,12 @@ export default function SidebarFlyoutSubmenu({
 
   if (!open || typeof document === "undefined" || !document.body) return null;
 
+  const className = `submenu show${pos.scrollable ? " submenu--scrollable" : ""}`;
+
   return createPortal(
     <div
       ref={flyoutRef}
-      className="submenu show"
+      className={className}
       id={id}
       style={{
         position: "fixed",
@@ -103,8 +124,7 @@ export default function SidebarFlyoutSubmenu({
         transform: "translateX(0)",
         pointerEvents: "auto",
         zIndex: 4000,
-        maxHeight: pos.maxHeight > 0 ? pos.maxHeight : `calc(100dvh - ${VIEWPORT_PAD * 2}px)`,
-        overflowY: "auto",
+        ...(pos.maxHeight != null ? { maxHeight: pos.maxHeight } : {}),
       }}
       aria-hidden={!open}
       onMouseEnter={onMouseEnter}
