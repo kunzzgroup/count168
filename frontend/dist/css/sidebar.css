@@ -2387,7 +2387,14 @@ body.ec-auth-shell .informationmenu .informationmenu-content {
 body.ec-auth-shell .informationmenu a.informationmenu-section-title,
 body.ec-auth-shell .informationmenu .informationmenu-section-title {
     overflow: visible !important;
-    transition: transform 0.2s ease, background 0.08s ease, box-shadow 0.08s ease, color 0.08s ease !important;
+    box-sizing: border-box !important;
+    border: 1px solid transparent !important;
+    transition:
+        transform 0.2s ease,
+        background 0.08s ease,
+        border-color 0.08s ease,
+        box-shadow 0.08s ease,
+        color 0.08s ease !important;
 }
 
 body.ec-auth-shell .informationmenu a.informationmenu-section-title::before,
@@ -2406,9 +2413,11 @@ body.ec-auth-shell .informationmenu .informationmenu-section-title:hover {
     transform: translateX(5px) !important;
     background: rgba(255, 255, 255, 0.12) !important;
     color: #fff !important;
+    border-color: rgba(255, 255, 255, 0.55) !important;
+    /* Inset only — outer shadow is clipped by .sidebar-scroll-clip overflow:hidden */
     box-shadow:
-        inset 0 0 0 1px rgba(255, 255, 255, 0.55),
-        0 4px 14px rgba(79, 172, 254, 0.32) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.42),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.42) !important;
     outline: none !important;
     text-shadow: none !important;
 }
@@ -2419,10 +2428,10 @@ body.ec-auth-shell .informationmenu .informationmenu-section-title:active {
     transform: translateX(5px) !important;
     background: var(--sidebar-active-bg, #0e93f3) !important;
     color: #fff !important;
+    border-color: rgba(255, 255, 255, 0.8) !important;
     box-shadow:
-        inset 0 0 0 1px rgba(255, 255, 255, 0.75),
-        inset 0 1px 0 rgba(255, 255, 255, 0.22),
-        0 4px 18px rgba(15, 120, 200, 0.45) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.35) !important;
     outline: none !important;
     text-shadow: none !important;
     transition: none !important;
@@ -2433,10 +2442,10 @@ body.ec-auth-shell .informationmenu .informationmenu-section-title.current-page 
     transform: translateX(5px) !important;
     background: var(--sidebar-active-bg, #0e93f3) !important;
     color: #fff !important;
+    border-color: rgba(255, 255, 255, 0.8) !important;
     box-shadow:
-        inset 0 0 0 1px rgba(255, 255, 255, 0.75),
-        inset 0 1px 0 rgba(255, 255, 255, 0.22),
-        0 4px 18px rgba(15, 120, 200, 0.45) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.35) !important;
     outline: none !important;
     text-shadow: none !important;
 }
@@ -2457,6 +2466,7 @@ body.ec-auth-shell .informationmenu .informationmenu-section-title:active .secti
 
 body.ec-auth-shell .informationmenu .menu-item-wrapper:hover > .informationmenu-section-title:not(:hover) {
     background: transparent !important;
+    border-color: transparent !important;
     box-shadow: none !important;
     outline: none !important;
     text-shadow: none !important;
