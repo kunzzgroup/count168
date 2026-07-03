@@ -5,11 +5,19 @@ alwaysApply: true
 
 # Frontend build
 
-When you change anything under `frontend/` (source, `public/`, Vite config, etc.), before finishing the task run a production build from the frontend package:
+When you change anything under `frontend/` (source, `public/`, Vite config, etc.), **before finishing the task** run a production build:
 
 ```bash
 cd frontend
 npm run build
 ```
 
-If the build fails, fix the errors and re-run until it passes. This keeps `frontend/dist` aligned with what Hostinger or static deploy expects.
+If the build fails, fix the errors and re-run until it passes.
+
+## After a successful build
+
+`postbuild` runs `scripts/git-sync-after-build.mjs` (cleans `dist/assets` churn, stages `frontend/src` + `public` + `dist/css`).
+
+Agents: always run `npm run build` — do not copy files into `dist` by hand.
+
+Only commit `frontend/dist/assets` + `index.html` when the user explicitly asks to ship a full frontend deploy bundle.
