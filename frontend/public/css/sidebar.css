@@ -745,12 +745,11 @@
 }
 
 .informationmenu-content {
-    overflow: visible;
-    flex: 0 0 auto;
-    min-height: min-content;
+    overflow-x: hidden;
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    /* Extra scroll runway so Report/Maintenance can move up away from footer */
     padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
 }
 
@@ -2094,12 +2093,6 @@ body.ec-auth-shell .informationmenu .submenu-item {
         height: 36px;
     }
 
-    .informationmenu.is-collapsed .sidebar-scroll-clip,
-    .informationmenu.is-collapsed .sidebar-scroll {
-        overflow-x: hidden;
-        overflow-y: auto;
-    }
-
     .informationmenu.is-collapsed .informationmenu-content {
         overflow: visible;
     }
@@ -2373,56 +2366,4 @@ body.ec-auth-shell #root > :is(
         text-align: center;
         font-variant-numeric: tabular-nums;
     }
-}
-
-/* =============================================================================
-   Auth shell menu pill halo — MUST stay last (wins over base ::before slide + blue glow).
-   Bundle (index-*.css) may lag; this file is also linked post-bundle in dist/index.html.
-   ============================================================================= */
-body.ec-auth-shell .informationmenu .informationmenu-content {
-    padding-left: 6px;
-    box-sizing: border-box;
-}
-
-body.ec-auth-shell .informationmenu a.informationmenu-section-title,
-body.ec-auth-shell .informationmenu .informationmenu-section-title {
-    overflow: visible !important;
-}
-
-body.ec-auth-shell .informationmenu a.informationmenu-section-title::before,
-body.ec-auth-shell .informationmenu .informationmenu-section-title::before,
-body.ec-auth-shell .informationmenu a.informationmenu-section-title:hover::before,
-body.ec-auth-shell .informationmenu .informationmenu-section-title:hover::before,
-body.ec-auth-shell .informationmenu a.informationmenu-section-title.current-page::before,
-body.ec-auth-shell .informationmenu .informationmenu-section-title.current-page::before {
-    display: none !important;
-    content: none !important;
-    box-shadow: none !important;
-}
-
-body.ec-auth-shell .informationmenu a.informationmenu-section-title:hover,
-body.ec-auth-shell .informationmenu .informationmenu-section-title:hover {
-    transform: translateX(5px) !important;
-    background: rgba(255, 255, 255, 0.12) !important;
-    color: #fff !important;
-    box-shadow: none !important;
-    outline: 1px solid rgba(255, 255, 255, 0.55) !important;
-    outline-offset: -1px;
-}
-
-body.ec-auth-shell .informationmenu a.informationmenu-section-title.current-page,
-body.ec-auth-shell .informationmenu .informationmenu-section-title.current-page {
-    transform: translateX(5px) !important;
-    background: var(--sidebar-active-bg, #0e93f3) !important;
-    color: #fff !important;
-    box-shadow: none !important;
-    outline: 1px solid rgba(255, 255, 255, 0.85) !important;
-    outline-offset: -1px;
-}
-
-body.ec-auth-shell .informationmenu .menu-item-wrapper:hover > .informationmenu-section-title:not(:hover) {
-    background: transparent !important;
-    box-shadow: none !important;
-    outline: none !important;
-    transform: none !important;
 }

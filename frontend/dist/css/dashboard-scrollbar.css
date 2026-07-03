@@ -19,7 +19,7 @@
 html,
 body,
 body #root,
-body *:not(.sidebar-scroll) {
+body *:not(.informationmenu-content) {
     scrollbar-width: auto;
     scrollbar-color: var(--dash-scrollbar-thumb) var(--dash-scrollbar-track);
 }
@@ -28,7 +28,7 @@ body *:not(.sidebar-scroll) {
 html::-webkit-scrollbar,
 body::-webkit-scrollbar,
 body #root::-webkit-scrollbar,
-body *:not(.sidebar-scroll)::-webkit-scrollbar {
+body *:not(.informationmenu-content)::-webkit-scrollbar {
     width: var(--dash-scrollbar-size) !important;
     height: var(--dash-scrollbar-size) !important;
 }
@@ -36,16 +36,16 @@ body *:not(.sidebar-scroll)::-webkit-scrollbar {
 html::-webkit-scrollbar-button,
 body::-webkit-scrollbar-button,
 body #root::-webkit-scrollbar-button,
-body *:not(.sidebar-scroll)::-webkit-scrollbar-button,
+body *:not(.informationmenu-content)::-webkit-scrollbar-button,
 html::-webkit-scrollbar-button:single-button,
 body::-webkit-scrollbar-button:single-button,
-body *:not(.sidebar-scroll)::-webkit-scrollbar-button:single-button,
+body *:not(.informationmenu-content)::-webkit-scrollbar-button:single-button,
 html::-webkit-scrollbar-button:vertical:decrement,
 html::-webkit-scrollbar-button:vertical:increment,
 body::-webkit-scrollbar-button:vertical:decrement,
 body::-webkit-scrollbar-button:vertical:increment,
-body *:not(.sidebar-scroll)::-webkit-scrollbar-button:vertical:decrement,
-body *:not(.sidebar-scroll)::-webkit-scrollbar-button:vertical:increment {
+body *:not(.informationmenu-content)::-webkit-scrollbar-button:vertical:decrement,
+body *:not(.informationmenu-content)::-webkit-scrollbar-button:vertical:increment {
     display: none;
     width: 0;
     height: 0;
@@ -57,8 +57,8 @@ body::-webkit-scrollbar-button:horizontal:decrement,
 body::-webkit-scrollbar-button:horizontal:increment,
 body #root::-webkit-scrollbar-button:horizontal:decrement,
 body #root::-webkit-scrollbar-button:horizontal:increment,
-body *:not(.sidebar-scroll)::-webkit-scrollbar-button:horizontal:decrement,
-body *:not(.sidebar-scroll)::-webkit-scrollbar-button:horizontal:increment {
+body *:not(.informationmenu-content)::-webkit-scrollbar-button:horizontal:decrement,
+body *:not(.informationmenu-content)::-webkit-scrollbar-button:horizontal:increment {
     display: none;
     width: 0;
     height: 0;
@@ -67,7 +67,7 @@ body *:not(.sidebar-scroll)::-webkit-scrollbar-button:horizontal:increment {
 html::-webkit-scrollbar-track,
 body::-webkit-scrollbar-track,
 body #root::-webkit-scrollbar-track,
-body *:not(.sidebar-scroll)::-webkit-scrollbar-track {
+body *:not(.informationmenu-content)::-webkit-scrollbar-track {
     background: var(--dash-scrollbar-track) !important;
     border-radius: var(--dash-scrollbar-radius) !important;
 }
@@ -75,7 +75,7 @@ body *:not(.sidebar-scroll)::-webkit-scrollbar-track {
 html::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb,
 body #root::-webkit-scrollbar-thumb,
-body *:not(.sidebar-scroll)::-webkit-scrollbar-thumb {
+body *:not(.informationmenu-content)::-webkit-scrollbar-thumb {
     background: var(--dash-scrollbar-thumb) !important;
     border-radius: var(--dash-scrollbar-radius) !important;
     border: var(--dash-scrollbar-thumb-border) !important;
@@ -85,21 +85,21 @@ body *:not(.sidebar-scroll)::-webkit-scrollbar-thumb {
 html::-webkit-scrollbar-thumb:hover,
 body::-webkit-scrollbar-thumb:hover,
 body #root::-webkit-scrollbar-thumb:hover,
-body *:not(.sidebar-scroll)::-webkit-scrollbar-thumb:hover {
+body *:not(.informationmenu-content)::-webkit-scrollbar-thumb:hover {
     background: var(--dash-scrollbar-thumb-hover) !important;
 }
 
 html::-webkit-scrollbar-thumb:active,
 body::-webkit-scrollbar-thumb:active,
 body #root::-webkit-scrollbar-thumb:active,
-body *:not(.sidebar-scroll)::-webkit-scrollbar-thumb:active {
+body *:not(.informationmenu-content)::-webkit-scrollbar-thumb:active {
     background: var(--dash-scrollbar-thumb-active) !important;
 }
 
 html::-webkit-scrollbar-corner,
 body::-webkit-scrollbar-corner,
 body #root::-webkit-scrollbar-corner,
-body *:not(.sidebar-scroll)::-webkit-scrollbar-corner {
+body *:not(.informationmenu-content)::-webkit-scrollbar-corner {
     background: var(--dash-scrollbar-track);
 }
 
@@ -128,7 +128,6 @@ body.member-winloss-page .member-dash-total-matrix-body,
 body.member-winloss-page .transaction-modal-body,
 body.member-winloss-page .transaction-table-wrapper,
 body.member-winloss-page .transaction-modal,
-body.member-winloss-page .sidebar-scroll,
 body.member-winloss-page .informationmenu-content,
 body.member-winloss-page .avatar-options {
     scrollbar-gutter: stable;
