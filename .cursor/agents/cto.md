@@ -23,6 +23,8 @@ description: >-
 
 ## 被调用时
 
+**前提**：Standard 任务须用户已通过「需求确认」闸门；Fast 可跳过。
+
 ### Phase 1 — CTO-Design（Standard 必须；Fast 跳过）
 
 1. Grep 依赖、API 调用链、路由
