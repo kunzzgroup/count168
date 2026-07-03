@@ -752,6 +752,8 @@
     max-width: 100%;
     overflow: hidden;
     position: relative;
+    isolation: isolate;
+    background: var(--sidebar-shell-bg, #002d49);
 }
 
 .sidebar-scroll,

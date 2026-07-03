@@ -5,7 +5,7 @@
 
 :root {
     --dash-scrollbar-size: 12px;
-    --sidebar-scrollbar-clip-pad: 20px;
+    --sidebar-scrollbar-clip-pad: 24px;
     --dash-scrollbar-track: #ececec;
     --dash-scrollbar-thumb: #4b5563;
     --dash-scrollbar-thumb-hover: #374151;

@@ -29,6 +29,22 @@ body.ec-auth-shell .informationmenu-footer {
   max-width: 100%;
   overflow: hidden;
   position: relative;
+  isolation: isolate;
+  background: var(--sidebar-shell-bg, #002d49);
+}
+
+/* Mask any sub-pixel bleed at the sidebar / content seam */
+body.ec-auth-shell .sidebar-scroll-clip::after,
+body.ec-auth-shell .informationmenu-scroll-clip::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--sidebar-shell-bg, #002d49);
+  pointer-events: none;
+  z-index: 2;
 }
 
 body.ec-auth-shell .sidebar-scroll-clip,
@@ -60,11 +76,47 @@ body.ec-auth-shell .informationmenu-scroll-clip {
 
 body.ec-auth-shell .informationmenu-content {
   overflow: visible !important;
+  overflow-x: clip !important;
   flex: 0 0 auto;
   min-height: min-content;
   display: flex;
   flex-direction: column;
   padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Keep hover/active chrome inside the visible rail (no white arc bleed at clip edge) */
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title::before,
+body.ec-auth-shell .informationmenu-scroll .informationmenu-section-title::before {
+  width: calc(100% - 6px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.28);
+}
+
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover::before,
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page::before,
+body.ec-auth-shell .informationmenu-scroll .informationmenu-section-title:hover::before,
+body.ec-auth-shell .informationmenu-scroll .informationmenu-section-title.current-page::before {
+  right: 0;
+  width: calc(100% - 6px);
+}
+
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page,
+body.ec-auth-shell .informationmenu-scroll .informationmenu-section-title.current-page {
+  transform: none;
+  margin-left: 5px;
+  width: calc(100% - 5px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 4px 16px rgba(15, 120, 200, 0.35);
+}
+
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover,
+body.ec-auth-shell .informationmenu-scroll .informationmenu-section-title:hover {
+  transform: none;
+  margin-left: 5px;
+  width: calc(100% - 5px);
+  box-shadow: 0 4px 16px rgba(79, 172, 254, 0.28);
 }
 
 /* WebKit / legacy — belt-and-suspenders with physical clip */
