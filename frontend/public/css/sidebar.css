@@ -1021,45 +1021,9 @@
     transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     pointer-events: none;
     overflow-x: hidden;
-    overflow-y: hidden;
-    overscroll-behavior: contain;
+    overflow-y: auto;
     backdrop-filter: blur(10px);
     margin-left: 0px;
-}
-
-/* Only when flyout content exceeds footer/viewport budget — match sidebar scroll chrome */
-.submenu.submenu--scrollable {
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-}
-
-.submenu.submenu--scrollable::-webkit-scrollbar {
-    width: 3px !important;
-    height: 3px !important;
-}
-
-.submenu.submenu--scrollable::-webkit-scrollbar-track {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-}
-
-.submenu.submenu--scrollable::-webkit-scrollbar-thumb {
-    background: transparent !important;
-    border: none !important;
-    border-radius: 999px !important;
-    min-height: 24px;
-    box-shadow: none !important;
-}
-
-.submenu.submenu--scrollable:hover::-webkit-scrollbar-thumb,
-.submenu.submenu--scrollable:focus-within::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.22) !important;
-}
-
-.submenu.submenu--scrollable::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.35) !important;
 }
 
 .submenu.show {
