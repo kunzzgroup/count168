@@ -1,6 +1,6 @@
 /*
  * Sidebar scroll rail only — menu chrome stays in public/css/sidebar.css (from org).
- * Do not override .informationmenu-section-title / halo / hover here.
+ * Clip layer must not use overflow:hidden (it kills current-page box-shadow halo).
  */
 body.ec-auth-shell .informationmenu {
   display: flex;
@@ -13,21 +13,22 @@ body.ec-auth-shell .informationmenu-footer {
   flex-shrink: 0;
 }
 
+/* Flex rail — overflow visible so menu item box-shadow halo can paint (org look) */
 .sidebar-scroll-clip {
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
-  background: var(--sidebar-shell-bg, #002d49);
+  background: transparent;
   box-sizing: border-box;
 }
 
 body.ec-auth-shell .sidebar-scroll-clip {
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  overflow: hidden !important;
+  overflow: visible !important;
 }
 
 .sidebar-scroll {
@@ -35,7 +36,7 @@ body.ec-auth-shell .sidebar-scroll-clip {
   max-height: 100%;
   width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px));
   max-width: none;
-  padding-right: var(--sidebar-scrollbar-clip-pad, 20px);
+  padding: 12px calc(var(--sidebar-scrollbar-clip-pad, 20px) + 4px) 12px 4px;
   margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px));
   box-sizing: border-box;
   overflow-x: hidden;
@@ -48,13 +49,22 @@ body.ec-auth-shell .sidebar-scroll-clip {
   -ms-overflow-style: none;
 }
 
-/* Scroll lives on .sidebar-scroll; inner content matches org layout */
+/* Scroll on .sidebar-scroll; inner content keeps org flex (no second scroll) */
 body.ec-auth-shell .sidebar-scroll > .informationmenu-content {
   flex: 0 0 auto !important;
   min-height: min-content !important;
   overflow: visible !important;
-  overflow-x: hidden !important;
   padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
+}
+
+/* Room for 0 4px 20px halo between items */
+body.ec-auth-shell .sidebar-scroll .informationmenu-section {
+  margin-bottom: 2px;
+}
+
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page,
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
+  overflow: visible !important;
 }
 
 .sidebar-scroll::-webkit-scrollbar,
@@ -87,7 +97,6 @@ body.ec-auth-shell .sidebar-scroll:focus-within::-webkit-scrollbar {
 }
 
 @media (max-width: 1280px) {
-  .informationmenu.is-collapsed .sidebar-scroll-clip,
   .informationmenu.is-collapsed .sidebar-scroll {
     overflow-x: hidden;
     overflow-y: auto;

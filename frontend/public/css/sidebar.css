@@ -2321,3 +2321,23 @@ body.ec-auth-shell #root > :is(
         font-variant-numeric: tabular-nums;
     }
 }
+
+/* Scroll rail: do not clip org menu halo (box-shadow on .current-page) */
+body.ec-auth-shell .sidebar-scroll-clip {
+    overflow: visible !important;
+    background: transparent !important;
+}
+
+body.ec-auth-shell .sidebar-scroll {
+    padding: 12px calc(var(--sidebar-scrollbar-clip-pad, 20px) + 4px) 12px 4px;
+    box-sizing: border-box;
+}
+
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page,
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
+    overflow: visible !important;
+}
+
+body.ec-auth-shell .sidebar-scroll .informationmenu-section {
+    margin-bottom: 2px;
+}
