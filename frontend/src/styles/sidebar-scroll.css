@@ -72,7 +72,6 @@ body.ec-auth-shell .sidebar-scroll-clip {
 
 body.ec-auth-shell .informationmenu-content {
   overflow: visible !important;
-  overflow-x: clip !important;
   flex: 0 0 auto;
   min-height: min-content;
   display: flex;
@@ -80,30 +79,6 @@ body.ec-auth-shell .informationmenu-content {
   padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
   width: 100%;
   max-width: 100%;
-}
-
-/* Pill halo — inset ring on the item (not ::before slide); survives overflow-x clip */
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title {
-  overflow: visible;
-}
-
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title::before {
-  display: none !important;
-}
-
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
-  transform: translateX(5px);
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45) !important;
-}
-
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page {
-  transform: translate(5px);
-  background: var(--sidebar-active-bg, #0e93f3);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.25) !important;
 }
 
 /* WebKit / legacy — belt-and-suspenders with physical clip */
