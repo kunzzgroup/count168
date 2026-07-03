@@ -2,16 +2,6 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 const VIEWPORT_PAD = 8;
-const FOOTER_GAP = 4;
-
-function resolveFooterBottomLimit(anchorEl) {
-  const footer =
-    anchorEl.closest(".informationmenu")?.querySelector(".informationmenu-footer") ??
-    document.querySelector(".informationmenu-footer");
-  return footer
-    ? footer.getBoundingClientRect().top - FOOTER_GAP
-    : window.innerHeight - VIEWPORT_PAD;
-}
 
 function measureFlyoutNaturalHeight(flyoutEl) {
   const savedMax = flyoutEl.style.maxHeight;
@@ -24,7 +14,6 @@ function measureFlyoutNaturalHeight(flyoutEl) {
 function computeFlyoutPosition(anchorEl, flyoutEl) {
   const anchorRect = anchorEl.getBoundingClientRect();
   const flyoutWidth = flyoutEl.offsetWidth || 160;
-  const bottomLimit = resolveFooterBottomLimit(anchorEl);
   const viewportBottom = window.innerHeight - VIEWPORT_PAD;
   const naturalHeight = measureFlyoutNaturalHeight(flyoutEl);
 
@@ -39,7 +28,8 @@ function computeFlyoutPosition(anchorEl, flyoutEl) {
   }
 
   const top = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
-  const available = Math.min(bottomLimit - top, viewportBottom - top);
+  // Always align with the anchor row; overflow scrolls inside the flyout (may extend over footer).
+  const available = viewportBottom - top;
   const scrollable = naturalHeight > available;
   const maxHeight = scrollable ? Math.max(available, 0) : null;
 
@@ -83,6 +73,7 @@ export default function SidebarFlyoutSubmenu({
     };
 
     sync();
+    const raf = requestAnimationFrame(sync);
 
     const sidebar = anchor.closest(".informationmenu");
     const menuScroll =
@@ -98,6 +89,7 @@ export default function SidebarFlyoutSubmenu({
     if (sidebar) ro?.observe(sidebar);
 
     return () => {
+      cancelAnimationFrame(raf);
       menuScroll?.removeEventListener("scroll", sync);
       window.removeEventListener("resize", sync);
       window.removeEventListener("ec:sidebar-layout-changed", sync);

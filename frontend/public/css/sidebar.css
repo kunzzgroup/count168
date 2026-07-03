@@ -1056,12 +1056,13 @@
 
 .submenu.submenu--scrollable {
     overflow-y: auto;
+    overscroll-behavior: contain;
     scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
 .submenu.submenu--scrollable::-webkit-scrollbar {
-    width: 3px;
+    width: 4px;
 }
 
 .submenu.submenu--scrollable::-webkit-scrollbar-track {
@@ -1069,13 +1070,13 @@
 }
 
 .submenu.submenu--scrollable::-webkit-scrollbar-thumb {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.18);
     border-radius: 999px;
 }
 
 .submenu.submenu--scrollable:hover::-webkit-scrollbar-thumb,
 .submenu.submenu--scrollable:focus-within::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.35);
 }
 
 .menu-item-wrapper:hover .informationmenu-section-title {
