@@ -27,14 +27,8 @@ function computeFlyoutPosition(anchorEl, flyoutEl) {
     left = Math.max(VIEWPORT_PAD, window.innerWidth - flyoutWidth - VIEWPORT_PAD);
   }
 
-  const anchorTop = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
-  let top = anchorTop;
-
-  // Prefer showing the full menu: slide up when the anchor sits near the viewport bottom.
-  if (top + naturalHeight > viewportBottom) {
-    top = Math.max(VIEWPORT_PAD, viewportBottom - naturalHeight);
-  }
-
+  const top = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
+  // Always align with the anchor row; overflow scrolls inside the flyout (may extend over footer).
   const available = viewportBottom - top;
   const scrollable = naturalHeight > available;
   const maxHeight = scrollable ? Math.max(available, 0) : null;
