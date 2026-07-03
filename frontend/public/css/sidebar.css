@@ -2322,22 +2322,30 @@ body.ec-auth-shell #root > :is(
     }
 }
 
-/* Scroll rail: do not clip org menu halo (box-shadow on .current-page) */
+/* Scroll rail: halo bleed only — menu pills stay org width (flush right) */
 body.ec-auth-shell .sidebar-scroll-clip {
     overflow: visible !important;
     background: transparent !important;
 }
 
 body.ec-auth-shell .sidebar-scroll {
-    padding: 22px calc(var(--sidebar-scrollbar-clip-pad, 20px) + 8px) 22px 22px;
+    --sidebar-menu-halo-pad: 14px;
+    padding: var(--sidebar-menu-halo-pad, 14px) var(--sidebar-scrollbar-clip-pad, 20px)
+        var(--sidebar-menu-halo-pad, 14px) 0;
     box-sizing: border-box;
+}
+
+body.ec-auth-shell .sidebar-scroll > .informationmenu-content {
+    width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px) + var(--sidebar-menu-halo-pad, 14px)) !important;
+    margin-left: calc(-1 * var(--sidebar-menu-halo-pad, 14px)) !important;
+    margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px)) !important;
+    padding-left: var(--sidebar-menu-halo-pad, 14px) !important;
 }
 
 body.ec-auth-shell .sidebar-scroll .informationmenu-section-title {
     overflow: visible !important;
 }
 
-/* Org hover/current halo — expanded sidebar only (collapsed uses transform:none in org) */
 body.ec-auth-shell .informationmenu:not(.is-collapsed) .sidebar-scroll .informationmenu-section-title:hover {
     box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4) !important;
     transform: translateX(5px) !important;
@@ -2357,5 +2365,5 @@ body.ec-auth-shell .informationmenu:not(.is-collapsed) .sidebar-scroll .informat
 }
 
 body.ec-auth-shell .sidebar-scroll .informationmenu-section {
-    margin-bottom: 8px;
+    margin-bottom: 0;
 }

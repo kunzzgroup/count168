@@ -1,6 +1,6 @@
 /*
  * Sidebar scroll rail only — menu chrome stays in public/css/sidebar.css (from org).
- * Clip layer must not use overflow:hidden (it kills current-page box-shadow halo).
+ * Geometry must match org: menu pills flush to the right edge; halo via bleed margins only.
  */
 body.ec-auth-shell .informationmenu {
   display: flex;
@@ -13,7 +13,6 @@ body.ec-auth-shell .informationmenu-footer {
   flex-shrink: 0;
 }
 
-/* Flex rail — overflow visible so menu item box-shadow halo can paint (org look) */
 .sidebar-scroll-clip {
   flex: 1 1 auto;
   min-height: 0;
@@ -31,14 +30,16 @@ body.ec-auth-shell .sidebar-scroll-clip {
   overflow: visible !important;
 }
 
+/* Scrollbar hidden in right gutter; no horizontal inset on menu items */
 .sidebar-scroll {
+  --sidebar-menu-halo-pad: 14px;
   height: 100%;
   max-height: 100%;
   width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px));
   max-width: none;
-  /* Left pad must fit 20px blur halo on pill hover/current (org look) */
-  padding: 22px calc(var(--sidebar-scrollbar-clip-pad, 20px) + 8px) 22px 22px;
   margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px));
+  padding: var(--sidebar-menu-halo-pad, 14px) var(--sidebar-scrollbar-clip-pad, 20px)
+    var(--sidebar-menu-halo-pad, 14px) 0;
   box-sizing: border-box;
   overflow-x: hidden;
   overflow-y: auto;
@@ -50,17 +51,21 @@ body.ec-auth-shell .sidebar-scroll-clip {
   -ms-overflow-style: none;
 }
 
-/* Scroll on .sidebar-scroll; inner content keeps org flex (no second scroll) */
+/* Full-width pills (org): extend past scrollbar gutter; left bleed for box-shadow halo */
 body.ec-auth-shell .sidebar-scroll > .informationmenu-content {
   flex: 0 0 auto !important;
   min-height: min-content !important;
   overflow: visible !important;
+  box-sizing: border-box !important;
+  width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px) + var(--sidebar-menu-halo-pad, 14px)) !important;
+  margin-left: calc(-1 * var(--sidebar-menu-halo-pad, 14px)) !important;
+  margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px)) !important;
+  padding-left: var(--sidebar-menu-halo-pad, 14px) !important;
   padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
 }
 
-/* Room for org box-shadow halo inside scroll padding */
 body.ec-auth-shell .sidebar-scroll .informationmenu-section {
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 body.ec-auth-shell .sidebar-scroll .informationmenu-section-title {
