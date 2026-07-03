@@ -13,6 +13,8 @@ Thumbs.db
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+!.cursor/agents/
+!.cursor/agents/**
 !.cursor/mcp.env.example
 .cursor/mcp.json
 .cursor/mcp.env
