@@ -36,7 +36,8 @@ body.ec-auth-shell .sidebar-scroll-clip {
   max-height: 100%;
   width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px));
   max-width: none;
-  padding: 18px calc(var(--sidebar-scrollbar-clip-pad, 20px) + 6px) 18px 8px;
+  /* Left pad must fit 20px blur halo on pill hover/current (org look) */
+  padding: 22px calc(var(--sidebar-scrollbar-clip-pad, 20px) + 8px) 22px 22px;
   margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px));
   box-sizing: border-box;
   overflow-x: hidden;
@@ -59,7 +60,11 @@ body.ec-auth-shell .sidebar-scroll > .informationmenu-content {
 
 /* Room for org box-shadow halo inside scroll padding */
 body.ec-auth-shell .sidebar-scroll .informationmenu-section {
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+}
+
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title {
+  overflow: visible !important;
 }
 
 body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
@@ -67,9 +72,17 @@ body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
   transform: translateX(5px) !important;
 }
 
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover::before {
+  right: 0 !important;
+}
+
 body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page {
   box-shadow: 0 4px 20px #4facfe66 !important;
   transform: translateX(5px) !important;
+}
+
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page::before {
+  right: 0 !important;
 }
 
 .sidebar-scroll::-webkit-scrollbar,

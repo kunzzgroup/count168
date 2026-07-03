@@ -2329,12 +2329,11 @@ body.ec-auth-shell .sidebar-scroll-clip {
 }
 
 body.ec-auth-shell .sidebar-scroll {
-    padding: 18px calc(var(--sidebar-scrollbar-clip-pad, 20px) + 6px) 18px 8px;
+    padding: 22px calc(var(--sidebar-scrollbar-clip-pad, 20px) + 8px) 22px 22px;
     box-sizing: border-box;
 }
 
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page,
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title {
     overflow: visible !important;
 }
 
@@ -2344,11 +2343,19 @@ body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
     transform: translateX(5px) !important;
 }
 
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover::before {
+    right: 0 !important;
+}
+
 body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page {
     box-shadow: 0 4px 20px #4facfe66 !important;
     transform: translateX(5px) !important;
 }
 
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page::before {
+    right: 0 !important;
+}
+
 body.ec-auth-shell .sidebar-scroll .informationmenu-section {
-    margin-bottom: 4px;
+    margin-bottom: 8px;
 }
