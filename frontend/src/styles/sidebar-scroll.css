@@ -36,7 +36,7 @@ body.ec-auth-shell .sidebar-scroll-clip {
   max-height: 100%;
   width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px));
   max-width: none;
-  padding: 12px calc(var(--sidebar-scrollbar-clip-pad, 20px) + 4px) 12px 4px;
+  padding: 18px calc(var(--sidebar-scrollbar-clip-pad, 20px) + 6px) 18px 8px;
   margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px));
   box-sizing: border-box;
   overflow-x: hidden;
@@ -57,14 +57,19 @@ body.ec-auth-shell .sidebar-scroll > .informationmenu-content {
   padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
 }
 
-/* Room for 0 4px 20px halo between items */
+/* Room for org box-shadow halo inside scroll padding */
 body.ec-auth-shell .sidebar-scroll .informationmenu-section {
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page,
 body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
-  overflow: visible !important;
+  box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4) !important;
+  transform: translateX(5px) !important;
+}
+
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page {
+  box-shadow: 0 4px 20px #4facfe66 !important;
+  transform: translateX(5px) !important;
 }
 
 .sidebar-scroll::-webkit-scrollbar,

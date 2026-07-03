@@ -2329,7 +2329,7 @@ body.ec-auth-shell .sidebar-scroll-clip {
 }
 
 body.ec-auth-shell .sidebar-scroll {
-    padding: 12px calc(var(--sidebar-scrollbar-clip-pad, 20px) + 4px) 12px 4px;
+    padding: 18px calc(var(--sidebar-scrollbar-clip-pad, 20px) + 6px) 18px 8px;
     box-sizing: border-box;
 }
 
@@ -2338,6 +2338,17 @@ body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
     overflow: visible !important;
 }
 
+/* Org hover/current halo — must win inside scroll rail */
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
+    box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4) !important;
+    transform: translateX(5px) !important;
+}
+
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page {
+    box-shadow: 0 4px 20px #4facfe66 !important;
+    transform: translateX(5px) !important;
+}
+
 body.ec-auth-shell .sidebar-scroll .informationmenu-section {
-    margin-bottom: 2px;
+    margin-bottom: 4px;
 }
