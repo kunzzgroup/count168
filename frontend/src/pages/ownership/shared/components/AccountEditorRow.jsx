@@ -68,7 +68,7 @@ export default function AccountEditorRow({
   }, [dragEnabled]);
 
   const isPartnership = String(row.role || "").toLowerCase() === "partnership";
-  const showRo = isPartnership || row.is_external_partner;
+  const showRo = isPartnership || isPartnerRow;
 
   const commitSliderPct = (raw) => {
     const next = Math.min(normalizePct(raw), effectivePctMax);
