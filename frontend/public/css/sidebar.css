@@ -772,14 +772,18 @@
         color 0.3s ease,
         transform 0.3s ease,
         box-shadow 0.3s ease,
-        background 0.3s ease;
+        background 0.3s ease,
+        padding-left 0.3s ease;
     border-radius: 25px 0 0 25px;
     margin: 0;
     position: relative;
     overflow: visible;
     isolation: isolate;
     min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
     text-decoration: none;
+    --sidebar-menu-hover-shift: 5px;
 }
 
 .informationmenu-section-title:has(.section-arrow) {
@@ -824,7 +828,7 @@
 .informationmenu-section-title:hover {
     color: white;
     background: rgba(255, 255, 255, 0.1);
-    transform: translateX(5px);
+    padding-left: calc(var(--sidebar-menu-pad-x, 0.85rem) + var(--sidebar-menu-hover-shift, 5px));
     box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4);
 }
 
@@ -847,7 +851,7 @@
 .informationmenu-section-title.current-page {
     background: var(--sidebar-active-bg, #0e93f3);
     color: #fff;
-    transform: translateX(5px);
+    padding-left: calc(var(--sidebar-menu-pad-x, 0.85rem) + var(--sidebar-menu-hover-shift, 5px));
     box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4);
 }
 
@@ -1043,7 +1047,7 @@
 .menu-item-wrapper:hover .informationmenu-section-title:not(.current-page) {
     background: rgba(255, 255, 255, 0.1);
     color: white;
-    transform: translateX(5px);
+    padding-left: calc(var(--sidebar-menu-pad-x, 0.85rem) + var(--sidebar-menu-hover-shift, 5px));
     box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4);
 }
 
@@ -1846,6 +1850,15 @@ body.ec-auth-shell .informationmenu .section-icon {
 body.ec-auth-shell .informationmenu .informationmenu-section-title {
     padding: var(--sidebar-menu-pad-y, 1.2rem) var(--sidebar-menu-pad-x, 1.6rem) !important;
     font-size: var(--sidebar-menu-font, 1.6rem) !important;
+    margin-right: calc(-1 * var(--sidebar-menu-pad-x, 1.6rem)) !important;
+    width: calc(100% + var(--sidebar-menu-pad-x, 1.6rem)) !important;
+    max-width: none;
+    box-sizing: border-box;
+}
+
+body.ec-auth-shell .informationmenu .informationmenu-section-title:hover,
+body.ec-auth-shell .informationmenu .informationmenu-section-title.current-page {
+    padding-left: calc(var(--sidebar-menu-pad-x, 1.6rem) + var(--sidebar-menu-hover-shift, 5px)) !important;
 }
 
 body.ec-auth-shell .informationmenu .informationmenu-item {
@@ -1907,6 +1920,13 @@ body.ec-auth-shell .informationmenu .submenu-item {
     body.ec-auth-shell .informationmenu .informationmenu-section-title {
         padding: var(--sidebar-menu-pad-y, 1.05rem) var(--sidebar-menu-pad-x, 1.2rem) !important;
         font-size: 1.4rem !important;
+        margin-right: calc(-1 * var(--sidebar-menu-pad-x, 1.2rem)) !important;
+        width: calc(100% + var(--sidebar-menu-pad-x, 1.2rem)) !important;
+    }
+
+    body.ec-auth-shell .informationmenu .informationmenu-section-title:hover,
+    body.ec-auth-shell .informationmenu .informationmenu-section-title.current-page {
+        padding-left: calc(var(--sidebar-menu-pad-x, 1.2rem) + var(--sidebar-menu-hover-shift, 5px)) !important;
     }
 
     body.ec-auth-shell .informationmenu .informationmenu-item {
@@ -2071,9 +2091,16 @@ body.ec-auth-shell .informationmenu .submenu-item {
     body.ec-auth-shell .informationmenu:not(.is-collapsed) .informationmenu-section-title {
         font-size: 1.25rem !important;
         padding: var(--sidebar-menu-pad-y, 1.05rem) var(--sidebar-menu-pad-x, 1rem) !important;
+        margin-right: calc(-1 * var(--sidebar-menu-pad-x, 1rem)) !important;
+        width: calc(100% + var(--sidebar-menu-pad-x, 1rem)) !important;
         text-overflow: clip !important;
         overflow: visible !important;
         align-items: center !important;
+    }
+
+    body.ec-auth-shell .informationmenu:not(.is-collapsed) .informationmenu-section-title:hover,
+    body.ec-auth-shell .informationmenu:not(.is-collapsed) .informationmenu-section-title.current-page {
+        padding-left: calc(var(--sidebar-menu-pad-x, 1rem) + var(--sidebar-menu-hover-shift, 5px)) !important;
     }
 
     body.ec-auth-shell .informationmenu:not(.is-collapsed) .informationmenu-section--transaction-payment .informationmenu-section-title {
@@ -2173,6 +2200,9 @@ body.ec-auth-shell .informationmenu .submenu-item {
         line-height: 0 !important;
         justify-content: center !important;
         overflow: hidden !important;
+        width: auto !important;
+        margin-right: 0 !important;
+        max-width: none;
     }
 
     body.ec-auth-shell .informationmenu.is-collapsed .sidebar-menu-label {
