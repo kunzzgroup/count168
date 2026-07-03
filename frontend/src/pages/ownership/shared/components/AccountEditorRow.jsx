@@ -77,6 +77,7 @@ export default function AccountEditorRow({
   const showRo = isPartnership || isPartnerRow;
 
   const commitSliderPct = (raw) => {
+    isEditingPctRef.current = true;
     const next = Math.min(normalizePct(raw), effectivePctMax);
     setDisplayPct(next);
     setInputValue(`${next}%`);
