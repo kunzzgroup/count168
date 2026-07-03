@@ -1,6 +1,6 @@
 /*
  * Sidebar nav scroll — macOS-like: no visible scrollbar on Windows, scroll still works.
- * Clip rail hides native scrollbar gutter; flyout submenus portal to body (unaffected).
+ * Single source of truth for scroll rail; do not duplicate in public/css/sidebar.css.
  */
 body.ec-auth-shell .informationmenu {
   display: flex;
@@ -21,8 +21,7 @@ body.ec-auth-shell .informationmenu-footer {
 }
 
 /* Clip parent — flex:1 rail; overflow hidden trims scrollbar drawn outside menu width */
-.sidebar-scroll-clip,
-.informationmenu-scroll-clip {
+.sidebar-scroll-clip {
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
@@ -34,8 +33,7 @@ body.ec-auth-shell .informationmenu-footer {
 }
 
 /* Mask any sub-pixel bleed at the sidebar / content seam */
-body.ec-auth-shell .sidebar-scroll-clip::after,
-body.ec-auth-shell .informationmenu-scroll-clip::after {
+body.ec-auth-shell .sidebar-scroll-clip::after {
   content: "";
   position: absolute;
   top: 0;
@@ -47,22 +45,20 @@ body.ec-auth-shell .informationmenu-scroll-clip::after {
   z-index: 2;
 }
 
-body.ec-auth-shell .sidebar-scroll-clip,
-body.ec-auth-shell .informationmenu-scroll-clip {
+body.ec-auth-shell .sidebar-scroll-clip {
   flex: 1 1 auto !important;
   min-height: 0 !important;
   overflow: hidden !important;
 }
 
 /* Scroll container — wider than clip so native scrollbar sits in clipped zone */
-.sidebar-scroll,
-.informationmenu-scroll {
+.sidebar-scroll {
   height: 100%;
   max-height: 100%;
-  width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px));
+  width: calc(100% + var(--sidebar-scrollbar-clip-pad, 24px));
   max-width: none;
-  padding-right: var(--sidebar-scrollbar-clip-pad, 20px);
-  margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px));
+  padding-right: var(--sidebar-scrollbar-clip-pad, 24px);
+  margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 24px));
   box-sizing: border-box;
   overflow-x: hidden;
   overflow-y: auto;
@@ -87,8 +83,7 @@ body.ec-auth-shell .informationmenu-content {
 }
 
 /* Keep hover/active chrome inside the visible rail (no white arc bleed at clip edge) */
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title::before,
-body.ec-auth-shell .informationmenu-scroll .informationmenu-section-title::before {
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title::before {
   width: calc(100% - 6px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.28),
@@ -96,23 +91,19 @@ body.ec-auth-shell .informationmenu-scroll .informationmenu-section-title::befor
 }
 
 body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover::before,
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page::before,
-body.ec-auth-shell .informationmenu-scroll .informationmenu-section-title:hover::before,
-body.ec-auth-shell .informationmenu-scroll .informationmenu-section-title.current-page::before {
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page::before {
   right: 0;
   width: calc(100% - 6px);
 }
 
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page,
-body.ec-auth-shell .informationmenu-scroll .informationmenu-section-title.current-page {
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page {
   transform: none;
   margin-left: 5px;
   width: calc(100% - 5px);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 4px 16px rgba(15, 120, 200, 0.35);
 }
 
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover,
-body.ec-auth-shell .informationmenu-scroll .informationmenu-section-title:hover {
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
   transform: none;
   margin-left: 5px;
   width: calc(100% - 5px);
@@ -121,13 +112,9 @@ body.ec-auth-shell .informationmenu-scroll .informationmenu-section-title:hover 
 
 /* WebKit / legacy — belt-and-suspenders with physical clip */
 .sidebar-scroll::-webkit-scrollbar,
-.informationmenu-scroll::-webkit-scrollbar,
 .sidebar-scroll::-webkit-scrollbar-track,
-.informationmenu-scroll::-webkit-scrollbar-track,
 .sidebar-scroll::-webkit-scrollbar-thumb,
-.informationmenu-scroll::-webkit-scrollbar-thumb,
-.sidebar-scroll::-webkit-scrollbar-corner,
-.informationmenu-scroll::-webkit-scrollbar-corner {
+.sidebar-scroll::-webkit-scrollbar-corner {
   width: 0 !important;
   height: 0 !important;
   display: none !important;

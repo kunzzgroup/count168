@@ -78,9 +78,7 @@ export default function SidebarFlyoutSubmenu({
     const sidebar = anchor.closest(".informationmenu");
     const menuScroll =
       anchor.closest(".sidebar-scroll") ??
-      anchor.closest(".informationmenu-scroll") ??
       anchor.closest(".sidebar-scroll-clip") ??
-      anchor.closest(".informationmenu-scroll-clip") ??
       anchor.closest(".informationmenu-content");
     menuScroll?.addEventListener("scroll", sync, { passive: true });
     window.addEventListener("resize", sync, { passive: true });

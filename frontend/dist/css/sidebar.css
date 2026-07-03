@@ -744,57 +744,6 @@
     transform: scale(1.05);
 }
 
-.sidebar-scroll-clip,
-.informationmenu-scroll-clip {
-    flex: 1 1 auto;
-    min-height: 0;
-    width: 100%;
-    max-width: 100%;
-    overflow: hidden;
-    position: relative;
-    isolation: isolate;
-    background: var(--sidebar-shell-bg, #002d49);
-}
-
-.sidebar-scroll,
-.informationmenu-scroll {
-    height: 100%;
-    max-height: 100%;
-    width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px));
-    max-width: none;
-    padding-right: var(--sidebar-scrollbar-clip-pad, 20px);
-    margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px));
-    box-sizing: border-box;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-gutter: auto;
-    scrollbar-width: none;
-    scrollbar-color: transparent transparent;
-    scroll-padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
-    -ms-overflow-style: none;
-}
-
-.sidebar-scroll::-webkit-scrollbar,
-.informationmenu-scroll::-webkit-scrollbar,
-.sidebar-scroll::-webkit-scrollbar-track,
-.informationmenu-scroll::-webkit-scrollbar-track,
-.sidebar-scroll::-webkit-scrollbar-thumb,
-.informationmenu-scroll::-webkit-scrollbar-thumb,
-.sidebar-scroll::-webkit-scrollbar-corner,
-.informationmenu-scroll::-webkit-scrollbar-corner {
-    width: 0 !important;
-    height: 0 !important;
-    display: none !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    appearance: none;
-    -webkit-appearance: none;
-    opacity: 0 !important;
-}
-
 .informationmenu-content {
     overflow: visible;
     flex: 0 0 auto;
@@ -1174,7 +1123,7 @@
     letter-spacing: 0.02em;
 }
 
-/* Nav scroll rail — see sidebar-scroll.css (bundle) + .sidebar-scroll rules above */
+/* Nav scroll rail — see src/styles/sidebar-scroll.css (Vite bundle, do not duplicate here) */
 
 /* Keep sidebar language switch size stable across pages/viewports */
 .informationmenu-header .sidebar-lang-switch-wrap {
@@ -1813,36 +1762,6 @@ body.ec-auth-shell .informationmenu {
     min-height: 0 !important;
 }
 
-body.ec-auth-shell .sidebar-scroll-clip,
-body.ec-auth-shell .informationmenu-scroll-clip {
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-body.ec-auth-shell .sidebar-scroll,
-body.ec-auth-shell .informationmenu-scroll {
-    width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px)) !important;
-    max-width: none !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    padding-right: var(--sidebar-scrollbar-clip-pad, 20px) !important;
-    margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px)) !important;
-    box-sizing: border-box !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
-}
-
-body.ec-auth-shell .informationmenu-content {
-    overflow: visible !important;
-    flex: 0 0 auto !important;
-    min-height: min-content !important;
-}
-
 body.ec-auth-shell .informationmenu-footer {
     flex-shrink: 0 !important;
     background: var(--sidebar-shell-bg, #002d49) !important;
@@ -2176,9 +2095,7 @@ body.ec-auth-shell .informationmenu .submenu-item {
     }
 
     .informationmenu.is-collapsed .sidebar-scroll-clip,
-    .informationmenu.is-collapsed .informationmenu-scroll-clip,
-    .informationmenu.is-collapsed .sidebar-scroll,
-    .informationmenu.is-collapsed .informationmenu-scroll {
+    .informationmenu.is-collapsed .sidebar-scroll {
         overflow-x: hidden;
         overflow-y: auto;
     }
