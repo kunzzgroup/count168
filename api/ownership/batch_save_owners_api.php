@@ -57,7 +57,7 @@ function ownershipPctOut($value): string {
     return money_out($value, 2);
 }
 
-// Validate total percentage (external partners at 0% are excluded)
+// Validate total percentage (external partners may hold equity; 0% allowed while unallocated)
 $total_percentage = '0.00';
 foreach ($owners as $owner) {
     if (!isset($owner['account_id']) || !isset($owner['percentage'])) {
@@ -66,14 +66,11 @@ foreach ($owners as $owner) {
     }
     $isExternal = !empty($owner['is_external_partner']);
     $pct = ownershipPct($owner['percentage']);
-    if ($isExternal) {
-        if (money_cmp($pct, '0', 2) !== 0) {
-            echo json_encode(['status' => 'error', 'message' => 'External partner rows must stay at 0%']);
-            exit();
-        }
-        continue;
+    if (money_cmp($pct, '0', 2) < 0 || money_cmp($pct, '100', 2) > 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Percentage must be between 0 and 100']);
+        exit();
     }
-    if (money_cmp($pct, '0', 2) <= 0 || money_cmp($pct, '100', 2) > 0) {
+    if (!$isExternal && money_cmp($pct, '0', 2) <= 0) {
         echo json_encode(['status' => 'error', 'message' => 'Percentage must be between 0 and 100']);
         exit();
     }

@@ -71,8 +71,7 @@ export default function AccountEditorRow({
     onUpdate(idx, "slider", next);
   };
 
-  const sliderDisabled =
-    readOnlyMode || row.is_external_partner || (pctMax <= 0 && storedPct <= 0);
+  const sliderDisabled = readOnlyMode || (pctMax <= 0 && storedPct <= 0);
   const layoutLocked = readOnlyMode || structureLocked;
 
   const clearDragStyles = () => {
@@ -173,7 +172,7 @@ export default function AccountEditorRow({
           className="own-percent-input"
           id={`input-${companyId}-${rowClientId}`}
           value={inputValue}
-          disabled={readOnlyMode || row.is_external_partner || (pctMax <= 0 && storedPct <= 0)}
+          disabled={readOnlyMode || (pctMax <= 0 && storedPct <= 0)}
           onFocus={() => {
             isEditingPctRef.current = true;
           }}

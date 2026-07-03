@@ -126,6 +126,12 @@ export function useCompanyOwnership(shell) {
     setGroupFilter(allGroupIds[0]);
   }, [groupFilter, allCompanies, allGroupIds]);
 
+  // After ungroup empties a group, groupFilter may point at a removed group id → blank list
+  useEffect(() => {
+    if (groupFilter === null || allGroupIds.includes(groupFilter)) return;
+    setGroupFilter(allGroupIds.length > 0 ? allGroupIds[0] : null);
+  }, [groupFilter, allGroupIds]);
+
   const loadCompanyState = useCallback(
     async (cid, { force = false } = {}) => {
       if (!force) {
@@ -384,11 +390,16 @@ export function useCompanyOwnership(shell) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ company_id: cid }),
+          body: JSON.stringify({ company_id: cid, group_id: null }),
         });
         const json = await res.json();
         if (isApiSuccess(json)) {
           showToast(`"${companyName}" removed from group`, "success");
+          setCompanyStates((prev) => {
+            const next = { ...prev };
+            delete next[cid];
+            return next;
+          });
           void fetchCompanies();
         } else showToast(getApiMessage(json, "Ungroup failed"), "error");
       } catch {
@@ -473,6 +484,13 @@ export function useCompanyOwnership(shell) {
       const failed = results.filter((r) => !isApiSuccess(r));
       if (failed.length === 0) {
         showToast(`Removed ${selectedCompanyIds.size} companies from group`, "success");
+        setCompanyStates((prev) => {
+          const next = { ...prev };
+          ids.forEach((cid) => {
+            delete next[cid];
+          });
+          return next;
+        });
         setSelectedCompanyIds(new Set());
         setSelectionMode(false);
         void fetchCompanies();

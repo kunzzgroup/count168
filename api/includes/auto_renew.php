@@ -2416,16 +2416,32 @@ function auto_renew_reject(PDO $pdo, int $requestId, array $input, array $sessio
         throw new RuntimeException('Request is not pending');
     }
 
+    $processedBy = (string) ($session['login_id'] ?? 'system');
+    $rejectReason = isset($input['reject_reason']) ? trim((string) $input['reject_reason']) : null;
+
     $upd = $pdo->prepare("
         UPDATE company_auto_renew_request
-        SET period = NULL,
+        SET status = 'rejected',
+            period = NULL,
             from_account_id = NULL,
             to_account_id = NULL,
             price = NULL,
-            reject_reason = NULL
+            transaction_id = NULL,
+            new_expiration_date = NULL,
+            reject_reason = ?,
+            processed_by = ?,
+            processed_at = NOW()
         WHERE id = ? AND status = 'pending'
     ");
-    $upd->execute([$requestId]);
+    $upd->execute([
+        $rejectReason !== '' ? $rejectReason : null,
+        $processedBy,
+        $requestId,
+    ]);
+
+    if ($upd->rowCount() === 0) {
+        throw new RuntimeException('Request was already processed');
+    }
 
     $updated = auto_renew_get_request_row($pdo, $requestId);
     $c168Pk = auto_renew_get_c168_pk($pdo) ?? 0;
