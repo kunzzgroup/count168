@@ -624,8 +624,10 @@ function getProcessesByDay($user_id)
         ? "DATE(COALESCE(sp.capture_date, sp.date_submitted)) = ?"
         : "DATE(sp.date_submitted) = ?";
 
-    // 已提交：submitted_processes 或已有 data_captures（与维护页一致，避免仅一侧有数据时下拉仍可选）
-    // 按 process.process_id（业务代码，如 MGALAXYDM683）排除：同一公司+账务日下任一变体（不同 id / 不同币别描述）已提交则整组不再出现在下拉
+    // Games：已提交则当日不可再选（submitted_processes 或 data_captures 兜底）
+    // Bank（PROFIT/SALARY/COMMISSION/BONUS）：与 saveSubmission 一致，同日可多次做账，下拉始终保留
+    $bankCodes = submittedProcessesBankCaptureCodes();
+    $bankCodePlaceholders = implode(',', array_fill(0, count($bankCodes), '?'));
     $baseSql = "
         SELECT 
             p.id,
@@ -639,21 +641,30 @@ function getProcessesByDay($user_id)
         WHERE day.id = ?
         AND p.status = 'active'
         AND p.company_id = ?
-        AND NOT EXISTS (
-            SELECT 1 FROM submitted_processes sp
-            WHERE sp.process_id = p.id
-              AND sp.company_id = ?
-              AND $submittedDateMatchSql
-        )
-        AND NOT EXISTS (
-            SELECT 1 FROM data_captures dc
-            WHERE dc.process_id = p.id
-              AND dc.company_id = ?
-              AND DATE(dc.capture_date) = ?
+        AND (
+            UPPER(TRIM(p.process_id)) IN ($bankCodePlaceholders)
+            OR (
+                NOT EXISTS (
+                    SELECT 1 FROM submitted_processes sp
+                    WHERE sp.process_id = p.id
+                      AND sp.company_id = ?
+                      AND $submittedDateMatchSql
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM data_captures dc
+                    WHERE dc.process_id = p.id
+                      AND dc.company_id = ?
+                      AND DATE(dc.capture_date) = ?
+                )
+            )
         )";
 
-    // 参数顺序：day_of_week, p.company_id, sp.company_id, sp账务日, dc.company_id, dc.capture_date
-    $baseParams = [$day_of_week, $currentCompanyId, $currentCompanyId, $selected_date, $currentCompanyId, $selected_date];
+    // 参数顺序：day_of_week, p.company_id, bank codes, sp.company_id, sp账务日, dc.company_id, dc.capture_date
+    $baseParams = array_merge(
+        [$day_of_week, $currentCompanyId],
+        $bankCodes,
+        [$currentCompanyId, $selected_date, $currentCompanyId, $selected_date]
+    );
 
     // 应用权限过滤（使用 permissions.php 中的 filterProcessesByPermissions 函数）
     list($baseSql, $baseParams) = filterProcessesByPermissions($pdo, $baseSql, $baseParams);
