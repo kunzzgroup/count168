@@ -95,8 +95,8 @@ export default function SidebarFlyoutSubmenu({
       window.requestAnimationFrame(sync);
     });
 
-    const menuContent = anchor.closest(".informationmenu-content");
-    menuContent?.addEventListener("scroll", sync, { passive: true });
+    const menuScroll = anchor.closest(".informationmenu-scroll");
+    menuScroll?.addEventListener("scroll", sync, { passive: true });
     window.addEventListener("resize", sync, { passive: true });
     window.addEventListener("ec:sidebar-layout-changed", sync);
 
@@ -106,7 +106,7 @@ export default function SidebarFlyoutSubmenu({
 
     return () => {
       window.cancelAnimationFrame(raf1);
-      menuContent?.removeEventListener("scroll", sync);
+      menuScroll?.removeEventListener("scroll", sync);
       window.removeEventListener("resize", sync);
       window.removeEventListener("ec:sidebar-layout-changed", sync);
       ro?.disconnect();
