@@ -5,6 +5,7 @@
 
 :root {
     --dash-scrollbar-size: 12px;
+    --sidebar-scrollbar-clip-pad: 20px;
     --dash-scrollbar-track: #ececec;
     --dash-scrollbar-thumb: #4b5563;
     --dash-scrollbar-thumb-hover: #374151;
@@ -201,9 +202,18 @@ body.ec-auth-shell .submenu.submenu--scrollable:focus-within::-webkit-scrollbar-
     background: rgba(255, 255, 255, 0.35) !important;
 }
 
-/* Sidebar nav rail — hidden scrollbar (wins over body * rules above) */
+/* Sidebar nav rail — clip + hidden scrollbar (wins over body * rules above) */
+body.ec-auth-shell .sidebar-scroll-clip,
+body.ec-auth-shell .informationmenu-scroll-clip {
+    overflow: hidden !important;
+}
+
 body.ec-auth-shell .sidebar-scroll,
 body.ec-auth-shell .informationmenu-scroll {
+    width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px)) !important;
+    padding-right: var(--sidebar-scrollbar-clip-pad, 20px) !important;
+    margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px)) !important;
+    box-sizing: border-box !important;
     scrollbar-width: none !important;
     scrollbar-color: transparent transparent !important;
     -ms-overflow-style: none !important;

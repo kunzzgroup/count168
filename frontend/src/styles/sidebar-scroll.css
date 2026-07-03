@@ -1,6 +1,6 @@
 /*
- * Sidebar nav scroll rail — Home→Maintenance inside AuthenticatedLayout.
- * Imported last in main.jsx. Flyout submenus portal to body (SidebarFlyoutSubmenu).
+ * Sidebar nav scroll — macOS-like: no visible scrollbar on Windows, scroll still works.
+ * Clip rail hides native scrollbar gutter; flyout submenus portal to body (unaffected).
  */
 body.ec-auth-shell .informationmenu {
   display: flex;
@@ -20,13 +20,34 @@ body.ec-auth-shell .informationmenu-footer {
   z-index: 3;
 }
 
-/* Primary scroll container — fills space between header and footer */
-.sidebar-scroll,
-.informationmenu-scroll {
+/* Clip parent — flex:1 rail; overflow hidden trims scrollbar drawn outside menu width */
+.sidebar-scroll-clip,
+.informationmenu-scroll-clip {
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
   max-width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+body.ec-auth-shell .sidebar-scroll-clip,
+body.ec-auth-shell .informationmenu-scroll-clip {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Scroll container — wider than clip so native scrollbar sits in clipped zone */
+.sidebar-scroll,
+.informationmenu-scroll {
+  height: 100%;
+  max-height: 100%;
+  width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px));
+  max-width: none;
+  padding-right: var(--sidebar-scrollbar-clip-pad, 20px);
+  margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px));
+  box-sizing: border-box;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -35,12 +56,6 @@ body.ec-auth-shell .informationmenu-footer {
   scrollbar-width: none;
   scrollbar-color: transparent transparent;
   -ms-overflow-style: none;
-}
-
-body.ec-auth-shell .sidebar-scroll,
-body.ec-auth-shell .informationmenu-scroll {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
 }
 
 body.ec-auth-shell .informationmenu-content {
@@ -52,7 +67,7 @@ body.ec-auth-shell .informationmenu-content {
   padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
 }
 
-/* Chrome, Edge (Chromium), Safari */
+/* WebKit / legacy — belt-and-suspenders with physical clip */
 .sidebar-scroll::-webkit-scrollbar,
 .informationmenu-scroll::-webkit-scrollbar,
 .sidebar-scroll::-webkit-scrollbar-track,

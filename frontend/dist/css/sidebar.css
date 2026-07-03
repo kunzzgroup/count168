@@ -744,12 +744,25 @@
     transform: scale(1.05);
 }
 
-.sidebar-scroll,
-.informationmenu-scroll {
+.sidebar-scroll-clip,
+.informationmenu-scroll-clip {
     flex: 1 1 auto;
     min-height: 0;
     width: 100%;
     max-width: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+.sidebar-scroll,
+.informationmenu-scroll {
+    height: 100%;
+    max-height: 100%;
+    width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px));
+    max-width: none;
+    padding-right: var(--sidebar-scrollbar-clip-pad, 20px);
+    margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px));
+    box-sizing: border-box;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -1798,10 +1811,24 @@ body.ec-auth-shell .informationmenu {
     min-height: 0 !important;
 }
 
-body.ec-auth-shell .sidebar-scroll,
-body.ec-auth-shell .informationmenu-scroll {
+body.ec-auth-shell .sidebar-scroll-clip,
+body.ec-auth-shell .informationmenu-scroll-clip {
     flex: 1 1 auto !important;
     min-height: 0 !important;
+    overflow: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+body.ec-auth-shell .sidebar-scroll,
+body.ec-auth-shell .informationmenu-scroll {
+    width: calc(100% + var(--sidebar-scrollbar-clip-pad, 20px)) !important;
+    max-width: none !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    padding-right: var(--sidebar-scrollbar-clip-pad, 20px) !important;
+    margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 20px)) !important;
+    box-sizing: border-box !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     scrollbar-width: none !important;
@@ -2146,6 +2173,8 @@ body.ec-auth-shell .informationmenu .submenu-item {
         height: 36px;
     }
 
+    .informationmenu.is-collapsed .sidebar-scroll-clip,
+    .informationmenu.is-collapsed .informationmenu-scroll-clip,
     .informationmenu.is-collapsed .sidebar-scroll,
     .informationmenu.is-collapsed .informationmenu-scroll {
         overflow-x: hidden;

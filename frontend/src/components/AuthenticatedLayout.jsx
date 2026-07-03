@@ -1167,6 +1167,7 @@ export default function AuthenticatedLayout() {
           <SidebarLangSwitch lang={lang} onLanguageChange={applyLanguage} ariaLabel={i18n.switchLanguage} />
         </div>
 
+        <div className="sidebar-scroll-clip">
         <div className="sidebar-scroll" ref={menuContentRef}>
         <div className="informationmenu-content">
           <div className="content-separator" />
@@ -1478,6 +1479,7 @@ export default function AuthenticatedLayout() {
               </div>
             </div>
           )}
+        </div>
         </div>
         </div>
 
