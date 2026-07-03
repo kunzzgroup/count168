@@ -768,7 +768,11 @@
     column-gap: var(--sidebar-icon-gap, 0.65rem);
     align-items: center;
     justify-content: flex-start;
-    transition: all 0.3s ease;
+    transition:
+        color 0.3s ease,
+        transform 0.3s ease,
+        box-shadow 0.3s ease,
+        background 0.3s ease;
     border-radius: 25px 0 0 25px;
     margin: 0;
     position: relative;
@@ -795,8 +799,8 @@
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.4),
         inset 0 -1px 0 rgba(255, 255, 255, 0.4);
-    opacity: 0;
-    transition: opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     z-index: 0;
     pointer-events: none;
     border-radius: inherit;
@@ -805,7 +809,7 @@
 .informationmenu-section-title:hover::before,
 .informationmenu-section-title.current-page::before,
 .informationmenu-section-title.active::before {
-    opacity: 1;
+    transform: translateX(0);
 }
 
 .informationmenu-section-title .section-icon,
@@ -818,6 +822,7 @@
 
 .informationmenu-section-title:hover {
     color: white;
+    background: rgba(255, 255, 255, 0.1);
     transform: translateX(5px);
     box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4);
 }
@@ -1031,7 +1036,7 @@
 }
 
 .menu-item-wrapper:hover .informationmenu-section-title::before {
-    opacity: 1;
+    transform: translateX(0);
 }
 
 .menu-item-wrapper:hover .informationmenu-section-title:not(.current-page) {
@@ -2143,7 +2148,9 @@ body.ec-auth-shell .informationmenu .submenu-item {
     }
 
     .informationmenu.is-collapsed .informationmenu-section-title::before {
+        transform: none;
         opacity: 0;
+        pointer-events: none;
     }
 
     .informationmenu.is-collapsed .section-icon {
