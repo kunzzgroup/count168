@@ -2387,6 +2387,7 @@ body.ec-auth-shell .informationmenu .informationmenu-content {
 body.ec-auth-shell .informationmenu a.informationmenu-section-title,
 body.ec-auth-shell .informationmenu .informationmenu-section-title {
     overflow: visible !important;
+    transition: transform 0.2s ease, background 0.08s ease, box-shadow 0.08s ease, color 0.08s ease !important;
 }
 
 body.ec-auth-shell .informationmenu a.informationmenu-section-title::before,
@@ -2410,6 +2411,18 @@ body.ec-auth-shell .informationmenu .informationmenu-section-title:hover {
     text-shadow: none !important;
 }
 
+/* Mousedown — instant blue (before mouseup / route change adds .current-page) */
+body.ec-auth-shell .informationmenu a.informationmenu-section-title:active,
+body.ec-auth-shell .informationmenu .informationmenu-section-title:active {
+    transform: translateX(5px) !important;
+    background: var(--sidebar-active-bg, #0e93f3) !important;
+    color: #fff !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7) !important;
+    outline: none !important;
+    text-shadow: none !important;
+    transition: none !important;
+}
+
 body.ec-auth-shell .informationmenu a.informationmenu-section-title.current-page,
 body.ec-auth-shell .informationmenu .informationmenu-section-title.current-page {
     transform: translateX(5px) !important;
@@ -2427,7 +2440,8 @@ body.ec-auth-shell .informationmenu .informationmenu-section-title.current-page 
 }
 
 body.ec-auth-shell .informationmenu .informationmenu-section-title:hover .section-icon,
-body.ec-auth-shell .informationmenu .informationmenu-section-title.current-page .section-icon {
+body.ec-auth-shell .informationmenu .informationmenu-section-title.current-page .section-icon,
+body.ec-auth-shell .informationmenu .informationmenu-section-title:active .section-icon {
     transform: none !important;
     filter: brightness(0) invert(1) !important;
     opacity: 1 !important;
