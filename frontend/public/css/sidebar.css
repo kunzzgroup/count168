@@ -2405,9 +2405,9 @@ body.ec-auth-shell .informationmenu .informationmenu-section-title:hover {
     transform: translateX(5px) !important;
     background: rgba(255, 255, 255, 0.12) !important;
     color: #fff !important;
-    box-shadow: none !important;
-    outline: 1px solid rgba(255, 255, 255, 0.55) !important;
-    outline-offset: -1px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55) !important;
+    outline: none !important;
+    text-shadow: none !important;
 }
 
 body.ec-auth-shell .informationmenu a.informationmenu-section-title.current-page,
@@ -2415,14 +2415,28 @@ body.ec-auth-shell .informationmenu .informationmenu-section-title.current-page 
     transform: translateX(5px) !important;
     background: var(--sidebar-active-bg, #0e93f3) !important;
     color: #fff !important;
-    box-shadow: none !important;
-    outline: 1px solid rgba(255, 255, 255, 0.85) !important;
-    outline-offset: -1px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7) !important;
+    outline: none !important;
+    text-shadow: none !important;
+}
+
+body.ec-auth-shell .informationmenu .informationmenu-section-title .sidebar-menu-label,
+body.ec-auth-shell .informationmenu .informationmenu-section-title:hover .sidebar-menu-label,
+body.ec-auth-shell .informationmenu .informationmenu-section-title.current-page .sidebar-menu-label {
+    text-shadow: none !important;
+}
+
+body.ec-auth-shell .informationmenu .informationmenu-section-title:hover .section-icon,
+body.ec-auth-shell .informationmenu .informationmenu-section-title.current-page .section-icon {
+    transform: none !important;
+    filter: brightness(0) invert(1) !important;
+    opacity: 1 !important;
 }
 
 body.ec-auth-shell .informationmenu .menu-item-wrapper:hover > .informationmenu-section-title:not(:hover) {
     background: transparent !important;
     box-shadow: none !important;
     outline: none !important;
+    text-shadow: none !important;
     transform: none !important;
 }
