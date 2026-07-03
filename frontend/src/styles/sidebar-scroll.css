@@ -20,7 +20,7 @@ body.ec-auth-shell .informationmenu-footer {
   z-index: 3;
 }
 
-/* Clip parent — flex:1 rail; overflow hidden trims native scrollbar gutter */
+/* Clip parent — flex:1 rail; overflow hidden trims scrollbar drawn outside menu width */
 .sidebar-scroll-clip {
   flex: 1 1 auto;
   min-height: 0;
@@ -32,27 +32,41 @@ body.ec-auth-shell .informationmenu-footer {
   background: var(--sidebar-shell-bg, #002d49);
 }
 
+/* Mask any sub-pixel bleed at the sidebar / content seam */
+body.ec-auth-shell .sidebar-scroll-clip::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--sidebar-shell-bg, #002d49);
+  pointer-events: none;
+  z-index: 2;
+}
+
 body.ec-auth-shell .sidebar-scroll-clip {
   flex: 1 1 auto !important;
   min-height: 0 !important;
   overflow: hidden !important;
 }
 
-/* Scroll container — full width; scrollbar hidden via CSS + parent clip */
+/* Scroll container — wider than clip so native scrollbar sits in clipped zone */
 .sidebar-scroll {
   height: 100%;
   max-height: 100%;
-  width: 100%;
-  max-width: 100%;
+  width: calc(100% + var(--sidebar-scrollbar-clip-pad, 24px));
+  max-width: none;
+  padding-right: var(--sidebar-scrollbar-clip-pad, 24px);
+  margin-right: calc(-1 * var(--sidebar-scrollbar-clip-pad, 24px));
   box-sizing: border-box;
-  overflow-x: clip;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scroll-padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
   scrollbar-width: none;
   scrollbar-color: transparent transparent;
-  scrollbar-gutter: auto;
   -ms-overflow-style: none;
 }
 
@@ -68,18 +82,9 @@ body.ec-auth-shell .informationmenu-content {
   max-width: 100%;
 }
 
-/* Menu chrome flush to sidebar right edge — no dark gutter between pill and seam */
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title {
-  margin-right: 0;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
+/* Keep hover/active chrome inside the visible rail (no white arc bleed at clip edge) */
 body.ec-auth-shell .sidebar-scroll .informationmenu-section-title::before {
-  right: 0;
-  width: 100%;
-  border-radius: 25px 0 0 25px;
+  width: calc(100% - 6px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.28),
     inset 0 -1px 0 rgba(255, 255, 255, 0.28);
@@ -88,28 +93,24 @@ body.ec-auth-shell .sidebar-scroll .informationmenu-section-title::before {
 body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover::before,
 body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page::before {
   right: 0;
-  width: 100%;
-}
-
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover,
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page {
-  transform: none !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  border-radius: 25px 0 0 25px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+  width: calc(100% - 6px);
 }
 
 body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.2),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  transform: none;
+  margin-left: 5px;
+  width: calc(100% - 5px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 4px 16px rgba(15, 120, 200, 0.35);
 }
 
-/* WebKit / legacy — belt-and-suspenders with parent clip */
+body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
+  transform: none;
+  margin-left: 5px;
+  width: calc(100% - 5px);
+  box-shadow: 0 4px 16px rgba(79, 172, 254, 0.28);
+}
+
+/* WebKit / legacy — belt-and-suspenders with physical clip */
 .sidebar-scroll::-webkit-scrollbar,
 .sidebar-scroll::-webkit-scrollbar-track,
 .sidebar-scroll::-webkit-scrollbar-thumb,
