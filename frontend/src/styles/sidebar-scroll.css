@@ -125,3 +125,33 @@ body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
   -webkit-appearance: none;
   opacity: 0 !important;
 }
+
+/* Desktop-like: no scrollbar shadow on hover/focus — wheel/touch scroll still works */
+body.ec-auth-shell .informationmenu:hover .sidebar-scroll,
+body.ec-auth-shell .sidebar-scroll:hover,
+body.ec-auth-shell .sidebar-scroll:focus-within {
+  scrollbar-width: none !important;
+  scrollbar-color: transparent transparent !important;
+  -ms-overflow-style: none !important;
+}
+
+body.ec-auth-shell .informationmenu:hover .sidebar-scroll::-webkit-scrollbar,
+body.ec-auth-shell .sidebar-scroll:hover::-webkit-scrollbar,
+body.ec-auth-shell .sidebar-scroll:focus-within::-webkit-scrollbar,
+body.ec-auth-shell .informationmenu:hover .sidebar-scroll::-webkit-scrollbar-track,
+body.ec-auth-shell .sidebar-scroll:hover::-webkit-scrollbar-track,
+body.ec-auth-shell .sidebar-scroll:focus-within::-webkit-scrollbar-track,
+body.ec-auth-shell .informationmenu:hover .sidebar-scroll::-webkit-scrollbar-thumb,
+body.ec-auth-shell .sidebar-scroll:hover::-webkit-scrollbar-thumb,
+body.ec-auth-shell .sidebar-scroll:focus-within::-webkit-scrollbar-thumb,
+body.ec-auth-shell .informationmenu:hover .sidebar-scroll::-webkit-scrollbar-corner,
+body.ec-auth-shell .sidebar-scroll:hover::-webkit-scrollbar-corner,
+body.ec-auth-shell .sidebar-scroll:focus-within::-webkit-scrollbar-corner {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
+}
