@@ -221,4 +221,6 @@ body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-corner {
     background: transparent !important;
     border: none !important;
     appearance: none !important;
+    -webkit-appearance: none !important;
+    opacity: 0 !important;
 }

@@ -23,6 +23,7 @@ body.ec-auth-shell .informationmenu-scroll-clip {
 }
 
 body.ec-auth-shell .informationmenu-scroll {
+  width: 100% !important;
   height: 100% !important;
   max-height: 100% !important;
   overflow-y: auto !important;
@@ -34,9 +35,7 @@ body.ec-auth-shell .informationmenu-scroll {
   scrollbar-color: transparent transparent !important;
   -ms-overflow-style: none !important;
   scroll-padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem) !important;
-  margin-right: calc(-1 * (var(--dash-scrollbar-size, 12px) + 8px)) !important;
-  padding-right: calc(var(--dash-scrollbar-size, 12px) + 8px) !important;
-  box-sizing: content-box !important;
+  box-sizing: border-box !important;
 }
 
 body.ec-auth-shell .informationmenu-content {
@@ -57,6 +56,8 @@ body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-corner {
   border: none !important;
   box-shadow: none !important;
   appearance: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
 }
 
 body.ec-auth-shell .informationmenu-footer {
