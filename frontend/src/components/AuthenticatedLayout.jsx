@@ -1167,8 +1167,7 @@ export default function AuthenticatedLayout() {
           <SidebarLangSwitch lang={lang} onLanguageChange={applyLanguage} ariaLabel={i18n.switchLanguage} />
         </div>
 
-        <div className="informationmenu-scroll-clip">
-        <div className="informationmenu-scroll" ref={menuContentRef}>
+        <div className="sidebar-scroll" ref={menuContentRef}>
         <div className="informationmenu-content">
           <div className="content-separator" />
           {canAccess("home") && (
@@ -1479,7 +1478,6 @@ export default function AuthenticatedLayout() {
               </div>
             </div>
           )}
-        </div>
         </div>
         </div>
 

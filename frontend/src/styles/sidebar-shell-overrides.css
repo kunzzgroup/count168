@@ -1,13 +1,10 @@
 /*
- * Sidebar scroll shell — imported last in main.jsx so it wins over stale rules in the app-shell bundle.
- * dist/css/sidebar.css (index.html link) is the production source of truth for full sidebar.css.
- * Scroll lives on .informationmenu-scroll (outer rail), not .informationmenu-content (menu labels).
+ * Sidebar shell size lock — scroll rail lives in sidebar-scroll.css (imported after this file).
  */
 body.ec-auth-shell .informationmenu {
   height: 100vh !important;
   height: 100dvh !important;
   max-height: 100dvh !important;
-  overflow: visible !important;
   min-height: 0 !important;
 }
 
@@ -15,58 +12,7 @@ body.ec-auth-shell .informationmenu-header {
   flex-shrink: 0 !important;
 }
 
-body.ec-auth-shell .informationmenu-scroll-clip {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-  position: relative;
-  width: 100% !important;
-  max-width: 100% !important;
-}
-
-body.ec-auth-shell .informationmenu-scroll {
-  width: calc(100% + var(--sidebar-scrollbar-clip-pad, 24px)) !important;
-  max-width: none !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: auto !important;
-  scrollbar-width: none !important;
-  scrollbar-color: transparent transparent !important;
-  -ms-overflow-style: none !important;
-  scroll-padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem) !important;
-  padding-right: var(--sidebar-scrollbar-clip-pad, 24px) !important;
-  box-sizing: border-box !important;
-}
-
-body.ec-auth-shell .informationmenu-content {
-  overflow: visible !important;
-  flex: 0 0 auto !important;
-  min-height: min-content !important;
-  padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem) !important;
-}
-
-body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar,
-body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-track,
-body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-thumb,
-body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-corner {
-  width: 0 !important;
-  height: 0 !important;
-  display: none !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  opacity: 0 !important;
-}
-
 body.ec-auth-shell .informationmenu-footer {
   flex-shrink: 0 !important;
   background: var(--sidebar-shell-bg, #002d49) !important;
-  position: relative;
-  z-index: 2;
 }

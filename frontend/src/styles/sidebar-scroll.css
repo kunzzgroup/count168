@@ -1,0 +1,73 @@
+/*
+ * Sidebar nav scroll rail — Home→Maintenance inside AuthenticatedLayout.
+ * Imported last in main.jsx. Flyout submenus portal to body (SidebarFlyoutSubmenu).
+ */
+body.ec-auth-shell .informationmenu {
+  display: flex;
+  flex-direction: column;
+  overflow: visible !important;
+}
+
+body.ec-auth-shell .informationmenu-header {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 3;
+}
+
+body.ec-auth-shell .informationmenu-footer {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 3;
+}
+
+/* Primary scroll container — fills space between header and footer */
+.sidebar-scroll,
+.informationmenu-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+  -ms-overflow-style: none;
+}
+
+body.ec-auth-shell .sidebar-scroll,
+body.ec-auth-shell .informationmenu-scroll {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+
+body.ec-auth-shell .informationmenu-content {
+  overflow: visible !important;
+  flex: 0 0 auto;
+  min-height: min-content;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
+}
+
+/* Chrome, Edge (Chromium), Safari */
+.sidebar-scroll::-webkit-scrollbar,
+.informationmenu-scroll::-webkit-scrollbar,
+.sidebar-scroll::-webkit-scrollbar-track,
+.informationmenu-scroll::-webkit-scrollbar-track,
+.sidebar-scroll::-webkit-scrollbar-thumb,
+.informationmenu-scroll::-webkit-scrollbar-thumb,
+.sidebar-scroll::-webkit-scrollbar-corner,
+.informationmenu-scroll::-webkit-scrollbar-corner {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  appearance: none;
+  -webkit-appearance: none;
+  opacity: 0 !important;
+}

@@ -18,16 +18,16 @@
 html,
 body,
 body #root,
-body *:not(.informationmenu-scroll) {
+body *:not(.sidebar-scroll):not(.informationmenu-scroll) {
     scrollbar-width: auto;
     scrollbar-color: var(--dash-scrollbar-thumb) var(--dash-scrollbar-track);
 }
 
-/* WebKit — page + all nested scroll containers (not sidebar menu rail) */
+/* WebKit — page + nested scroll containers (not sidebar nav rail) */
 html::-webkit-scrollbar,
 body::-webkit-scrollbar,
 body #root::-webkit-scrollbar,
-body *:not(.informationmenu-scroll)::-webkit-scrollbar {
+body *:not(.sidebar-scroll):not(.informationmenu-scroll)::-webkit-scrollbar {
     width: var(--dash-scrollbar-size) !important;
     height: var(--dash-scrollbar-size) !important;
 }
@@ -35,16 +35,16 @@ body *:not(.informationmenu-scroll)::-webkit-scrollbar {
 html::-webkit-scrollbar-button,
 body::-webkit-scrollbar-button,
 body #root::-webkit-scrollbar-button,
-body *:not(.informationmenu-scroll)::-webkit-scrollbar-button,
+body *:not(.sidebar-scroll):not(.informationmenu-scroll)::-webkit-scrollbar-button,
 html::-webkit-scrollbar-button:single-button,
 body::-webkit-scrollbar-button:single-button,
-body *:not(.informationmenu-scroll)::-webkit-scrollbar-button:single-button,
+body *:not(.sidebar-scroll):not(.informationmenu-scroll)::-webkit-scrollbar-button:single-button,
 html::-webkit-scrollbar-button:vertical:decrement,
 html::-webkit-scrollbar-button:vertical:increment,
 body::-webkit-scrollbar-button:vertical:decrement,
 body::-webkit-scrollbar-button:vertical:increment,
-body *:not(.informationmenu-scroll)::-webkit-scrollbar-button:vertical:decrement,
-body *:not(.informationmenu-scroll)::-webkit-scrollbar-button:vertical:increment {
+body *:not(.sidebar-scroll):not(.informationmenu-scroll)::-webkit-scrollbar-button:vertical:decrement,
+body *:not(.sidebar-scroll):not(.informationmenu-scroll)::-webkit-scrollbar-button:vertical:increment {
     display: none;
     width: 0;
     height: 0;
@@ -56,8 +56,8 @@ body::-webkit-scrollbar-button:horizontal:decrement,
 body::-webkit-scrollbar-button:horizontal:increment,
 body #root::-webkit-scrollbar-button:horizontal:decrement,
 body #root::-webkit-scrollbar-button:horizontal:increment,
-body *:not(.informationmenu-scroll)::-webkit-scrollbar-button:horizontal:decrement,
-body *:not(.informationmenu-scroll)::-webkit-scrollbar-button:horizontal:increment {
+body *:not(.sidebar-scroll):not(.informationmenu-scroll)::-webkit-scrollbar-button:horizontal:decrement,
+body *:not(.sidebar-scroll):not(.informationmenu-scroll)::-webkit-scrollbar-button:horizontal:increment {
     display: none;
     width: 0;
     height: 0;
@@ -66,7 +66,7 @@ body *:not(.informationmenu-scroll)::-webkit-scrollbar-button:horizontal:increme
 html::-webkit-scrollbar-track,
 body::-webkit-scrollbar-track,
 body #root::-webkit-scrollbar-track,
-body *:not(.informationmenu-scroll)::-webkit-scrollbar-track {
+body *:not(.sidebar-scroll):not(.informationmenu-scroll)::-webkit-scrollbar-track {
     background: var(--dash-scrollbar-track) !important;
     border-radius: var(--dash-scrollbar-radius) !important;
 }
@@ -74,7 +74,7 @@ body *:not(.informationmenu-scroll)::-webkit-scrollbar-track {
 html::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb,
 body #root::-webkit-scrollbar-thumb,
-body *:not(.informationmenu-scroll)::-webkit-scrollbar-thumb {
+body *:not(.sidebar-scroll):not(.informationmenu-scroll)::-webkit-scrollbar-thumb {
     background: var(--dash-scrollbar-thumb) !important;
     border-radius: var(--dash-scrollbar-radius) !important;
     border: var(--dash-scrollbar-thumb-border) !important;
@@ -84,21 +84,21 @@ body *:not(.informationmenu-scroll)::-webkit-scrollbar-thumb {
 html::-webkit-scrollbar-thumb:hover,
 body::-webkit-scrollbar-thumb:hover,
 body #root::-webkit-scrollbar-thumb:hover,
-body *:not(.informationmenu-scroll)::-webkit-scrollbar-thumb:hover {
+body *:not(.sidebar-scroll):not(.informationmenu-scroll)::-webkit-scrollbar-thumb:hover {
     background: var(--dash-scrollbar-thumb-hover) !important;
 }
 
 html::-webkit-scrollbar-thumb:active,
 body::-webkit-scrollbar-thumb:active,
 body #root::-webkit-scrollbar-thumb:active,
-body *:not(.informationmenu-scroll)::-webkit-scrollbar-thumb:active {
+body *:not(.sidebar-scroll):not(.informationmenu-scroll)::-webkit-scrollbar-thumb:active {
     background: var(--dash-scrollbar-thumb-active) !important;
 }
 
 html::-webkit-scrollbar-corner,
 body::-webkit-scrollbar-corner,
 body #root::-webkit-scrollbar-corner,
-body *:not(.informationmenu-scroll)::-webkit-scrollbar-corner {
+body *:not(.sidebar-scroll):not(.informationmenu-scroll)::-webkit-scrollbar-corner {
     background: var(--dash-scrollbar-track);
 }
 
@@ -128,6 +128,7 @@ body.member-winloss-page .transaction-modal-body,
 body.member-winloss-page .transaction-table-wrapper,
 body.member-winloss-page .transaction-modal,
 body.member-winloss-page .informationmenu-scroll,
+body.member-winloss-page .sidebar-scroll,
 body.member-winloss-page .informationmenu-content,
 body.member-winloss-page .avatar-options {
     scrollbar-gutter: stable;
@@ -200,26 +201,21 @@ body.ec-auth-shell .submenu.submenu--scrollable:focus-within::-webkit-scrollbar-
     background: rgba(255, 255, 255, 0.35) !important;
 }
 
-/* Sidebar Home→Maintenance rail — clip native scrollbar outside visible rail */
-body.ec-auth-shell .informationmenu-scroll-clip {
-    overflow: hidden !important;
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
+/* Sidebar nav rail — hidden scrollbar (wins over body * rules above) */
+body.ec-auth-shell .sidebar-scroll,
 body.ec-auth-shell .informationmenu-scroll {
-    width: calc(100% + var(--sidebar-scrollbar-clip-pad, 24px)) !important;
-    max-width: none !important;
-    padding-right: var(--sidebar-scrollbar-clip-pad, 24px) !important;
-    box-sizing: border-box !important;
     scrollbar-width: none !important;
     scrollbar-color: transparent transparent !important;
     -ms-overflow-style: none !important;
 }
 
+body.ec-auth-shell .sidebar-scroll::-webkit-scrollbar,
 body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar,
+body.ec-auth-shell .sidebar-scroll::-webkit-scrollbar-track,
 body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-track,
+body.ec-auth-shell .sidebar-scroll::-webkit-scrollbar-thumb,
 body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-thumb,
+body.ec-auth-shell .sidebar-scroll::-webkit-scrollbar-corner,
 body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-corner {
     width: 0 !important;
     height: 0 !important;
