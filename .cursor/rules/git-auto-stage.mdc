@@ -7,40 +7,8 @@ alwaysApply: true
 
 After you finish modifying files in this repo:
 
-1. Run `git add` for **every source file you changed** in this task.
-2. **Never** stage:
-   - `frontend/dist/**` (Vite build output; hash-renamed assets)
-   - secrets: `includes/config.local.php`, `config.local.php`, `.env`, `.cursor/mcp.env`, `.cursor/mcp.json`
-3. Do this before ending the task, after the work is done and any required build passes.
-4. Do **not** run `git commit` unless the user explicitly asks to commit.
-
-## After `npm run build` (frontend)
-
-Build is for **verification only** during normal dev. When the build succeeds, reset dist so Source Control does not show hundreds of asset churn files:
-
-```bash
-git restore frontend/dist
-git clean -fd frontend/dist/assets
-```
-
-`git clean` removes untracked hash-renamed `.js` / `.css` that `restore` alone cannot drop.
-
-Only stage/commit `frontend/dist` when the user **explicitly** asks to ship a frontend deploy bundle.
-
-## What counts as “source”
-
-| Stage | Do not stage |
-|-------|----------------|
-| `frontend/src/**`, `frontend/public/**` | `frontend/dist/**` |
-| `api/**`, `includes/**` (not local secrets) | `*.env`, `config.local.php` |
-| `database/migrations/**`, `database/schema/**` | `database/backups/**` |
-
-## Stage each changed path explicitly
-
-Prefer explicit adds, not `git add -A`:
-
-```bash
-git add frontend/public/css/sidebar.css
-```
+1. Run `git add` for every file you changed (source only — never stage `frontend/dist`, secrets, or `.env`).
+2. Do this before ending the task, after the work is done and any required build passes.
+3. Do **not** run `git commit` unless the user explicitly asks to commit.
 
 If `git add` is blocked by Cursor permissions, tell the user to allow `git add` in **Cursor Settings → Agents → Auto-Run → Command Allowlist**.

@@ -12,8 +12,4 @@ cd frontend
 npm run build
 ```
 
-If the build fails, fix the errors and re-run until it passes.
-
-After a **successful** build during agent work, run `git restore frontend/dist` and `git clean -fd frontend/dist/assets` so local hash-renamed assets do not flood Source Control. Do not stage `frontend/dist` unless the user explicitly asks to commit a deploy bundle.
-
-For production deploy, `frontend/dist/` is still built and uploaded (or committed) separately — see `deploy/NGINX_DEPLOY.md`.
+If the build fails, fix the errors and re-run until it passes. This keeps `frontend/dist` aligned with what Hostinger or static deploy expects.
