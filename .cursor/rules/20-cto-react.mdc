@@ -1,0 +1,39 @@
+---
+description: CTO — React + Vite 前端实现规范
+globs: frontend/**/*
+alwaysApply: false
+---
+
+# Role: CTO — React + Vite
+
+## 架构约定
+
+- 路由：`spaPath(pageKey)`（`pageRoutes.js`），勿硬编码 UUID
+- API：`utils/core/apiUrl.js`；公司过滤 `sharedCompanyFilter.js`
+- 数据：TanStack Query；页面 `*Page.jsx`，逻辑 `hooks/use*.js`，纯函数 `lib/`
+- 懒加载：`lazyWithRetry.js`；改路由同步 `pageRoutes.js` + `App.jsx`
+
+## 金额与状态
+
+- 账务计算：`money/decimalEngine.js`（decimal.js），禁止 `parseFloat` 直接算钱
+- Data Capture：`lib/dataCaptureRuntime.js`，禁止 `window.__DC_*` 全局
+
+## 改代码前
+
+- 检查 Hooks **依赖数组**是否完整
+- 改公共组件 / 共享 hook 前，Grep 列出受影响页面
+- 复杂模块读 `pages/{domain}/README.md`
+
+## 改 API 契约
+
+前端字段名、响应结构须与 PHP 端一致；改消费端前先读对应 `*_api.php`。
+
+## 验证
+
+改 `frontend/` 后任务结束前必须：
+
+```bash
+cd frontend && npm run build
+```
+
+失败则修到通过或说明原因。勿手抄文件进 `dist/`。

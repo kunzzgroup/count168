@@ -1,0 +1,32 @@
+---
+description: 任务收尾 Git stage 约定
+alwaysApply: true
+---
+
+# Git stage
+
+任务完成且验证通过后：
+
+1. 对本次改动的**每个源文件**执行 `git add <path>`
+2. 在 `npm run build` **之后** stage（build 会触发 postbuild 同步）
+3. **不要** `git commit`，除非用户明确要求
+
+## 勿 stage
+
+- `frontend/dist/assets/**`
+- `frontend/dist/index.html`（除非用户要求完整前端 deploy commit）
+- `includes/config.local.php`、`.env`、`.cursor/mcp.env`
+
+## postbuild 自动处理
+
+`npm run build` 后 `scripts/git-sync-after-build.mjs` 会 restore dist assets 并 stage `frontend/src`、`frontend/public`、`frontend/dist/css`。
+
+手动等价：
+
+```bash
+git restore frontend/dist/assets frontend/dist/index.html
+git clean -fd frontend/dist/assets
+git add -A -- frontend/src frontend/public frontend/dist/css
+```
+
+优先 `git add <path>`，避免 `git add -A`。
