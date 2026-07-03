@@ -14,31 +14,47 @@
     --dash-scrollbar-track-margin: 6px 0;
 }
 
-/* Sidebar nav — skip global 12px gray bar; sidebar.css owns minimal scroll chrome */
-body.ec-auth-shell .informationmenu-content {
+/* Sidebar nav — skip global 12px gray bar; sidebar.css owns minimal scroll chrome on outer rail */
+body.ec-auth-shell .informationmenu-scroll {
+    scrollbar-width: none;
+    scrollbar-color: transparent transparent;
+}
+
+body.ec-auth-shell .informationmenu:hover .informationmenu-scroll,
+body.ec-auth-shell .informationmenu-scroll:hover,
+body.ec-auth-shell .informationmenu-scroll:focus-within {
     scrollbar-width: thin;
     scrollbar-color: transparent transparent;
 }
 
-body.ec-auth-shell .informationmenu-content::-webkit-scrollbar {
+body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none;
+}
+
+body.ec-auth-shell .informationmenu:hover .informationmenu-scroll::-webkit-scrollbar,
+body.ec-auth-shell .informationmenu-scroll:hover::-webkit-scrollbar,
+body.ec-auth-shell .informationmenu-scroll:focus-within::-webkit-scrollbar {
+    display: block;
     width: 3px !important;
     height: 3px !important;
 }
 
-body.ec-auth-shell .informationmenu-content::-webkit-scrollbar-track {
+body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-track {
     background: transparent !important;
     border: none !important;
 }
 
-body.ec-auth-shell .informationmenu-content::-webkit-scrollbar-thumb {
+body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-thumb {
     background: transparent !important;
     border: none !important;
     min-height: 24px;
 }
 
-body.ec-auth-shell .informationmenu:hover .informationmenu-content::-webkit-scrollbar-thumb,
-body.ec-auth-shell .informationmenu-content:hover::-webkit-scrollbar-thumb,
-body.ec-auth-shell .informationmenu-content:focus-within::-webkit-scrollbar-thumb {
+body.ec-auth-shell .informationmenu:hover .informationmenu-scroll::-webkit-scrollbar-thumb,
+body.ec-auth-shell .informationmenu-scroll:hover::-webkit-scrollbar-thumb,
+body.ec-auth-shell .informationmenu-scroll:focus-within::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.22) !important;
 }
 
@@ -155,6 +171,7 @@ body.member-winloss-page .member-dash-total-matrix-body,
 body.member-winloss-page .transaction-modal-body,
 body.member-winloss-page .transaction-table-wrapper,
 body.member-winloss-page .transaction-modal,
+body.member-winloss-page .informationmenu-scroll,
 body.member-winloss-page .informationmenu-content,
 body.member-winloss-page .avatar-options {
     scrollbar-gutter: stable;
@@ -198,4 +215,31 @@ body.transaction-page .transaction-search-section .transaction-checkboxes.userli
     width: 0 !important;
     height: 0 !important;
     background: transparent !important;
+}
+
+/* Portaled sidebar flyout — override body * 12px scrollbar */
+body.ec-auth-shell .submenu.submenu--scrollable {
+    scrollbar-width: thin !important;
+    scrollbar-color: transparent transparent !important;
+}
+
+body.ec-auth-shell .submenu.submenu--scrollable::-webkit-scrollbar {
+    width: 3px !important;
+    height: 3px !important;
+}
+
+body.ec-auth-shell .submenu.submenu--scrollable::-webkit-scrollbar-track {
+    background: transparent !important;
+    border: none !important;
+}
+
+body.ec-auth-shell .submenu.submenu--scrollable::-webkit-scrollbar-thumb {
+    background: transparent !important;
+    border: none !important;
+    min-height: 24px;
+}
+
+body.ec-auth-shell .submenu.submenu--scrollable:hover::-webkit-scrollbar-thumb,
+body.ec-auth-shell .submenu.submenu--scrollable:focus-within::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.22) !important;
 }

@@ -13,24 +13,37 @@ function resolveFooterBottomLimit(anchorEl) {
     : window.innerHeight - VIEWPORT_PAD;
 }
 
+function measureFlyoutNaturalHeight(flyoutEl) {
+  const savedMax = flyoutEl.style.maxHeight;
+  flyoutEl.style.maxHeight = "none";
+  const height = flyoutEl.scrollHeight;
+  flyoutEl.style.maxHeight = savedMax;
+  return height;
+}
+
 function computeFlyoutPosition(anchorEl, flyoutEl) {
   const anchorRect = anchorEl.getBoundingClientRect();
-  const flyoutWidth = flyoutEl.offsetWidth;
+  const flyoutWidth = flyoutEl.offsetWidth || 160;
   const bottomLimit = resolveFooterBottomLimit(anchorEl);
+  const viewportBottom = window.innerHeight - VIEWPORT_PAD;
+  const naturalHeight = measureFlyoutNaturalHeight(flyoutEl);
 
-  // Always align with anchor — never shift top upward; clip via maxHeight + scroll.
-  const top = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
-  let left = anchorRect.right;
-
+  const sidebar = anchorEl.closest(".informationmenu");
+  const sidebarRight = sidebar?.getBoundingClientRect().right;
+  let left =
+    typeof sidebarRight === "number" && Number.isFinite(sidebarRight)
+      ? sidebarRight
+      : anchorRect.right;
   if (left + flyoutWidth > window.innerWidth - VIEWPORT_PAD) {
     left = Math.max(VIEWPORT_PAD, window.innerWidth - flyoutWidth - VIEWPORT_PAD);
   }
 
-  const viewportMax = Math.max(0, window.innerHeight - VIEWPORT_PAD - top);
-  const footerMax = Math.max(0, bottomLimit - top);
-  const maxHeight = Math.min(viewportMax, footerMax);
+  const top = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
+  const available = Math.min(bottomLimit - top, viewportBottom - top);
+  const scrollable = naturalHeight > available;
+  const maxHeight = scrollable ? Math.max(available, 0) : null;
 
-  return { top, left, maxHeight };
+  return { top, left, maxHeight, scrollable };
 }
 
 /** Flyout submenu portaled to body — escapes sidebar overflow/transform clipping. */
@@ -43,14 +56,12 @@ export default function SidebarFlyoutSubmenu({
   children,
 }) {
   const flyoutRef = useRef(null);
-  const [pos, setPos] = useState({ top: 0, left: 0, maxHeight: 0 });
-  const [scrollable, setScrollable] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0, maxHeight: null, scrollable: false });
   const [positioned, setPositioned] = useState(false);
 
   useLayoutEffect(() => {
     if (!open) {
       setPositioned(false);
-      setScrollable(false);
       return undefined;
     }
 
@@ -60,34 +71,34 @@ export default function SidebarFlyoutSubmenu({
 
     const sync = () => {
       const next = computeFlyoutPosition(anchor, flyout);
-      const maxHeightPx =
-        next.maxHeight > 0 ? next.maxHeight : window.innerHeight - VIEWPORT_PAD * 2;
-      flyout.style.maxHeight = `${maxHeightPx}px`;
-      const needsScroll = flyout.scrollHeight > flyout.clientHeight + 1;
       setPos((prev) =>
         prev.top === next.top &&
         prev.left === next.left &&
-        prev.maxHeight === next.maxHeight
+        prev.maxHeight === next.maxHeight &&
+        prev.scrollable === next.scrollable
           ? prev
           : next,
       );
-      setScrollable(needsScroll);
       setPositioned(true);
     };
 
     sync();
 
-    const menuContent = anchor.closest(".informationmenu-content");
-    menuContent?.addEventListener("scroll", sync, { passive: true });
+    const sidebar = anchor.closest(".informationmenu");
+    const menuScroll =
+      anchor.closest(".informationmenu-scroll") ??
+      anchor.closest(".informationmenu-content");
+    menuScroll?.addEventListener("scroll", sync, { passive: true });
     window.addEventListener("resize", sync, { passive: true });
     window.addEventListener("ec:sidebar-layout-changed", sync);
 
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(sync) : null;
     ro?.observe(flyout);
     ro?.observe(anchor);
+    if (sidebar) ro?.observe(sidebar);
 
     return () => {
-      menuContent?.removeEventListener("scroll", sync);
+      menuScroll?.removeEventListener("scroll", sync);
       window.removeEventListener("resize", sync);
       window.removeEventListener("ec:sidebar-layout-changed", sync);
       ro?.disconnect();
@@ -96,10 +107,12 @@ export default function SidebarFlyoutSubmenu({
 
   if (!open || typeof document === "undefined" || !document.body) return null;
 
+  const className = `submenu show${pos.scrollable ? " submenu--scrollable" : ""}`;
+
   return createPortal(
     <div
       ref={flyoutRef}
-      className={`submenu show${scrollable ? " submenu--scrollable" : ""}`}
+      className={className}
       id={id}
       style={{
         position: "fixed",
@@ -110,7 +123,7 @@ export default function SidebarFlyoutSubmenu({
         transform: "translateX(0)",
         pointerEvents: "auto",
         zIndex: 4000,
-        maxHeight: pos.maxHeight > 0 ? pos.maxHeight : `calc(100dvh - ${VIEWPORT_PAD * 2}px)`,
+        ...(pos.maxHeight != null ? { maxHeight: pos.maxHeight } : {}),
       }}
       aria-hidden={!open}
       onMouseEnter={onMouseEnter}
