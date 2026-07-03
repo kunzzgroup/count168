@@ -27,8 +27,14 @@ function computeFlyoutPosition(anchorEl, flyoutEl) {
     left = Math.max(VIEWPORT_PAD, window.innerWidth - flyoutWidth - VIEWPORT_PAD);
   }
 
-  const top = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
-  // Viewport only — flyout is portaled (z-index 4000) and may extend over sidebar footer.
+  const anchorTop = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
+  let top = anchorTop;
+
+  // Prefer showing the full menu: slide up when the anchor sits near the viewport bottom.
+  if (top + naturalHeight > viewportBottom) {
+    top = Math.max(VIEWPORT_PAD, viewportBottom - naturalHeight);
+  }
+
   const available = viewportBottom - top;
   const scrollable = naturalHeight > available;
   const maxHeight = scrollable ? Math.max(available, 0) : null;
@@ -73,6 +79,7 @@ export default function SidebarFlyoutSubmenu({
     };
 
     sync();
+    const raf = requestAnimationFrame(sync);
 
     const sidebar = anchor.closest(".informationmenu");
     const menuScroll =
@@ -88,6 +95,7 @@ export default function SidebarFlyoutSubmenu({
     if (sidebar) ro?.observe(sidebar);
 
     return () => {
+      cancelAnimationFrame(raf);
       menuScroll?.removeEventListener("scroll", sync);
       window.removeEventListener("resize", sync);
       window.removeEventListener("ec:sidebar-layout-changed", sync);
