@@ -15,11 +15,18 @@ body.ec-auth-shell .informationmenu-header {
   flex-shrink: 0 !important;
 }
 
-body.ec-auth-shell .informationmenu-scroll {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
+body.ec-auth-shell .informationmenu-scroll-clip {
   flex: 1 1 auto !important;
   min-height: 0 !important;
+  overflow: hidden !important;
+  position: relative;
+}
+
+body.ec-auth-shell .informationmenu-scroll {
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: auto !important;
@@ -27,6 +34,9 @@ body.ec-auth-shell .informationmenu-scroll {
   scrollbar-color: transparent transparent !important;
   -ms-overflow-style: none !important;
   scroll-padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem) !important;
+  margin-right: calc(-1 * (var(--dash-scrollbar-size, 12px) + 8px)) !important;
+  padding-right: calc(var(--dash-scrollbar-size, 12px) + 8px) !important;
+  box-sizing: content-box !important;
 }
 
 body.ec-auth-shell .informationmenu-content {
@@ -36,17 +46,17 @@ body.ec-auth-shell .informationmenu-content {
   padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem) !important;
 }
 
-body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar {
+body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar,
+body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-track,
+body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-thumb,
+body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-corner {
   width: 0 !important;
   height: 0 !important;
   display: none !important;
-}
-
-body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-track,
-body.ec-auth-shell .informationmenu-scroll::-webkit-scrollbar-thumb {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
+  appearance: none !important;
 }
 
 body.ec-auth-shell .informationmenu-footer {
