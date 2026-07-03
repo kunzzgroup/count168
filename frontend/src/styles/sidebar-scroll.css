@@ -67,21 +67,21 @@ body.ec-auth-shell .sidebar-scroll .informationmenu-section-title {
   overflow: visible !important;
 }
 
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover {
+body.ec-auth-shell .informationmenu:not(.is-collapsed) .sidebar-scroll .informationmenu-section-title:hover {
   box-shadow: 0 4px 20px rgba(79, 172, 254, 0.4) !important;
   transform: translateX(5px) !important;
 }
 
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title:hover::before {
+body.ec-auth-shell .informationmenu:not(.is-collapsed) .sidebar-scroll .informationmenu-section-title:hover::before {
   right: 0 !important;
 }
 
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page {
+body.ec-auth-shell .informationmenu:not(.is-collapsed) .sidebar-scroll .informationmenu-section-title.current-page {
   box-shadow: 0 4px 20px #4facfe66 !important;
   transform: translateX(5px) !important;
 }
 
-body.ec-auth-shell .sidebar-scroll .informationmenu-section-title.current-page::before {
+body.ec-auth-shell .informationmenu:not(.is-collapsed) .sidebar-scroll .informationmenu-section-title.current-page::before {
   right: 0 !important;
 }
 
