@@ -754,12 +754,26 @@
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     scrollbar-gutter: auto;
-    scrollbar-width: thin;
+    scrollbar-width: none;
     scrollbar-color: transparent transparent;
+}
+
+/* Desktop: no scrollbar track until sidebar hover (matches flyout submenu chrome) */
+.informationmenu:hover .informationmenu-content,
+.informationmenu-content:hover,
+.informationmenu-content:focus-within {
+    scrollbar-width: thin;
 }
 
 /* Sidebar menu scroll — hidden by default; faint thumb only while hovering the sidebar */
 .informationmenu-content::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+.informationmenu:hover .informationmenu-content::-webkit-scrollbar,
+.informationmenu-content:hover::-webkit-scrollbar,
+.informationmenu-content:focus-within::-webkit-scrollbar {
     width: 3px !important;
     height: 3px !important;
 }
@@ -1030,11 +1044,22 @@
 /* Only when flyout content exceeds footer/viewport budget — match sidebar scroll chrome */
 .submenu.submenu--scrollable {
     overflow-y: auto;
-    scrollbar-width: thin;
+    scrollbar-width: none;
     scrollbar-color: transparent transparent;
 }
 
+.submenu.submenu--scrollable:hover,
+.submenu.submenu--scrollable:focus-within {
+    scrollbar-width: thin;
+}
+
 .submenu.submenu--scrollable::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+}
+
+.submenu.submenu--scrollable:hover::-webkit-scrollbar,
+.submenu.submenu--scrollable:focus-within::-webkit-scrollbar {
     width: 3px !important;
     height: 3px !important;
 }

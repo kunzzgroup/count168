@@ -22,11 +22,24 @@ body.ec-auth-shell .informationmenu-content {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: auto !important;
-  scrollbar-width: thin !important;
+  scrollbar-width: none !important;
   scrollbar-color: transparent transparent !important;
 }
 
+body.ec-auth-shell .informationmenu:hover .informationmenu-content,
+body.ec-auth-shell .informationmenu-content:hover,
+body.ec-auth-shell .informationmenu-content:focus-within {
+  scrollbar-width: thin !important;
+}
+
 body.ec-auth-shell .informationmenu-content::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+}
+
+body.ec-auth-shell .informationmenu:hover .informationmenu-content::-webkit-scrollbar,
+body.ec-auth-shell .informationmenu-content:hover::-webkit-scrollbar,
+body.ec-auth-shell .informationmenu-content:focus-within::-webkit-scrollbar {
   width: 3px !important;
   height: 3px !important;
 }
