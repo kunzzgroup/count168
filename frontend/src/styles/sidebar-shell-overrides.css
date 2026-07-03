@@ -25,12 +25,14 @@ body.ec-auth-shell .informationmenu-scroll {
   scrollbar-gutter: auto !important;
   scrollbar-width: none !important;
   scrollbar-color: transparent transparent !important;
+  scroll-padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem) !important;
 }
 
 body.ec-auth-shell .informationmenu-content {
   overflow: visible !important;
   flex: 0 0 auto !important;
   min-height: min-content !important;
+  padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem) !important;
 }
 
 body.ec-auth-shell .informationmenu:hover .informationmenu-scroll,

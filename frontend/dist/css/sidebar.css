@@ -754,6 +754,7 @@
     scrollbar-gutter: auto;
     scrollbar-width: none;
     scrollbar-color: transparent transparent;
+    scroll-padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
 }
 
 /* Scrollbar on the outer sidebar rail — hidden until hover / scroll */
@@ -812,6 +813,8 @@
     min-height: min-content;
     display: flex;
     flex-direction: column;
+    /* Extra scroll runway so Report/Maintenance can move up away from footer */
+    padding-bottom: var(--sidebar-menu-scroll-end-pad, 7rem);
 }
 
 .informationmenu-section {
