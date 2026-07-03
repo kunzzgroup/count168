@@ -28,21 +28,18 @@ function computeFlyoutPosition(anchorEl, flyoutEl) {
   const viewportBottom = window.innerHeight - VIEWPORT_PAD;
   const naturalHeight = measureFlyoutNaturalHeight(flyoutEl);
 
-  let left = anchorRect.right;
+  const sidebar = anchorEl.closest(".informationmenu");
+  const sidebarRight = sidebar?.getBoundingClientRect().right;
+  let left =
+    typeof sidebarRight === "number" && Number.isFinite(sidebarRight)
+      ? sidebarRight
+      : anchorRect.right;
   if (left + flyoutWidth > window.innerWidth - VIEWPORT_PAD) {
     left = Math.max(VIEWPORT_PAD, window.innerWidth - flyoutWidth - VIEWPORT_PAD);
   }
 
-  const anchorTop = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
-  let top = anchorTop;
-  let available = Math.min(bottomLimit - top, viewportBottom - top);
-
-  // Near footer: grow upward so the menu is not clipped to one row.
-  if (naturalHeight > available) {
-    top = Math.max(VIEWPORT_PAD, bottomLimit - naturalHeight);
-    available = Math.min(bottomLimit - top, viewportBottom - top);
-  }
-
+  const top = Math.max(VIEWPORT_PAD, anchorRect.top - 2);
+  const available = Math.min(bottomLimit - top, viewportBottom - top);
   const scrollable = naturalHeight > available;
   const maxHeight = scrollable ? Math.max(available, 0) : null;
 
@@ -87,6 +84,7 @@ export default function SidebarFlyoutSubmenu({
 
     sync();
 
+    const sidebar = anchor.closest(".informationmenu");
     const menuScroll =
       anchor.closest(".informationmenu-scroll") ??
       anchor.closest(".informationmenu-content");
@@ -97,6 +95,7 @@ export default function SidebarFlyoutSubmenu({
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(sync) : null;
     ro?.observe(flyout);
     ro?.observe(anchor);
+    if (sidebar) ro?.observe(sidebar);
 
     return () => {
       menuScroll?.removeEventListener("scroll", sync);
