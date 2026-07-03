@@ -1,5 +1,5 @@
 /**
- * After `npm run build`: drop Vite hash asset churn, stage only changed frontend source + dist/css.
+ * After `npm run build`: drop Vite hash asset churn, stage only changed frontend files.
  * Run from frontend/ via package.json postbuild (repo root = ../..).
  */
 import { execSync } from "node:child_process";
@@ -43,14 +43,31 @@ function isGitRepo() {
   }
 }
 
-/** Stage only paths that actually differ from HEAD (avoids mass LF/CRLF warnings on Windows). */
-function stageChangedUnder(relPath) {
-  const modified = gitLines(`git diff --name-only -- "${relPath}"`);
-  const untracked = gitLines(`git ls-files --others --exclude-standard -- "${relPath}"`);
-  const files = [...new Set([...modified, ...untracked])];
-  if (!files.length) return;
-  const quoted = files.map((f) => `"${f.replace(/"/g, '\\"')}"`).join(" ");
+function stagePaths(files) {
+  const unique = [...new Set(files)];
+  if (!unique.length) return;
+  const quoted = unique.map((f) => `"${f.replace(/"/g, '\\"')}"`).join(" ");
   run(`git add -- ${quoted}`, { allowFail: true });
+}
+
+/** Stage only paths that actually differ from HEAD (ignore CRLF-only noise on Windows). */
+function stageChangedUnder(relPath) {
+  const modified = gitLines(`git diff --name-only --ignore-cr-at-eol -- "${relPath}"`);
+  const untracked = gitLines(`git ls-files --others --exclude-standard -- "${relPath}"`);
+  stagePaths([...modified, ...untracked]);
+}
+
+/** dist/css mirrors public/css — only stage pairs whose public source changed. */
+function stageCssMirrorsFromPublic() {
+  const publicChanged = gitLines(
+    `git diff --name-only --ignore-cr-at-eol -- frontend/public/css`,
+  );
+  const pairs = [];
+  for (const pub of publicChanged) {
+    pairs.push(pub);
+    pairs.push(pub.replace("/public/css/", "/dist/css/"));
+  }
+  stagePaths(pairs);
 }
 
 if (!isGitRepo()) {
@@ -64,10 +81,10 @@ run("git clean -fd frontend/dist/assets", { allowFail: true });
 
 run("node frontend/scripts/patch-index-sidebar-css.mjs", { allowFail: true });
 
-const stagePaths = ["frontend/src", "frontend/public", "frontend/dist/css", "frontend/dist/index.html"];
 console.log("[git-sync-after-build] stage changed files only…");
-for (const rel of stagePaths) {
-  stageChangedUnder(rel);
-}
+stageChangedUnder("frontend/src");
+stageChangedUnder("frontend/public");
+stageCssMirrorsFromPublic();
+stageChangedUnder("frontend/dist/index.html");
 
 console.log("[git-sync-after-build] done — dist/assets not staged (hash bundles)");

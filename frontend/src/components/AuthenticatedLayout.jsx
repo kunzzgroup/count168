@@ -9,6 +9,8 @@ import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
 import ExpirationReminderModal from "./ExpirationReminderModal.jsx";
 import { AuthSessionProvider } from "../context/AuthSessionContext.jsx";
 import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
+import SidebarFlyoutSubmenu from "./SidebarFlyoutSubmenu.jsx";
+import { dismissAllPortalTooltips } from "./PortalTooltip.jsx";
 import { DASHBOARD_I18N } from "../translateFile/shell/dashboardTranslate.js";
 import { formatUserRoleDisplay, getUserListText } from "../translateFile/pages/userListTranslate.js";
 import { getExpirationReminderText } from "../translateFile/shell/expirationReminderTranslate.js";
@@ -216,9 +218,9 @@ export default function AuthenticatedLayout() {
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hoverSection, setHoverSection] = useState(null);
-  const [submenuPos, setSubmenuPos] = useState({ report: { top: 0, left: 0 }, maintenance: { top: 0, left: 0 } });
   const reportTitleRef = useRef(null);
   const maintenanceTitleRef = useRef(null);
+  const submenuCloseTimerRef = useRef(null);
   const menuContentRef = useRef(null);
 
   useLayoutEffect(() => {
@@ -1059,18 +1061,29 @@ export default function AuthenticatedLayout() {
     setLang(normalized);
     applyLoginLang(normalized);
   };
-  const openHoverSubmenu = (section, el) => {
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    setSubmenuPos((prev) => ({
-      ...prev,
-      [section]: {
-        top: Math.max(8, rect.top - 2),
-        left: rect.right,
-      },
-    }));
+  const openHoverSubmenu = (section) => {
+    if (submenuCloseTimerRef.current) {
+      clearTimeout(submenuCloseTimerRef.current);
+      submenuCloseTimerRef.current = null;
+    }
+    dismissAllPortalTooltips();
     setHoverSection(section);
   };
+
+  const scheduleCloseHoverSubmenu = useCallback(() => {
+    if (submenuCloseTimerRef.current) clearTimeout(submenuCloseTimerRef.current);
+    submenuCloseTimerRef.current = window.setTimeout(() => {
+      setHoverSection(null);
+      submenuCloseTimerRef.current = null;
+    }, 160);
+  }, []);
+
+  const cancelCloseHoverSubmenu = useCallback(() => {
+    if (submenuCloseTimerRef.current) {
+      clearTimeout(submenuCloseTimerRef.current);
+      submenuCloseTimerRef.current = null;
+    }
+  }, []);
 
   const sessionContextValue = useMemo(
     () => ({
@@ -1327,13 +1340,16 @@ export default function AuthenticatedLayout() {
           )}
           {canAccess("report") && me?.company_has_gambling && (
             <div className="informationmenu-section">
-              <div className="menu-item-wrapper" onMouseLeave={() => setHoverSection(null)}>
+              <div className="menu-item-wrapper" onMouseLeave={scheduleCloseHoverSubmenu}>
                 <SidebarNavTip label={i18n.sidebarReport} enabled={sidebarIconOnly} placement="top">
                   <div
                     ref={reportTitleRef}
                     className={`informationmenu-section-title ${pageKey === "customer-report" || pageKey === "domain-report" ? "active" : ""}`}
                     data-section="report"
-                    onMouseEnter={() => openHoverSubmenu("report", reportTitleRef.current)}
+                    onMouseEnter={() => {
+                      cancelCloseHoverSubmenu();
+                      openHoverSubmenu("report");
+                    }}
                     role="presentation"
                   >
                     <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -1343,51 +1359,46 @@ export default function AuthenticatedLayout() {
                     <span className="section-arrow">▶</span>
                   </div>
                 </SidebarNavTip>
-                <div
-                  className="submenu"
+                <SidebarFlyoutSubmenu
                   id="report-submenu"
-                  style={{
-                    position: "fixed",
-                    top: submenuPos.report.top,
-                    left: submenuPos.report.left,
-                    opacity: hoverSection === "report" ? 1 : 0,
-                    transform: hoverSection === "report" ? "translateX(0)" : "translateX(-10px)",
-                    pointerEvents: hoverSection === "report" ? "auto" : "none",
-                    zIndex: 4000,
+                  open={hoverSection === "report"}
+                  anchorRef={reportTitleRef}
+                  onMouseEnter={() => {
+                    cancelCloseHoverSubmenu();
+                    setHoverSection("report");
                   }}
-                  aria-hidden={hoverSection !== "report"}
-                  onMouseEnter={() => setHoverSection("report")}
-                  onMouseLeave={() => setHoverSection(null)}
+                  onMouseLeave={scheduleCloseHoverSubmenu}
                 >
-                  <div className="submenu-content">
-                    <a
-                      {...sidebarSubmenuLinkProps("/customer-report", goTo)}
-                      className={`submenu-item ${pageKey === "customer-report" ? "current-page" : ""}`}
-                      data-prefetch-path="/customer-report"
-                    >
-                      <span>{i18n.sidebarCustomerReport}</span>
-                    </a>
-                    <a
-                      {...sidebarSubmenuLinkProps("/domain-report", goTo)}
-                      className={`submenu-item ${pageKey === "domain-report" ? "current-page" : ""}`}
-                      data-prefetch-path="/domain-report"
-                    >
-                      <span>{i18n.sidebarDomainReport}</span>
-                    </a>
-                  </div>
-                </div>
+                  <a
+                    {...sidebarSubmenuLinkProps("/customer-report", goTo)}
+                    className={`submenu-item ${pageKey === "customer-report" ? "current-page" : ""}`}
+                    data-prefetch-path="/customer-report"
+                  >
+                    <span>{i18n.sidebarCustomerReport}</span>
+                  </a>
+                  <a
+                    {...sidebarSubmenuLinkProps("/domain-report", goTo)}
+                    className={`submenu-item ${pageKey === "domain-report" ? "current-page" : ""}`}
+                    data-prefetch-path="/domain-report"
+                  >
+                    <span>{i18n.sidebarDomainReport}</span>
+                  </a>
+                </SidebarFlyoutSubmenu>
               </div>
             </div>
           )}
           {showMaintenanceMenu && (
             <div className="informationmenu-section">
-              <div className="menu-item-wrapper" onMouseLeave={() => setHoverSection(null)}>
+              <div className="menu-item-wrapper" onMouseLeave={scheduleCloseHoverSubmenu}>
                 <SidebarNavTip label={i18n.sidebarMaintenance} enabled={sidebarIconOnly} placement="top">
                   <div
                     ref={maintenanceTitleRef}
                     className={`informationmenu-section-title ${(["payment-maintenance", "capture-maintenance", "transaction-maintenance", "formula-maintenance", "bankprocess-maintenance"].includes(pageKey)) ? "active" : ""}`}
                     data-section="maintenance"
-                    onMouseEnter={() => openHoverSubmenu("maintenance", maintenanceTitleRef.current)}
+                    onMouseEnter={() => {
+                      cancelCloseHoverSubmenu();
+                      openHoverSubmenu("maintenance");
+                    }}
                     role="presentation"
                   >
                     <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -1397,23 +1408,16 @@ export default function AuthenticatedLayout() {
                     <span className="section-arrow">▶</span>
                   </div>
                 </SidebarNavTip>
-                <div
-                  className="submenu"
+                <SidebarFlyoutSubmenu
                   id="maintenance-submenu"
-                  style={{
-                    position: "fixed",
-                    top: submenuPos.maintenance.top,
-                    left: submenuPos.maintenance.left,
-                    opacity: hoverSection === "maintenance" ? 1 : 0,
-                    transform: hoverSection === "maintenance" ? "translateX(0)" : "translateX(-10px)",
-                    pointerEvents: hoverSection === "maintenance" ? "auto" : "none",
-                    zIndex: 4000,
+                  open={hoverSection === "maintenance"}
+                  anchorRef={maintenanceTitleRef}
+                  onMouseEnter={() => {
+                    cancelCloseHoverSubmenu();
+                    setHoverSection("maintenance");
                   }}
-                  aria-hidden={hoverSection !== "maintenance"}
-                  onMouseEnter={() => setHoverSection("maintenance")}
-                  onMouseLeave={() => setHoverSection(null)}
+                  onMouseLeave={scheduleCloseHoverSubmenu}
                 >
-                  <div className="submenu-content">
                     {(showFullMaintenanceMenu || (showLimitedMaintenanceMenu && me?.company_has_bank)) &&
                       (me?.company_has_gambling || me?.company_has_bank) && (
                       <a
@@ -1461,8 +1465,7 @@ export default function AuthenticatedLayout() {
                         <span>{i18n.sidebarProcess}</span>
                       </a>
                     )}
-                  </div>
-                </div>
+                </SidebarFlyoutSubmenu>
               </div>
             </div>
           )}

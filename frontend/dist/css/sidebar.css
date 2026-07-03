@@ -494,7 +494,7 @@
     display: flex;
     flex-direction: column;
     border-right: 1px solid rgba(255, 255, 255, 0.2);
-    overflow: hidden;
+    overflow: visible;
     /* 优化渲染性能，防止闪烁 */
     will-change: transform;
     backface-visibility: hidden;
@@ -753,42 +753,43 @@
     flex-direction: column;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    scrollbar-gutter: stable;
+    scrollbar-gutter: auto;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    scrollbar-color: transparent transparent;
 }
 
-/* Sidebar menu scroll — thin, low-contrast; brighter on hover (overrides app-wide 12px bar) */
+/* Sidebar menu scroll — hidden by default; faint thumb only while hovering the sidebar */
 .informationmenu-content::-webkit-scrollbar {
-    width: 4px !important;
-    height: 4px !important;
+    width: 3px !important;
+    height: 3px !important;
 }
 
 .informationmenu-content::-webkit-scrollbar-track {
     background: transparent !important;
-    border-radius: 999px !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 .informationmenu-content::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.14) !important;
+    background: transparent !important;
     border: none !important;
     border-radius: 999px !important;
-    min-height: 28px;
-    transition: background 0.2s ease;
+    min-height: 24px;
+    box-shadow: none !important;
 }
 
 .informationmenu:hover .informationmenu-content::-webkit-scrollbar-thumb,
 .informationmenu-content:hover::-webkit-scrollbar-thumb,
 .informationmenu-content:focus-within::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.28) !important;
+    background: rgba(255, 255, 255, 0.22) !important;
 }
 
 .informationmenu-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.4) !important;
+    background: rgba(255, 255, 255, 0.35) !important;
 }
 
 .informationmenu-content::-webkit-scrollbar-thumb:active {
-    background: rgba(255, 255, 255, 0.5) !important;
+    background: rgba(255, 255, 255, 0.45) !important;
 }
 
 .informationmenu-section {
@@ -1019,9 +1020,16 @@
     transform: translateX(-10px);
     transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     pointer-events: none;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     backdrop-filter: blur(10px);
     margin-left: 0px;
+}
+
+.submenu.show {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
 }
 
 .menu-item-wrapper:hover .informationmenu-section-title {
@@ -1763,7 +1771,7 @@
    Use clamp so small viewports match legacy .informationmenu + max-width:1280px (≈150px), not forced desktop width. */
 body.ec-auth-shell .informationmenu {
     width: var(--layout-sidebar-width) !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     min-height: 0 !important;
 }
 

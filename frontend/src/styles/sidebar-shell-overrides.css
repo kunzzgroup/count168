@@ -6,7 +6,7 @@ body.ec-auth-shell .informationmenu {
   height: 100vh !important;
   height: 100dvh !important;
   max-height: 100dvh !important;
-  overflow: hidden !important;
+  overflow: visible !important;
   min-height: 0 !important;
 }
 
@@ -21,28 +21,37 @@ body.ec-auth-shell .informationmenu-content {
   min-height: 0 !important;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  scrollbar-gutter: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: transparent transparent !important;
 }
 
 body.ec-auth-shell .informationmenu-content::-webkit-scrollbar {
-  width: 4px !important;
-  height: 4px !important;
+  width: 3px !important;
+  height: 3px !important;
 }
 
 body.ec-auth-shell .informationmenu-content::-webkit-scrollbar-track {
   background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 body.ec-auth-shell .informationmenu-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14) !important;
+  background: transparent !important;
   border: none !important;
   border-radius: 999px !important;
+  box-shadow: none !important;
 }
 
 body.ec-auth-shell .informationmenu:hover .informationmenu-content::-webkit-scrollbar-thumb,
-body.ec-auth-shell .informationmenu-content:hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.28) !important;
+body.ec-auth-shell .informationmenu-content:hover::-webkit-scrollbar-thumb,
+body.ec-auth-shell .informationmenu-content:focus-within::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22) !important;
+}
+
+body.ec-auth-shell .informationmenu-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35) !important;
 }
 
 body.ec-auth-shell .informationmenu-footer {
