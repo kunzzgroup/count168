@@ -494,7 +494,7 @@
     display: flex;
     flex-direction: column;
     border-right: 1px solid rgba(255, 255, 255, 0.2);
-    overflow: hidden;
+    overflow: visible;
     /* 优化渲染性能，防止闪烁 */
     will-change: transform;
     backface-visibility: hidden;
@@ -1023,6 +1023,12 @@
     overflow: hidden;
     backdrop-filter: blur(10px);
     margin-left: 0px;
+}
+
+.submenu.show {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
 }
 
 .menu-item-wrapper:hover .informationmenu-section-title {
@@ -1764,7 +1770,7 @@
    Use clamp so small viewports match legacy .informationmenu + max-width:1280px (≈150px), not forced desktop width. */
 body.ec-auth-shell .informationmenu {
     width: var(--layout-sidebar-width) !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     min-height: 0 !important;
 }
 
