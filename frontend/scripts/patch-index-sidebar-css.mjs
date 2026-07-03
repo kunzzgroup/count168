@@ -9,8 +9,8 @@ import { fileURLToPath } from "node:url";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const indexPath = resolve(repoRoot, "frontend/dist/index.html");
 const SIDEBAR_LINK =
-  '<link rel="stylesheet" href="/frontend/dist/css/sidebar.css?v=20260703-sidebar-scroll-v4" />';
-const SCROLLBAR_HREF = "/frontend/dist/css/dashboard-scrollbar.css?v=20260703-sidebar-scroll-v4";
+  '<link rel="stylesheet" href="/frontend/dist/css/sidebar.css?v=20260703-sidebar-scroll-v2" />';
+const SCROLLBAR_HREF = "/frontend/dist/css/dashboard-scrollbar.css?v=20260703-sidebar-scroll-v2";
 
 let html = readFileSync(indexPath, "utf8");
 const before = html;

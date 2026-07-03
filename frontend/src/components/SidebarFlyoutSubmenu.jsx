@@ -33,20 +33,6 @@ function computeFlyoutPosition(anchorEl, flyoutEl) {
   return { top, left, maxHeight };
 }
 
-function measureFlyoutLayout(anchor, flyout) {
-  const next = computeFlyoutPosition(anchor, flyout);
-  const prevMaxHeight = flyout.style.maxHeight;
-  flyout.style.maxHeight = "none";
-  const naturalHeight = flyout.scrollHeight;
-  flyout.style.maxHeight = prevMaxHeight;
-
-  const maxHeightPx =
-    next.maxHeight > 0 ? next.maxHeight : window.innerHeight - VIEWPORT_PAD * 2;
-  const needsScroll = naturalHeight > maxHeightPx + 1;
-
-  return { ...next, maxHeightPx, needsScroll };
-}
-
 /** Flyout submenu portaled to body — escapes sidebar overflow/transform clipping. */
 export default function SidebarFlyoutSubmenu({
   id,
@@ -73,30 +59,26 @@ export default function SidebarFlyoutSubmenu({
     if (!anchor || !flyout) return undefined;
 
     const sync = () => {
-      const layout = measureFlyoutLayout(anchor, flyout);
-      flyout.style.maxHeight = `${layout.maxHeightPx}px`;
-      const needsScroll =
-        layout.needsScroll ||
-        flyout.scrollHeight > flyout.clientHeight + 1;
+      const next = computeFlyoutPosition(anchor, flyout);
+      const maxHeightPx =
+        next.maxHeight > 0 ? next.maxHeight : window.innerHeight - VIEWPORT_PAD * 2;
+      flyout.style.maxHeight = `${maxHeightPx}px`;
+      const needsScroll = flyout.scrollHeight > flyout.clientHeight + 1;
       setPos((prev) =>
-        prev.top === layout.top &&
-        prev.left === layout.left &&
-        prev.maxHeight === layout.maxHeight
+        prev.top === next.top &&
+        prev.left === next.left &&
+        prev.maxHeight === next.maxHeight
           ? prev
-          : { top: layout.top, left: layout.left, maxHeight: layout.maxHeight },
+          : next,
       );
       setScrollable(needsScroll);
       setPositioned(true);
     };
 
     sync();
-    const raf1 = window.requestAnimationFrame(() => {
-      sync();
-      window.requestAnimationFrame(sync);
-    });
 
-    const menuScroll = anchor.closest(".informationmenu-scroll");
-    menuScroll?.addEventListener("scroll", sync, { passive: true });
+    const menuContent = anchor.closest(".informationmenu-content");
+    menuContent?.addEventListener("scroll", sync, { passive: true });
     window.addEventListener("resize", sync, { passive: true });
     window.addEventListener("ec:sidebar-layout-changed", sync);
 
@@ -105,8 +87,7 @@ export default function SidebarFlyoutSubmenu({
     ro?.observe(anchor);
 
     return () => {
-      window.cancelAnimationFrame(raf1);
-      menuScroll?.removeEventListener("scroll", sync);
+      menuContent?.removeEventListener("scroll", sync);
       window.removeEventListener("resize", sync);
       window.removeEventListener("ec:sidebar-layout-changed", sync);
       ro?.disconnect();
@@ -114,9 +95,6 @@ export default function SidebarFlyoutSubmenu({
   }, [open, anchorRef]);
 
   if (!open || typeof document === "undefined" || !document.body) return null;
-
-  const maxHeightStyle =
-    pos.maxHeight > 0 ? `${pos.maxHeight}px` : `calc(100dvh - ${VIEWPORT_PAD * 2}px)`;
 
   return createPortal(
     <div
@@ -132,7 +110,7 @@ export default function SidebarFlyoutSubmenu({
         transform: "translateX(0)",
         pointerEvents: "auto",
         zIndex: 4000,
-        maxHeight: maxHeightStyle,
+        maxHeight: pos.maxHeight > 0 ? pos.maxHeight : `calc(100dvh - ${VIEWPORT_PAD * 2}px)`,
       }}
       aria-hidden={!open}
       onMouseEnter={onMouseEnter}
