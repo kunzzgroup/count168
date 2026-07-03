@@ -1085,6 +1085,19 @@ function auto_renew_sync_window_requests(PDO $pdo): void
         }
         $insertGroup->execute([(int) $row['id'], $exp]);
     }
+
+    // 清理 group_id 已不存在于 groups 表的孤立 auto-renew 请求记录
+    // （当 fk_car_group 外键未成功添加时，删除 group 不会级联删除请求记录）
+    try {
+        $pdo->exec("
+            DELETE r FROM `company_auto_renew_request` r
+            LEFT JOIN `groups` g ON g.id = r.group_id
+            WHERE r.entity_type = 'group'
+              AND g.id IS NULL
+        ");
+    } catch (Exception $e) {
+        // 忽略：环境不支持时不影响主流程
+    }
 }
 
 /**
