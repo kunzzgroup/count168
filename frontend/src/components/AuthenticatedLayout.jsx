@@ -919,11 +919,15 @@ export default function AuthenticatedLayout() {
   }, [loading, me, pageKey, path]);
 
   useEffect(() => {
-    const root = menuContentRef.current;
-    if (!root) return;
     const warmRoute = (event) => {
       const target = event.target.closest("[data-prefetch-path]");
-      const routePath = target?.dataset?.prefetchPath;
+      if (!target) return;
+      const menuRoot = menuContentRef.current;
+      const inMenu = menuRoot?.contains(target);
+      const inFlyout = target.closest("#report-submenu, #maintenance-submenu");
+      if (!inMenu && !inFlyout) return;
+
+      const routePath = target.dataset.prefetchPath;
       const routePageKey = routePath ? pathnameToPageKey(routePath) : null;
       if (routePath) {
         prefetchRouteModule(routePath);
@@ -959,13 +963,13 @@ export default function AuthenticatedLayout() {
         }
       }
     };
-    root.addEventListener("pointerdown", warmRoute, { capture: true });
-    root.addEventListener("mouseover", warmRoute);
-    root.addEventListener("focusin", warmRoute);
+    document.addEventListener("pointerdown", warmRoute, { capture: true });
+    document.addEventListener("mouseover", warmRoute);
+    document.addEventListener("focusin", warmRoute);
     return () => {
-      root.removeEventListener("pointerdown", warmRoute, { capture: true });
-      root.removeEventListener("mouseover", warmRoute);
-      root.removeEventListener("focusin", warmRoute);
+      document.removeEventListener("pointerdown", warmRoute, { capture: true });
+      document.removeEventListener("mouseover", warmRoute);
+      document.removeEventListener("focusin", warmRoute);
     };
   }, [me]);
 
@@ -1347,11 +1351,13 @@ export default function AuthenticatedLayout() {
                     ref={reportTitleRef}
                     className={`informationmenu-section-title ${pageKey === "customer-report" || pageKey === "domain-report" ? "active" : ""}`}
                     data-section="report"
+                    aria-expanded={hoverSection === "report"}
+                    aria-controls="report-submenu"
+                    aria-haspopup="menu"
                     onMouseEnter={() => {
                       cancelCloseHoverSubmenu();
                       openHoverSubmenu("report");
                     }}
-                    role="presentation"
                   >
                     <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
@@ -1396,11 +1402,13 @@ export default function AuthenticatedLayout() {
                     ref={maintenanceTitleRef}
                     className={`informationmenu-section-title ${(["payment-maintenance", "capture-maintenance", "transaction-maintenance", "formula-maintenance", "bankprocess-maintenance"].includes(pageKey)) ? "active" : ""}`}
                     data-section="maintenance"
+                    aria-expanded={hoverSection === "maintenance"}
+                    aria-controls="maintenance-submenu"
+                    aria-haspopup="menu"
                     onMouseEnter={() => {
                       cancelCloseHoverSubmenu();
                       openHoverSubmenu("maintenance");
                     }}
-                    role="presentation"
                   >
                     <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
