@@ -200,12 +200,18 @@ body.ec-auth-shell .submenu.submenu--scrollable:focus-within::-webkit-scrollbar-
     background: rgba(255, 255, 255, 0.35) !important;
 }
 
-/* Sidebar Home→Maintenance rail — hidden scrollbar (clip + CSS; wins over any stray global rules) */
+/* Sidebar Home→Maintenance rail — clip native scrollbar outside visible rail */
 body.ec-auth-shell .informationmenu-scroll-clip {
     overflow: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
 }
 
 body.ec-auth-shell .informationmenu-scroll {
+    width: calc(100% + var(--sidebar-scrollbar-clip-pad, 24px)) !important;
+    max-width: none !important;
+    padding-right: var(--sidebar-scrollbar-clip-pad, 24px) !important;
+    box-sizing: border-box !important;
     scrollbar-width: none !important;
     scrollbar-color: transparent transparent !important;
     -ms-overflow-style: none !important;
