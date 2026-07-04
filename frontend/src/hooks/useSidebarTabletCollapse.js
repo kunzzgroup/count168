@@ -4,13 +4,52 @@ export const SIDEBAR_COLLAPSED_STORAGE_KEY = "ec_sidebar_collapsed";
 /** iPad / Galaxy Tab 横屏等平板视口 */
 export const TABLET_MEDIA_QUERY = "(max-width: 1280px)";
 
+function bindMediaQueryChange(mediaQueryList, listener) {
+  if (!mediaQueryList || typeof listener !== "function") return () => {};
+  if (typeof mediaQueryList.addEventListener === "function") {
+    mediaQueryList.addEventListener("change", listener);
+    return () => {
+      if (typeof mediaQueryList.removeEventListener === "function") {
+        mediaQueryList.removeEventListener("change", listener);
+      }
+    };
+  }
+  if (typeof mediaQueryList.addListener === "function") {
+    mediaQueryList.addListener(listener);
+    return () => {
+      if (typeof mediaQueryList.removeListener === "function") {
+        mediaQueryList.removeListener(listener);
+      }
+    };
+  }
+  return () => {};
+}
+
+function safeLocalGetItem(key) {
+  try {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalSetItem(key, value) {
+  try {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(key, value);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function useSidebarTabletCollapse() {
   const [isTabletViewport, setIsTabletViewport] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia(TABLET_MEDIA_QUERY).matches : false,
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
-    const stored = localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+    const stored = safeLocalGetItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
     if (stored === "1") return true;
     if (stored === "0") return false;
     return window.matchMedia(TABLET_MEDIA_QUERY).matches;
@@ -23,8 +62,7 @@ export function useSidebarTabletCollapse() {
     const mq = window.matchMedia(TABLET_MEDIA_QUERY);
     const onChange = () => setIsTabletViewport(mq.matches);
     onChange();
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
+    return bindMediaQueryChange(mq, onChange);
   }, []);
 
   useEffect(() => {
@@ -41,12 +79,12 @@ export function useSidebarTabletCollapse() {
 
   const collapseSidebar = useCallback(() => {
     setSidebarCollapsed(true);
-    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, "1");
+    safeLocalSetItem(SIDEBAR_COLLAPSED_STORAGE_KEY, "1");
   }, []);
 
   const expandSidebar = useCallback(() => {
     setSidebarCollapsed(false);
-    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, "0");
+    safeLocalSetItem(SIDEBAR_COLLAPSED_STORAGE_KEY, "0");
   }, []);
 
   const onHamburgerClick = useCallback(

@@ -39,6 +39,27 @@ import { useMemberPageShell } from "./useMemberPageShell.js";
 import { useSidebarTabletCollapse } from "../../hooks/useSidebarTabletCollapse.js";
 import { DASHBOARD_I18N } from "../../translateFile/shell/dashboardTranslate.js";
 
+function bindMediaQueryChange(mediaQueryList, listener) {
+  if (!mediaQueryList || typeof listener !== "function") return () => {};
+  if (typeof mediaQueryList.addEventListener === "function") {
+    mediaQueryList.addEventListener("change", listener);
+    return () => {
+      if (typeof mediaQueryList.removeEventListener === "function") {
+        mediaQueryList.removeEventListener("change", listener);
+      }
+    };
+  }
+  if (typeof mediaQueryList.addListener === "function") {
+    mediaQueryList.addListener(listener);
+    return () => {
+      if (typeof mediaQueryList.removeListener === "function") {
+        mediaQueryList.removeListener(listener);
+      }
+    };
+  }
+  return () => {};
+}
+
 export default function MemberPage() {
   const navigate = useNavigate();
   const lang = useLoginLang();
@@ -150,8 +171,7 @@ export default function MemberPage() {
     const mq = window.matchMedia(WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ);
     const update = () => setAccountNarrowViewport(mq.matches);
     update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
+    return bindMediaQueryChange(mq, update);
   }, []);
 
   const accountFilterBands = useMemo(
@@ -372,10 +392,10 @@ export default function MemberPage() {
     const ro = new ResizeObserver(() => update());
     if (filtersEl) ro.observe(filtersEl);
     if (matrixEl) ro.observe(matrixEl);
-    mq.addEventListener("change", update);
+    const unbindMediaQuery = bindMediaQueryChange(mq, update);
     window.addEventListener("resize", update);
     return () => {
-      mq.removeEventListener("change", update);
+      unbindMediaQuery();
       window.removeEventListener("resize", update);
       ro.disconnect();
     };

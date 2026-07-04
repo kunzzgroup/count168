@@ -70,6 +70,41 @@ export const DASHBOARD_CURRENCY_FILTER_EVENT = "eazycount:dashboard-currency-fil
 export const DASHBOARD_GC_BOOTSTRAP_READY_EVENT = "eazycount:dashboard-gc-bootstrap-ready";
 /** One-shot localStorage handoff when opening an authenticated route in a new tab (sessionStorage is per-tab). */
 const DASHBOARD_TAB_BOOTSTRAP_KEY = "ec_dashboard_tab_bootstrap";
+
+function createSafeStorage(kind) {
+  return {
+    getItem(key) {
+      try {
+        if (typeof window === "undefined") return null;
+        const storage = kind === "session" ? window.sessionStorage : window.localStorage;
+        return storage.getItem(key);
+      } catch {
+        return null;
+      }
+    },
+    setItem(key, value) {
+      try {
+        if (typeof window === "undefined") return;
+        const storage = kind === "session" ? window.sessionStorage : window.localStorage;
+        storage.setItem(key, value);
+      } catch {
+        /* ignore */
+      }
+    },
+    removeItem(key) {
+      try {
+        if (typeof window === "undefined") return;
+        const storage = kind === "session" ? window.sessionStorage : window.localStorage;
+        storage.removeItem(key);
+      } catch {
+        /* ignore */
+      }
+    },
+  };
+}
+
+const localStorage = createSafeStorage("local");
+const sessionStorage = createSafeStorage("session");
 const DASHBOARD_TAB_BOOTSTRAP_KEYS = [
   DASHBOARD_GROUP_FILTER_KEY,
   DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,

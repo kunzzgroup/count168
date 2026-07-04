@@ -97,6 +97,54 @@ const SIDEBAR_COLLAPSED_STORAGE_KEY = "ec_sidebar_collapsed";
 /** iPad Air 11" (M2) landscape Safari ≈ 1180px; use 1200px to include that viewport. */
 /** Galaxy Tab S7 横屏约 1280px，需纳入平板侧栏逻辑 */
 const TABLET_MEDIA_QUERY = "(max-width: 1280px)";
+
+function bindMediaQueryChange(mediaQueryList, listener) {
+  if (!mediaQueryList || typeof listener !== "function") return () => {};
+  if (typeof mediaQueryList.addEventListener === "function") {
+    mediaQueryList.addEventListener("change", listener);
+    return () => {
+      if (typeof mediaQueryList.removeEventListener === "function") {
+        mediaQueryList.removeEventListener("change", listener);
+      }
+    };
+  }
+  if (typeof mediaQueryList.addListener === "function") {
+    mediaQueryList.addListener(listener);
+    return () => {
+      if (typeof mediaQueryList.removeListener === "function") {
+        mediaQueryList.removeListener(listener);
+      }
+    };
+  }
+  return () => {};
+}
+
+function safeLocalGetItem(key) {
+  try {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalSetItem(key, value) {
+  try {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(key, value);
+  } catch {
+    /* ignore */
+  }
+}
+
+function safeSessionSetItem(key, value) {
+  try {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    /* ignore */
+  }
+}
 /** Icon-only sidebar: portal tooltip to the right of each nav item. */
 function SidebarNavTip({ label, enabled, children, placement = "right" }) {
   return (
@@ -241,12 +289,12 @@ export default function AuthenticatedLayout() {
   const [selectedGender, setSelectedGender] = useState(initialAvatarId.startsWith("female") ? "female" : "male");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
-  const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const [lang, setLang] = useState(() => (safeLocalGetItem("login_lang") === "zh" ? "zh" : "en"));
   const [isTabletViewport, setIsTabletViewport] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia(TABLET_MEDIA_QUERY).matches : false
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "1"
+    () => typeof window !== "undefined" && safeLocalGetItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "1"
   );
   /** Bumps when group/company filter changes so sidebar re-reads sessionStorage (no stale React state). */
   const [sidebarGcTick, setSidebarGcTick] = useState(0);
@@ -352,8 +400,7 @@ export default function AuthenticatedLayout() {
     const mq = window.matchMedia(TABLET_MEDIA_QUERY);
     const onChange = () => setIsTabletViewport(mq.matches);
     onChange();
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
+    return bindMediaQueryChange(mq, onChange);
   }, []);
 
   useEffect(() => {
@@ -370,12 +417,12 @@ export default function AuthenticatedLayout() {
 
   const collapseSidebar = useCallback(() => {
     setSidebarCollapsed(true);
-    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, "1");
+    safeLocalSetItem(SIDEBAR_COLLAPSED_STORAGE_KEY, "1");
   }, []);
 
   const expandSidebar = useCallback(() => {
     setSidebarCollapsed(false);
-    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, "0");
+    safeLocalSetItem(SIDEBAR_COLLAPSED_STORAGE_KEY, "0");
   }, []);
 
   const onHamburgerClick = (e) => {
@@ -1011,7 +1058,7 @@ export default function AuthenticatedLayout() {
     setSelectedAvatarId(avatarId);
     setShowAvatarOptions(false);
     try {
-      localStorage.setItem("selectedAvatar", avatarId);
+      safeLocalSetItem("selectedAvatar", avatarId);
     } catch (e) {
       /* ignore */
     }
@@ -1039,7 +1086,7 @@ export default function AuthenticatedLayout() {
     if (logoutLoading) return;
     setLogoutLoading(true);
     try {
-      sessionStorage.setItem("ec_skip_session_bootstrap", "1");
+      safeSessionSetItem("ec_skip_session_bootstrap", "1");
       await fetch(buildApiUrl("api/session/logout_api.php"), {
         method: "POST",
         credentials: "include",
