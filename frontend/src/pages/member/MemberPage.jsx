@@ -38,27 +38,7 @@ import { useMemberWinLoss } from "./useMemberWinLoss.js";
 import { useMemberPageShell } from "./useMemberPageShell.js";
 import { useSidebarTabletCollapse } from "../../hooks/useSidebarTabletCollapse.js";
 import { DASHBOARD_I18N } from "../../translateFile/shell/dashboardTranslate.js";
-
-function bindMediaQueryChange(mediaQueryList, listener) {
-  if (!mediaQueryList || typeof listener !== "function") return () => {};
-  if (typeof mediaQueryList.addEventListener === "function") {
-    mediaQueryList.addEventListener("change", listener);
-    return () => {
-      if (typeof mediaQueryList.removeEventListener === "function") {
-        mediaQueryList.removeEventListener("change", listener);
-      }
-    };
-  }
-  if (typeof mediaQueryList.addListener === "function") {
-    mediaQueryList.addListener(listener);
-    return () => {
-      if (typeof mediaQueryList.removeListener === "function") {
-        mediaQueryList.removeListener(listener);
-      }
-    };
-  }
-  return () => {};
-}
+import { bindMediaQueryChange } from "../../utils/dom/bindMediaQueryChange.js";
 
 export default function MemberPage() {
   const navigate = useNavigate();

@@ -9,60 +9,16 @@ import {
   seedDashboardFilterFromLogin,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { useAuthBackground } from "./useAuthBackground.js";
+import { safeLocal, safeSession } from "../../utils/storage/safeStorage.js";
 
 const LOGIN_ASSET_RETRY_KEY = "ec_login_asset_retry";
 
-function safeLocalGetItem(key) {
-  try {
-    if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function safeLocalSetItem(key, value) {
-  try {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(key, value);
-  } catch {
-    /* ignore */
-  }
-}
-
-function safeSessionGetItem(key) {
-  try {
-    if (typeof window === "undefined") return null;
-    return window.sessionStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function safeSessionSetItem(key, value) {
-  try {
-    if (typeof window === "undefined") return;
-    window.sessionStorage.setItem(key, value);
-  } catch {
-    /* ignore */
-  }
-}
-
-function safeSessionRemoveItem(key) {
-  try {
-    if (typeof window === "undefined") return;
-    window.sessionStorage.removeItem(key);
-  } catch {
-    /* ignore */
-  }
-}
-
 function tryLoginPageReloadOnce() {
-  if (safeSessionGetItem(LOGIN_ASSET_RETRY_KEY)) {
-    safeSessionRemoveItem(LOGIN_ASSET_RETRY_KEY);
+  if (safeSession.getItem(LOGIN_ASSET_RETRY_KEY)) {
+    safeSession.removeItem(LOGIN_ASSET_RETRY_KEY);
     return false;
   }
-  safeSessionSetItem(LOGIN_ASSET_RETRY_KEY, "1");
+  safeSession.setItem(LOGIN_ASSET_RETRY_KEY, "1");
   const url = new URL(window.location.href);
   url.searchParams.set("_", String(Date.now()));
   window.location.replace(url.toString());
@@ -146,7 +102,7 @@ export default function LoginPage() {
   const [maintenanceList, setMaintenanceList] = useState([]);
   const [modal, setModal] = useState({ open: false, title: "Notice", message: "" });
   const [submitting, setSubmitting] = useState(false);
-  const [lang, setLang] = useState(() => safeLocalGetItem("login_lang") || "en");
+  const [lang, setLang] = useState(() => safeLocal.getItem("login_lang") || "en");
 
   const verifyTimeoutRef = useRef(null);
   const langThumbRef = useRef(null);
@@ -158,7 +114,7 @@ export default function LoginPage() {
   }, [roleFromUrl]);
 
   useEffect(() => {
-    safeLocalSetItem("login_lang", lang);
+    safeLocal.setItem("login_lang", lang);
   }, [lang]);
 
   useEffect(() => {
@@ -198,12 +154,12 @@ export default function LoginPage() {
   }, [lang]);
 
   useEffect(() => {
-    safeSessionRemoveItem(LOGIN_ASSET_RETRY_KEY);
+    safeSession.removeItem(LOGIN_ASSET_RETRY_KEY);
   }, []);
 
   useEffect(() => {
-    if (safeSessionGetItem("ec_skip_session_bootstrap") === "1") {
-      safeSessionRemoveItem("ec_skip_session_bootstrap");
+    if (safeSession.getItem("ec_skip_session_bootstrap") === "1") {
+      safeSession.removeItem("ec_skip_session_bootstrap");
       return undefined;
     }
 
@@ -360,7 +316,7 @@ export default function LoginPage() {
         return;
       }
       if (data.status === "success" && data.redirect) {
-        safeSessionRemoveItem(LOGIN_ASSET_RETRY_KEY);
+        safeSession.removeItem(LOGIN_ASSET_RETRY_KEY);
         clearDashboardFilterSession();
         const loginScope = String(data.login_scope || "").trim().toLowerCase();
         const loginIdentifier = String(data.login_identifier || companyId).trim().toUpperCase();
