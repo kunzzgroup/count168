@@ -160,16 +160,17 @@ export default function TransactionPaymentHistoryPage() {
                 title={m.exportPdf}
                 onClick={onOpenExportPdf}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <path
-                    d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"
+                    d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
                     stroke="currentColor"
                     strokeWidth="1.75"
                     strokeLinejoin="round"
                   />
-                  <path d="M15 3v5h5" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
-                  <path d="M9 12h6M9 16h6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+                  <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
+                  <path d="M12 11v5.5M9.5 14l2.5 2.5 2.5-2.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
+                <span className="transaction-payment-history-export-btn__label">PDF</span>
               </button>
               <div className="transaction-payment-history-header__text">
                 <h3 id="modal_title">{title}</h3>

@@ -54,8 +54,8 @@ const MEMBER_REPORT_PRINT_CSS = `
     print-color-adjust: exact;
   }
   .doc-header {
-    margin: 0 0 14px;
-    padding-bottom: 10px;
+    margin: 0 0 8px;
+    padding-bottom: 6px;
     border-bottom: 2px solid #002c49;
   }
   .doc-title {
@@ -621,9 +621,9 @@ const PDF_LOGO_TOP_TRIM_MM = 1.1;
 const PDF_TITLE_FONT_PT = 14;
 const PDF_META_FONT_PT = 9;
 const PDF_CURRENCY_FONT_PT = 11;
-const PDF_HEADER_TOP_MM = 10;
-const PDF_FIRST_PAGE_TOP_MARGIN_MM = 30;
-const PDF_OTHER_PAGE_TOP_MARGIN_MM = 22;
+const PDF_HEADER_TOP_MM = 8;
+const PDF_FIRST_PAGE_TOP_MARGIN_MM = 24;
+const PDF_OTHER_PAGE_TOP_MARGIN_MM = 18;
 const PDF_BRAND_BAR_RGB = [0, 44, 73];
 const PDF_FOOTER_BOTTOM_MM = 10;
 
@@ -713,7 +713,7 @@ function drawPdfPageHeader(doc, { logo, pageW, marginX, title, meta, currencyTit
   }
 
   if (currencyTitle) {
-    const currencyBaselineY = blockBottomY + 3 + pdfCapHeightMm(PDF_CURRENCY_FONT_PT);
+    const currencyBaselineY = blockBottomY + 2 + pdfCapHeightMm(PDF_CURRENCY_FONT_PT);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(PDF_CURRENCY_FONT_PT);
     doc.setTextColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
@@ -721,11 +721,11 @@ function drawPdfPageHeader(doc, { logo, pageW, marginX, title, meta, currencyTit
     blockBottomY = Math.max(blockBottomY, currencyBaselineY);
   }
 
-  const sepY = blockBottomY + 4;
+  const sepY = blockBottomY + 2.5;
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.35);
   doc.line(marginX, sepY, pageW - marginX, sepY);
-  return sepY + 4;
+  return sepY + 2.5;
 }
 
 function drawPdfSectionCurrencyHeading(doc, { pageW, marginX, startY, currencyTitle }) {
@@ -735,11 +735,11 @@ function drawPdfSectionCurrencyHeading(doc, { pageW, marginX, startY, currencyTi
   doc.setFontSize(PDF_CURRENCY_FONT_PT);
   doc.setTextColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
   doc.text(currencyTitle, marginX, currencyBaselineY, { align: "left", maxWidth: titleMaxW });
-  const sepY = currencyBaselineY + 4;
+  const sepY = currencyBaselineY + 2.5;
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.35);
   doc.line(marginX, sepY, pageW - marginX, sepY);
-  return sepY + 4;
+  return sepY + 2.5;
 }
 
 function drawPdfPageFooter(doc, { pageW, pageH, pageLabel }) {
@@ -879,7 +879,7 @@ export async function downloadMemberReportPdf({
               showTitle,
               showLogo: true,
             });
-            tableTopY = headerEndY + 2;
+            tableTopY = headerEndY + 1;
             if (pendingCurrencyHeading) {
               tableTopY = drawPdfSectionCurrencyHeading(doc, {
                 pageW,
