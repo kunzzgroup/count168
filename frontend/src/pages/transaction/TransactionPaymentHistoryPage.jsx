@@ -153,6 +153,9 @@ export default function TransactionPaymentHistoryPage() {
         <div className="transaction-modal-content transaction-history-modal transaction-payment-history-panel">
           <div className="transaction-modal-header transaction-payment-history-header">
             <div className="transaction-payment-history-header__brand">
+              <div className="transaction-payment-history-header__text">
+                <h3 id="modal_title">{title}</h3>
+              </div>
               <button
                 type="button"
                 className="transaction-payment-history-header__icon transaction-payment-history-export-btn"
@@ -172,9 +175,6 @@ export default function TransactionPaymentHistoryPage() {
                 </svg>
                 <span className="transaction-payment-history-export-btn__label">PDF</span>
               </button>
-              <div className="transaction-payment-history-header__text">
-                <h3 id="modal_title">{title}</h3>
-              </div>
             </div>
             <button
               type="button"

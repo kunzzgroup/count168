@@ -54,8 +54,8 @@ const MEMBER_REPORT_PRINT_CSS = `
     print-color-adjust: exact;
   }
   .doc-header {
-    margin: 0 0 8px;
-    padding-bottom: 6px;
+    margin: 0 0 4px;
+    padding-bottom: 4px;
     border-bottom: 2px solid #002c49;
   }
   .doc-title {
@@ -721,11 +721,11 @@ function drawPdfPageHeader(doc, { logo, pageW, marginX, title, meta, currencyTit
     blockBottomY = Math.max(blockBottomY, currencyBaselineY);
   }
 
-  const sepY = blockBottomY + 2.5;
+  const sepY = blockBottomY + 1.5;
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.35);
   doc.line(marginX, sepY, pageW - marginX, sepY);
-  return sepY + 2.5;
+  return sepY + 1.5;
 }
 
 function drawPdfSectionCurrencyHeading(doc, { pageW, marginX, startY, currencyTitle }) {
@@ -735,11 +735,11 @@ function drawPdfSectionCurrencyHeading(doc, { pageW, marginX, startY, currencyTi
   doc.setFontSize(PDF_CURRENCY_FONT_PT);
   doc.setTextColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
   doc.text(currencyTitle, marginX, currencyBaselineY, { align: "left", maxWidth: titleMaxW });
-  const sepY = currencyBaselineY + 2.5;
+  const sepY = currencyBaselineY + 1.5;
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.35);
   doc.line(marginX, sepY, pageW - marginX, sepY);
-  return sepY + 2.5;
+  return sepY + 1.5;
 }
 
 function drawPdfPageFooter(doc, { pageW, pageH, pageLabel }) {

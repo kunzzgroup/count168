@@ -102,11 +102,15 @@ body.ec-payment-history-chromeless .transaction-payment-history-header__brand {
   flex: 1 1 auto;
 }
 
+body.transaction-payment-history-page .transaction-payment-history-header__text,
+body.ec-payment-history-chromeless .transaction-payment-history-header__text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 body.transaction-payment-history-page .transaction-payment-history-header__icon,
 body.ec-payment-history-chromeless .transaction-payment-history-header__icon {
   flex-shrink: 0;
-  width: 42px;
-  height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -114,11 +118,6 @@ body.ec-payment-history-chromeless .transaction-payment-history-header__icon {
   background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
   color: var(--transaction-history-report-accent);
   border: 1px solid #bfdbfe;
-}
-
-body.transaction-payment-history-page .transaction-payment-history-header__text,
-body.ec-payment-history-chromeless .transaction-payment-history-header__text {
-  min-width: 0;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header h3,
