@@ -1,4 +1,5 @@
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
+import { formatNegativeNumbersInFormula } from "../../../shared/formula/formatNegativeNumbersInFormula.js";
 import { removeThousandsSeparators } from "./summaryFormulaParseUtils.js";
 
 /**
@@ -18,6 +19,8 @@ export function evaluateMoneyExpression(expression) {
     .replace(/\s*\(\s*\)\s*/g, " ")
     .replace(/\s+/g, "");
 
+  // Match formula display: wrap negatives, then treat adjacent )( as multiply.
+  expr = formatNegativeNumbersInFormula(expr);
   expr = insertImplicitMultiplication(expr);
 
   if (expr === "") return MoneyDecimal.toDecimal("0");
