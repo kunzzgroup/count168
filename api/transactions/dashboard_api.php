@@ -1239,61 +1239,6 @@ function dashboardLoadViewerGroupAccountPercentage(
 }
 
 /**
- * Load viewer group_ownership % into dashboard ownership fields.
- *
- * @param array{group_account_percentage:float,has_group_ownership:bool,group_equity_percentage:float} $result
- */
-function dashboardApplyViewerGroupAccountShareToOwnership(
-    PDO $pdo,
-    array &$result,
-    string $groupIdForShare,
-    int $userId,
-    string $ownerTypeStr,
-    string $effectiveMonth,
-    bool $useHistory,
-    bool $zeroEquityWhenMissing = false
-): void {
-    if ($groupIdForShare === '' || $userId <= 0) {
-        return;
-    }
-
-    try {
-        $groupTable = $useHistory ? 'group_ownership_history' : 'group_ownership';
-        $hasGroupTable = $useHistory
-            ? $pdo->query("SHOW TABLES LIKE 'group_ownership_history'")->rowCount() > 0
-            : $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
-        if (!$hasGroupTable) {
-            return;
-        }
-
-        $monthSql = $useHistory ? 'AND effective_month = ?' : '';
-        $stmtAccShare = $pdo->prepare("
-            SELECT percentage FROM {$groupTable}
-            WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?))
-              AND account_id = ?
-              AND owner_type = ?
-              {$monthSql}
-            LIMIT 1
-        ");
-        $stmtAccShare->execute(
-            $useHistory
-                ? [$groupIdForShare, $userId, $ownerTypeStr, $effectiveMonth]
-                : [$groupIdForShare, $userId, $ownerTypeStr]
-        );
-        $accSharePct = $stmtAccShare->fetchColumn();
-        if ($accSharePct !== false) {
-            $result['group_account_percentage'] = (float) $accSharePct;
-            $result['has_group_ownership'] = true;
-        } elseif ($zeroEquityWhenMissing) {
-            $result['group_equity_percentage'] = 0.0;
-            $result['group_account_percentage'] = 0.0;
-        }
-    } catch (Throwable $e) {
-        error_log('dashboardApplyViewerGroupAccountShareToOwnership: ' . $e->getMessage());
-    }
-}
-
-/**
  * Load dashboard ownership multipliers for a company viewer (direct + group chain).
  *
  * @return array{
@@ -1402,54 +1347,44 @@ function dashboardLoadCompanyDashboardOwnership(
             $multiGroupPathResolved = false;
 
             if (!$skipGroupChain && $viewGroup !== '') {
-                $stmtDirectGrpEquity = $pdo->prepare("
-                    SELECT percentage
-                    FROM {$companyTable}
-                    WHERE company_id = ? AND owner_type = 'group'
-                      AND UPPER(TRIM(partner_group_id)) = UPPER(TRIM(?))
-                      {$monthSql}
-                    LIMIT 1
-                ");
-                $stmtDirectGrpEquity->execute(
+                $pathDec = dashboardResolveEarningsPathProduct(
+                    $pdo,
+                    $companyId,
+                    $viewGroup,
+                    $effectiveMonth,
                     $useHistory
-                        ? [$companyId, $viewGroup, $effectiveMonth]
-                        : [$companyId, $viewGroup]
                 );
-                $directEquityPct = $stmtDirectGrpEquity->fetchColumn();
-
-                if ($directEquityPct !== false) {
+                if ($pathDec !== null) {
                     $multiGroupPathResolved = true;
-                    $result['group_equity_percentage'] = (float) $directEquityPct;
-                    dashboardApplyViewerGroupAccountShareToOwnership(
-                        $pdo,
-                        $result,
-                        $viewGroup,
-                        $userId,
-                        $ownerTypeStr,
-                        $effectiveMonth,
-                        $useHistory
-                    );
-                } else {
-                    $pathDec = dashboardResolveEarningsPathProduct(
-                        $pdo,
-                        $companyId,
-                        $viewGroup,
-                        $effectiveMonth,
-                        $useHistory
-                    );
-                    if ($pathDec !== null) {
-                        $multiGroupPathResolved = true;
-                        $result['group_equity_percentage'] = $pathDec * 100.0;
-                        dashboardApplyViewerGroupAccountShareToOwnership(
-                            $pdo,
-                            $result,
-                            $viewGroup,
-                            $userId,
-                            $ownerTypeStr,
-                            $effectiveMonth,
-                            $useHistory,
-                            true
-                        );
+                    $result['group_equity_percentage'] = $pathDec * 100.0;
+                    try {
+                        $hasGroupTable = $useHistory
+                            ? $pdo->query("SHOW TABLES LIKE 'group_ownership_history'")->rowCount() > 0
+                            : $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
+                        if ($hasGroupTable) {
+                            $stmtAccShare = $pdo->prepare("
+                                SELECT percentage FROM {$groupTable}
+                                WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?))
+                                  AND account_id = ?
+                                  AND owner_type = ?
+                                  {$monthSql}
+                                LIMIT 1
+                            ");
+                            $stmtAccShare->execute(
+                                $useHistory
+                                    ? [$viewGroup, $userId, $ownerTypeStr, $effectiveMonth]
+                                    : [$viewGroup, $userId, $ownerTypeStr]
+                            );
+                            $accSharePct = $stmtAccShare->fetchColumn();
+                            if ($accSharePct !== false) {
+                                $result['group_account_percentage'] = (float) $accSharePct;
+                                $result['has_group_ownership'] = true;
+                            } else {
+                                $result['group_equity_percentage'] = 0.0;
+                                $result['group_account_percentage'] = 0.0;
+                            }
+                        }
+                    } catch (Throwable $e) {
                     }
                 }
             }
@@ -1610,23 +1545,27 @@ function dashboardComputeSubsidiaryEarningsTotal(
         $effectiveMonth,
         $useHistory
     );
+    if ($equityMap === []) {
+        return $empty;
+    }
 
     $periodShareTotal = dashboardMoneyZero();
     $dailyShare = [];
     $byCompany = [];
-    $companyCodes = dashboardLoadCompanyDisplayCodes($pdo, $companyIds);
+    $companyCodes = dashboardLoadCompanyDisplayCodes($pdo, array_keys($equityMap));
     $accountMul = $accountPct > 0 ? money_div((string) $accountPct, '100', MONEY_SCALE) : '1';
     $gNorm = reportNormalizeGroupId($groupLedgerCode);
 
     dashboard_api_begin_bootstrap_batch();
     try {
-        foreach ($companyIds as $companyId) {
-            $pctStr = $equityMap[$companyId] ?? '0';
+        foreach ($equityMap as $companyId => $pctStr) {
+            if (money_cmp($pctStr, '0') <= 0) {
+                continue;
+            }
 
             $captureParams = [
                 'company_id' => (string) $companyId,
                 'view_group' => $groupLedgerCode,
-                'subsidiary_accounts_only' => '1',
                 'date_from' => $dateFromDisplay,
                 'date_to' => $dateToDisplay,
             ];
@@ -1646,9 +1585,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
             $netProfit = dashboardCompanyPeriodNetProfitFromPayload($data);
             $share = money_mul($netProfit, money_div($pctStr, '100', MONEY_SCALE), MONEY_SCALE);
             $myEarning = money_mul($share, $accountMul, MONEY_SCALE);
-            if (money_cmp($pctStr, '0') > 0) {
-                $periodShareTotal = dashboardMoneyAdd($periodShareTotal, $share);
-            }
+            $periodShareTotal = dashboardMoneyAdd($periodShareTotal, $share);
 
             $displayCode = $companyCodes[$companyId] ?? (string) $companyId;
             $byCompany[] = [
@@ -1662,7 +1599,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
                 'my_earning' => dashboardOut($myEarning),
             ];
 
-            if (!$kpiOnly && money_cmp($pctStr, '0') > 0) {
+            if (!$kpiOnly) {
                 $netDaily = dashboardCompanyNetProfitDailyFromPayload($data['daily_data'] ?? []);
                 foreach ($netDaily as $d => $net) {
                     $dayShare = money_mul($net, money_div($pctStr, '100', MONEY_SCALE), MONEY_SCALE);
@@ -1675,7 +1612,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
     }
 
     usort($byCompany, static function (array $a, array $b): int {
-        return money_cmp((string) ($b['net_profit'] ?? '0'), (string) ($a['net_profit'] ?? '0'));
+        return money_cmp((string) ($b['my_earning'] ?? '0'), (string) ($a['my_earning'] ?? '0'));
     });
 
     return [
@@ -2290,87 +2227,6 @@ function dashboardRestrictCurrencyMapToGroupTenant(PDO $pdo, string $groupCode, 
     }
 
     return $out;
-}
-
-/**
- * Group-only dashboard pills: group ledger/account currencies + group Currency Setting
- * + anchor company table + every subsidiary company's Currency Setting (e.g. C168 MYR under AP).
- *
- * @return array<int, string>
- */
-function dashboardResolveGroupOnlyUnionCurrencyMap(PDO $pdo, string $viewGroup): array
-{
-    $viewGroup = reportNormalizeGroupId($viewGroup);
-    if ($viewGroup === '') {
-        return [];
-    }
-
-    $byCode = [];
-    $merge = static function (array $map) use (&$byCode): void {
-        foreach ($map as $id => $code) {
-            $up = strtoupper(trim((string) $code));
-            if ($up === '') {
-                continue;
-            }
-            if (!isset($byCode[$up])) {
-                $byCode[$up] = (int) $id;
-            }
-        }
-    };
-
-    $merge(dashboardResolveGroupScopeCurrencyMap($pdo, $viewGroup));
-
-    $pk = gc_resolve_group_pk_by_code($pdo, $viewGroup);
-    if ($pk > 0) {
-        try {
-            $stmt = $pdo->prepare("
-                SELECT id, UPPER(TRIM(code)) AS code
-                FROM currency
-                WHERE scope_type = 'group' AND scope_id = ?
-            ");
-            $stmt->execute([$pk]);
-            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                $id = (int) ($row['id'] ?? 0);
-                $code = strtoupper(trim((string) ($row['code'] ?? '')));
-                if ($id > 0 && $code !== '' && !isset($byCode[$code])) {
-                    $byCode[$code] = $id;
-                }
-            }
-        } catch (Throwable $e) {
-            error_log('dashboardResolveGroupOnlyUnionCurrencyMap: ' . $e->getMessage());
-        }
-    }
-
-    $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
-    if ($entityId > 0) {
-        $merge(dashboardLoadCurrencyMap($pdo, $entityId, false));
-    }
-
-    foreach (dashboardListGroupSubsidiaryCompanyIds($pdo, $viewGroup) as $companyId) {
-        $merge(dashboardLoadCurrencyMap($pdo, (int) $companyId, true));
-    }
-
-    $out = [];
-    foreach ($byCode as $code => $id) {
-        $out[$id] = $code;
-    }
-
-    return $out;
-}
-
-/**
- * @param array<int, string> $map
- * @return list<array{id:int,code:string}>
- */
-function dashboardCurrencyMapToApiRows(array $map): array
-{
-    $rows = [];
-    foreach ($map as $id => $code) {
-        $rows[] = ['id' => (int) $id, 'code' => (string) $code];
-    }
-    usort($rows, static fn (array $a, array $b): int => $a['id'] <=> $b['id']);
-
-    return $rows;
 }
 
 /**
@@ -3620,26 +3476,36 @@ try {
     $groupScopeId = 0;
 
     if ($useGroupLedger) {
-        // Group-only dashboard (e.g. AP tab, no C168): always group ledger + subsidiary merge.
-        $groupScopeId = dashboardResolveGroupScopeId($pdo, $groupLedgerCode);
-        if ($groupScopeId <= 0) {
-            $dbName = '';
-            try {
-                $dbName = (string) ($pdo->query('SELECT DATABASE()')->fetchColumn() ?: '');
-            } catch (Throwable $ignored) {
-                $dbName = '';
+        // Company login may still use legacy group-entity row; group login always uses group ledger.
+        if (!dashboard_should_force_pure_group_ledger($pdo)) {
+            $groupEntityCompanyId = tx_resolve_group_entity_company_id($pdo, $groupLedgerCode);
+            if ($groupEntityCompanyId > 0) {
+                assertGroupEntityAccess($pdo, $groupLedgerCode, $groupEntityCompanyId);
+                $company_id = $groupEntityCompanyId;
+                $useGroupLedger = false;
             }
-            throw new Exception(
-                'Group scope is invalid or not initialized (group_code='
-                . $groupLedgerCode
-                . ($dbName !== '' ? ', database=' . $dbName : '')
-                . '). Confirm migration 20260528_dual_tenant_company_group.sql on this database.'
-            );
         }
-        if (!gc_session_can_access_group_ledger($pdo, $groupLedgerCode)) {
-            throw new Exception('无权访问该 Group Ledger');
+        if ($useGroupLedger) {
+            $groupScopeId = dashboardResolveGroupScopeId($pdo, $groupLedgerCode);
+            if ($groupScopeId <= 0) {
+                $dbName = '';
+                try {
+                    $dbName = (string) ($pdo->query('SELECT DATABASE()')->fetchColumn() ?: '');
+                } catch (Throwable $ignored) {
+                    $dbName = '';
+                }
+                throw new Exception(
+                    'Group scope is invalid or not initialized (group_code='
+                    . $groupLedgerCode
+                    . ($dbName !== '' ? ', database=' . $dbName : '')
+                    . '). Confirm migration 20260528_dual_tenant_company_group.sql on this database.'
+                );
+            }
+            if (!gc_session_can_access_group_ledger($pdo, $groupLedgerCode)) {
+                throw new Exception('无权访问该 Group Ledger');
+            }
+            dashboardAssertGroupLedgerAccess($pdo, $groupLedgerCode, $groupScopeId);
         }
-        dashboardAssertGroupLedgerAccess($pdo, $groupLedgerCode, $groupScopeId);
     }
 
     // Pure group ledger (no group-entity company row such as company_id=AP).

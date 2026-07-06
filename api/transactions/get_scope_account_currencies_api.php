@@ -57,19 +57,14 @@ try {
             api_error('无权访问该 Group Ledger', 403);
             exit;
         }
-        $map = dashboardResolveGroupOnlyUnionCurrencyMap($pdo, $viewGroup);
-        api_success(dashboardCurrencyMapToApiRows($map));
-        exit;
-    }
-
-    // Group + company pill (subsidiary): company Currency Setting only — never group currencies.
-    if ($viewGroup !== '' && $primaryCompanyId > 0 && !$groupAggregateOnly) {
-        $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
-        if ($entityId !== $primaryCompanyId) {
-            $map = dashboardLoadCurrencyMap($pdo, $primaryCompanyId, true);
-            api_success(dashboardCurrencyMapToApiRows($map));
-            exit;
+        $map = dashboardResolveGroupScopeCurrencyMap($pdo, $viewGroup);
+        $rows = [];
+        foreach ($map as $id => $code) {
+            $rows[] = ['id' => (int) $id, 'code' => $code];
         }
+        usort($rows, static fn(array $a, array $b): int => $a['id'] <=> $b['id']);
+        api_success($rows);
+        exit;
     }
 
     if ($groupAggregateOnly && $viewGroup !== '') {
@@ -109,8 +104,13 @@ try {
             api_error('无权访问该 Group Ledger', 403);
             exit;
         }
-        $map = dashboardResolveGroupOnlyUnionCurrencyMap($pdo, $groupCode);
-        api_success(dashboardCurrencyMapToApiRows($map));
+        $map = dashboardResolveGroupScopeCurrencyMap($pdo, $groupCode);
+        $rows = [];
+        foreach ($map as $id => $code) {
+            $rows[] = ['id' => (int) $id, 'code' => $code];
+        }
+        usort($rows, static fn(array $a, array $b): int => $a['id'] <=> $b['id']);
+        api_success($rows);
         exit;
     } else {
         if ($primaryCompanyId <= 0 && $companyIds !== []) {
@@ -130,8 +130,14 @@ try {
             }
             $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $viewGroup);
         } elseif ($subsidiaryAccountsOnly && $primaryCompanyId > 0) {
+            // Subsidiary drill-down: Currency Setting table only (exclude group SGD on shared anchor FK).
             $map = dashboardLoadCurrencyMap($pdo, $primaryCompanyId, true);
-            api_success(dashboardCurrencyMapToApiRows($map));
+            $rows = [];
+            foreach ($map as $id => $code) {
+                $rows[] = ['id' => (int) $id, 'code' => $code];
+            }
+            usort($rows, static fn(array $a, array $b): int => $a['id'] <=> $b['id']);
+            api_success($rows);
             exit;
         } else {
             foreach ($companyIds as $cid) {

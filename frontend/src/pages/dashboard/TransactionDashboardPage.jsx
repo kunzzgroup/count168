@@ -106,7 +106,6 @@ export default function TransactionDashboardPage() {
               exchangeRateScopeKey={page.exchangeRateScopeKey}
               convertedEarningsTotal={page.convertedEarningsTotal}
               showProfitChartTab={page.showProfitChartTab}
-              showNetProfitTab={page.panelCapabilities.showNetProfitTab}
               showEarningsCompanyTab={page.showEarningsCompanyTab}
               earningsPanelView={page.earningsPanelView}
               onEarningsPanelViewChange={page.setEarningsPanelView}

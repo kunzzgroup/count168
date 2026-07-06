@@ -41,7 +41,6 @@ export function DashboardEarningsSummary({
   exchangeRatesLoading,
   exchangeRateScopeKey = "",
   showProfitChartTab = false,
-  showNetProfitTab = false,
   showEarningsCompanyTab = false,
   earningsPanelView = "currency",
   onEarningsPanelViewChange,
@@ -325,11 +324,7 @@ export function DashboardEarningsSummary({
   const summaryViewTabs = showProfitChartTab ? (
     <div
       className={`dashboard-summary-view-tabs${
-        showEarningsCompanyTab && showNetProfitTab
-          ? " is-three-tabs"
-          : showEarningsCompanyTab || showNetProfitTab
-            ? " is-two-tabs"
-            : ""
+        showEarningsCompanyTab ? " is-three-tabs" : ""
       }`}
       role="tablist"
       aria-label={i18n.statistics}
@@ -345,19 +340,17 @@ export function DashboardEarningsSummary({
       >
         {i18n.earningsChartTab}
       </button>
-      {showNetProfitTab && (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={earningsPanelView === "netProfit"}
-          className={`dashboard-summary-view-tab${
-            earningsPanelView === "netProfit" ? " is-active" : ""
-          }`}
-          onClick={() => onEarningsPanelViewChange?.("netProfit")}
-        >
-          {i18n.netProfitChartTab}
-        </button>
-      )}
+      <button
+        type="button"
+        role="tab"
+        aria-selected={earningsPanelView === "netProfit"}
+        className={`dashboard-summary-view-tab${
+          earningsPanelView === "netProfit" ? " is-active" : ""
+        }`}
+        onClick={() => onEarningsPanelViewChange?.("netProfit")}
+      >
+        {i18n.netProfitChartTab}
+      </button>
       {showEarningsCompanyTab && (
         <button
           type="button"
