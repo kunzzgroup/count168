@@ -54,8 +54,8 @@ const MEMBER_REPORT_PRINT_CSS = `
     print-color-adjust: exact;
   }
   .doc-header {
-    margin: 0 0 4px;
-    padding-bottom: 4px;
+    margin: 0 0 6px;
+    padding-bottom: 6px;
     border-bottom: 2px solid #002c49;
   }
   .doc-title {
@@ -96,6 +96,7 @@ const MEMBER_REPORT_PRINT_CSS = `
   }
   table.report-table {
     width: 100%;
+    margin-top: 8px;
     border-collapse: collapse;
     table-layout: fixed;
     border: 1px solid #e2e8f0;
@@ -624,6 +625,9 @@ const PDF_CURRENCY_FONT_PT = 11;
 const PDF_HEADER_TOP_MM = 8;
 const PDF_FIRST_PAGE_TOP_MARGIN_MM = 24;
 const PDF_OTHER_PAGE_TOP_MARGIN_MM = 18;
+/** 分割线（doc-header 底边）与表头之间的垂直留白 */
+const PDF_HEADER_TABLE_GAP_MM = 5;
+const PDF_HEADER_META_SEP_GAP_MM = 2.5;
 const PDF_BRAND_BAR_RGB = [0, 44, 73];
 const PDF_FOOTER_BOTTOM_MM = 10;
 
@@ -721,11 +725,11 @@ function drawPdfPageHeader(doc, { logo, pageW, marginX, title, meta, currencyTit
     blockBottomY = Math.max(blockBottomY, currencyBaselineY);
   }
 
-  const sepY = blockBottomY + 1.5;
+  const sepY = blockBottomY + PDF_HEADER_META_SEP_GAP_MM;
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.35);
   doc.line(marginX, sepY, pageW - marginX, sepY);
-  return sepY + 1.5;
+  return sepY + PDF_HEADER_TABLE_GAP_MM;
 }
 
 function drawPdfSectionCurrencyHeading(doc, { pageW, marginX, startY, currencyTitle }) {
@@ -735,11 +739,11 @@ function drawPdfSectionCurrencyHeading(doc, { pageW, marginX, startY, currencyTi
   doc.setFontSize(PDF_CURRENCY_FONT_PT);
   doc.setTextColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
   doc.text(currencyTitle, marginX, currencyBaselineY, { align: "left", maxWidth: titleMaxW });
-  const sepY = currencyBaselineY + 1.5;
+  const sepY = currencyBaselineY + PDF_HEADER_META_SEP_GAP_MM;
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.35);
   doc.line(marginX, sepY, pageW - marginX, sepY);
-  return sepY + 1.5;
+  return sepY + PDF_HEADER_TABLE_GAP_MM;
 }
 
 function drawPdfPageFooter(doc, { pageW, pageH, pageLabel }) {
@@ -879,7 +883,7 @@ export async function downloadMemberReportPdf({
               showTitle,
               showLogo: true,
             });
-            tableTopY = headerEndY + 1;
+            tableTopY = headerEndY;
             if (pendingCurrencyHeading) {
               tableTopY = drawPdfSectionCurrencyHeading(doc, {
                 pageW,
