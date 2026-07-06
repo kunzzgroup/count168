@@ -314,7 +314,7 @@ body.dashboard-page.maintenance-page {
     cursor: pointer;
     padding: 0;
     border-radius: 50%;
-    transition: background-color 0.15s ease, transform 0.1s ease;
+    transition: background-color 0.15s ease;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
 }
@@ -1541,6 +1541,11 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     min-width: 40px !important;
     min-height: 40px !important;
     box-sizing: border-box !important;
+}
+
+body.ec-auth-shell .formula-process-control button.formula-clear-icon-btn:active {
+    transform: translateY(-50%) !important;
+    transition: none !important;
 }
 
 

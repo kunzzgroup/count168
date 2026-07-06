@@ -571,7 +571,6 @@ export default function CaptureMaintenancePage() {
               groupAllMode,
             });
             await performSearch({ scope: switchedScope });
-            notify(t("switchedTo", { company: nextCode }), "success");
           } catch (stayErr) {
             console.error("Company switch search error:", stayErr);
             notify(stayErr?.message || t("switchFailed"), "error");
