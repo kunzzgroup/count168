@@ -1,7 +1,6 @@
 import {
-  computeGroupAggregateEarningsAmount,
-  isGroupAggregateEarningsPayload,
   netProfitFromDashboardPayload,
+  resolveEffectiveOwnershipPct,
 } from "./dashboardKpi.js";
 import { getCurrencyColor } from "./dashboardEarnings.js";
 
@@ -83,13 +82,46 @@ export function filterCompanyBreakdownRowsForEarningsGroups(rows, enabledGroupId
   return rows.filter((row) => enabled.has(String(row.group_id || "").trim().toUpperCase()));
 }
 
-/** Single-subsidiary group ledger: earnings tab row = full group-aggregate earnings (matches KPI card). */
-export function applySingleSubsidiaryGroupEarningsRows(rows, dashboardData, options = {}) {
-  if (!Array.isArray(rows) || rows.length !== 1 || !dashboardData) return rows;
-  if (!isGroupAggregateEarningsPayload(dashboardData, options)) return rows;
-  const full = computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: false });
-  if (!Number.isFinite(full)) return rows;
-  return [{ ...rows[0], my_earning: full }];
+/** Earning tab (group-level): companies with ownership configuration only. */
+export function filterCompanyBreakdownRowsForEarningsTab(rows) {
+  if (!Array.isArray(rows) || !rows.length) return [];
+  return rows.filter((row) => {
+    const equity = parseFloat(row.group_equity_pct) || 0;
+    const account = parseFloat(row.account_pct) || 0;
+    const earning = parseFloat(row.my_earning) || 0;
+    return equity > 0 || account > 0 || earning !== 0;
+  });
+}
+
+/** Subsidiary drill-down: one company row for the Earning tab (my_earning may be 0). */
+export function buildSubsidiaryCompanyEarningRow(companyRow, data, viewGroup, options = {}) {
+  if (!companyRow || !data) return null;
+  const netProfit = netProfitFromDashboardPayload(data);
+  const grpPct = parseFloat(data.group_equity_percentage) || 0;
+  const groupShare = computeCompanyGroupShare(netProfit, grpPct);
+  const nativeG = companyRow?.group_id ? String(companyRow.group_id).trim().toUpperCase() : "";
+  const linkG = companyRow?.link_source_group
+    ? String(companyRow.link_source_group).trim().toUpperCase()
+    : "";
+  const groupId = (viewGroup || linkG || nativeG || "").toUpperCase();
+  const companyId = String(companyRow?.company_id || companyRow?.id || "").trim();
+  if (!companyId) return null;
+  const myEarning = netProfit * resolveEffectiveOwnershipPct(data, groupId, options);
+  return {
+    company_pk: parseInt(companyRow?.id, 10) || null,
+    company_id: companyId,
+    group_id: groupId,
+    net_profit: netProfit,
+    group_equity_pct: grpPct,
+    account_pct: parseFloat(data.group_account_percentage) || 0,
+    group_share: groupShare,
+    my_earning: myEarning,
+  };
+}
+
+/** @deprecated Group earning tab now uses per-row my_earning sum; kept for compatibility. */
+export function applySingleSubsidiaryGroupEarningsRows(rows) {
+  return rows;
 }
 
 /** Net-profit row for group All merge — does not require ownership setup on payload. */
@@ -126,6 +158,29 @@ export function buildCompanyNetProfitRowsFromPairs(pairs, viewGroupFallback = ""
     if (row) rows.push(row);
   }
   return sortCompanyBreakdownRows(rows, "netProfit");
+}
+
+/** Overlay my_earning from ownership rows onto all-company net-profit rows (group All merge). */
+export function mergeCompanyNetProfitWithEarningRows(netRows, earningRows) {
+  const earningByKey = new Map();
+  for (const row of earningRows || []) {
+    const key = `${row.group_id || ""}:${row.company_pk ?? row.company_id}`;
+    earningByKey.set(key, row);
+  }
+  return (netRows || []).map((row) => {
+    const key = `${row.group_id || ""}:${row.company_pk ?? row.company_id}`;
+    const hit = earningByKey.get(key);
+    if (!hit) {
+      return { ...row, my_earning: 0 };
+    }
+    return {
+      ...row,
+      my_earning: hit.my_earning,
+      account_pct: hit.account_pct ?? row.account_pct,
+      group_equity_pct: hit.group_equity_pct ?? row.group_equity_pct,
+      group_share: hit.group_share ?? row.group_share,
+    };
+  });
 }
 
 export function buildCompanyBreakdownRowFromPayload(companyRow, data, viewGroup = "") {

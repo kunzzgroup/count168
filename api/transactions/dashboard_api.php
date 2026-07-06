@@ -1610,23 +1610,18 @@ function dashboardComputeSubsidiaryEarningsTotal(
         $effectiveMonth,
         $useHistory
     );
-    if ($equityMap === []) {
-        return $empty;
-    }
 
     $periodShareTotal = dashboardMoneyZero();
     $dailyShare = [];
     $byCompany = [];
-    $companyCodes = dashboardLoadCompanyDisplayCodes($pdo, array_keys($equityMap));
+    $companyCodes = dashboardLoadCompanyDisplayCodes($pdo, $companyIds);
     $accountMul = $accountPct > 0 ? money_div((string) $accountPct, '100', MONEY_SCALE) : '1';
     $gNorm = reportNormalizeGroupId($groupLedgerCode);
 
     dashboard_api_begin_bootstrap_batch();
     try {
-        foreach ($equityMap as $companyId => $pctStr) {
-            if (money_cmp($pctStr, '0') <= 0) {
-                continue;
-            }
+        foreach ($companyIds as $companyId) {
+            $pctStr = $equityMap[$companyId] ?? '0';
 
             $captureParams = [
                 'company_id' => (string) $companyId,
@@ -1651,7 +1646,9 @@ function dashboardComputeSubsidiaryEarningsTotal(
             $netProfit = dashboardCompanyPeriodNetProfitFromPayload($data);
             $share = money_mul($netProfit, money_div($pctStr, '100', MONEY_SCALE), MONEY_SCALE);
             $myEarning = money_mul($share, $accountMul, MONEY_SCALE);
-            $periodShareTotal = dashboardMoneyAdd($periodShareTotal, $share);
+            if (money_cmp($pctStr, '0') > 0) {
+                $periodShareTotal = dashboardMoneyAdd($periodShareTotal, $share);
+            }
 
             $displayCode = $companyCodes[$companyId] ?? (string) $companyId;
             $byCompany[] = [
@@ -1665,7 +1662,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
                 'my_earning' => dashboardOut($myEarning),
             ];
 
-            if (!$kpiOnly) {
+            if (!$kpiOnly && money_cmp($pctStr, '0') > 0) {
                 $netDaily = dashboardCompanyNetProfitDailyFromPayload($data['daily_data'] ?? []);
                 foreach ($netDaily as $d => $net) {
                     $dayShare = money_mul($net, money_div($pctStr, '100', MONEY_SCALE), MONEY_SCALE);
@@ -1678,7 +1675,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
     }
 
     usort($byCompany, static function (array $a, array $b): int {
-        return money_cmp((string) ($b['my_earning'] ?? '0'), (string) ($a['my_earning'] ?? '0'));
+        return money_cmp((string) ($b['net_profit'] ?? '0'), (string) ($a['net_profit'] ?? '0'));
     });
 
     return [

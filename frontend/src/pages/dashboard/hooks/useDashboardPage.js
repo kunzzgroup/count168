@@ -59,14 +59,22 @@ import {
 import { formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { buildKpiCompare, computeKpiMetrics, mergeDashboardOwnershipFields, viewerHasEarningsConfig } from "../lib/dashboardKpi.js";
 import {
-  applySingleSubsidiaryGroupEarningsRows,
   filterCompanyBreakdownRowsForEarningsGroups,
+  filterCompanyBreakdownRowsForEarningsTab,
   mergeCompanyBreakdownRowLists,
+  mergeCompanyNetProfitWithEarningRows,
   normalizeSubsidiaryEarningsByCompany,
   sortCompanyBreakdownRowsByPicker,
   sumCompanyBreakdownAmount,
   buildCompanyNetProfitRowsFromPairs,
+  buildCompanyBreakdownRowsFromPairs,
+  buildSubsidiaryCompanyEarningRow,
 } from "../lib/dashboardCompanyProfit.js";
+import {
+  normalizeDashboardPanelView,
+  resolveDashboardPanelCapabilities,
+  resolveDashboardPanelScope,
+} from "../lib/dashboardPanelCapabilities.js";
 import {
   canAccessGroupLedgerForGroup,
   canPrefetchCompanyScope,
@@ -963,6 +971,37 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     !groupAllMode &&
     canUseGroupOnlyMode(me) &&
     (isGroupLogin(me) || companyLoginCanUseGroupsAllLedger(me));
+
+  const panelScope = useMemo(
+    () =>
+      resolveDashboardPanelScope({
+        subsidiaryDashboardScope,
+        groupIds,
+        groupsAllMode,
+        companyId,
+        groupAllMode,
+        usesGroupLedgerDashboard,
+        groupsAllGroupLevel,
+      }),
+    [
+      subsidiaryDashboardScope,
+      groupIds,
+      groupsAllMode,
+      companyId,
+      groupAllMode,
+      usesGroupLedgerDashboard,
+      groupsAllGroupLevel,
+    ]
+  );
+
+  const panelCapabilities = useMemo(
+    () => resolveDashboardPanelCapabilities(panelScope),
+    [panelScope]
+  );
+
+  /** @deprecated Use panelCapabilities.showTabs */
+  const showProfitChartTab = panelCapabilities.showTabs;
+
   const groupAggregateMode =
     groupAllMode || groupOnlyDashboard || groupsAllGroupLevel || usesGroupLedgerDashboard;
   /** All-currency merge: any scope with 2+ currencies (single company or group aggregate). */
@@ -4435,10 +4474,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         throw new Error(i18n.failedToLoadDashboard);
       }
       const merged = mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
-      const byCompany = buildCompanyNetProfitRowsFromPairs(
-        pairs,
-        viewGroupFallback ?? selectedGroup
-      );
+      const viewGroup = viewGroupFallback ?? selectedGroup;
+      const netRows = buildCompanyNetProfitRowsFromPairs(pairs, viewGroup);
+      const earnRows = buildCompanyBreakdownRowsFromPairs(pairs, viewGroup);
+      const byCompany = mergeCompanyNetProfitWithEarningRows(netRows, earnRows);
       if (byCompany.length) {
         merged.subsidiary_earnings_by_company = byCompany;
       }
@@ -6823,63 +6862,44 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   }, [earningsBreakdownShowsRate, i18n.earningsIncludesConversion]);
 
   /**
-   * Company net profit tab: group-level views only (Group All / company All / group ledger).
-   * Hidden on subsidiary drill-down (e.g. IG + 95) — currency panel only there.
-   * Does not require has_group_ownership (admin / net-profit-only viewers still see tabs).
+   * Company breakdown panel tabs (currency / net profit / earning).
    */
-  const showProfitChartTab = useMemo(() => {
-    if (subsidiaryDashboardScope) return false;
-    if (!groupIds.length) return false;
-    return Boolean(
-      (groupsAllMode && companyId == null) ||
-      groupAllMode ||
-      usesGroupLedgerDashboard ||
-      groupsAllGroupLevel
-    );
-  }, [
-    subsidiaryDashboardScope,
-    groupIds.length,
-    groupsAllMode,
-    companyId,
-    groupAllMode,
-    usesGroupLedgerDashboard,
-    groupsAllGroupLevel,
-  ]);
-
   const companyBreakdownRows = useMemo(() => {
-    if (!showProfitChartTab) return [];
+    if (!panelCapabilities.showNetProfitTab) return [];
     const rows = normalizeSubsidiaryEarningsByCompany(
       dashboardData?.subsidiary_earnings_by_company
     );
-    const sorted = sortCompanyBreakdownRowsByPicker(rows, companiesForPicker);
-    return applySingleSubsidiaryGroupEarningsRows(
-      sorted,
-      dashboardData,
-      resolveKpiOwnershipOpts()
-    );
-  }, [
-    showProfitChartTab,
-    dashboardData,
-    companiesForPicker,
-    resolveKpiOwnershipOpts,
-  ]);
+    return sortCompanyBreakdownRowsByPicker(rows, companiesForPicker);
+  }, [panelCapabilities.showNetProfitTab, dashboardData, companiesForPicker]);
 
   const companyEarningsBreakdownRows = useMemo(() => {
-    if (!showProfitChartTab) return [];
+    if (!panelCapabilities.showEarningTab) return [];
+    if (subsidiaryDashboardScope && companyId != null) {
+      const row = companies.find((c) => parseInt(c.id, 10) === parseInt(companyId, 10));
+      const earningRow = buildSubsidiaryCompanyEarningRow(
+        row,
+        dashboardData,
+        dashboardViewGroup ?? selectedGroup,
+        resolveKpiOwnershipOpts(companyId, selectedGroup)
+      );
+      return earningRow ? [earningRow] : [];
+    }
     const enabledGroupIds = dashboardData?._earnings_enabled_group_ids;
-    const filtered = filterCompanyBreakdownRowsForEarningsGroups(
-      companyBreakdownRows,
-      enabledGroupIds
+    const base = normalizeSubsidiaryEarningsByCompany(
+      dashboardData?.subsidiary_earnings_by_company
     );
-    return applySingleSubsidiaryGroupEarningsRows(
-      filtered,
-      dashboardData,
-      resolveKpiOwnershipOpts()
-    );
+    const sorted = sortCompanyBreakdownRowsByPicker(base, companiesForPicker);
+    const groupFiltered = filterCompanyBreakdownRowsForEarningsGroups(sorted, enabledGroupIds);
+    return filterCompanyBreakdownRowsForEarningsTab(groupFiltered);
   }, [
-    showProfitChartTab,
-    companyBreakdownRows,
+    panelCapabilities.showEarningTab,
+    subsidiaryDashboardScope,
+    companyId,
+    companies,
     dashboardData,
+    dashboardViewGroup,
+    selectedGroup,
+    companiesForPicker,
     resolveKpiOwnershipOpts,
   ]);
 
@@ -6888,29 +6908,22 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [companyBreakdownRows]
   );
 
-  const companyEarningsTotal = useMemo(() => {
-    if (kpi.showEarnings) {
-      return kpi.kpiCardEarnings ?? kpi.earnings ?? 0;
-    }
-    return sumCompanyBreakdownAmount(companyEarningsBreakdownRows, "earnings");
-  }, [kpi.showEarnings, kpi.kpiCardEarnings, kpi.earnings, companyEarningsBreakdownRows]);
+  const companyEarningsTotal = useMemo(
+    () => sumCompanyBreakdownAmount(companyEarningsBreakdownRows, "earnings"),
+    [companyEarningsBreakdownRows]
+  );
 
-  const showEarningsCompanyTab = kpi.showEarnings;
+  const showEarningsCompanyTab = panelCapabilities.showEarningTab;
 
   useEffect(() => {
-    if (
-      !showProfitChartTab &&
-      (earningsPanelView === "netProfit" || earningsPanelView === "earning")
-    ) {
-      setEarningsPanelView("currency");
-    }
-  }, [showProfitChartTab, earningsPanelView]);
-
-  useEffect(() => {
-    if (!showEarningsCompanyTab && earningsPanelView === "earning") {
-      setEarningsPanelView("currency");
-    }
-  }, [showEarningsCompanyTab, earningsPanelView]);
+    setEarningsPanelView((prev) =>
+      normalizeDashboardPanelView(panelCapabilities, prev)
+    );
+  }, [
+    panelScope,
+    panelCapabilities.showNetProfitTab,
+    panelCapabilities.showEarningTab,
+  ]);
 
   const exchangeRateScopeKey = useMemo(
     () =>
@@ -6930,7 +6943,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [scopeDataPending, dashboardData]
   );
   const companyBreakdownPanelActive =
-    showProfitChartTab &&
+    panelCapabilities.showTabs &&
     (earningsPanelView === "netProfit" || earningsPanelView === "earning");
   const summaryScopeLoading = scopeDataPending || (loading && !dashboardData);
   const summaryCurrencyPanelLoading =
@@ -6944,10 +6957,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     ? summaryScopeLoading
     : summaryCurrencyPanelLoading;
   const earningsPanelStable = companyBreakdownPanelActive
-    ? !summaryScopeLoading &&
-      (earningsPanelView === "earning"
-        ? companyEarningsBreakdownRows.length > 0
-        : companyBreakdownRows.length > 0)
+    ? !summaryScopeLoading
     : currencies.length <= 1 ||
       (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
   const panelsAnimReady = useMemo(() => {
@@ -7829,6 +7839,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     exchangeRatesLoading,
     exchangeRateScopeKey,
     convertedEarningsTotal,
+    panelCapabilities,
     showProfitChartTab,
     showEarningsCompanyTab,
     earningsPanelView,
