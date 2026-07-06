@@ -3519,11 +3519,13 @@ try {
         $groupLedgerCode = (string) (gc_session_login_identifier() ?? '');
     }
     $useGroupLedger = $requestedCompanyId <= 0 && $groupLedgerCode !== '';
+    $explicitGroupOnlyDashboard = $useGroupLedger;
     $groupScopeId = 0;
 
     if ($useGroupLedger) {
-        // Company login may still use legacy group-entity row; group login always uses group ledger.
-        if (!dashboard_should_force_pure_group_ledger($pdo)) {
+        // Group-only dashboard (e.g. AP tab, no C168): use group ledger + subsidiary net-profit merge.
+        // Do not redirect to legacy company_id=AP entity row — that path skips C168 contribution.
+        if (!dashboard_should_force_pure_group_ledger($pdo) && !$explicitGroupOnlyDashboard) {
             $groupEntityCompanyId = tx_resolve_group_entity_company_id($pdo, $groupLedgerCode);
             if ($groupEntityCompanyId > 0) {
                 assertGroupEntityAccess($pdo, $groupLedgerCode, $groupEntityCompanyId);
