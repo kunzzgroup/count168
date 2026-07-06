@@ -288,8 +288,9 @@
   /*
    * Payment History（Transaction 账目历史表 — 全页 / popup 分屏共用；改 --text-* 阶梯即连带缩放）
    */
-  --txn-history-text-title: var(--text-h2);
-  --txn-history-text-close: var(--text-h2);
+  /* 对齐 legacy transaction.css .transaction-history-modal 标题字阶 */
+  --txn-history-text-title: clamp(14px, 1.05vw, 19px);
+  --txn-history-text-close: clamp(18px, 1.1vw, 22px);
   --txn-history-text-loading: var(--text-medium);
   --txn-history-text-table: var(--text-medium);
   --txn-history-text-table-head: var(--text-base);

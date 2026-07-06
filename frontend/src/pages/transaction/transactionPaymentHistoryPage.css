@@ -85,10 +85,10 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   flex-shrink: 0;
   margin: 0;
-  padding: clamp(16px, 1.4vw, 22px) clamp(18px, 1.8vw, 28px);
+  padding: clamp(10px, 0.95vw, 16px) clamp(12px, 1.35vw, 18px);
   border-bottom: 1px solid var(--transaction-history-report-border) !important;
   background: #ffffff;
 }
@@ -97,7 +97,7 @@ body.transaction-payment-history-page .transaction-payment-history-header__brand
 body.ec-payment-history-chromeless .transaction-payment-history-header__brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
   flex: 1 1 auto;
 }
@@ -123,10 +123,10 @@ body.transaction-payment-history-page .transaction-payment-history-close,
 body.ec-payment-history-chromeless .transaction-payment-history-close {
   flex-shrink: 0;
   align-self: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  min-width: 2.5rem;
-  min-height: 2.5rem;
+  width: calc(var(--txn-history-text-close) + 0.35rem);
+  height: calc(var(--txn-history-text-close) + 0.35rem);
+  min-width: calc(var(--txn-history-text-close) + 0.35rem);
+  min-height: calc(var(--txn-history-text-close) + 0.35rem);
   font-size: var(--txn-history-text-close);
   line-height: 1;
   color: #64748b;
@@ -816,7 +816,7 @@ body.ec-payment-history-chromeless.transaction-payment-history-page--popup-compa
 
 body.transaction-payment-history-page--popup .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header,
 body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header {
-  padding: 12px 14px;
+  padding: clamp(8px, 0.85vw, 12px) clamp(10px, 1.1vw, 14px);
 }
 
 body.transaction-payment-history-page--popup .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header h3,
