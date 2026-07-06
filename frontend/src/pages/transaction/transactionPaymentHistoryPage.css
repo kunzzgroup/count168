@@ -97,13 +97,15 @@ body.transaction-payment-history-page .transaction-payment-history-header__brand
 body.ec-payment-history-chromeless .transaction-payment-history-header__brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
   flex: 1 1 auto;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-header__text,
 body.ec-payment-history-chromeless .transaction-payment-history-header__text {
+  display: flex;
+  align-items: center;
   min-width: 0;
 }
 
@@ -824,13 +826,14 @@ body.ec-payment-history-chromeless.transaction-payment-history-page--popup .tran
 
 body.transaction-payment-history-page--popup .transaction-payment-history-header__icon,
 body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-header__icon {
-  padding: 5px 10px 5px 7px;
+  min-height: clamp(1.65rem, 0.45vw + 1.35rem, 1.9rem);
+  padding: 0 0.7rem 0 0.55rem;
 }
 
 body.transaction-payment-history-page--popup .transaction-payment-history-export-btn svg,
 body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-export-btn svg {
-  width: 14px;
-  height: 14px;
+  width: 0.95rem;
+  height: 0.95rem;
 }
 
 body.transaction-payment-history-page--popup .transaction-payment-history-export-btn__label,
@@ -861,13 +864,15 @@ body.ec-payment-history-chromeless.transaction-payment-history-page--popup .tran
 body.transaction-payment-history-page .transaction-payment-history-export-btn,
 body.ec-payment-history-chromeless .transaction-payment-history-export-btn {
   flex-shrink: 0;
+  align-self: center;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
+  min-height: clamp(1.9rem, 0.55vw + 1.55rem, 2.15rem);
+  padding: 0 clamp(0.85rem, 0.4vw + 0.7rem, 1rem) 0 clamp(0.65rem, 0.3vw + 0.55rem, 0.8rem);
   border: none;
-  border-radius: 8px;
-  padding: 6px 12px 6px 9px;
+  border-radius: 10px;
   background: var(--btn-add-gradient, linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%));
   color: #ffffff;
   cursor: pointer;
@@ -896,14 +901,14 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
 
 body.transaction-payment-history-page .transaction-payment-history-export-btn svg,
 body.ec-payment-history-chromeless .transaction-payment-history-export-btn svg {
-  width: 16px;
-  height: 16px;
+  width: clamp(1rem, 0.35vw + 0.9rem, 1.125rem);
+  height: clamp(1rem, 0.35vw + 0.9rem, 1.125rem);
   flex-shrink: 0;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-export-btn__label,
 body.ec-payment-history-chromeless .transaction-payment-history-export-btn__label {
-  font-size: 0.8125rem;
+  font-size: clamp(0.8rem, 0.25vw + 0.72rem, 0.9rem);
   font-weight: 700;
   letter-spacing: 0.05em;
   line-height: 1;
