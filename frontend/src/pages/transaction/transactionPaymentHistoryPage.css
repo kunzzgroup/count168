@@ -826,10 +826,9 @@ body.ec-payment-history-chromeless.transaction-payment-history-page--popup .tran
 
 body.transaction-payment-history-page--popup .transaction-payment-history-header__icon,
 body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-header__icon {
-  min-height: calc(var(--txn-history-text-title) * 1.1);
-  font-size: calc(var(--txn-history-text-title) * 0.52);
-  padding: calc(var(--txn-history-text-title) * 0.1) calc(var(--txn-history-text-title) * 0.52)
-    calc(var(--txn-history-text-title) * 0.1) calc(var(--txn-history-text-title) * 0.14);
+  min-height: calc(var(--txn-history-text-title) * 0.85);
+  font-size: calc(var(--txn-history-text-title) * 0.4);
+  padding: 0 calc(var(--txn-history-text-title) * 0.42) 0 calc(var(--txn-history-text-title) * 0.34);
 }
 
 body.transaction-payment-history-page--popup .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-body,
@@ -851,7 +850,7 @@ body.ec-payment-history-chromeless.transaction-payment-history-page--popup .tran
   max-width: none;
 }
 
-/* Export PDF — header chip button (scale with title token) */
+/* Export PDF — match report table header chrome */
 body.transaction-payment-history-page .transaction-payment-history-export-btn,
 body.ec-payment-history-chromeless .transaction-payment-history-export-btn {
   --export-btn-scale: var(--txn-history-text-title);
@@ -860,15 +859,14 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: calc(var(--export-btn-scale) * 0.3);
-  min-height: calc(var(--export-btn-scale) * 1.22);
-  padding: calc(var(--export-btn-scale) * 0.12) calc(var(--export-btn-scale) * 0.62)
-    calc(var(--export-btn-scale) * 0.12) calc(var(--export-btn-scale) * 0.18);
-  border: 2px solid #3b82f6;
-  border-radius: calc(var(--export-btn-scale) * 0.5);
-  font-size: calc(var(--export-btn-scale) * 0.56);
-  background: #eff6ff;
-  color: #1d4ed8;
+  gap: calc(var(--export-btn-scale) * 0.28);
+  min-height: calc(var(--export-btn-scale) * 0.92);
+  padding: 0 calc(var(--export-btn-scale) * 0.5) 0 calc(var(--export-btn-scale) * 0.42);
+  border: 1px solid var(--transaction-history-report-head-grid);
+  border-radius: 8px;
+  font-size: calc(var(--export-btn-scale) * 0.44);
+  background: var(--transaction-history-report-head-bg);
+  color: var(--transaction-history-report-head-text);
   cursor: pointer;
   box-shadow: none;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -876,48 +874,35 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn {
 
 body.transaction-payment-history-page .transaction-payment-history-export-btn:hover,
 body.ec-payment-history-chromeless .transaction-payment-history-export-btn:hover {
-  background: #dbeafe;
-  border-color: #2563eb;
-  color: #1e3a8a;
+  background: linear-gradient(180deg, #c5daf2 0%, #b8cfe8 100%);
+  border-color: #94b8e0;
+  color: #0f2744;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-export-btn:active,
 body.ec-payment-history-chromeless .transaction-payment-history-export-btn:active {
-  background: #bfdbfe;
+  background: linear-gradient(180deg, #b8cfe8 0%, #a8c4e6 100%);
 }
 
 body.transaction-payment-history-page .transaction-payment-history-export-btn:focus-visible,
 body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--transaction-history-report-accent);
   outline-offset: 2px;
 }
 
-body.transaction-payment-history-page .transaction-payment-history-export-btn__icon-wrap,
-body.ec-payment-history-chromeless .transaction-payment-history-export-btn__icon-wrap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+body.transaction-payment-history-page .transaction-payment-history-export-btn svg,
+body.ec-payment-history-chromeless .transaction-payment-history-export-btn svg {
+  width: 1.25em;
+  height: 1.25em;
   flex-shrink: 0;
-  width: calc(var(--export-btn-scale) * 1.02);
-  height: calc(var(--export-btn-scale) * 1.02);
-  border-radius: calc(var(--export-btn-scale) * 0.34);
-  background: #2563eb;
-  color: #ffffff;
-}
-
-body.transaction-payment-history-page .transaction-payment-history-export-btn__icon-wrap svg,
-body.ec-payment-history-chromeless .transaction-payment-history-export-btn__icon-wrap svg {
-  width: calc(var(--export-btn-scale) * 0.58);
-  height: calc(var(--export-btn-scale) * 0.58);
-  flex-shrink: 0;
+  color: var(--transaction-history-report-accent);
 }
 
 body.transaction-payment-history-page .transaction-payment-history-export-btn__label,
 body.ec-payment-history-chromeless .transaction-payment-history-export-btn__label {
-  padding-right: calc(var(--export-btn-scale) * 0.08);
   font-size: 1em;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   line-height: 1;
   color: inherit;
 }
