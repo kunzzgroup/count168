@@ -868,9 +868,7 @@ export default function FormulaMaintenancePage() {
         currentPath: location.pathname,
         navigate,
         updateSessionCompany,
-        onStay: async () => {
-          notify(t("switchedTo", { company: c.company_id }), "success");
-        },
+        onStay: async () => {},
       });
       if (redirected) return;
     } catch (err) {
