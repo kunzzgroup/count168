@@ -2296,6 +2296,157 @@ function dashboardRestrictCurrencyMapToGroupTenant(PDO $pdo, string $groupCode, 
 }
 
 /**
+ * Group-only dashboard pills: group ledger/account currencies + group Currency Setting
+ * + anchor company table + every subsidiary company's Currency Setting (e.g. C168 MYR under AP).
+ *
+ * @return array<int, string>
+ */
+function dashboardResolveGroupOnlyUnionCurrencyMap(PDO $pdo, string $viewGroup): array
+{
+    $viewGroup = reportNormalizeGroupId($viewGroup);
+    if ($viewGroup === '') {
+        return [];
+    }
+
+    $byCode = [];
+    $merge = static function (array $map) use (&$byCode): void {
+        foreach ($map as $id => $code) {
+            $up = strtoupper(trim((string) $code));
+            if ($up === '') {
+                continue;
+            }
+            if (!isset($byCode[$up])) {
+                $byCode[$up] = (int) $id;
+            }
+        }
+    };
+
+    $merge(dashboardResolveGroupScopeCurrencyMap($pdo, $viewGroup));
+
+    $pk = gc_resolve_group_pk_by_code($pdo, $viewGroup);
+    if ($pk > 0) {
+        try {
+            $stmt = $pdo->prepare("
+                SELECT id, UPPER(TRIM(code)) AS code
+                FROM currency
+                WHERE scope_type = 'group' AND scope_id = ?
+            ");
+            $stmt->execute([$pk]);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $id = (int) ($row['id'] ?? 0);
+                $code = strtoupper(trim((string) ($row['code'] ?? '')));
+                if ($id > 0 && $code !== '' && !isset($byCode[$code])) {
+                    $byCode[$code] = $id;
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('dashboardResolveGroupOnlyUnionCurrencyMap: ' . $e->getMessage());
+        }
+    }
+
+    $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+    if ($entityId > 0) {
+        $merge(dashboardLoadCurrencyMap($pdo, $entityId, false));
+    }
+
+    foreach (dashboardListGroupSubsidiaryCompanyIds($pdo, $viewGroup) as $companyId) {
+        $merge(dashboardLoadCurrencyMap($pdo, (int) $companyId, true));
+    }
+
+    $out = [];
+    foreach ($byCode as $code => $id) {
+        $out[$id] = $code;
+    }
+
+    return $out;
+}
+
+/**
+ * Subsidiary drill-down (AP + C168): company Currency Setting + group base currencies.
+ *
+ * @return array<int, string>
+ */
+function dashboardResolveSubsidiaryDashboardCurrencyMap(PDO $pdo, int $companyId, string $viewGroup): array
+{
+    if ($companyId <= 0) {
+        return [];
+    }
+
+    $byCode = [];
+    $merge = static function (array $map) use (&$byCode): void {
+        foreach ($map as $id => $code) {
+            $up = strtoupper(trim((string) $code));
+            if ($up === '') {
+                continue;
+            }
+            if (!isset($byCode[$up])) {
+                $byCode[$up] = (int) $id;
+            }
+        }
+    };
+
+    $merge(dashboardLoadCurrencyMap($pdo, $companyId, true));
+
+    $viewGroup = reportNormalizeGroupId($viewGroup);
+    if ($viewGroup === '') {
+        $out = [];
+        foreach ($byCode as $code => $id) {
+            $out[$id] = $code;
+        }
+
+        return $out;
+    }
+
+    $pk = gc_resolve_group_pk_by_code($pdo, $viewGroup);
+    if ($pk > 0) {
+        try {
+            $stmt = $pdo->prepare("
+                SELECT id, UPPER(TRIM(code)) AS code
+                FROM currency
+                WHERE scope_type = 'group' AND scope_id = ?
+            ");
+            $stmt->execute([$pk]);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $id = (int) ($row['id'] ?? 0);
+                $code = strtoupper(trim((string) ($row['code'] ?? '')));
+                if ($id > 0 && $code !== '' && !isset($byCode[$code])) {
+                    $byCode[$code] = $id;
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('dashboardResolveSubsidiaryDashboardCurrencyMap: ' . $e->getMessage());
+        }
+    }
+
+    $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+    if ($entityId > 0) {
+        $merge(dashboardLoadCurrencyMap($pdo, $entityId, false));
+    }
+
+    $out = [];
+    foreach ($byCode as $code => $id) {
+        $out[$id] = $code;
+    }
+
+    return $out;
+}
+
+/**
+ * @param array<int, string> $map
+ * @return list<array{id:int,code:string}>
+ */
+function dashboardCurrencyMapToApiRows(array $map): array
+{
+    $rows = [];
+    foreach ($map as $id => $code) {
+        $rows[] = ['id' => (int) $id, 'code' => (string) $code];
+    }
+    usort($rows, static fn (array $a, array $b): int => $a['id'] <=> $b['id']);
+
+    return $rows;
+}
+
+/**
  * Group tab / group login: currencies from group-ledger account_currency only.
  * Does not list subsidiary-synced Currency Setting rows — a code appears only when
  * a group-scoped account has that currency enabled (e.g. after a group-ledger payment).

@@ -57,13 +57,8 @@ try {
             api_error('无权访问该 Group Ledger', 403);
             exit;
         }
-        $map = dashboardResolveGroupScopeCurrencyMap($pdo, $viewGroup);
-        $rows = [];
-        foreach ($map as $id => $code) {
-            $rows[] = ['id' => (int) $id, 'code' => $code];
-        }
-        usort($rows, static fn(array $a, array $b): int => $a['id'] <=> $b['id']);
-        api_success($rows);
+        $map = dashboardResolveGroupOnlyUnionCurrencyMap($pdo, $viewGroup);
+        api_success(dashboardCurrencyMapToApiRows($map));
         exit;
     }
 
@@ -104,13 +99,8 @@ try {
             api_error('无权访问该 Group Ledger', 403);
             exit;
         }
-        $map = dashboardResolveGroupScopeCurrencyMap($pdo, $groupCode);
-        $rows = [];
-        foreach ($map as $id => $code) {
-            $rows[] = ['id' => (int) $id, 'code' => $code];
-        }
-        usort($rows, static fn(array $a, array $b): int => $a['id'] <=> $b['id']);
-        api_success($rows);
+        $map = dashboardResolveGroupOnlyUnionCurrencyMap($pdo, $groupCode);
+        api_success(dashboardCurrencyMapToApiRows($map));
         exit;
     } else {
         if ($primaryCompanyId <= 0 && $companyIds !== []) {
@@ -130,14 +120,11 @@ try {
             }
             $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $viewGroup);
         } elseif ($subsidiaryAccountsOnly && $primaryCompanyId > 0) {
-            // Subsidiary drill-down: Currency Setting table only (exclude group SGD on shared anchor FK).
-            $map = dashboardLoadCurrencyMap($pdo, $primaryCompanyId, true);
-            $rows = [];
-            foreach ($map as $id => $code) {
-                $rows[] = ['id' => (int) $id, 'code' => $code];
-            }
-            usort($rows, static fn(array $a, array $b): int => $a['id'] <=> $b['id']);
-            api_success($rows);
+            // Subsidiary drill-down: company Currency Setting + group base currencies.
+            $map = $viewGroup !== ''
+                ? dashboardResolveSubsidiaryDashboardCurrencyMap($pdo, $primaryCompanyId, $viewGroup)
+                : dashboardLoadCurrencyMap($pdo, $primaryCompanyId, true);
+            api_success(dashboardCurrencyMapToApiRows($map));
             exit;
         } else {
             foreach ($companyIds as $cid) {
