@@ -5484,18 +5484,121 @@ function getActiveSummaryRowForEditFormula() {
     return null;
 }
 
-/** Summary 行上的 data-row-index → Data Capture 行序；占位 999999 视为无 */
-function getDataCaptureRowIndexOverrideFromSummaryRow(row) {
-    if (!row || !row.getAttribute) return null;
-    const rowIdxStr = row.getAttribute('data-row-index');
-    if (rowIdxStr == null || rowIdxStr === '' || rowIdxStr === '999999') return null;
-    const n = Number(rowIdxStr);
+/** 解析 Summary 行上的 Data Capture 行序；999999 / 空视为无效 */
+function parseValidDataCaptureRowIndex(attr) {
+    if (attr == null || attr === '' || attr === '999999') return null;
+    const n = Number(attr);
     if (Number.isNaN(n) || n < 0) return null;
     return n;
 }
 
+/** Summary 行上的 data-row-index → Data Capture 行序；占位 999999 视为无 */
+function getDataCaptureRowIndexOverrideFromSummaryRow(row) {
+    if (!row || !row.getAttribute) return null;
+
+    let n = parseValidDataCaptureRowIndex(row.getAttribute('data-row-index'));
+    if (n !== null) return n;
+
+    n = parseValidDataCaptureRowIndex(row.getAttribute('data-preserved-row-index'));
+    if (n !== null) return n;
+
+    // Sub / 其他 Account 行：继承父 main 在 Data Capture 中的行序
+    n = parseValidDataCaptureRowIndex(row.getAttribute('data-parent-row-index'));
+    if (n !== null) return n;
+
+    const productType = row.getAttribute('data-product-type') || 'main';
+    if (productType === 'sub') {
+        const summaryTableBody = document.getElementById('summaryTableBody');
+        if (summaryTableBody) {
+            const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+            const rowIndexInTable = allRows.indexOf(row);
+            const parentIdAttr = row.getAttribute('data-parent-id-product');
+            const rowProcessNorm = typeof getProcessValueFromRow === 'function'
+                ? normalizeIdProductText(getProcessValueFromRow(row) || '')
+                : '';
+            const parentNorm = parentIdAttr ? normalizeIdProductText(parentIdAttr) : rowProcessNorm;
+
+            for (let i = rowIndexInTable - 1; i >= 0; i--) {
+                const candidate = allRows[i];
+                if ((candidate.getAttribute('data-product-type') || 'main') !== 'main') continue;
+                const idCell = candidate.querySelector('td:first-child');
+                const pv = idCell ? getProductValuesFromCell(idCell) : {};
+                const mainNorm = normalizeIdProductText(pv.main || '');
+                if (parentNorm && mainNorm !== parentNorm) break;
+                const inherited = parseValidDataCaptureRowIndex(candidate.getAttribute('data-row-index'))
+                    ?? parseValidDataCaptureRowIndex(candidate.getAttribute('data-preserved-row-index'));
+                if (inherited !== null) return inherited;
+                break;
+            }
+        }
+    }
+
+    return null;
+}
+
 function getEditFormulaDataCaptureRowIndexOverride() {
     return getDataCaptureRowIndexOverrideFromSummaryRow(getActiveSummaryRowForEditFormula());
+}
+
+// 键盘输入 $n 时，为当前编辑行补全 data-clicked-cell-refs（含 #行序），避免其他 Account 行解析落到首行
+function ensureClickedCellRefsForDollarFormula(formulaInput, formulaValue, processValue) {
+    if (!formulaInput || !formulaValue || !formulaValue.trim() || !processValue || !String(processValue).trim()) {
+        return;
+    }
+    const ft = formulaValue.trim();
+    if (!ft.includes('$') || ft.includes('[')) return;
+
+    const dollarPattern = /\$(\d+)(?!\d)/g;
+    const dollarMatches = [];
+    let match;
+    dollarPattern.lastIndex = 0;
+    while ((match = dollarPattern.exec(ft)) !== null) {
+        const columnNumber = parseInt(match[1], 10);
+        if (!isNaN(columnNumber) && columnNumber > 0) {
+            dollarMatches.push({ dataColumnIndex: columnNumber - 1 });
+        }
+    }
+    if (dollarMatches.length === 0) return;
+
+    const rowIdx = getEditFormulaDataCaptureRowIndexOverride();
+    if (rowIdx === null) return;
+
+    const activeRow = getActiveSummaryRowForEditFormula();
+    const idProduct = (activeRow && typeof getProcessValueFromRow === 'function')
+        ? String(getProcessValueFromRow(activeRow) || '').trim()
+        : String(processValue).trim();
+    if (!idProduct) return;
+
+    const norm = (s) => String(s || '').trim().replace(/\s+/g, '');
+    const refsArray = String(formulaInput.getAttribute('data-clicked-cell-refs') || '')
+        .trim().split(/\s+/).filter((r) => r.trim());
+    const coveredColumns = new Set();
+
+    refsArray.forEach((ref) => {
+        const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
+        if (!parsed || isNaN(parsed.dataColumnIndex)) return;
+        const refId = parsed.idProduct;
+        const isCurrentRow = (typeof isFullIdProduct === 'function' && isFullIdProduct(refId))
+            ? (norm(refId) === norm(idProduct))
+            : (normalizeIdProductText(refId) === normalizeIdProductText(idProduct));
+        if (!isCurrentRow) return;
+        if (parsed.captureRowIndex != null && parsed.captureRowIndex !== rowIdx) return;
+        coveredColumns.add(parsed.dataColumnIndex);
+    });
+
+    let changed = false;
+    dollarMatches.forEach((dm) => {
+        if (coveredColumns.has(dm.dataColumnIndex)) return;
+        const newRef = `${idProduct}:#${rowIdx}:${dm.dataColumnIndex}`;
+        refsArray.push(newRef);
+        coveredColumns.add(dm.dataColumnIndex);
+        changed = true;
+    });
+
+    if (changed) {
+        formulaInput.setAttribute('data-clicked-cell-refs', refsArray.join(' '));
+        console.log('ensureClickedCellRefsForDollarFormula: auto refs =>', refsArray.join(' '));
+    }
 }
 
 // 同步更新 data-clicked-cell-refs，只保留 formula 中实际使用的引用
@@ -5583,6 +5686,28 @@ function syncClickedCellRefsWithFormula(formulaInput, formulaValue, processValue
         }
     });
 
+    // $n 在 refs 中缺失时，按当前编辑行 + row_index 自动补全（其他 Account 行常见）
+    if (dollarMatches.length > 0 && processValue) {
+        const rowIdx = typeof getEditFormulaDataCaptureRowIndexOverride === 'function'
+            ? getEditFormulaDataCaptureRowIndexOverride() : null;
+        const activeRow = typeof getActiveSummaryRowForEditFormula === 'function'
+            ? getActiveSummaryRowForEditFormula() : null;
+        const idProduct = (activeRow && typeof getProcessValueFromRow === 'function')
+            ? String(getProcessValueFromRow(activeRow) || '').trim()
+            : String(processValue).trim();
+        if (rowIdx !== null && idProduct) {
+            dollarMatches.forEach((dollarMatch) => {
+                const already = syncedRefs.some((ref) => {
+                    const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
+                    return parsed && parsed.dataColumnIndex === dollarMatch.dataColumnIndex;
+                });
+                if (!already) {
+                    syncedRefs.push(`${idProduct}:#${rowIdx}:${dollarMatch.dataColumnIndex}`);
+                }
+            });
+        }
+    }
+
     // 处理 [id_product,数字] 格式（其他 row），使用 parseIdProductColumnRef 保留完整 id_product 比较
     bracketMatches.forEach((bracketMatch) => {
         const matchingRefs = refMapByDataColumnIndex.get(bracketMatch.dataColumnIndex);
@@ -5638,13 +5763,17 @@ function updateFormulaDisplay(formulaValue, processValue) {
         return;
     }
 
+    const formulaInput = document.getElementById('formula');
+    if (formulaInput && typeof ensureClickedCellRefsForDollarFormula === 'function') {
+        ensureClickedCellRefsForDollarFormula(formulaInput, formulaValue, processValue);
+    }
+
     try {
         const editFormulaRowIndexOverride = getEditFormulaDataCaptureRowIndexOverride();
 
         // IMPORTANT: 优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
         // 这样当用户选择其他 id product 的数据时，能正确显示那些数据
         // 重要：优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
-        const formulaInput = document.getElementById('formula');
         const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
 
         let displayFormula = formulaValue;
@@ -5958,7 +6087,7 @@ function processDollarColumnReferences(formulaValue, processValue) {
 
     // 匹配 $ 后跟数字的模式 (例如 $5, $10, $123)
     // 使用正则表达式: \$(\d+)
-    const dollarPattern = /\$(\d+)/g;
+    const dollarPattern = /\$(\d+)(?!\d)/g;
     let result = formulaValue;
     let match;
     const replacements = [];
@@ -6376,6 +6505,11 @@ function addFormulaValidation() {
 
             // 更新 previousValue
             previousValue = formulaValue;
+
+            // 键盘 $n：先补全 refs，再刷新预览
+            if (typeof ensureClickedCellRefsForDollarFormula === 'function') {
+                ensureClickedCellRefsForDollarFormula(formulaInput, formulaValue, processValue);
+            }
 
             // 立即更新显示框：将 formula 中的 $数字 或列引用转换为实际值显示
             // 每次输入时立即更新，不需要等待
@@ -7349,8 +7483,32 @@ function recalculateProcessedAmountInForm() {
         if (formulaValue) {
             refreshEditFormulaDisplayWithSource();
 
+            const processInput = document.getElementById('process');
+            const editingRow = typeof getActiveSummaryRowForEditFormula === 'function'
+                ? getActiveSummaryRowForEditFormula() : null;
+            const processValueForCalc = (editingRow && typeof getProcessValueFromRow === 'function')
+                ? (String(getProcessValueFromRow(editingRow) || '').trim() || String(processInput?.value || '').trim())
+                : String(processInput?.value || '').trim();
+            const rowIdxForCalc = typeof getEditFormulaDataCaptureRowIndexOverride === 'function'
+                ? getEditFormulaDataCaptureRowIndexOverride() : null;
+            let clickedForCalc = formulaInput.getAttribute('data-clicked-cell-refs') || '';
+            if (typeof getEffectiveClickedRefsForDollarOnlyFormula === 'function') {
+                clickedForCalc = getEffectiveClickedRefsForDollarOnlyFormula(
+                    formulaValue, processValueForCalc, clickedForCalc
+                );
+            }
+
             // Calculate processed amount directly from formula expression
-            const processedAmount = calculateFormulaResultFromExpression(formulaValue, sourcePercentValue, inputMethod, enableInputMethod, enableSourcePercent);
+            const processedAmount = calculateFormulaResultFromExpression(
+                formulaValue,
+                sourcePercentValue,
+                inputMethod,
+                enableInputMethod,
+                enableSourcePercent,
+                processValueForCalc,
+                clickedForCalc,
+                rowIdxForCalc
+            );
 
             // Show preview in console or could show in a preview field
             console.log('Preview Processed Amount:', processedAmount);
@@ -7595,8 +7753,11 @@ function populateFormWithData(data) {
                                             const idProduct = parsed ? parsed.idProduct : (function () { const p = matchedRef.split(':'); return p.length >= 2 ? p[0] : ''; })();
                                             const refRowLabel = parsed ? parsed.rowLabel : (function () { const p = matchedRef.split(':'); return p.length === 3 ? p[1] : null; })();
 
-                                            // 获取当前编辑row的row_label
-                                            const currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
+                                            // 获取当前编辑row的row_label（带 row_index 消歧，避免其他 Account 行落到首行）
+                                            const rowIdxForLabel = typeof getEditFormulaDataCaptureRowIndexOverride === 'function'
+                                                ? getEditFormulaDataCaptureRowIndexOverride() : null;
+                                            const currentRowLabel = currentIdProduct
+                                                ? getRowLabelFromProcessValue(currentIdProduct, rowIdxForLabel) : null;
 
                                             // CRITICAL FIX: Use normalizeIdProductText for comparison to handle special characters
                                             // 判断是否是当前row：必须同时匹配id_product和row_label
@@ -16229,7 +16390,8 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 if (!summaryIdProductCell) return;
 
                 const productValues = getProductValuesFromCell(summaryIdProductCell);
-                const summaryIdProduct = normalizeIdProductText(productValues.main || '');
+                const idProductRaw = (productValues.main || productValues.sub || '').trim();
+                const summaryIdProduct = normalizeIdProductText(idProductRaw);
 
                 // Check if row already has a valid row_index - if so, preserve it
                 const existingRowIndex = summaryRow.getAttribute('data-row-index');
@@ -16237,7 +16399,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                     const existingIndexNum = Number(existingRowIndex);
                     if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
                         // Row already has a valid row_index, preserve it（输出完整 id_product 便于控制台查看）
-                        const idProductFull = (productValues.main || '').trim();
+                        const idProductFull = idProductRaw;
                         // 额外记录一份「初始 row_index」，供后续重排时使用，避免后面逻辑改写 data-row-index 影响顺序
                         summaryRow.setAttribute('data-preserved-row-index', existingRowIndex);
                         console.log('Preserved existing row_index:', existingRowIndex, idProductFull || summaryIdProduct);
@@ -16246,6 +16408,13 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 }
 
                 if (!summaryIdProduct) {
+                    // Sub 行无 main id：继承父 main 的 Data Capture 行序
+                    const parentCapIdx = parseValidDataCaptureRowIndex(summaryRow.getAttribute('data-parent-row-index'));
+                    if (parentCapIdx !== null) {
+                        summaryRow.setAttribute('data-row-index', String(parentCapIdx));
+                        console.log('Set row_index from data-parent-row-index:', parentCapIdx, 'for sub row');
+                        return;
+                    }
                     // For rows without id_product, use fallback
                     if (!existingRowIndex || existingRowIndex === '') {
                         summaryRow.setAttribute('data-row-index', '999999');
@@ -16260,7 +16429,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 idProductOccurrenceCounter.set(summaryIdProduct, usedCount + 1);
 
                 // Set row_index based on Data Capture Table position (only if not already set)
-                const idProductFullForLog = (productValues.main || '').trim() || summaryIdProduct;
+                const idProductFullForLog = idProductRaw || summaryIdProduct;
                 if (matchedIndex !== undefined && matchedIndex >= 0) {
                     summaryRow.setAttribute('data-row-index', String(matchedIndex));
                     console.log('Set row_index:', matchedIndex, 'for id_product:', idProductFullForLog, 'based on Data Capture Table position');
