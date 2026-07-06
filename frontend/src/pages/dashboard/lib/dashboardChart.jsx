@@ -5,7 +5,12 @@ import {
   parseYmd,
   shouldAggregateChartByMonth,
 } from "./dashboardDateUtils.js";
-import { resolvePanelEarningsPct, viewerHasEarningsPanelConfig } from "./dashboardKpi.js";
+import {
+  applySubsidiaryGroupProfitLens,
+  resolvePanelEarningsPct,
+  resolveSubsidiaryGroupEquityMul,
+  viewerHasEarningsPanelConfig,
+} from "./dashboardKpi.js";
 
 /** 按天模式：1 个自然月每天；2 个月隔 2 天；≤14 天每天；更长区间按宽度跳日 */
 export function resolveDailyChartXAxisTicks(dayCount, monthSpan) {
@@ -60,21 +65,23 @@ function buildZeroChartMetricRow(date, label) {
   };
 }
 
-function buildChartMetricRow(date, label, dailyData, earningsMultiplier) {
+function buildChartMetricRow(date, label, dailyData, earningsMultiplier, equityMul, showEarningsLine) {
   const profitDelta = parseFloat(dailyData.profit?.[date] || 0) || 0;
   const expensesDelta = parseFloat(dailyData.expenses?.[date] || 0) || 0;
   const displayProfit = profitDelta;
   const displayExpenses = expensesDelta > 0 ? -expensesDelta : expensesDelta;
   const netProfit = displayProfit + displayExpenses;
-  const earnings = netProfit * earningsMultiplier;
-  return {
+  const row = {
     date,
     label,
     profit: displayProfit,
     expenses: displayExpenses,
     netProfit,
-    earnings,
+    earnings: showEarningsLine ? netProfit * earningsMultiplier : 0,
   };
+  return applySubsidiaryGroupProfitLens(row, equityMul, {
+    includeEarnings: showEarningsLine,
+  });
 }
 
 /** Zero-valued rows for the selected range — keeps axes/grid visible when there is no activity. */
@@ -113,9 +120,11 @@ export function buildChartRows(
 ) {
   if (!data?.daily_data) return [];
   const dailyData = data.daily_data;
-  const earningsMultiplier = viewerHasEarningsPanelConfig(data, options)
+  const showEarningsLine = viewerHasEarningsPanelConfig(data, options);
+  const earningsMultiplier = showEarningsLine
     ? resolvePanelEarningsPct(data, selectedGroup, options)
     : 0;
+  const equityMul = resolveSubsidiaryGroupEquityMul(data, options);
   const rangeStart = parseYmd(startYmd);
   const rangeEnd = parseYmd(endYmd);
 
@@ -135,15 +144,17 @@ export function buildChartRows(
       const displayProfit = profitSum;
       const displayExpenses = expensesSum > 0 ? -expensesSum : expensesSum;
       const netProfit = displayProfit + displayExpenses;
-      const earnings = netProfit * earningsMultiplier;
-      return {
+      const row = {
         date: monthKey,
         label: formatChartMonthLabel(year, month, locale),
         profit: displayProfit,
         expenses: displayExpenses,
         netProfit,
-        earnings,
+        earnings: showEarningsLine ? netProfit * earningsMultiplier : 0,
       };
+      return applySubsidiaryGroupProfitLens(row, equityMul, {
+        includeEarnings: showEarningsLine,
+      });
     });
   }
 
@@ -158,6 +169,13 @@ export function buildChartRows(
     const label = sameCalendarMonth
       ? String(d.getDate())
       : `${d.getDate()}/${d.getMonth() + 1}`;
-    return buildChartMetricRow(date, label, dailyData, earningsMultiplier);
+    return buildChartMetricRow(
+      date,
+      label,
+      dailyData,
+      earningsMultiplier,
+      equityMul,
+      showEarningsLine
+    );
   });
 }

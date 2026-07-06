@@ -186,6 +186,27 @@ export function dashboardEarningsRowsLookStale(
   return allNearZero || !Number.isFinite(activeVal) || Math.abs(activeVal - kpi) > 0.02;
 }
 
+/** Group tab + subsidiary (AP+C168): equity mul from Account Ownership; profit KPI = group-attributed net. */
+export function resolveSubsidiaryGroupEquityMul(dashboardData, options = {}) {
+  if (!options.subsidiaryGroupDrillDown || !dashboardData) return null;
+  const pct = parseFloat(dashboardData.group_equity_percentage) || 0;
+  return pct > 0 ? pct / 100 : null;
+}
+
+/** Map company daily/period row → group profit share (net profit × equity); matches group ledger merge. */
+export function applySubsidiaryGroupProfitLens(row, equityMul, { includeEarnings = false } = {}) {
+  if (equityMul == null || !row) return row;
+  const companyNet = parseFloat(row.netProfit) || 0;
+  const groupNet = companyNet * equityMul;
+  return {
+    ...row,
+    profit: groupNet,
+    expenses: 0,
+    netProfit: groupNet,
+    ...(includeEarnings ? { earnings: groupNet } : {}),
+  };
+}
+
 export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
   if (!dashboardData) return null;
   const rawProfit = parseFloat(dashboardData?.period_total?.profit ?? dashboardData.profit) || 0;
@@ -194,25 +215,39 @@ export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
   const displayProfitNum = rawProfit;
   const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
   const netProfitDisplay = displayProfitNum + displayExpensesNum;
+  const equityMul = resolveSubsidiaryGroupEquityMul(dashboardData, options);
+  let finalProfit = displayProfitNum;
+  let finalExpenses = displayExpensesNum;
+  let finalNet = netProfitDisplay;
+  if (equityMul != null) {
+    finalNet = netProfitDisplay * equityMul;
+    finalProfit = finalNet;
+    finalExpenses = 0;
+  }
   const showEarningsKpi = viewerHasEarningsKpiConfig(dashboardData, options);
   const showEarningsPanel = viewerHasEarningsPanelConfig(dashboardData, options);
   const groupAggregate = isGroupAggregateEarningsPayload(dashboardData, options);
   const panelMultiplier = resolvePanelEarningsPct(dashboardData, selectedGroup, options);
   const kpiMultiplier = resolveEffectiveOwnershipPct(dashboardData, selectedGroup, options);
+  const earningsBase = equityMul != null ? finalNet : netProfitDisplay;
   const earningsDisplay = !showEarningsPanel
-    ? netProfitDisplay
+    ? finalNet
     : groupAggregate
       ? computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: false })
-      : netProfitDisplay * panelMultiplier;
+      : equityMul != null
+        ? finalNet
+        : earningsBase * panelMultiplier;
   const kpiCardEarnings = showEarningsKpi
     ? groupAggregate
       ? computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: true })
-      : netProfitDisplay * kpiMultiplier
+      : equityMul != null
+        ? finalNet
+        : earningsBase * kpiMultiplier
     : 0;
   return {
-    profit: displayProfitNum,
-    expenses: displayExpensesNum,
-    netProfit: netProfitDisplay,
+    profit: finalProfit,
+    expenses: finalExpenses,
+    netProfit: finalNet,
     earnings: earningsDisplay,
     kpiCardEarnings,
     showEarnings: showEarningsPanel,
