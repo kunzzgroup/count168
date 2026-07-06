@@ -58,7 +58,7 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn__labe
 
 body.transaction-payment-history-page--popup .transaction-payment-history-export-btn,
 body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-export-btn {
-  min-height: calc(var(--txn-history-text-title) * 1.08);
-  font-size: calc(var(--txn-history-text-title) * 0.52);
-  padding: 0 calc(var(--txn-history-text-title) * 0.52) 0 calc(var(--txn-history-text-title) * 0.42);
+  min-height: calc(var(--txn-history-text-title) * 1.5);
+  font-size: calc(var(--txn-history-text-title) * 0.7);
+  padding: 0 calc(var(--txn-history-text-title) * 0.5) 0 calc(var(--txn-history-text-title) * 0.5);
 }
