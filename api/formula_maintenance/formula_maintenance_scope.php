@@ -511,9 +511,7 @@ function formulaMaintenanceResolveRequestScope(PDO $pdo, array $params): array
             $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
             if ($userRole === 'owner') {
                 $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-                $stmt = $pdo->prepare('SELECT id FROM company WHERE id = ? AND owner_id = ?');
-                $stmt->execute([$requested, $owner_id]);
-                if ($stmt->fetchColumn()) {
+                if (gc_owner_has_company_access($pdo, $requested, (int)$owner_id)) {
                     $companyId = $requested;
                 } else {
                     throw new Exception('无权访问该公司');
