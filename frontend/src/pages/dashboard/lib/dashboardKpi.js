@@ -120,8 +120,9 @@ function resolveEarningsMultiplier(dashboardData, selectedGroup, options = {}, {
     return linkMul * viewerGroupShare;
   }
   if (directPct > 0) return directPct;
+  // AP + C168 drill-down: earnings = net profit × Account Ownership group equity only (图二).
   if (subsidiaryGroupDrillDown && groupEquityPercentage > 0) {
-    return (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
+    return groupEquityPercentage / 100;
   }
   if (hasGroupOwnership) {
     return (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
