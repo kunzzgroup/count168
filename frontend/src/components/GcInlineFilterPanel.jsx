@@ -90,10 +90,19 @@ export default function GcInlineFilterPanel({
                 </button>
               ) : null}
               {companiesForPicker.map((c) => {
-                const active =
+                // 修复：直接通过 company_code 匹配，不再只依赖 id！
+                const activeById =
                   !groupAllMode &&
                   effectivePickerCompanyId != null &&
                   Number(effectivePickerCompanyId) === Number(c.id);
+                
+                const activeByCode =
+                  !groupAllMode &&
+                  pickerCompanyCode != null &&
+                  String(c.company_id || "").toUpperCase().trim() === 
+                  String(pickerCompanyCode).toUpperCase().trim();
+                
+                const active = activeById || activeByCode;
                 const pending = switchingCompany && active;
                 const label = String(c.company_id || "").toUpperCase();
                 return (
