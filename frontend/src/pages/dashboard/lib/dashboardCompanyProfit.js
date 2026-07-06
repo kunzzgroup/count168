@@ -1,4 +1,3 @@
-import { convertToBaseAmount } from "../../../utils/dashboard/frankfurterRates.js";
 import {
   computeGroupAggregateEarningsAmount,
   isGroupAggregateEarningsPayload,
@@ -6,7 +5,7 @@ import {
 } from "./dashboardKpi.js";
 import { getCurrencyColor } from "./dashboardEarnings.js";
 
-/** @typedef {'earnings' | 'profit' | 'netProfit' | 'accountEquity'} CompanyBreakdownView */
+/** @typedef {'earnings' | 'profit' | 'netProfit'} CompanyBreakdownView */
 
 /** Viewer multiplier for a single company dashboard payload (group ownership chain). */
 export function resolveCompanyProfitMultiplier(data) {
@@ -31,20 +30,9 @@ export function computeCompanyGroupShare(netProfit, groupEquityPct) {
   return np * (pct / 100);
 }
 
-/** Subsidiary net profit × viewer account ownership % in the group. */
-export function computeCompanyAccountEquityAmount(netProfit, accountPct) {
-  const np = parseFloat(netProfit) || 0;
-  const pct = parseFloat(accountPct) || 0;
-  return np * (pct / 100);
-}
-
 /** @param {CompanyBreakdownView} view */
 export function companyRowDisplayAmount(row, view = "earnings") {
   if (!row) return 0;
-  if (view === "accountEquity" && row.displayAmount != null) {
-    const converted = parseFloat(row.displayAmount);
-    if (Number.isFinite(converted)) return converted;
-  }
   if (view === "netProfit") {
     return parseFloat(row.net_profit) || 0;
   }
@@ -52,9 +40,6 @@ export function companyRowDisplayAmount(row, view = "earnings") {
     const share = parseFloat(row.group_share);
     if (Number.isFinite(share)) return share;
     return computeCompanyGroupShare(row.net_profit, row.group_equity_pct);
-  }
-  if (view === "accountEquity") {
-    return computeCompanyAccountEquityAmount(row.net_profit, row.account_pct);
   }
   return parseFloat(row.my_earning) || 0;
 }
@@ -289,46 +274,7 @@ export function computeCompanyBreakdownSharePct(row, shareByCode) {
   return pct != null ? Math.round(pct * 10) / 10 : null;
 }
 
-/**
- * Merge per-currency subsidiary rows into display rows with converted totals.
- * @param {Array<{ currencyCode: string, rows: Array<object> }>} entries
- */
-export function mergeGroupEquityRowsAcrossCurrencies(entries, baseCurrency, rates) {
-  const base = String(baseCurrency || "").trim().toUpperCase();
-  const map = new Map();
-
-  for (const entry of entries || []) {
-    const currencyCode = String(entry?.currencyCode || "").trim().toUpperCase();
-    if (!currencyCode) continue;
-    for (const row of entry?.rows || []) {
-      const key = `${row.group_id || ""}:${row.company_pk ?? row.company_id}`;
-      const nativeAmount = computeCompanyAccountEquityAmount(row.net_profit, row.account_pct);
-      const convertedAmount = convertToBaseAmount(nativeAmount, currencyCode, base, rates);
-      if (convertedAmount == null) continue;
-
-      const prev = map.get(key);
-      if (prev) {
-        prev.displayAmount = (parseFloat(prev.displayAmount) || 0) + convertedAmount;
-        prev.nativeBreakdown.push({ currencyCode, nativeAmount, convertedAmount });
-      } else {
-        map.set(key, {
-          ...row,
-          displayAmount: convertedAmount,
-          nativeBreakdown: [{ currencyCode, nativeAmount, convertedAmount }],
-        });
-      }
-    }
-  }
-
-  return sortCompanyBreakdownRows(Array.from(map.values()), "accountEquity");
-}
-
-export function buildGroupEquityBreakdownRows(apiRows, enabledGroupIds, pickerCompanies = []) {
-  const rows = normalizeSubsidiaryEarningsByCompany(apiRows);
-  const filtered = filterCompanyBreakdownRowsForEarningsGroups(rows, enabledGroupIds);
-  return sortCompanyBreakdownRowsByPicker(filtered, pickerCompanies);
-}
-
+/** @param {CompanyBreakdownView} view */
 export function computeCompanyBreakdownCenterMetrics(rows, view = "earnings") {
   if (!rows?.length) return { pct: "0", code: "—" };
   const { total, map } = buildCompanyBreakdownShareByCode(rows, view);
