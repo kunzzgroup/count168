@@ -972,36 +972,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     canUseGroupOnlyMode(me) &&
     (isGroupLogin(me) || companyLoginCanUseGroupsAllLedger(me));
 
-  const panelScope = useMemo(
-    () =>
-      resolveDashboardPanelScope({
-        subsidiaryDashboardScope,
-        groupIds,
-        groupsAllMode,
-        companyId,
-        groupAllMode,
-        usesGroupLedgerDashboard,
-        groupsAllGroupLevel,
-      }),
-    [
-      subsidiaryDashboardScope,
-      groupIds,
-      groupsAllMode,
-      companyId,
-      groupAllMode,
-      usesGroupLedgerDashboard,
-      groupsAllGroupLevel,
-    ]
-  );
-
-  const panelCapabilities = useMemo(
-    () => resolveDashboardPanelCapabilities(panelScope),
-    [panelScope]
-  );
-
-  /** @deprecated Use panelCapabilities.showTabs */
-  const showProfitChartTab = panelCapabilities.showTabs;
-
   const groupAggregateMode =
     groupAllMode || groupOnlyDashboard || groupsAllGroupLevel || usesGroupLedgerDashboard;
   /** All-currency merge: any scope with 2+ currencies (single company or group aggregate). */
@@ -1827,6 +1797,36 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     () => resolveVisibleGroupIds(resolveOwnerDashboardGroupIds(companies, me), me, companies),
     [companies, me],
   );
+
+  const panelScope = useMemo(
+    () =>
+      resolveDashboardPanelScope({
+        subsidiaryDashboardScope,
+        groupIds,
+        groupsAllMode,
+        companyId,
+        groupAllMode,
+        usesGroupLedgerDashboard,
+        groupsAllGroupLevel,
+      }),
+    [
+      subsidiaryDashboardScope,
+      groupIds,
+      groupsAllMode,
+      companyId,
+      groupAllMode,
+      usesGroupLedgerDashboard,
+      groupsAllGroupLevel,
+    ]
+  );
+
+  const panelCapabilities = useMemo(
+    () => resolveDashboardPanelCapabilities(panelScope),
+    [panelScope]
+  );
+
+  /** @deprecated Use panelCapabilities.showTabs */
+  const showProfitChartTab = panelCapabilities.showTabs;
 
   const companiesForPicker = useMemo(() => {
     const preferredId = companyId ?? me?.company_id ?? null;
