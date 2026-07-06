@@ -82,3 +82,20 @@ export function normalizeDashboardPanelView(capabilities, view) {
   if (capabilities.tabs.includes(v)) return v;
   return capabilities.tabs[0] || "currency";
 }
+
+/**
+ * Group ledger with no company pill (e.g. IG only): KPI Profit/Net Profit = Σ subsidiary net_profit.
+ */
+export function shouldUseSubsidiaryNetProfitSumForGroupLedgerKpi({
+  usesGroupLedgerDashboard,
+  companyId,
+  groupAllMode,
+  groupsAllMode,
+} = {}) {
+  return Boolean(
+    usesGroupLedgerDashboard &&
+      companyId == null &&
+      !groupAllMode &&
+      !groupsAllMode
+  );
+}

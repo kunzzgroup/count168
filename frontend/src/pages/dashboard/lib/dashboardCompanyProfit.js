@@ -288,6 +288,28 @@ export function sumCompanyBreakdownAmount(rows, view = "earnings") {
   return (rows || []).reduce((sum, row) => sum + companyRowDisplayAmount(row, view), 0);
 }
 
+/** Σ subsidiary net_profit from group-ledger dashboard payload; null when no rows. */
+export function sumSubsidiaryNetProfitFromPayload(dashboardData) {
+  const rows = normalizeSubsidiaryEarningsByCompany(
+    dashboardData?.subsidiary_earnings_by_company
+  );
+  if (!rows.length) return null;
+  return sumCompanyBreakdownAmount(rows, "netProfit");
+}
+
+/** Align KPI Profit/Net Profit cards with Net Profit panel tab for group-ledger scope. */
+export function applySubsidiaryNetProfitSumToKpiMetrics(metrics, dashboardData) {
+  if (!metrics) return metrics;
+  const total = sumSubsidiaryNetProfitFromPayload(dashboardData);
+  if (total == null) return metrics;
+  return {
+    ...metrics,
+    profit: total,
+    netProfit: total,
+    expenses: 0,
+  };
+}
+
 /** @param {CompanyBreakdownView} view */
 export function buildCompanyBreakdownPieSlices(rows, view = "earnings") {
   return (rows || [])

@@ -69,11 +69,13 @@ import {
   buildCompanyNetProfitRowsFromPairs,
   buildCompanyBreakdownRowsFromPairs,
   buildSubsidiaryCompanyEarningRow,
+  applySubsidiaryNetProfitSumToKpiMetrics,
 } from "../lib/dashboardCompanyProfit.js";
 import {
   normalizeDashboardPanelView,
   resolveDashboardPanelCapabilities,
   resolveDashboardPanelScope,
+  shouldUseSubsidiaryNetProfitSumForGroupLedgerKpi,
 } from "../lib/dashboardPanelCapabilities.js";
 import {
   canAccessGroupLedgerForGroup,
@@ -6552,6 +6554,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       selectedGroup,
       resolveKpiOwnershipOpts()
     );
+    const useSubsidiaryNetProfitKpi = shouldUseSubsidiaryNetProfitSumForGroupLedgerKpi({
+      usesGroupLedgerDashboard,
+      companyId,
+      groupAllMode,
+      groupsAllMode,
+    });
     let current = useAggregated
       ? multiCurrencyKpi
       : ownershipCurrent;
@@ -6566,6 +6574,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         showEarningsPanel: ownershipCurrent.showEarningsPanel,
       };
     }
+    if (useSubsidiaryNetProfitKpi) {
+      current = applySubsidiaryNetProfitSumToKpiMetrics(current, dashboardData);
+    }
     let previous = useAggregated ? multiCurrencyKpiPrev : ownershipPrevious;
     if (previous && ownershipPrevious) {
       previous = {
@@ -6573,6 +6584,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         earnings: ownershipPrevious.earnings,
         kpiCardEarnings: ownershipPrevious.kpiCardEarnings,
       };
+    }
+    if (useSubsidiaryNetProfitKpi) {
+      previous = applySubsidiaryNetProfitSumToKpiMetrics(previous, dashboardDataPrev);
     }
     const comparisons = previous
       ? {
@@ -6590,7 +6604,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     dashboardData,
     dashboardDataPrev,
     selectedGroup,
+    companyId,
     groupAllMode,
+    groupsAllMode,
     groupsAllGroupLevel,
     usesGroupLedgerDashboard,
     showAllCurrencies,
@@ -6919,11 +6935,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     setEarningsPanelView((prev) =>
       normalizeDashboardPanelView(panelCapabilities, prev)
     );
-  }, [
-    panelScope,
-    panelCapabilities.showNetProfitTab,
-    panelCapabilities.showEarningTab,
-  ]);
+  }, [panelCapabilities]);
 
   const exchangeRateScopeKey = useMemo(
     () =>
