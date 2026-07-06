@@ -1347,6 +1347,51 @@ function dashboardLoadCompanyDashboardOwnership(
             $multiGroupPathResolved = false;
 
             if (!$skipGroupChain && $viewGroup !== '') {
+                $stmtDirectGrpEquity = $pdo->prepare("
+                    SELECT percentage
+                    FROM {$companyTable}
+                    WHERE company_id = ? AND owner_type = 'group'
+                      AND UPPER(TRIM(partner_group_id)) = UPPER(TRIM(?))
+                      {$monthSql}
+                    LIMIT 1
+                ");
+                $stmtDirectGrpEquity->execute(
+                    $useHistory
+                        ? [$companyId, $viewGroup, $effectiveMonth]
+                        : [$companyId, $viewGroup]
+                );
+                $directEquityPct = $stmtDirectGrpEquity->fetchColumn();
+
+                if ($directEquityPct !== false) {
+                    $multiGroupPathResolved = true;
+                    $result['group_equity_percentage'] = (float) $directEquityPct;
+                    try {
+                        $hasGroupTable = $useHistory
+                            ? $pdo->query("SHOW TABLES LIKE 'group_ownership_history'")->rowCount() > 0
+                            : $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
+                        if ($hasGroupTable) {
+                            $stmtAccShare = $pdo->prepare("
+                                SELECT percentage FROM {$groupTable}
+                                WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?))
+                                  AND account_id = ?
+                                  AND owner_type = ?
+                                  {$monthSql}
+                                LIMIT 1
+                            ");
+                            $stmtAccShare->execute(
+                                $useHistory
+                                    ? [$viewGroup, $userId, $ownerTypeStr, $effectiveMonth]
+                                    : [$viewGroup, $userId, $ownerTypeStr]
+                            );
+                            $accSharePct = $stmtAccShare->fetchColumn();
+                            if ($accSharePct !== false) {
+                                $result['group_account_percentage'] = (float) $accSharePct;
+                                $result['has_group_ownership'] = true;
+                            }
+                        }
+                    } catch (Throwable $e) {
+                    }
+                } else {
                 $pathDec = dashboardResolveEarningsPathProduct(
                     $pdo,
                     $companyId,
@@ -1386,6 +1431,7 @@ function dashboardLoadCompanyDashboardOwnership(
                         }
                     } catch (Throwable $e) {
                     }
+                }
                 }
             }
 
