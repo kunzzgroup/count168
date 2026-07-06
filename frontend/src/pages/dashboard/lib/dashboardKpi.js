@@ -46,7 +46,7 @@ export function viewerHasEarningsKpiConfig(dashboardData, options = {}) {
   const linkMul = parseFloat(dashboardData._link_multiplier || 0) || 0;
   if (linkMul > 0 && linkMul !== 1) return true;
   const groupEquityPct = parseFloat(dashboardData?.group_equity_percentage) || 0;
-  if (options.subsidiaryGroupDrillDown) return groupEquityPct > 0;
+  if (groupEquityPct > 0) return true;
   if (dashboardData.has_group_ownership) return true;
   return false;
 }
