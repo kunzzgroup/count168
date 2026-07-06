@@ -728,18 +728,9 @@ function formulaMaintenanceResolveRelatedProcessIds(
         return $scoped !== null && $scoped > 0 ? [$scoped] : [$processId];
     }
 
-    $stmt = $pdo->prepare(
-        'SELECT id FROM process
-         WHERE company_id = ? AND UPPER(TRIM(process_id)) = ?
-         ORDER BY id ASC'
-    );
-    $stmt->execute([$companyId, $code]);
-    $ids = array_values(array_filter(
-        array_map(static fn ($id): int => (int) $id, $stmt->fetchAll(PDO::FETCH_COLUMN)),
-        static fn (int $id): bool => $id > 0
-    ));
-
-    return $ids !== [] ? $ids : [$processId];
+    // For non-payroll processes, only return the selected process ID itself to prevent
+    // showing templates of other processes that share the same process code (e.g. BKP).
+    return [$processId];
 }
 
 /**
