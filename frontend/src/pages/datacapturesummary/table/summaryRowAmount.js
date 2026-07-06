@@ -79,15 +79,26 @@ function applyRateValueToAmount(processedAmount, rateValueStr) {
   return null;
 }
 
+/** Restore evaluable subtraction chain from display-only adjacent negatives: (-a)(-b) → (-a)-(-b). */
+function normalizeDisplayFormulaForEvaluation(display) {
+  return String(display || "").replace(/\)\(/g, ")-(");
+}
+
 /** Resolve expression used to calculate base processed amount (legacy recalculateAndRenderProcessedAmount). */
 export function resolveFormulaTextForCalculation(row) {
   const operators = String(row.formulaOperators || "").trim();
-  let displayExpanded = String(row.formulaDisplay || row.formula || "").trim();
-  const hasDollarColumnRef = /\$(\d+)/.test(displayExpanded);
-  if (displayExpanded && displayExpanded !== "Formula" && !hasDollarColumnRef) {
-    return displayExpanded;
+  const displayExpanded = String(row.formulaDisplay || row.formula || "").trim();
+
+  // formulaOperators is canonical ($refs + operators); formulaDisplay is UI-only and may use
+  // parenthesis-wrapped negatives that are not valid math (e.g. (-735.41)(-735.41)(-735.41)).
+  if (operators) {
+    return operators;
   }
-  return operators || displayExpanded || "";
+
+  if (displayExpanded && displayExpanded !== "Formula") {
+    return normalizeDisplayFormulaForEvaluation(displayExpanded);
+  }
+  return "";
 }
 
 export function calculateBaseProcessedAmount(row) {

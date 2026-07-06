@@ -8,12 +8,12 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: calc(var(--export-btn-scale) * 0.28);
-  min-height: calc(var(--export-btn-scale) * 1.08);
-  padding: 0 calc(var(--export-btn-scale) * 0.52) 0 calc(var(--export-btn-scale) * 0.42);
+  gap: calc(var(--export-btn-scale) * 0.3);
+  min-height: calc(var(--export-btn-scale) * 1.12);
+  padding: 0 calc(var(--export-btn-scale) * 0.56) 0 calc(var(--export-btn-scale) * 0.46);
   border: 1px solid var(--transaction-history-report-head-grid);
-  border-radius: 8px;
-  font-size: calc(var(--export-btn-scale) * 0.52);
+  border-radius: 9px;
+  font-size: calc(var(--export-btn-scale) * 0.54);
   background: var(--transaction-history-report-head-bg);
   color: var(--transaction-history-report-head-text);
   cursor: pointer;
@@ -41,8 +41,8 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
 
 body.transaction-payment-history-page .transaction-payment-history-export-btn svg,
 body.ec-payment-history-chromeless .transaction-payment-history-export-btn svg {
-  width: 1.25em;
-  height: 1.25em;
+  width: 1.3em;
+  height: 1.3em;
   flex-shrink: 0;
   color: var(--transaction-history-report-accent);
 }

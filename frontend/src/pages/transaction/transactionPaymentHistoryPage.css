@@ -85,10 +85,10 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
   flex-shrink: 0;
   margin: 0;
-  padding: clamp(10px, 0.95vw, 16px) clamp(12px, 1.35vw, 18px);
+  padding: clamp(12px, 1.1vw, 18px) clamp(14px, 1.45vw, 22px);
   border-bottom: 1px solid var(--transaction-history-report-border) !important;
   background: #ffffff;
 }
@@ -97,7 +97,7 @@ body.transaction-payment-history-page .transaction-payment-history-header__brand
 body.ec-payment-history-chromeless .transaction-payment-history-header__brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   min-width: 0;
   flex: 1 1 auto;
 }
@@ -123,10 +123,10 @@ body.transaction-payment-history-page .transaction-payment-history-close,
 body.ec-payment-history-chromeless .transaction-payment-history-close {
   flex-shrink: 0;
   align-self: center;
-  width: calc(var(--txn-history-text-close) + 0.35rem);
-  height: calc(var(--txn-history-text-close) + 0.35rem);
-  min-width: calc(var(--txn-history-text-close) + 0.35rem);
-  min-height: calc(var(--txn-history-text-close) + 0.35rem);
+  width: calc(var(--txn-history-text-close) + 0.45rem);
+  height: calc(var(--txn-history-text-close) + 0.45rem);
+  min-width: calc(var(--txn-history-text-close) + 0.45rem);
+  min-height: calc(var(--txn-history-text-close) + 0.45rem);
   font-size: var(--txn-history-text-close);
   line-height: 1;
   color: #64748b;
@@ -816,7 +816,7 @@ body.ec-payment-history-chromeless.transaction-payment-history-page--popup-compa
 
 body.transaction-payment-history-page--popup .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header,
 body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header {
-  padding: clamp(8px, 0.85vw, 12px) clamp(10px, 1.1vw, 14px);
+  padding: clamp(10px, 0.95vw, 14px) clamp(12px, 1.2vw, 16px);
 }
 
 body.transaction-payment-history-page--popup .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header h3,
