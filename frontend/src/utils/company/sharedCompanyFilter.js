@@ -1408,7 +1408,12 @@ export function resolveGcPickerHighlightId(companiesForPicker, companyId, compan
   const pid = companyId != null && companyId !== "" ? Number(companyId) : Number.NaN;
   if (!Number.isFinite(pid) || pid <= 0) return null;
   const pills = Array.isArray(companiesForPicker) ? companiesForPicker : [];
-  if (pills.some((c) => Number(c.id) === pid)) return pid;
+  
+  // 第一步：优先按 id 匹配，找到就返回
+  const matchById = pills.find((c) => Number(c.id) === pid);
+  if (matchById) return pid;
+  
+  // 第二步：如果 id 没匹配到，按 company_code 匹配
   const code = String(companyCode ?? "").trim().toUpperCase();
   if (code) {
     const pill = pills.find(
@@ -1417,6 +1422,9 @@ export function resolveGcPickerHighlightId(companiesForPicker, companyId, compan
     const pillId = pill?.id != null ? Number(pill.id) : Number.NaN;
     if (Number.isFinite(pillId) && pillId > 0) return pillId;
   }
+  
+  // 第三步：如果都没匹配到，还是返回 pid
+  // 但是我们需要另一个修复来确保这个 pid 对应的公司在 pills 列表中！
   return pid;
 }
 
