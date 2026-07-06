@@ -62,6 +62,16 @@ try {
         exit;
     }
 
+    // Group + company pill (subsidiary): company Currency Setting only — never group currencies.
+    if ($viewGroup !== '' && $primaryCompanyId > 0 && !$groupAggregateOnly) {
+        $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+        if ($entityId !== $primaryCompanyId) {
+            $map = dashboardLoadCurrencyMap($pdo, $primaryCompanyId, true);
+            api_success(dashboardCurrencyMapToApiRows($map));
+            exit;
+        }
+    }
+
     if ($groupAggregateOnly && $viewGroup !== '') {
         $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
         if ($entityId > 0) {
@@ -120,10 +130,7 @@ try {
             }
             $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $viewGroup);
         } elseif ($subsidiaryAccountsOnly && $primaryCompanyId > 0) {
-            // Subsidiary drill-down: company Currency Setting + group base currencies.
-            $map = $viewGroup !== ''
-                ? dashboardResolveSubsidiaryDashboardCurrencyMap($pdo, $primaryCompanyId, $viewGroup)
-                : dashboardLoadCurrencyMap($pdo, $primaryCompanyId, true);
+            $map = dashboardLoadCurrencyMap($pdo, $primaryCompanyId, true);
             api_success(dashboardCurrencyMapToApiRows($map));
             exit;
         } else {

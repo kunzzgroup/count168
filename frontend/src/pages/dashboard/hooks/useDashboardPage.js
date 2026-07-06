@@ -1162,7 +1162,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }
     return (
       (subsidiaryDashboardScope && companyId != null
-        ? currenciesByCompanyRef.current.get(parseInt(companyId, 10)) ?? currenciesRef.current
+        ? currenciesByCompanyRef.current.get(parseInt(companyId, 10)) ??
+          (currenciesRef.current.length > 0 ? currenciesRef.current : null)
         : selectedGroup && currenciesRef.current.length > 0 && !subsidiaryDashboardScope
           ? currenciesRef.current
           : companyId != null
@@ -2640,7 +2641,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         }
         if (!codes.length && singleCid) {
           const cached = currenciesByCompanyRef.current.get(singleCid);
-          if (cached?.length) codes = [...cached];
+          if (cached?.length) {
+            codes = [...cached];
+          } else if (subsidiaryDashboardScope) {
+            const row = companies.find((c) => parseInt(c.id, 10) === singleCid);
+            const rowCodes = await fetchCompanyCurrencySettingCodes(
+              singleCid,
+              row,
+              effectiveGroupKey,
+              groupIds
+            );
+            if (rowCodes.length) codes = rowCodes;
+          }
         } else if (!codes.length && groupKey && !subsidiaryDashboardScope) {
           const cached =
             (groupAllMode
