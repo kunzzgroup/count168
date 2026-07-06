@@ -799,16 +799,31 @@ function gc_session_can_access_group_ledger(PDO $pdo, string $groupCode): bool
     }
 
     $role = strtolower((string) ($_SESSION['role'] ?? ''));
-    if ($role === 'owner' && gc_has_groups_table($pdo)) {
+    if ($role === 'owner') {
         $ownerId = (int) ($_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0);
         if ($ownerId > 0) {
+            if (gc_has_groups_table($pdo)) {
+                try {
+                    $stmt = $pdo->prepare(
+                        'SELECT 1 FROM `groups` WHERE UPPER(TRIM(group_code)) = ? AND owner_id = ? LIMIT 1'
+                    );
+                    $stmt->execute([$g, $ownerId]);
+                    if ($stmt->fetchColumn()) {
+                        return true;
+                    }
+                } catch (Throwable $e) {
+                    // fall through
+                }
+            }
+            // Fallback: check if the owner has access to any company belonging to this group
             try {
-                $stmt = $pdo->prepare(
-                    'SELECT 1 FROM `groups` WHERE UPPER(TRIM(group_code)) = ? AND owner_id = ? LIMIT 1'
-                );
-                $stmt->execute([$g, $ownerId]);
-                if ($stmt->fetchColumn()) {
-                    return true;
+                $stmtComp = $pdo->prepare('SELECT id FROM company WHERE UPPER(TRIM(group_id)) = ?');
+                $stmtComp->execute([$g]);
+                $companyIdsInGroup = $stmtComp->fetchAll(PDO::FETCH_COLUMN);
+                foreach ($companyIdsInGroup as $cid) {
+                    if (gc_owner_has_company_access($pdo, (int)$cid, $ownerId)) {
+                        return true;
+                    }
                 }
             } catch (Throwable $e) {
                 // fall through

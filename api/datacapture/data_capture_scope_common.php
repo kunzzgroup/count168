@@ -1167,6 +1167,9 @@ function dcAssertUserCanAccessCompany(PDO $pdo, int $companyId, ?string $viewGro
         if (gc_owner_has_company_access($pdo, $companyId, $ownerId)) {
             return;
         }
+        if ($vg !== '' && gc_session_can_access_group_ledger($pdo, $vg)) {
+            return;
+        }
         throw new Exception('无权限访问该公司');
     }
 
