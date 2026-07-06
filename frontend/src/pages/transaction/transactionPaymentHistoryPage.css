@@ -826,9 +826,9 @@ body.ec-payment-history-chromeless.transaction-payment-history-page--popup .tran
 
 body.transaction-payment-history-page--popup .transaction-payment-history-header__icon,
 body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-header__icon {
-  min-height: calc(var(--txn-history-text-title) * 0.85);
-  font-size: calc(var(--txn-history-text-title) * 0.4);
-  padding: 0 calc(var(--txn-history-text-title) * 0.42) 0 calc(var(--txn-history-text-title) * 0.34);
+  min-height: calc(var(--txn-history-text-title) * 1);
+  font-size: calc(var(--txn-history-text-title) * 0.48);
+  padding: 0 calc(var(--txn-history-text-title) * 0.5) 0 calc(var(--txn-history-text-title) * 0.4);
 }
 
 body.transaction-payment-history-page--popup .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-body,
@@ -859,12 +859,12 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: calc(var(--export-btn-scale) * 0.28);
-  min-height: calc(var(--export-btn-scale) * 0.92);
-  padding: 0 calc(var(--export-btn-scale) * 0.5) 0 calc(var(--export-btn-scale) * 0.42);
+  gap: calc(var(--export-btn-scale) * 0.32);
+  min-height: calc(var(--export-btn-scale) * 1.08);
+  padding: 0 calc(var(--export-btn-scale) * 0.58) 0 calc(var(--export-btn-scale) * 0.48);
   border: 1px solid var(--transaction-history-report-head-grid);
-  border-radius: 8px;
-  font-size: calc(var(--export-btn-scale) * 0.44);
+  border-radius: 10px;
+  font-size: calc(var(--export-btn-scale) * 0.52);
   background: var(--transaction-history-report-head-bg);
   color: var(--transaction-history-report-head-text);
   cursor: pointer;
@@ -892,8 +892,8 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
 
 body.transaction-payment-history-page .transaction-payment-history-export-btn svg,
 body.ec-payment-history-chromeless .transaction-payment-history-export-btn svg {
-  width: 1.25em;
-  height: 1.25em;
+  width: 1.35em;
+  height: 1.35em;
   flex-shrink: 0;
   color: var(--transaction-history-report-accent);
 }
