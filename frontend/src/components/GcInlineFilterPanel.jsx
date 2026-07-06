@@ -1,3 +1,7 @@
+import { useMemo } from "react";
+
+import { resolveGcPickerHighlightId } from "../utils/company/sharedCompanyFilter.js";
+
 /**
  * Shared Group / Company pill strip. Currency row is omitted — pages manage currency separately.
  * Set showAllOption only on Dashboard (Group/Company "All" aggregate).
@@ -12,6 +16,8 @@ export default function GcInlineFilterPanel({
   companiesForPicker = [],
   groupAllMode = false,
   pickerCompanyId = null,
+  /** When pill row id differs from session company pk, match highlight by company code. */
+  pickerCompanyCode = null,
   onPickAllInGroup,
   onPickCompany,
   /** Optional hover/focus warm-up (Process List cache prefetch, etc.). */
@@ -28,6 +34,10 @@ export default function GcInlineFilterPanel({
   children = null,
 }) {
   const selectedGroupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+  const effectivePickerCompanyId = useMemo(
+    () => resolveGcPickerHighlightId(companiesForPicker, pickerCompanyId, pickerCompanyCode),
+    [companiesForPicker, pickerCompanyId, pickerCompanyCode],
+  );
   const allLabelRaw = typeof t === "function" ? t(allLabelKey) : allLabelKey;
   const allLabel =
     allLabelRaw && allLabelRaw !== allLabelKey ? allLabelRaw : "ALL";
@@ -80,7 +90,10 @@ export default function GcInlineFilterPanel({
                 </button>
               ) : null}
               {companiesForPicker.map((c) => {
-                const active = !groupAllMode && Number(pickerCompanyId) === Number(c.id);
+                const active =
+                  !groupAllMode &&
+                  effectivePickerCompanyId != null &&
+                  Number(effectivePickerCompanyId) === Number(c.id);
                 const pending = switchingCompany && active;
                 const label = String(c.company_id || "").toUpperCase();
                 return (

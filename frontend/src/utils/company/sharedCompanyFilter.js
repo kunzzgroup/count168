@@ -1400,6 +1400,26 @@ export function companyRowIsGroupEntityAnyShape(companyRow) {
  * One pill per company code; prefer the row matching `preferredCompanyId` when duplicates exist.
  * Always merges group-entity rows (e.g. AP placeholder with empty company_id) so Transaction scope can resolve them.
  */
+/**
+ * Map UI `companyId` to a visible pill row id when owner duplicate rows use different PKs
+ * (e.g. login/session row vs group-sliced picker row for the same company code).
+ */
+export function resolveGcPickerHighlightId(companiesForPicker, companyId, companyCode = null) {
+  const pid = companyId != null && companyId !== "" ? Number(companyId) : Number.NaN;
+  if (!Number.isFinite(pid) || pid <= 0) return null;
+  const pills = Array.isArray(companiesForPicker) ? companiesForPicker : [];
+  if (pills.some((c) => Number(c.id) === pid)) return pid;
+  const code = String(companyCode ?? "").trim().toUpperCase();
+  if (code) {
+    const pill = pills.find(
+      (c) => String(c.company_id || "").trim().toUpperCase() === code,
+    );
+    const pillId = pill?.id != null ? Number(pill.id) : Number.NaN;
+    if (Number.isFinite(pillId) && pillId > 0) return pillId;
+  }
+  return pid;
+}
+
 export function dedupeOwnerCompaniesByCode(companies, preferredCompanyId) {
   const list = filterCompaniesWithDisplayId(companies);
   const byCode = new Map();
