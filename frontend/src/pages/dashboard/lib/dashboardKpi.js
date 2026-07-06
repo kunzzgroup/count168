@@ -34,20 +34,44 @@ export function netProfitFromDashboardPayload(dashboardData) {
 }
 
 /**
- * True when the logged-in viewer has earnings config (Account or Group Ownership).
- * Subsidiary drill-down (e.g. AP + C168): group-level earnings do not apply — only direct
- * company ownership or link multiplier counts (matches IG + 95 net-profit panel).
+ * Top KPI Earnings card: Account Ownership (direct account, group equity on company, or link).
+ * Subsidiary drill-down (AP + C168): group equity from Account Ownership is enough to show the card
+ * (amount may be 0 when Group Earnings user share is not configured).
  */
-export function viewerHasEarningsConfig(dashboardData, options = {}) {
+export function viewerHasEarningsKpiConfig(dashboardData, options = {}) {
   if (!dashboardData) return false;
+  if (options.groupsAllCompaniesAggregate) return false;
   const directPct = parseFloat(dashboardData.ownership_percentage) || 0;
   if (directPct > 0) return true;
   const linkMul = parseFloat(dashboardData._link_multiplier || 0) || 0;
   if (linkMul > 0 && linkMul !== 1) return true;
-  if (options.subsidiaryGroupDrillDown) return false;
-  if (options.groupsAllCompaniesAggregate) return false;
+  const groupEquityPct = parseFloat(dashboardData?.group_equity_percentage) || 0;
+  if (options.subsidiaryGroupDrillDown) return groupEquityPct > 0;
   if (dashboardData.has_group_ownership) return true;
   return false;
+}
+
+/**
+ * Trend chart + right earnings panel: requires Group Earnings user share (has_group_ownership)
+ * or direct / link ownership. Account-only group equity on a subsidiary is KPI-only.
+ */
+export function viewerHasEarningsPanelConfig(dashboardData, options = {}) {
+  if (!dashboardData) return false;
+  if (options.groupsAllCompaniesAggregate) return false;
+  const directPct = parseFloat(dashboardData.ownership_percentage) || 0;
+  if (directPct > 0) return true;
+  const linkMul = parseFloat(dashboardData._link_multiplier || 0) || 0;
+  if (linkMul > 0 && linkMul !== 1) return true;
+  if (!dashboardData.has_group_ownership) return false;
+  if (options.subsidiaryGroupDrillDown) {
+    return (parseFloat(dashboardData.group_account_percentage) || 0) > 0;
+  }
+  return true;
+}
+
+/** @deprecated Use viewerHasEarningsPanelConfig — panel/chart/merge earnings fetch. */
+export function viewerHasEarningsConfig(dashboardData, options = {}) {
+  return viewerHasEarningsPanelConfig(dashboardData, options);
 }
 
 /** Group earning = (subsidiary earnings + group ledger net profit) × viewer group %. */
@@ -97,7 +121,7 @@ function resolveEarningsMultiplier(dashboardData, selectedGroup, options = {}, {
   }
   if (directPct > 0) return directPct;
   if (subsidiaryGroupDrillDown && groupEquityPercentage > 0) {
-    return groupEquityPercentage / 100;
+    return (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
   }
   if (hasGroupOwnership) {
     return (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
@@ -169,18 +193,17 @@ export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
   const displayProfitNum = rawProfit;
   const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
   const netProfitDisplay = displayProfitNum + displayExpensesNum;
-  const showEarnings = options.groupsAllCompaniesAggregate
-    ? false
-    : viewerHasEarningsConfig(dashboardData, options);
+  const showEarningsKpi = viewerHasEarningsKpiConfig(dashboardData, options);
+  const showEarningsPanel = viewerHasEarningsPanelConfig(dashboardData, options);
   const groupAggregate = isGroupAggregateEarningsPayload(dashboardData, options);
   const panelMultiplier = resolvePanelEarningsPct(dashboardData, selectedGroup, options);
   const kpiMultiplier = resolveEffectiveOwnershipPct(dashboardData, selectedGroup, options);
-  const earningsDisplay = !showEarnings
+  const earningsDisplay = !showEarningsPanel
     ? netProfitDisplay
     : groupAggregate
       ? computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: false })
       : netProfitDisplay * panelMultiplier;
-  const kpiCardEarnings = showEarnings
+  const kpiCardEarnings = showEarningsKpi
     ? groupAggregate
       ? computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: true })
       : netProfitDisplay * kpiMultiplier
@@ -191,6 +214,8 @@ export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
     netProfit: netProfitDisplay,
     earnings: earningsDisplay,
     kpiCardEarnings,
-    showEarnings,
+    showEarnings: showEarningsPanel,
+    showEarningsKpi,
+    showEarningsPanel,
   };
 }

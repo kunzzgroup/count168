@@ -3,7 +3,7 @@ import { DashboardKpiCard } from "./DashboardKpiCard.jsx";
 export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loading }) {
   return (
     <div
-      className={`dashboard-kpi-grid${kpi.showEarnings ? " dashboard-kpi-grid--with-earnings" : ""}`}
+      className={`dashboard-kpi-grid${kpi.showEarningsKpi ? " dashboard-kpi-grid--with-earnings" : ""}`}
     >
       <DashboardKpiCard
         variant="profit"
@@ -32,7 +32,7 @@ export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loadin
         fallbackFoot={kpiFooter}
         loading={loading}
       />
-      {kpi.showEarnings && (
+      {kpi.showEarningsKpi && (
         <DashboardKpiCard
           variant="earnings"
           label={i18n.earnings}

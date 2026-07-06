@@ -4652,7 +4652,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         resolveKpiOwnershipOpts(companyId, grp)
       );
       if (!metrics) return null;
-      return metrics.showEarnings ? metrics.earnings : metrics.netProfit;
+      return metrics.showEarningsPanel ? metrics.earnings : metrics.netProfit;
     },
     [applyDashboardPayloadAdjustments, companyId, selectedGroup, resolveKpiOwnershipOpts]
   );
@@ -6486,6 +6486,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       netProfit: 0,
       earnings: 0,
       showEarnings: false,
+      showEarningsKpi: false,
+      showEarningsPanel: false,
       comparisons: null,
     };
     const useAggregated = showAllCurrencies && canShowAllCurrencies && multiCurrencyKpi;
@@ -6508,7 +6510,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         ...current,
         earnings: ownershipCurrent.earnings,
         kpiCardEarnings: ownershipCurrent.kpiCardEarnings,
-        showEarnings: ownershipCurrent.showEarnings,
+        showEarnings: ownershipCurrent.showEarningsPanel,
+        showEarningsKpi: ownershipCurrent.showEarningsKpi,
+        showEarningsPanel: ownershipCurrent.showEarningsPanel,
       };
     }
     let previous = useAggregated ? multiCurrencyKpiPrev : ownershipPrevious;
