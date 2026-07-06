@@ -66,6 +66,8 @@ export default function ReportGcFilterPanel({
             companiesForPicker={companyButtons}
             groupAllMode={groupAllMode}
             pickerCompanyId={activeCompanyId}
+            // 关键：直接传原始值用于高亮！
+            rawPickerCompanyId={rawActiveCompanyId}
             pickerCompanyCode={highlightCompanyCode}
             onPickAllInGroup={onPickAllInGroup}
             onPickCompany={onSwitchCompany}

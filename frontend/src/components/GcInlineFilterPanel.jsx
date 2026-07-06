@@ -16,6 +16,8 @@ export default function GcInlineFilterPanel({
   companiesForPicker = [],
   groupAllMode = false,
   pickerCompanyId = null,
+  /** Raw company ID before any resolution - for direct matching */
+  rawPickerCompanyId = null,
   /** When pill row id differs from session company pk, match highlight by company code. */
   pickerCompanyCode = null,
   onPickAllInGroup,
@@ -90,11 +92,16 @@ export default function GcInlineFilterPanel({
                 </button>
               ) : null}
               {companiesForPicker.map((c) => {
-                // 修复：直接通过 company_code 匹配，不再只依赖 id！
-                const activeById =
+                // 终极修复：同时匹配 id、原始 id 和 company code！确保 100% 高亮！
+                const activeByEffectiveId =
                   !groupAllMode &&
                   effectivePickerCompanyId != null &&
                   Number(effectivePickerCompanyId) === Number(c.id);
+                
+                const activeByRawId =
+                  !groupAllMode &&
+                  rawPickerCompanyId != null &&
+                  Number(rawPickerCompanyId) === Number(c.id);
                 
                 const activeByCode =
                   !groupAllMode &&
@@ -102,7 +109,7 @@ export default function GcInlineFilterPanel({
                   String(c.company_id || "").toUpperCase().trim() === 
                   String(pickerCompanyCode).toUpperCase().trim();
                 
-                const active = activeById || activeByCode;
+                const active = activeByEffectiveId || activeByRawId || activeByCode;
                 const pending = switchingCompany && active;
                 const label = String(c.company_id || "").toUpperCase();
                 return (
