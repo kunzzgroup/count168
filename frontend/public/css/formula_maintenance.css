@@ -1543,4 +1543,9 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     box-sizing: border-box !important;
 }
 
+body.ec-auth-shell .formula-process-control button.formula-clear-icon-btn:active {
+    transform: translateY(-50%) !important;
+    transition: none !important;
+}
+
 
