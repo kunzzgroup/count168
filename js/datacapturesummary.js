@@ -236,7 +236,9 @@ const SUMMARY_BANK_DATA_CAPTURE_PROCESSES = ['PROFIT', 'SALARY', 'COMMISSION', '
 
 function isBankDataCaptureProcessData(processData) {
     if (!processData || typeof processData !== 'object') return false;
-    if (processData.isBankDataCapture === true) return true;
+    if (processData.isBankDataCapture !== undefined && processData.isBankDataCapture !== null) {
+        return !!processData.isBankDataCapture;
+    }
     const code = String(
         processData.bankProcessType ||
         processData.processCode ||
