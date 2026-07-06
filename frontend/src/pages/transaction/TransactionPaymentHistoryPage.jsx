@@ -20,6 +20,7 @@ import "../../../public/css/portal-tooltip.css";
 import "../../../public/css/date-range-picker.css";
 import "../../../public/css/report-outlined-fields.css";
 import "./transactionPaymentHistoryPage.css";
+import "./components/PaymentHistoryExportButton.css";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
 import { clearInlineScrollLock } from "../../utils/layout/clearInlineScrollLock.js";
@@ -158,7 +159,7 @@ export default function TransactionPaymentHistoryPage() {
               </div>
               <button
                 type="button"
-                className="transaction-payment-history-header__icon transaction-payment-history-export-btn"
+                className="transaction-payment-history-export-btn"
                 aria-label={m.exportPdf}
                 title={m.exportPdf}
                 onClick={onOpenExportPdf}
