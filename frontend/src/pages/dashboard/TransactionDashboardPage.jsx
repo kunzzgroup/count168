@@ -106,13 +106,14 @@ export default function TransactionDashboardPage() {
               exchangeRateScopeKey={page.exchangeRateScopeKey}
               convertedEarningsTotal={page.convertedEarningsTotal}
               showProfitChartTab={page.showProfitChartTab}
-              showEarningsCompanyTab={page.showEarningsCompanyTab}
+              showGroupEquityTab={page.showGroupEquityTab}
               earningsPanelView={page.earningsPanelView}
               onEarningsPanelViewChange={page.setEarningsPanelView}
               companyBreakdownRows={page.companyBreakdownRows}
-              companyEarningsBreakdownRows={page.companyEarningsBreakdownRows}
+              activeGroupEquityRows={page.activeGroupEquityRows}
               companyNetProfitTotal={page.companyNetProfitTotal}
-              companyEarningsTotal={page.companyEarningsTotal}
+              companyGroupEquityTotal={page.companyGroupEquityTotal}
+              groupEquityBreakdownShowsRate={page.groupEquityBreakdownShowsRate}
               panelAnimActive={page.panelsAnimReady}
               panelAnimEpoch={page.panelAnimEpoch}
               panelAnimDuration={page.panelAnimDuration}

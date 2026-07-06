@@ -60,8 +60,9 @@ import { formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { buildKpiCompare, computeKpiMetrics, mergeDashboardOwnershipFields, viewerHasEarningsConfig } from "../lib/dashboardKpi.js";
 import {
   applySingleSubsidiaryGroupEarningsRows,
-  filterCompanyBreakdownRowsForEarningsGroups,
+  buildGroupEquityBreakdownRows,
   mergeCompanyBreakdownRowLists,
+  mergeGroupEquityRowsAcrossCurrencies,
   normalizeSubsidiaryEarningsByCompany,
   sortCompanyBreakdownRowsByPicker,
   sumCompanyBreakdownAmount,
@@ -792,12 +793,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const [exchangeRatesError, setExchangeRatesError] = useState("");
   const [chartVisible, setChartVisible] = useState([true, true, true, true]);
   const [earningsPanelView, setEarningsPanelView] = useState("currency");
+  const [groupEquityMultiCurrencyLoading, setGroupEquityMultiCurrencyLoading] = useState(false);
+  const [groupEquityMergedRows, setGroupEquityMergedRows] = useState([]);
   const [companyAccessModal, setCompanyAccessModal] = useState({ open: false, message: "" });
   /** Matches `dashboardScopeKey` when `dashboardData` reflects the active filter scope. */
   const [displayScopeKey, setDisplayScopeKey] = useState("");
 
   const currencyCodeRef = useRef(currencyCode);
   const earningsFetchGenRef = useRef(0);
+  const groupEquityFetchGenRef = useRef(0);
   const earningsByCurrencyRef = useRef([]);
   const earningsRetryTimerRef = useRef(null);
   const prevEarningsCurrenciesSigRef = useRef("");
@@ -5119,6 +5123,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   /** Invalidate in-flight per-currency earnings when scope/date changes (not on currency list hydrate). */
   useEffect(() => {
     earningsFetchGenRef.current += 1;
+    groupEquityFetchGenRef.current += 1;
+    setGroupEquityMergedRows([]);
+    setGroupEquityMultiCurrencyLoading(false);
     earningsIncompleteRetryRef.current = 0;
     earningsEnabledGroupIdsRef.current = [];
     earningsScopeUpgradeRef.current = { scopeKey: "", attempts: 0 };
@@ -6848,53 +6855,176 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     resolveKpiOwnershipOpts,
   ]);
 
-  const companyEarningsBreakdownRows = useMemo(() => {
-    if (!showProfitChartTab) return [];
-    const enabledGroupIds = dashboardData?._earnings_enabled_group_ids;
-    const filtered = filterCompanyBreakdownRowsForEarningsGroups(
-      companyBreakdownRows,
-      enabledGroupIds
-    );
-    return applySingleSubsidiaryGroupEarningsRows(
-      filtered,
-      dashboardData,
-      resolveKpiOwnershipOpts()
+  const showGroupEquityTab = kpi.showEarnings;
+
+  const groupEquityBreakdownRows = useMemo(() => {
+    if (!showProfitChartTab || !showGroupEquityTab) return [];
+    return buildGroupEquityBreakdownRows(
+      dashboardData?.subsidiary_earnings_by_company,
+      dashboardData?._earnings_enabled_group_ids,
+      companiesForPicker
     );
   }, [
     showProfitChartTab,
-    companyBreakdownRows,
+    showGroupEquityTab,
     dashboardData,
-    resolveKpiOwnershipOpts,
+    companiesForPicker,
   ]);
+
+  const activeGroupEquityRows = useMemo(() => {
+    if (currencies.length > 1 && groupEquityMergedRows.length) {
+      return groupEquityMergedRows;
+    }
+    return groupEquityBreakdownRows;
+  }, [currencies.length, groupEquityMergedRows, groupEquityBreakdownRows]);
 
   const companyNetProfitTotal = useMemo(
     () => sumCompanyBreakdownAmount(companyBreakdownRows, "netProfit"),
     [companyBreakdownRows]
   );
 
-  const companyEarningsTotal = useMemo(() => {
-    if (kpi.showEarnings) {
-      return kpi.kpiCardEarnings ?? kpi.earnings ?? 0;
-    }
-    return sumCompanyBreakdownAmount(companyEarningsBreakdownRows, "earnings");
-  }, [kpi.showEarnings, kpi.kpiCardEarnings, kpi.earnings, companyEarningsBreakdownRows]);
+  const companyGroupEquityTotal = useMemo(
+    () => sumCompanyBreakdownAmount(activeGroupEquityRows, "accountEquity"),
+    [activeGroupEquityRows]
+  );
 
-  const showEarningsCompanyTab = kpi.showEarnings;
+  const resolveGroupEquityRowsForCurrency = useCallback(
+    async (code, gen) => {
+      if (gen !== groupEquityFetchGenRef.current) return null;
+      const codeUpper = String(code || "").trim().toUpperCase();
+      const primaryUpper = String(currencyCodeRef.current || "").trim().toUpperCase();
+      if (
+        codeUpper === primaryUpper &&
+        dashboardDataRef.current?.subsidiary_earnings_by_company
+      ) {
+        return buildGroupEquityBreakdownRows(
+          dashboardDataRef.current.subsidiary_earnings_by_company,
+          dashboardDataRef.current._earnings_enabled_group_ids,
+          companiesForPicker
+        );
+      }
+
+      const scopeKey = resolveDashboardScopeKey({
+        currencyCode: code,
+        dateFrom: dateFromRef.current,
+        dateTo: dateToRef.current,
+      });
+      const cached = scopeKey ? getDashboardCache(scopeKey) : null;
+      if (cached?.current?.subsidiary_earnings_by_company) {
+        return buildGroupEquityBreakdownRows(
+          cached.current.subsidiary_earnings_by_company,
+          cached.current._earnings_enabled_group_ids,
+          companiesForPicker
+        );
+      }
+
+      try {
+        const payload = await loadMergedDashboard(
+          dateFromRef.current,
+          dateToRef.current,
+          code,
+          { earningsOnly: true, useActiveScopeAbort: false }
+        );
+        if (gen !== groupEquityFetchGenRef.current) return null;
+        return buildGroupEquityBreakdownRows(
+          payload?.subsidiary_earnings_by_company,
+          payload?._earnings_enabled_group_ids,
+          companiesForPicker
+        );
+      } catch {
+        return null;
+      }
+    },
+    [companiesForPicker, loadMergedDashboard, resolveDashboardScopeKey]
+  );
+
+  useEffect(() => {
+    if (
+      earningsPanelView !== "groupEquity" ||
+      !showProfitChartTab ||
+      !showGroupEquityTab ||
+      currencies.length <= 1
+    ) {
+      setGroupEquityMergedRows([]);
+      setGroupEquityMultiCurrencyLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const gen = ++groupEquityFetchGenRef.current;
+    setGroupEquityMultiCurrencyLoading(true);
+    setGroupEquityMergedRows([]);
+
+    (async () => {
+      const entries = [];
+      for (const code of currencies) {
+        const rows = await resolveGroupEquityRowsForCurrency(code, gen);
+        if (cancelled || gen !== groupEquityFetchGenRef.current) return;
+        if (rows?.length) {
+          entries.push({ currencyCode: code, rows });
+        }
+      }
+      if (cancelled || gen !== groupEquityFetchGenRef.current) return;
+      const rates = exchangeRates.rates || {};
+      const canConvert = frankfurterRatesPartiallyUsable(
+        displayCurrencyCode,
+        currencies,
+        rates
+      );
+      if (!canConvert || exchangeRatesError) {
+        if (gen === groupEquityFetchGenRef.current) {
+          setGroupEquityMultiCurrencyLoading(true);
+        }
+        return;
+      }
+      const merged = mergeGroupEquityRowsAcrossCurrencies(
+        entries,
+        displayCurrencyCode,
+        rates
+      );
+      if (gen === groupEquityFetchGenRef.current) {
+        setGroupEquityMergedRows(merged);
+        setGroupEquityMultiCurrencyLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    earningsPanelView,
+    showProfitChartTab,
+    showGroupEquityTab,
+    currencies,
+    currenciesScopeSig,
+    dashboardScopeKey,
+    displayCurrencyCode,
+    exchangeRates.rates,
+    exchangeRatesError,
+    exchangeRatesLoading,
+    resolveGroupEquityRowsForCurrency,
+  ]);
 
   useEffect(() => {
     if (
       !showProfitChartTab &&
-      (earningsPanelView === "netProfit" || earningsPanelView === "earning")
+      (earningsPanelView === "netProfit" || earningsPanelView === "groupEquity")
     ) {
       setEarningsPanelView("currency");
     }
   }, [showProfitChartTab, earningsPanelView]);
 
   useEffect(() => {
-    if (!showEarningsCompanyTab && earningsPanelView === "earning") {
+    if (!showGroupEquityTab && earningsPanelView === "groupEquity") {
       setEarningsPanelView("currency");
     }
-  }, [showEarningsCompanyTab, earningsPanelView]);
+  }, [showGroupEquityTab, earningsPanelView]);
+
+  useEffect(() => {
+    if (earningsPanelView === "earning") {
+      setEarningsPanelView("currency");
+    }
+  }, [earningsPanelView]);
 
   const exchangeRateScopeKey = useMemo(
     () =>
@@ -6915,8 +7045,19 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   );
   const companyBreakdownPanelActive =
     showProfitChartTab &&
-    (earningsPanelView === "netProfit" || earningsPanelView === "earning");
+    (earningsPanelView === "netProfit" || earningsPanelView === "groupEquity");
+  const groupEquityPanelActive =
+    companyBreakdownPanelActive && earningsPanelView === "groupEquity";
   const summaryScopeLoading = scopeDataPending || (loading && !dashboardData);
+  const groupEquityRatesReady =
+    currencies.length <= 1 ||
+    (!exchangeRatesLoading &&
+      !exchangeRatesError &&
+      frankfurterRatesPartiallyUsable(
+        displayCurrencyCode,
+        currencies,
+        exchangeRates.rates || {}
+      ));
   const summaryCurrencyPanelLoading =
     summaryScopeLoading ||
     (currencies.length > 1 &&
@@ -6924,16 +7065,24 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         earningsByCurrencyLoading ||
         !allCurrencyEarningsReady ||
         (useConvertedEarnings && convertedEarningsTotal == null)));
-  const summaryEarningsLoading = companyBreakdownPanelActive
-    ? summaryScopeLoading
-    : summaryCurrencyPanelLoading;
-  const earningsPanelStable = companyBreakdownPanelActive
+  const summaryEarningsLoading = groupEquityPanelActive
+    ? summaryScopeLoading ||
+      (currencies.length > 1 &&
+        (groupEquityMultiCurrencyLoading || !groupEquityRatesReady))
+    : companyBreakdownPanelActive
+      ? summaryScopeLoading
+      : summaryCurrencyPanelLoading;
+  const earningsPanelStable = groupEquityPanelActive
     ? !summaryScopeLoading &&
-      (earningsPanelView === "earning"
-        ? companyEarningsBreakdownRows.length > 0
-        : companyBreakdownRows.length > 0)
-    : currencies.length <= 1 ||
-      (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
+      (currencies.length <= 1
+        ? activeGroupEquityRows.length > 0
+        : !groupEquityMultiCurrencyLoading &&
+          groupEquityRatesReady &&
+          activeGroupEquityRows.length > 0)
+    : companyBreakdownPanelActive
+      ? !summaryScopeLoading && companyBreakdownRows.length > 0
+      : currencies.length <= 1 ||
+        (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
   const panelsAnimReady = useMemo(() => {
     if (!chartDataStable) return false;
     if (companyBreakdownPanelActive) return earningsPanelStable;
@@ -7814,13 +7963,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     exchangeRateScopeKey,
     convertedEarningsTotal,
     showProfitChartTab,
-    showEarningsCompanyTab,
+    showGroupEquityTab,
     earningsPanelView,
     setEarningsPanelView,
     companyBreakdownRows,
-    companyEarningsBreakdownRows,
+    activeGroupEquityRows,
     companyNetProfitTotal,
-    companyEarningsTotal,
+    companyGroupEquityTotal,
+    groupEquityBreakdownShowsRate:
+      groupEquityPanelActive && currencies.length > 1 && groupEquityRatesReady,
     handlePickGroup,
     handlePickAllGroups,
     handlePickCompany,
