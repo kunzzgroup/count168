@@ -3441,7 +3441,7 @@ body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-row .card-item
 body.user-page:not(.user-page--show-all) .user-list-table .user-cards:not(.user-cards--paged-fill) .user-list-row,
 body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-table .user-cards:not(.user-cards--paged-fill) .user-list-row {
     flex: 0 0 auto;
-    min-height: var(--user-list-row-min-height, 30px);
+    min-height: 0 !important;
     height: auto;
 }
 
