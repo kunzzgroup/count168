@@ -2286,6 +2286,136 @@ function readDataColumnCellFromProcessRow(processRow, columnIndex) {
     return (numericValue && numericValue !== '') ? numericValue : cellValue;
 }
 
+/** 从 Data Capture DOM 单元格文本提取数值（与 readDataColumnCellFromProcessRow 一致） */
+function parseDomCellNumericValue(cellValue) {
+    if (cellValue == null || cellValue === '') return null;
+    let text = String(cellValue).trim();
+    text = text.replace(/^\s*\([A-Za-z]{2,4}\)\s*/g, '').trim();
+    text = text.replace(/\$/g, '');
+    let numericValue = text.replace(/[^0-9+\-*/.\s()]/g, '').trim();
+    numericValue = numericValue.replace(/^\s*\(\s*\)\s*/, '').trim();
+    if (numericValue && /^\(\s*-\d[\d.]*\)\s*$/.test(numericValue)) {
+        const inner = numericValue.replace(/^\s*\(|\)\s*$/g, '').trim();
+        if (!isNaN(parseFloat(inner))) numericValue = inner;
+    } else if (numericValue && /^\(\s*\d[\d.]*\)\s*$/.test(numericValue)) {
+        const inner = numericValue.replace(/^\s*\(|\)\s*$/g, '').trim();
+        if (!isNaN(parseFloat(inner))) numericValue = '-' + inner;
+    }
+    return (numericValue && numericValue !== '') ? numericValue : text;
+}
+
+function capturedDomRowIdProductMatches(domRow, idProduct) {
+    if (!domRow || !idProduct) return false;
+    const normalizeSpaces = (s) => (s || '').trim().replace(/\s+/g, '');
+    let rowId = domRow.getAttribute('data-id-product') || '';
+    if (!rowId.trim()) {
+        const cs = domRow.querySelectorAll('td');
+        if (cs.length > 1 && cs[1]) rowId = cs[1].textContent ? cs[1].textContent.trim() : '';
+    }
+    const idTrim = String(idProduct).trim();
+    const isFullId = typeof isTruncatedIdProduct === 'function' && !isTruncatedIdProduct(idTrim);
+    if (isFullId) {
+        return normalizeSpaces(rowId) === normalizeSpaces(idTrim);
+    }
+    return normalizeIdProductText(rowId) === normalizeIdProductText(idTrim);
+}
+
+/**
+ * 从 capturedTableBody DOM 读取单元格（与底部 formula data grid 同源）。
+ * dataColumnIndex：1-based 数据列序号（$11 → 10）；对应 DOM data-column-index = dataColumnIndex + 1。
+ */
+function getCellValueFromCapturedTableDom(idProduct, dataColumnIndex, captureRowIndex = null, rowLabel = null) {
+    const capturedTableBody = document.getElementById('capturedTableBody');
+    if (!capturedTableBody || dataColumnIndex == null || Number.isNaN(Number(dataColumnIndex))) return null;
+    const dataCol = Number(dataColumnIndex);
+    if (dataCol < 0) return null;
+    const displayColAttr = String(dataCol + 1);
+
+    const readRowCell = (row) => {
+        if (!row) return null;
+        let targetCell = null;
+        row.querySelectorAll('td').forEach((cell) => {
+            if (cell.getAttribute('data-column-index') === displayColAttr) targetCell = cell;
+        });
+        if (!targetCell) return null;
+        const raw = targetCell.textContent ? targetCell.textContent.trim() : '';
+        if (!raw) return null;
+        return parseDomCellNumericValue(raw);
+    };
+
+    const rows = capturedTableBody.querySelectorAll('tr');
+
+    if (captureRowIndex !== null && captureRowIndex !== undefined && !Number.isNaN(Number(captureRowIndex))) {
+        const idx = Number(captureRowIndex);
+        if (idx >= 0 && idx < rows.length) {
+            const row = rows[idx];
+            if (capturedDomRowIdProductMatches(row, idProduct)) {
+                const v = readRowCell(row);
+                if (v !== null) return v;
+            }
+        }
+    }
+
+    if (rowLabel) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const hdr = row.querySelector('.row-header');
+            if ((hdr?.textContent?.trim() || '') !== rowLabel) continue;
+            if (!capturedDomRowIdProductMatches(row, idProduct)) continue;
+            const v = readRowCell(row);
+            if (v !== null) return v;
+        }
+    }
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!capturedDomRowIdProductMatches(row, idProduct)) continue;
+        const v = readRowCell(row);
+        if (v !== null) return v;
+    }
+    return null;
+}
+
+/** Summary 属性无效时，按 id_product 在 Data Capture DOM 中解析行序（与 formula data grid 一致） */
+function resolveCaptureRowIndexFromDom(idProduct, summaryRow) {
+    const capturedTableBody = document.getElementById('capturedTableBody');
+    if (!capturedTableBody || !idProduct) return null;
+
+    const rows = capturedTableBody.querySelectorAll('tr');
+    const matches = [];
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!capturedDomRowIdProductMatches(row, idProduct)) continue;
+        const hdr = row.querySelector('.row-header');
+        matches.push({ index: i, rowLabel: hdr?.textContent?.trim() || '' });
+    }
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0].index;
+
+    let preferredLabel = null;
+    const sel = document.getElementById('descriptionSelect1');
+    if (sel && sel.value) {
+        const lastColon = sel.value.lastIndexOf(':');
+        if (lastColon > 0 && lastColon < sel.value.length - 1) {
+            const after = sel.value.substring(lastColon + 1).trim();
+            if (/^[A-Z]$/i.test(after)) preferredLabel = after;
+        }
+    }
+    if (preferredLabel) {
+        const hit = matches.find((m) => m.rowLabel === preferredLabel);
+        if (hit) return hit.index;
+    }
+
+    if (summaryRow) {
+        const parentIdx = parseValidDataCaptureRowIndex(summaryRow.getAttribute('data-parent-row-index'));
+        if (parentIdx !== null && matches.some((m) => m.index === parentIdx)) return parentIdx;
+        const preserved = parseValidDataCaptureRowIndex(summaryRow.getAttribute('data-preserved-row-index'));
+        if (preserved !== null && matches.some((m) => m.index === preserved)) return preserved;
+    }
+
+    return matches[0].index;
+}
+
 // Get cell value from data capture table by id_product and column index
 // Supports row_label parameter to distinguish between multiple rows with same id_product
 // captureRowIndex: 可选，Data Capture 行序（0-based），与 id_product:#N:col 一致
@@ -2438,6 +2568,8 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
         }
 
         if (!processRow) {
+            const domOnly = getCellValueFromCapturedTableDom(idProductResolved, columnIndex, captureRowIndex, rowLabel);
+            if (domOnly !== null) return domOnly;
             console.error('Process row not found for id_product:', idProductResolved, 'row_label:', rowLabel);
             return null;
         }
@@ -2449,6 +2581,12 @@ function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = nul
         if (fallbackVal !== null) {
             console.log('Found cell value for id_product:', idProductResolved, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', fallbackVal);
             return fallbackVal;
+        }
+
+        const domFallback = getCellValueFromCapturedTableDom(idProductResolved, columnIndex, captureRowIndex, rowLabel);
+        if (domFallback !== null) {
+            console.log('Found cell value from DOM for id_product:', idProductResolved, 'column:', columnIndex, 'value:', domFallback);
+            return domFallback;
         }
 
         console.error('Cell not found for id_product:', idProductResolved, 'row_label:', rowLabel, 'column:', columnIndex);
@@ -5537,7 +5675,14 @@ function getDataCaptureRowIndexOverrideFromSummaryRow(row) {
 }
 
 function getEditFormulaDataCaptureRowIndexOverride() {
-    return getDataCaptureRowIndexOverrideFromSummaryRow(getActiveSummaryRowForEditFormula());
+    const activeRow = getActiveSummaryRowForEditFormula();
+    let n = getDataCaptureRowIndexOverrideFromSummaryRow(activeRow);
+    if (n !== null) return n;
+    const idProduct = (activeRow && typeof getProcessValueFromRow === 'function')
+        ? String(getProcessValueFromRow(activeRow) || '').trim()
+        : String(document.getElementById('process')?.value || '').trim();
+    if (!idProduct) return null;
+    return resolveCaptureRowIndexFromDom(idProduct, activeRow);
 }
 
 // 键盘输入 $n 时，为当前编辑行补全 data-clicked-cell-refs（含 #行序），避免其他 Account 行解析落到首行
@@ -5914,6 +6059,14 @@ function updateFormulaDisplay(formulaValue, processValue) {
                             columnValue = getCellValueByIdProductAndColumn(currentIdProduct, dataColumnIndex, rowLabel, editFormulaRowIndexOverride);
                             console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
                         }
+                        if (columnValue === null) {
+                            columnValue = getCellValueFromCapturedTableDom(
+                                currentIdProduct,
+                                match.columnNumber - 1,
+                                editFormulaRowIndexOverride,
+                                rowLabel
+                            );
+                        }
                     }
                 }
 
@@ -5979,6 +6132,15 @@ function updateFormulaDisplay(formulaValue, processValue) {
                 // 获取列的实际值
                 const columnReference = rowLabel + match.columnNumber;
                 let columnValue = getColumnValueFromCellReference(columnReference, processValue, editFormulaRowIndexOverride);
+
+                if (columnValue === null) {
+                    columnValue = getCellValueFromCapturedTableDom(
+                        processValue,
+                        match.columnNumber - 1,
+                        editFormulaRowIndexOverride,
+                        rowLabel
+                    );
+                }
 
                 if (columnValue === null) {
                     columnValue = '0';
@@ -9812,6 +9974,14 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
                             const columnReference = rowLabel + dollarMatch.columnNumber;
                             columnValue = getColumnValueFromCellReference(columnReference, processValue, rowIndexOverride);
                         }
+                        if (columnValue === null) {
+                            columnValue = getCellValueFromCapturedTableDom(
+                                processValue,
+                                dollarMatch.columnNumber - 1,
+                                rowIndexOverride,
+                                rowLabel
+                            );
+                        }
                     }
 
                     if (columnValue !== null) {
@@ -9847,7 +10017,15 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
                         const dollarMatch = dollarMatches[i];
                         // Convert $数字 to cell reference (e.g., $2 -> A2)
                         const columnReference = rowLabel + dollarMatch.columnNumber;
-                        const columnValue = getColumnValueFromCellReference(columnReference, processValue, rowIndexOverride);
+                        let columnValue = getColumnValueFromCellReference(columnReference, processValue, rowIndexOverride);
+                        if (columnValue === null) {
+                            columnValue = getCellValueFromCapturedTableDom(
+                                processValue,
+                                dollarMatch.columnNumber - 1,
+                                rowIndexOverride,
+                                rowLabel
+                            );
+                        }
 
                         if (columnValue !== null) {
                             // Replace $数字 with actual value
