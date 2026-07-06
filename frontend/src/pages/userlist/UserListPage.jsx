@@ -388,6 +388,9 @@ export default function UserListPage() {
     return filteredSorted.slice(start, start + pageSize);
   }, [filteredSorted, effectivePage, pageSize, showAll]);
 
+  /** 仅满页时 grid 均分高度；末页不足一页时用紧凑行高，避免 3 条数据撑满整屏 */
+  const usePagedFill = !showAll && pageRows.length > 0 && pageRows.length >= pageSize;
+
   const permDisabledMap = useMemo(() => {
     const allowed = new Set(getCurrentUserRolePermissions(currentUserRole));
     const m = {};
@@ -2517,8 +2520,8 @@ export default function UserListPage() {
               )}
             </div>
             <div
-              className={`user-cards${!showAll && pageRows.length > 0 ? " user-cards--paged-fill" : ""}`}
-              style={!showAll && pageRows.length > 0 ? { "--user-list-page-size": pageRows.length } : undefined}
+              className={`user-cards${usePagedFill ? " user-cards--paged-fill" : ""}`}
+              style={usePagedFill ? { "--user-list-page-size": pageSize } : undefined}
             >
               {pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);

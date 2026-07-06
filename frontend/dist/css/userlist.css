@@ -3437,12 +3437,17 @@ body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-row .card-item
     letter-spacing: 0 !important;
 }
 
-/* 文本列：保留横向省略，避免 overflow:hidden 裁切 descender（g/j/y） */
-body.user-page:not(.user-page--show-all) .user-list-table .user-list-row .card-item:not(.card-item--action):not(.card-item--select):not(:has(.role-badge)),
-body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-table .user-list-row .card-item:not(.card-item--action):not(.card-item--select):not(:has(.role-badge)) {
-    overflow-x: hidden;
-    overflow-y: visible;
-    text-overflow: ellipsis;
+/* 末页不足一页：紧凑行高，避免文字被压扁 */
+body.user-page:not(.user-page--show-all) .user-list-table .user-cards:not(.user-cards--paged-fill) .user-list-row,
+body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-table .user-cards:not(.user-cards--paged-fill) .user-list-row {
+    flex: 0 0 auto;
+    min-height: var(--user-list-row-min-height, 30px);
+    height: auto;
+}
+
+/* 排序图标仅出现在表头 */
+.user-list-table .user-list-row .account-sort-icon {
+    display: none !important;
 }
 
 body.user-page:not(.user-page--show-all) .user-list-row .role-badge,
