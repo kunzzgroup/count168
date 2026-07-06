@@ -1,4 +1,4 @@
-﻿@import "./maintenance_empty_state.css";
+@import "./maintenance_empty_state.css";
 
 @import "./maintenance_empty_state.css";
 
@@ -325,7 +325,6 @@ body.dashboard-page.maintenance-page {
 
 .formula-clear-icon-btn:active {
     background: rgba(239, 68, 68, 0.18);
-    transform: scale(0.94);
 }
 
 .formula-search-input-container {
@@ -1544,7 +1543,4 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     box-sizing: border-box !important;
 }
 
-.formula-process-control .formula-clear-icon-btn:active {
-    transform: translateY(-50%) scale(0.94) !important;
-}
 
