@@ -59,12 +59,8 @@ import {
 import { formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { buildKpiCompare, computeKpiMetrics, mergeDashboardOwnershipFields, viewerHasEarningsConfig } from "../lib/dashboardKpi.js";
 import {
-  applySingleSubsidiaryGroupEarningsRows,
-  filterCompanyBreakdownRowsForEarningsGroups,
   mergeCompanyBreakdownRowLists,
   normalizeSubsidiaryEarningsByCompany,
-  sortCompanyBreakdownRowsByPicker,
-  sumCompanyBreakdownAmount,
   buildCompanyNetProfitRowsFromPairs,
 } from "../lib/dashboardCompanyProfit.js";
 import {
@@ -81,7 +77,7 @@ import {
   resolveVisibleGroupIds,
   filterGroupIdsForLedgerAccess,
 } from "../../../utils/company/loginScope.js";
-import { sortIds } from "../lib/dashboardEarnings.js";
+import { mapPanelCurrencyRows, sortIds } from "../lib/dashboardEarnings.js";
 import {
   companiesInGroupList,
   companiesNativeInGroupList,
@@ -577,20 +573,26 @@ function mirrorDashboardEarningsAcrossCurrencies(
   }
 }
 
-function alignPrimaryEarningsInRows(rows, primaryCode, primaryEarnings) {
-  if (!Array.isArray(rows) || primaryEarnings == null) return rows;
+function alignPrimaryCurrencyRows(rows, primaryCode, primaryNetProfit, primaryEarnings) {
+  if (!Array.isArray(rows)) return rows;
   const primary = String(primaryCode || "").trim().toUpperCase();
-  if (!primary || !Number.isFinite(Number(primaryEarnings))) return rows;
-  return rows.map((row) =>
-    String(row?.code || "").trim().toUpperCase() === primary
-      ? { ...row, earnings: Number(primaryEarnings) }
-      : row
-  );
+  if (!primary) return rows;
+  return rows.map((row) => {
+    if (String(row?.code || "").trim().toUpperCase() !== primary) return row;
+    const next = { ...row };
+    if (primaryNetProfit != null && Number.isFinite(Number(primaryNetProfit))) {
+      next.netProfit = Number(primaryNetProfit);
+    }
+    if (primaryEarnings != null && Number.isFinite(Number(primaryEarnings))) {
+      next.earnings = Number(primaryEarnings);
+    }
+    return next;
+  });
 }
 
-function normalizeEarningsRowsForDisplay(rows, primaryCode, primaryEarnings) {
+function normalizeEarningsRowsForDisplay(rows, primaryCode, primaryNetProfit, primaryEarnings) {
   return sanitizeDuplicateNonPrimaryEarnings(
-    alignPrimaryEarningsInRows(rows, primaryCode, primaryEarnings),
+    alignPrimaryCurrencyRows(rows, primaryCode, primaryNetProfit, primaryEarnings),
     primaryCode,
     primaryEarnings
   );
@@ -3720,16 +3722,19 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     (entries, cidOverride = null, groupOverride = undefined) => {
       const cid = cidOverride ?? companyId;
       const grp = groupOverride !== undefined ? groupOverride : selectedGroup;
-      return (entries || []).map(({ code, payload }) => ({
-        code,
-        earnings: payload
-          ? computeKpiMetrics(
-              applyDashboardPayloadAdjustments(payload, cid, grp),
-              grp,
-              resolveKpiOwnershipOpts(cid, grp)
-            )?.earnings ?? 0
-          : 0,
-      }));
+      return (entries || []).map(({ code, payload }) => {
+        if (!payload) {
+          return { code, netProfit: 0, earnings: 0 };
+        }
+        const metrics = computeKpiMetrics(
+          applyDashboardPayloadAdjustments(payload, cid, grp),
+          grp,
+          resolveKpiOwnershipOpts(cid, grp)
+        );
+        const netProfit = metrics?.netProfit ?? 0;
+        const earnings = metrics?.showEarnings ? metrics.earnings : netProfit;
+        return { code, netProfit, earnings };
+      });
     },
     [applyDashboardPayloadAdjustments, companyId, selectedGroup, resolveKpiOwnershipOpts]
   );
@@ -4641,31 +4646,42 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [applyDashboardPayloadAdjustments, companyId, selectedGroup, resolveKpiOwnershipOpts]
   );
 
-  /** Panel hero + currency breakdown: net profit when earnings KPI is hidden. */
-  const computePanelMetricFromPayload = useCallback(
+  const computeCurrencyMetricsFromPayload = useCallback(
     (payload, grp = selectedGroup) => {
-      if (!payload) return null;
+      if (!payload) return { netProfit: null, earnings: null };
       const merged = mergeDashboardOwnershipFields(payload, dashboardDataRef.current);
       const metrics = computeKpiMetrics(
         applyDashboardPayloadAdjustments(merged, companyId, grp),
         grp,
         resolveKpiOwnershipOpts(companyId, grp)
       );
-      if (!metrics) return null;
-      return metrics.showEarnings ? metrics.earnings : metrics.netProfit;
+      if (!metrics) return { netProfit: null, earnings: null };
+      return {
+        netProfit: metrics.netProfit,
+        earnings: metrics.showEarnings ? metrics.earnings : metrics.netProfit,
+      };
     },
     [applyDashboardPayloadAdjustments, companyId, selectedGroup, resolveKpiOwnershipOpts]
   );
 
-  const buildSeededEarningsRows = useCallback((codes, primaryCode, primaryEarnings) => {
+  const buildCurrencyRowFromPayload = useCallback(
+    (code, payload, grp = selectedGroup) => {
+      const { netProfit, earnings } = computeCurrencyMetricsFromPayload(payload, grp);
+      return { code, netProfit, earnings };
+    },
+    [computeCurrencyMetricsFromPayload]
+  );
+
+  const buildSeededEarningsRows = useCallback((codes, primaryCode, primaryNetProfit, primaryEarnings) => {
     const primaryUpper = String(primaryCode || "").toUpperCase();
-    return codes.map((code) => ({
-      code,
-      earnings:
-        String(code).toUpperCase() === primaryUpper && primaryEarnings != null
-          ? primaryEarnings
-          : null,
-    }));
+    return codes.map((code) => {
+      const isPrimary = String(code).toUpperCase() === primaryUpper;
+      return {
+        code,
+        netProfit: isPrimary && primaryNetProfit != null ? primaryNetProfit : null,
+        earnings: isPrimary && primaryEarnings != null ? primaryEarnings : null,
+      };
+    });
   }, []);
 
   const scheduleIncompleteEarningsRetry = useCallback((delayMs = 150) => {
@@ -4696,19 +4712,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             { earningsOnly: true, useActiveScopeAbort: false }
           );
           if (gen !== earningsFetchGenRef.current) return null;
-          return {
-            code,
-            earnings: computePanelMetricFromPayload(payload),
-          };
+          return buildCurrencyRowFromPayload(code, payload);
         } catch {
           if (attempt < maxRetries) {
             await new Promise((resolve) => window.setTimeout(resolve, 280));
           }
         }
       }
-      return { code, earnings: null };
+      return { code, netProfit: null, earnings: null };
     },
-    [groupAllMode, loadMergedDashboard, computePanelMetricFromPayload]
+    [groupAllMode, loadMergedDashboard, buildCurrencyRowFromPayload]
   );
 
   const fetchGroupAllEarningsRowsForRange = useCallback(
@@ -4728,10 +4741,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         const codeUpper = String(code).trim().toUpperCase();
 
         if (reuseMainPayload && codeUpper === primaryUpper) {
-          return {
-            code,
-            earnings: computePanelMetricFromPayload(dashboardDataRef.current),
-          };
+          return buildCurrencyRowFromPayload(code, dashboardDataRef.current);
         }
 
         const cached = tryBuildGroupAllDashboardFromCompanyCaches({
@@ -4744,19 +4754,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           const hit = cached.earnings.find(
             (row) => String(row?.code || "").trim().toUpperCase() === codeUpper
           );
-          if (hit?.earnings != null) {
-            return { code, earnings: hit.earnings };
+          if (hit?.earnings != null || hit?.netProfit != null) {
+            return {
+              code,
+              netProfit: hit.netProfit ?? hit.earnings,
+              earnings: hit.earnings ?? hit.netProfit,
+            };
           }
         }
         if (cached?.current) {
-          return {
-            code,
-            earnings: computePanelMetricFromPayload(cached.current),
-          };
+          return buildCurrencyRowFromPayload(code, cached.current);
         }
 
         const fetched = await fetchSingleCurrencyEarnings(code, gen, { retries: 0 });
-        return fetched ?? { code, earnings: null };
+        return fetched ?? { code, netProfit: null, earnings: null };
       };
 
       const primaryCode =
@@ -4786,7 +4797,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     },
     [
       tryBuildGroupAllDashboardFromCompanyCaches,
-      computePanelMetricFromPayload,
+      buildCurrencyRowFromPayload,
       fetchSingleCurrencyEarnings,
     ]
   );
@@ -4798,12 +4809,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       const primary = currencyCodeRef.current;
       const primaryPayload = dashboardDataRef.current;
-      const primaryEarnings =
-        primaryPayload != null ? computeEarningsFromPayload(primaryPayload) : null;
+      const primaryMetrics =
+        primaryPayload != null ? computeCurrencyMetricsFromPayload(primaryPayload) : null;
+      const primaryNetProfit = primaryMetrics?.netProfit ?? null;
+      const primaryEarnings = primaryMetrics?.earnings ?? null;
 
       setEarningsByCurrency((prev) => {
         if (dashboardEarningsRowsComplete(prev, codes, primary, primaryEarnings)) return prev;
-        return buildSeededEarningsRows(codes, primary, primaryEarnings);
+        return buildSeededEarningsRows(codes, primary, primaryNetProfit, primaryEarnings);
       });
       setEarningsByCurrencyLoading(true);
 
@@ -4823,15 +4836,23 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           return [];
         }
 
-        const rows = buildSeededEarningsRows(codes, primary, primaryEarnings).map((row) => {
-          if (row.earnings != null) return row;
-          const hit = settled.find(
-            (entry) =>
-              entry &&
-              String(entry.code).toUpperCase() === String(row.code).toUpperCase()
-          );
-          return hit ? { code: row.code, earnings: hit.earnings } : row;
-        });
+        const rows = buildSeededEarningsRows(codes, primary, primaryNetProfit, primaryEarnings).map(
+          (row) => {
+            if (row.netProfit != null && row.earnings != null) return row;
+            const hit = settled.find(
+              (entry) =>
+                entry &&
+                String(entry.code).toUpperCase() === String(row.code).toUpperCase()
+            );
+            return hit
+              ? {
+                  code: row.code,
+                  netProfit: hit.netProfit ?? row.netProfit,
+                  earnings: hit.earnings ?? row.earnings,
+                }
+              : row;
+          }
+        );
 
         const sanitizedRows = sanitizeDuplicateNonPrimaryEarnings(
           rows,
@@ -4869,7 +4890,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
     },
     [
-      computeEarningsFromPayload,
+      computeCurrencyMetricsFromPayload,
       buildSeededEarningsRows,
       fetchSingleCurrencyEarnings,
       dashboardScopeKey,
@@ -4963,10 +4984,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         currencies.map(async (code) => {
           if (gen !== earningsFetchGenRef.current) return null;
           if (reuseMainPayload && code === activeCurrency) {
-            return {
-              code,
-              earnings: computePanelMetricFromPayload(dashboardDataRef.current),
-            };
+            return buildCurrencyRowFromPayload(code, dashboardDataRef.current);
           }
           return fetchSingleCurrencyEarnings(code, gen);
         })
@@ -4976,7 +4994,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       return settled.filter(Boolean);
     },
-    [currencies, computePanelMetricFromPayload, fetchSingleCurrencyEarnings]
+    [currencies, buildCurrencyRowFromPayload, fetchSingleCurrencyEarnings]
   );
 
   const loadEarningsByCurrency = useCallback(async () => {
@@ -5148,9 +5166,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       return;
     }
     const primary = currencyCodeRef.current;
-    const primaryEarnings = dashboardDataRef.current
-      ? computePanelMetricFromPayload(dashboardDataRef.current)
-      : null;
+    const primaryMetrics = dashboardDataRef.current
+      ? computeCurrencyMetricsFromPayload(dashboardDataRef.current)
+      : { netProfit: null, earnings: null };
+    const primaryNetProfit = primaryMetrics.netProfit;
+    const primaryEarnings = primaryMetrics.earnings;
     const scopeEarnings = resolveScopeDashboardEarnings(
       currencies,
       dashboardScopeKey,
@@ -5162,7 +5182,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       dashboardEarningsRowsComplete(scopeEarnings, currencies, primary, primaryEarnings)
     ) {
       setEarningsByCurrency(
-        normalizeEarningsRowsForDisplay(scopeEarnings, primary, primaryEarnings)
+        normalizeEarningsRowsForDisplay(
+          scopeEarnings,
+          primary,
+          primaryNetProfit,
+          primaryEarnings
+        )
       );
       setEarningsByCurrencyPrev([]);
       setEarningsByCurrencyLoading(false);
@@ -5177,7 +5202,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     );
     if (readyEarnings) {
       setEarningsByCurrency(
-        normalizeEarningsRowsForDisplay(readyEarnings, primary, primaryEarnings)
+        normalizeEarningsRowsForDisplay(
+          readyEarnings,
+          primary,
+          primaryNetProfit,
+          primaryEarnings
+        )
       );
       setEarningsByCurrencyPrev([]);
       setEarningsByCurrencyLoading(false);
@@ -5186,12 +5216,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (dashboardDataRef.current) {
       setEarningsByCurrency((prev) => {
         if (dashboardEarningsRowsComplete(prev, currencies, primary, primaryEarnings)) return prev;
-        return buildSeededEarningsRows(currencies, primary, primaryEarnings);
+        return buildSeededEarningsRows(currencies, primary, primaryNetProfit, primaryEarnings);
       });
       setEarningsByCurrencyLoading(true);
       return;
     }
-    setEarningsByCurrency(currencies.map((code) => ({ code, earnings: null })));
+    setEarningsByCurrency(currencies.map((code) => ({ code, netProfit: null, earnings: null })));
     setEarningsByCurrencyPrev([]);
     setEarningsByCurrencyLoading(true);
   }, [
@@ -5202,8 +5232,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     dashboardScopeKey,
     resolveScopeDashboardEarnings,
     getCompleteCachedEarnings,
-    computeEarningsFromPayload,
-    computePanelMetricFromPayload,
+    computeCurrencyMetricsFromPayload,
     buildSeededEarningsRows,
     listCurrencyScopeKeys,
   ]);
@@ -5344,7 +5373,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     const codes = currenciesRef.current;
     const primary = currencyCodeRef.current;
-    const primaryEarnings = computePanelMetricFromPayload(dashboardDataRef.current);
+    const primaryMetrics = computeCurrencyMetricsFromPayload(dashboardDataRef.current);
+    const primaryNetProfit = primaryMetrics.netProfit;
+    const primaryEarnings = primaryMetrics.earnings;
     const cached = getDashboardCache(cacheKey);
     const readyEarnings = getCompleteCachedEarnings(
       cached,
@@ -5354,7 +5385,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     );
     if (readyEarnings) {
       setEarningsByCurrency(
-        normalizeEarningsRowsForDisplay(readyEarnings, primary, primaryEarnings)
+        normalizeEarningsRowsForDisplay(
+          readyEarnings,
+          primary,
+          primaryNetProfit,
+          primaryEarnings
+        )
       );
       setEarningsByCurrencyPrev([]);
       setEarningsByCurrencyLoading(false);
@@ -5369,7 +5405,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     );
     if (shared && dashboardEarningsRowsComplete(shared, codes, primary, primaryEarnings)) {
       setEarningsByCurrency(
-        normalizeEarningsRowsForDisplay(shared, primary, primaryEarnings)
+        normalizeEarningsRowsForDisplay(shared, primary, primaryNetProfit, primaryEarnings)
       );
       setEarningsByCurrencyPrev([]);
       setEarningsByCurrencyLoading(false);
@@ -5395,7 +5431,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           codes
         );
         if (gen !== earningsFetchGenRef.current) return;
-        const normalized = normalizeEarningsRowsForDisplay(rows, primary, primaryEarnings);
+        const normalized = normalizeEarningsRowsForDisplay(
+          rows,
+          primary,
+          primaryNetProfit,
+          primaryEarnings
+        );
         setEarningsByCurrency(normalized);
         setEarningsByCurrencyPrev([]);
         if (cacheKey && normalized.length) {
@@ -5489,7 +5530,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     loadEarningsProgressive,
     resolveDashboardScopeKey,
     scheduleIncompleteEarningsRetry,
-    computePanelMetricFromPayload,
+    computeCurrencyMetricsFromPayload,
     fetchGroupAllEarningsRowsForRange,
     dateFrom,
     dateTo,
@@ -5836,8 +5877,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           } else if (needsMultiCurrencyEarnings) {
             const primary = currencyCode;
             const codes = codesForEarnings || currenciesRef.current;
-            const primaryEarnings = computePanelMetricFromPayload(current);
-            setEarningsByCurrency(buildSeededEarningsRows(codes, primary, primaryEarnings));
+            const primaryMetrics = computeCurrencyMetricsFromPayload(current);
+            setEarningsByCurrency(
+              buildSeededEarningsRows(
+                codes,
+                primary,
+                primaryMetrics.netProfit,
+                primaryMetrics.earnings
+              )
+            );
             setEarningsByCurrencyLoading(true);
             void upgradeActiveScopeEarnings();
           } else {
@@ -5917,8 +5965,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (groupAllMode && needsMultiCurrencyEarnings && !warmedGroupAll?.earnings?.length) {
           const codes = codesForEarnings || currenciesRef.current;
           const primary = currencyCode;
-          const primaryEarnings = computePanelMetricFromPayload(current);
-          setEarningsByCurrency(buildSeededEarningsRows(codes, primary, primaryEarnings));
+          const primaryMetrics = computeCurrencyMetricsFromPayload(current);
+          setEarningsByCurrency(
+            buildSeededEarningsRows(
+              codes,
+              primary,
+              primaryMetrics.netProfit,
+              primaryMetrics.earnings
+            )
+          );
           setEarningsByCurrencyLoading(true);
           void upgradeActiveScopeEarnings();
         }
@@ -6638,27 +6693,25 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const earningsCurrencyRows = useMemo(() => {
     const earningsRows = Array.isArray(earningsByCurrency) ? earningsByCurrency : [];
-    const panelMetric =
-      dashboardData && kpi
-        ? kpi.showEarnings
-          ? kpi.earnings
-          : kpi.netProfit
-        : null;
+    const primaryNetProfit = kpi?.netProfit ?? null;
+    const primaryEarnings = kpi?.showEarnings ? kpi.earnings : primaryNetProfit;
     const seededRows =
       earningsRows.length > 0
         ? earningsRows
-        : currencies.map((code) => ({
-            code,
-            earnings:
-              String(code).toUpperCase() === String(currencyCode || "").toUpperCase() &&
-              panelMetric != null
-                ? panelMetric
-                : null,
-          }));
+        : currencies.map((code) => {
+            const isPrimary =
+              String(code).toUpperCase() === String(currencyCode || "").toUpperCase();
+            return {
+              code,
+              netProfit: isPrimary && primaryNetProfit != null ? primaryNetProfit : null,
+              earnings: isPrimary && primaryEarnings != null ? primaryEarnings : null,
+            };
+          });
     const baseRows = normalizeEarningsRowsForDisplay(
       seededRows,
       currencyCode,
-      panelMetric
+      primaryNetProfit,
+      primaryEarnings
     );
 
     const base = String(displayCurrencyCode || "").toUpperCase();
@@ -6672,14 +6725,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const codeUpper = String(code).toUpperCase();
       const existing =
         baseRows.find((row) => String(row.code).toUpperCase() === codeUpper) ?? { code };
-      let earnings = existing.earnings;
+      let netProfit = existing.netProfit ?? existing.earnings;
+      let earnings = existing.earnings ?? existing.netProfit;
       if (
-        earnings == null &&
-        codeUpper === String(currencyCode || "").toUpperCase() &&
-        panelMetric != null
+        codeUpper === String(currencyCode || "").toUpperCase()
       ) {
-        earnings = panelMetric;
+        if (netProfit == null && primaryNetProfit != null) netProfit = primaryNetProfit;
+        if (earnings == null && primaryEarnings != null) earnings = primaryEarnings;
       }
+      const netProfitConverted =
+        canConvert && netProfit != null
+          ? convertToBaseAmount(netProfit, code, base, rates)
+          : null;
       const earningsConverted =
         canConvert && earnings != null
           ? convertToBaseAmount(earnings, code, base, rates)
@@ -6687,7 +6744,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       return {
         ...existing,
         code,
+        netProfit,
         earnings,
+        netProfitConverted,
         earningsConverted,
       };
     });
@@ -6699,7 +6758,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     kpi.showEarnings,
     kpi.earnings,
     kpi.netProfit,
-    dashboardData,
     exchangeRates.rates,
     exchangeRatesError,
     exchangeRatesLoading,
@@ -6709,8 +6767,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     () =>
       currencies.length <= 1 ||
       (earningsCurrencyRows.length === currencies.length &&
-        earningsCurrencyRows.every((row) => row.earnings != null)),
-    [currencies.length, earningsCurrencyRows]
+        earningsCurrencyRows.every(
+          (row) =>
+            row.netProfit != null && (!kpi.showEarnings || row.earnings != null)
+        )),
+    [currencies.length, earningsCurrencyRows, kpi.showEarnings]
   );
 
   const useConvertedEarnings = useMemo(
@@ -6730,17 +6791,34 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     ]
   );
 
+  const panelCurrencyRows = useMemo(
+    () =>
+      mapPanelCurrencyRows(earningsCurrencyRows, earningsPanelView, {
+        useConverted: useConvertedEarnings,
+      }),
+    [earningsCurrencyRows, earningsPanelView, useConvertedEarnings]
+  );
+
   /** Multi-currency breakdown always uses the Rate column (never Share %). */
   const earningsBreakdownShowsRate = useMemo(
     () => currencies.length > 1,
     [currencies.length]
   );
 
-  const convertedEarningsTotal = useMemo(() => {
+  const convertedPanelTotal = useMemo(() => {
     if (!useConvertedEarnings) return null;
-    return sumConvertedEarnings(earningsCurrencyRows, displayCurrencyCode, exchangeRates.rates)
-      .total;
-  }, [useConvertedEarnings, earningsCurrencyRows, displayCurrencyCode, exchangeRates.rates]);
+    const rows = earningsCurrencyRows.map((row) => ({
+      code: row.code,
+      earnings: earningsPanelView === "earning" ? row.earnings : row.netProfit,
+    }));
+    return sumConvertedEarnings(rows, displayCurrencyCode, exchangeRates.rates).total;
+  }, [
+    useConvertedEarnings,
+    earningsCurrencyRows,
+    earningsPanelView,
+    displayCurrencyCode,
+    exchangeRates.rates,
+  ]);
 
   const earningsCurrencyRowsPrev = useMemo(() => {
     if (!earningsByCurrencyPrev.length) return [];
@@ -6753,6 +6831,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     return earningsByCurrencyPrev.map((row) => ({
       ...row,
+      netProfitConverted:
+        canConvert && row.netProfit != null
+          ? convertToBaseAmount(row.netProfit, row.code, base, rates)
+          : null,
       earningsConverted:
         canConvert && row.earnings != null
           ? convertToBaseAmount(row.earnings, row.code, base, rates)
@@ -6772,31 +6854,29 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return sumConvertedEarnings(earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates).total;
   }, [useConvertedEarnings, earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates]);
 
-  /** Non-ownership viewers: summary panel shows net profit label + multi-currency converted total. */
-  const summaryUsesCurrencyTotal = !kpi.showEarnings;
+  const showEarningsPanelTabs = kpi.showEarnings;
 
-  const summaryPanelLabel = summaryUsesCurrencyTotal ? i18n.netProfit : i18n.earnings;
+  const summaryPanelLabel =
+    earningsPanelView === "earning" ? i18n.earnings : i18n.netProfit;
 
-  /** Pie panel hero total — multi-currency: converted amount sum; single-currency: earnings or net profit. */
+  /** Pie panel hero total — multi-currency: converted sum for active tab. */
   const summaryEarningsValue = useMemo(() => {
+    const earningTab = earningsPanelView === "earning";
     if (showAllCurrencies && canShowAllCurrencies && multiCurrencyKpi) {
-      return multiCurrencyKpi.earnings;
+      return earningTab ? multiCurrencyKpi.earnings : multiCurrencyKpi.netProfit;
     }
-    if (currencies.length > 1 && useConvertedEarnings && convertedEarningsTotal != null) {
-      return convertedEarningsTotal;
+    if (currencies.length > 1 && useConvertedEarnings && convertedPanelTotal != null) {
+      return convertedPanelTotal;
     }
-    if (summaryUsesCurrencyTotal) {
-      return kpi.netProfit;
-    }
-    return kpi.earnings;
+    return earningTab ? kpi.earnings : kpi.netProfit;
   }, [
+    earningsPanelView,
     showAllCurrencies,
     canShowAllCurrencies,
     multiCurrencyKpi,
-    summaryUsesCurrencyTotal,
     currencies.length,
     useConvertedEarnings,
-    convertedEarningsTotal,
+    convertedPanelTotal,
     kpi.netProfit,
     kpi.earnings,
   ]);
@@ -6806,95 +6886,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return i18n.earningsIncludesConversion;
   }, [earningsBreakdownShowsRate, i18n.earningsIncludesConversion]);
 
-  /**
-   * Company net profit tab: group-level views only (Group All / company All / group ledger).
-   * Hidden on subsidiary drill-down (e.g. IG + 95) — currency panel only there.
-   * Does not require has_group_ownership (admin / net-profit-only viewers still see tabs).
-   */
-  const showProfitChartTab = useMemo(() => {
-    if (subsidiaryDashboardScope) return false;
-    if (!groupIds.length) return false;
-    return Boolean(
-      (groupsAllMode && companyId == null) ||
-      groupAllMode ||
-      usesGroupLedgerDashboard ||
-      groupsAllGroupLevel
-    );
-  }, [
-    subsidiaryDashboardScope,
-    groupIds.length,
-    groupsAllMode,
-    companyId,
-    groupAllMode,
-    usesGroupLedgerDashboard,
-    groupsAllGroupLevel,
-  ]);
-
-  const companyBreakdownRows = useMemo(() => {
-    if (!showProfitChartTab) return [];
-    const rows = normalizeSubsidiaryEarningsByCompany(
-      dashboardData?.subsidiary_earnings_by_company
-    );
-    const sorted = sortCompanyBreakdownRowsByPicker(rows, companiesForPicker);
-    return applySingleSubsidiaryGroupEarningsRows(
-      sorted,
-      dashboardData,
-      resolveKpiOwnershipOpts()
-    );
-  }, [
-    showProfitChartTab,
-    dashboardData,
-    companiesForPicker,
-    resolveKpiOwnershipOpts,
-  ]);
-
-  const companyEarningsBreakdownRows = useMemo(() => {
-    if (!showProfitChartTab) return [];
-    const enabledGroupIds = dashboardData?._earnings_enabled_group_ids;
-    const filtered = filterCompanyBreakdownRowsForEarningsGroups(
-      companyBreakdownRows,
-      enabledGroupIds
-    );
-    return applySingleSubsidiaryGroupEarningsRows(
-      filtered,
-      dashboardData,
-      resolveKpiOwnershipOpts()
-    );
-  }, [
-    showProfitChartTab,
-    companyBreakdownRows,
-    dashboardData,
-    resolveKpiOwnershipOpts,
-  ]);
-
-  const companyNetProfitTotal = useMemo(
-    () => sumCompanyBreakdownAmount(companyBreakdownRows, "netProfit"),
-    [companyBreakdownRows]
-  );
-
-  const companyEarningsTotal = useMemo(() => {
-    if (kpi.showEarnings) {
-      return kpi.kpiCardEarnings ?? kpi.earnings ?? 0;
-    }
-    return sumCompanyBreakdownAmount(companyEarningsBreakdownRows, "earnings");
-  }, [kpi.showEarnings, kpi.kpiCardEarnings, kpi.earnings, companyEarningsBreakdownRows]);
-
-  const showEarningsCompanyTab = kpi.showEarnings;
-
   useEffect(() => {
-    if (
-      !showProfitChartTab &&
-      (earningsPanelView === "netProfit" || earningsPanelView === "earning")
-    ) {
+    if (!showEarningsPanelTabs && earningsPanelView === "earning") {
       setEarningsPanelView("currency");
     }
-  }, [showProfitChartTab, earningsPanelView]);
-
-  useEffect(() => {
-    if (!showEarningsCompanyTab && earningsPanelView === "earning") {
-      setEarningsPanelView("currency");
-    }
-  }, [showEarningsCompanyTab, earningsPanelView]);
+  }, [showEarningsPanelTabs, earningsPanelView]);
 
   const exchangeRateScopeKey = useMemo(
     () =>
@@ -6913,38 +6909,22 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     () => !scopeDataPending && Boolean(dashboardData),
     [scopeDataPending, dashboardData]
   );
-  const companyBreakdownPanelActive =
-    showProfitChartTab &&
-    (earningsPanelView === "netProfit" || earningsPanelView === "earning");
   const summaryScopeLoading = scopeDataPending || (loading && !dashboardData);
-  const summaryCurrencyPanelLoading =
+  const summaryEarningsLoading =
     summaryScopeLoading ||
     (currencies.length > 1 &&
       (exchangeRatesLoading ||
         earningsByCurrencyLoading ||
         !allCurrencyEarningsReady ||
-        (useConvertedEarnings && convertedEarningsTotal == null)));
-  const summaryEarningsLoading = companyBreakdownPanelActive
-    ? summaryScopeLoading
-    : summaryCurrencyPanelLoading;
-  const earningsPanelStable = companyBreakdownPanelActive
-    ? !summaryScopeLoading &&
-      (earningsPanelView === "earning"
-        ? companyEarningsBreakdownRows.length > 0
-        : companyBreakdownRows.length > 0)
-    : currencies.length <= 1 ||
-      (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
+        (useConvertedEarnings && convertedPanelTotal == null)));
+  const earningsPanelStable =
+    currencies.length <= 1 ||
+    (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
   const panelsAnimReady = useMemo(() => {
     if (!chartDataStable) return false;
-    if (companyBreakdownPanelActive) return earningsPanelStable;
     if (currencies.length <= 1) return true;
     return earningsPanelStable;
-  }, [
-    chartDataStable,
-    companyBreakdownPanelActive,
-    currencies.length,
-    earningsPanelStable,
-  ]);
+  }, [chartDataStable, currencies.length, earningsPanelStable]);
   const panelsAnimSessionRef = useRef("");
   const [panelAnimEpoch, setPanelAnimEpoch] = useState(0);
   useEffect(() => {
@@ -7800,6 +7780,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     panelAnimDuration: DASHBOARD_PANEL_ANIM_DURATION_MS,
     dashboardScopeKey,
     earningsCurrencyRows,
+    panelCurrencyRows,
     useConvertedEarnings,
     earningsBreakdownShowsRate,
     summaryPanelLabel,
@@ -7812,15 +7793,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     exchangeRatesError,
     exchangeRatesLoading,
     exchangeRateScopeKey,
-    convertedEarningsTotal,
-    showProfitChartTab,
-    showEarningsCompanyTab,
+    convertedPanelTotal,
+    showEarningsPanelTabs,
     earningsPanelView,
     setEarningsPanelView,
-    companyBreakdownRows,
-    companyEarningsBreakdownRows,
-    companyNetProfitTotal,
-    companyEarningsTotal,
     handlePickGroup,
     handlePickAllGroups,
     handlePickCompany,

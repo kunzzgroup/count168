@@ -1566,6 +1566,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
             $captureParams = [
                 'company_id' => (string) $companyId,
                 'view_group' => $groupLedgerCode,
+                'subsidiary_accounts_only' => '1',
                 'date_from' => $dateFromDisplay,
                 'date_to' => $dateToDisplay,
             ];
