@@ -249,10 +249,14 @@ export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
   const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
   const groupAggregate = isGroupAggregateEarningsPayload(dashboardData, options);
   const groupAllCompanyEarningsSum = !!options.groupAllCompaniesEarningsSum;
-  const groupProfitSum = groupAggregate ? computeGroupAggregateProfit(dashboardData) : null;
-  const netProfitDisplay = groupAggregate
-    ? computeGroupAggregateNetProfit(dashboardData)
-    : displayProfitNum + displayExpensesNum;
+  const groupProfitSum =
+    groupAggregate && !groupAllCompanyEarningsSum
+      ? computeGroupAggregateProfit(dashboardData)
+      : null;
+  const netProfitDisplay =
+    groupAggregate && !groupAllCompanyEarningsSum
+      ? computeGroupAggregateNetProfit(dashboardData)
+      : displayProfitNum + displayExpensesNum;
   const showEarnings = options.groupsAllCompaniesAggregate
     ? false
     : viewerHasEarningsConfig(dashboardData, options);
@@ -276,7 +280,7 @@ export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
       : netProfitDisplay * kpiMultiplier
     : 0;
   return {
-    profit: groupAggregate ? groupProfitSum : displayProfitNum,
+    profit: groupAggregate && !groupAllCompanyEarningsSum ? groupProfitSum : displayProfitNum,
     expenses: displayExpensesNum,
     netProfit: netProfitDisplay,
     earnings: earningsDisplay,

@@ -3516,13 +3516,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         const vg = resolveViewGroupForCompany(row, gAll ? selGroup : selGroup);
         const snap = resolveMemberDashboardSnapshot(cid, vg, cur, from, to);
         if (!snap?.current) return null;
-        snapshots.push(snap);
+        snapshots.push({ ...snap, company: row, viewGroup: vg });
       }
 
       const mergedCurrent = mergeGroupData(
         snapshots.map((s) => s.current),
         { startDate: from, endDate: to }
       );
+      const byCompanyCurrent = buildCompanyNetProfitRowsFromPairs(
+        snapshots.map((s) => ({ company: s.company, data: s.current, viewGroup: s.viewGroup })),
+        selGroup
+      );
+      if (byCompanyCurrent.length) {
+        mergedCurrent.subsidiary_earnings_by_company = byCompanyCurrent;
+      }
       const allPrev = snapshots.every((s) => s.previous);
       const mergedPrevious = allPrev
         ? mergeGroupData(
@@ -3553,6 +3560,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       companies,
       groupIds,
       resolveMemberDashboardSnapshot,
+      buildCompanyNetProfitRowsFromPairs,
     ]
   );
 
