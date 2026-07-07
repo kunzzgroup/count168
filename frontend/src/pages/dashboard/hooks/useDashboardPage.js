@@ -6995,7 +6995,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [currencies.length, groupOnlyDashboard, companyId, selectedGroup, usesGroupLedgerDashboard]
   );
 
-  const showEarningPanelTab = kpi.showEarnings || showSummaryPanelTabs;
+  const showEarningPanelTab = kpi.showEarnings;
 
   /** Multi-currency breakdown uses Rate column; group+company tabs use same layout as IG+95. */
   const earningsBreakdownShowsRate = useMemo(

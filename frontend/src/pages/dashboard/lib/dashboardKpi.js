@@ -47,9 +47,7 @@ export function viewerHasEarningsConfig(dashboardData, options = {}) {
   if (options.groupsAllCompaniesAggregate) return false;
   if (options.subsidiaryGroupDrillDown) {
     const groupEquityPct = parseFloat(dashboardData.group_equity_percentage) || 0;
-    if (groupEquityPct > 0) return true;
-    const groupAccPct = parseFloat(dashboardData.group_account_percentage) || 0;
-    return groupAccPct > 0;
+    return groupEquityPct > 0;
   }
   if (dashboardData._group_aggregate_earnings || options.groupAggregateEarnings) {
     if (dashboardData.has_group_ownership) return true;
@@ -266,7 +264,7 @@ export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
     ? computeGroupAllCompanyEarningsSum(dashboardData)
     : null;
   const earningsDisplay = !showEarnings
-    ? netProfitDisplay
+    ? 0
     : groupAllCompanyEarningsSum
       ? mergedGroupAllEarnings
       : groupAggregate
