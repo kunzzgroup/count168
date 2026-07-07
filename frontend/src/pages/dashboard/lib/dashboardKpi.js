@@ -40,12 +40,13 @@ export function netProfitFromDashboardPayload(dashboardData) {
  */
 export function viewerHasEarningsConfig(dashboardData, options = {}) {
   if (!dashboardData) return false;
+  const subsidiaryGroupDrillDown = !!options.subsidiaryGroupDrillDown;
   const directPct = parseFloat(dashboardData.ownership_percentage) || 0;
-  if (directPct > 0) return true;
   const linkMul = parseFloat(dashboardData._link_multiplier || 0) || 0;
   if (linkMul > 0 && linkMul !== 1) return true;
+  if (!subsidiaryGroupDrillDown && directPct > 0) return true;
   if (options.groupsAllCompaniesAggregate) return false;
-  if (options.subsidiaryGroupDrillDown) {
+  if (subsidiaryGroupDrillDown) {
     const groupEquityPct = parseFloat(dashboardData.group_equity_percentage) || 0;
     return groupEquityPct > 0;
   }
@@ -154,10 +155,9 @@ function resolveEarningsMultiplier(dashboardData, selectedGroup, options = {}, {
   const inGroupView = !!selectedGroup;
   const directPct = ownershipPercentage / 100;
   // Subsidiary company view:
-  // - If company ownership exists (direct / link / group equity), apply that ownership.
-  // - Otherwise fallback to full net profit (e.g. AP + C168 without company equity config).
+  // - In group drill-down, only group-chain ownership (link / group equity) should affect earnings.
+  // - If no group ownership chain exists at all, fallback remains full net profit.
   if (subsidiaryGroupDrillDown) {
-    if (directPct > 0) return directPct;
     if (hasLinkOwnership) {
       const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
       return linkMul * viewerGroupShare;
