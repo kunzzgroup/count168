@@ -369,7 +369,7 @@ export default function FormulaMaintenancePage() {
 
   // -- Boot Logic --
   useEffect(() => {
-    if (!sessionReady || !me) return;
+    if (!sessionReady || !me || !bootLoading) return;
 
     let cancelled = false;
     setBootLoading(true);
@@ -1129,6 +1129,7 @@ export default function FormulaMaintenancePage() {
         textSearch={textSearch}
         onTextSearchChange={handleTextSearchChange}
         companyId={companyId}
+        highlightCompanyCode={companyCode}
         snapGroupIds={snapGroupIds}
         visibleCompanies={visibleCompanies}
         selectedGroup={selectedGroup}
