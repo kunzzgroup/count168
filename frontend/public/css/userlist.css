@@ -1966,7 +1966,7 @@ label.user-modal-col-title.acc-proc-label {
     transform: scale(0.99);
 }
 
-/* ── Permission compact (≤1200px): same layout + summary box as Company field ── */
+/* ── Permission compact (≤1440px): same layout + summary box as Company field ── */
 #userModal .permission-field-group .permission-field-label {
     display: flex;
     flex-wrap: wrap;
@@ -1987,7 +1987,7 @@ label.user-modal-col-title.acc-proc-label {
     overflow-wrap: break-word;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1440px) {
     #userModal .sidebar-permissions-section {
         display: none;
     }
@@ -1998,13 +1998,13 @@ label.user-modal-col-title.acc-proc-label {
     }
 }
 
-@media (min-width: 1201px) {
+@media (min-width: 1441px) {
     #userModal .user-modal-permissions-compact {
         display: none !important;
     }
 }
 
-/* ≥1201px: inline permission list; ≤1200px: Choose permissions + modal */
+/* ≥1441px: inline permission list; ≤1440px: Choose permissions + modal */
 .user-modal-permissions-inline {
     display: none;
     flex: 1 1 0;
@@ -2017,7 +2017,7 @@ label.user-modal-col-title.acc-proc-label {
     display: none;
 }
 
-@media (min-width: 1201px) {
+@media (min-width: 1441px) {
     .user-modal-permissions-inline {
         display: flex;
     }
