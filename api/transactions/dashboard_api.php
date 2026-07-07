@@ -1600,6 +1600,7 @@ function dashboardLoadCompanyDisplayCodes(PDO $pdo, array $companyIds): array
  *
  * @return array{
  *   period_total:string,
+ *   company_earnings_total:string,
  *   daily:array<string,string>,
  *   has_equity:bool,
  *   by_company:list<array<string, mixed>>
@@ -1639,25 +1640,21 @@ function dashboardComputeSubsidiaryEarningsTotal(
         $effectiveMonth,
         $useHistory
     );
-    if ($equityMap === []) {
-        return $empty;
-    }
 
     $periodShareTotal = dashboardMoneyZero();
     $periodCompanyEarningsTotal = dashboardMoneyZero();
     $dailyShare = [];
     $byCompany = [];
-    $companyCodes = dashboardLoadCompanyDisplayCodes($pdo, array_keys($equityMap));
+    $hasEquity = false;
+    $companyCodes = dashboardLoadCompanyDisplayCodes($pdo, $companyIds);
     $accountMul = $accountPct > 0 ? money_div((string) $accountPct, '100', MONEY_SCALE) : '1';
     $gNorm = reportNormalizeGroupId($groupLedgerCode);
 
     dashboard_api_begin_bootstrap_batch();
     try {
-        foreach ($equityMap as $companyId => $pctStr) {
-            if (money_cmp($pctStr, '0') <= 0) {
-                continue;
-            }
-
+        foreach ($companyIds as $companyId) {
+            $pctStr = (string) ($equityMap[$companyId] ?? '0');
+            $hasCompanyEquity = money_cmp($pctStr, '0') > 0;
             $captureParams = [
                 'company_id' => (string) $companyId,
                 'view_group' => $groupLedgerCode,
@@ -1678,9 +1675,16 @@ function dashboardComputeSubsidiaryEarningsTotal(
             $data = $cap['data'];
             $netProfit = dashboardCompanyPeriodNetProfitFromPayload($data);
             $companyEarning = dashboardComputeCompanyViewerEarningsFromPayload($data);
-            $share = money_mul($netProfit, money_div($pctStr, '100', MONEY_SCALE), MONEY_SCALE);
-            $myEarning = money_mul($share, $accountMul, MONEY_SCALE);
-            $periodShareTotal = dashboardMoneyAdd($periodShareTotal, $share);
+            $share = $hasCompanyEquity
+                ? money_mul($netProfit, money_div($pctStr, '100', MONEY_SCALE), MONEY_SCALE)
+                : dashboardMoneyZero();
+            $myEarning = $hasCompanyEquity
+                ? money_mul($share, $accountMul, MONEY_SCALE)
+                : dashboardMoneyZero();
+            if ($hasCompanyEquity) {
+                $hasEquity = true;
+                $periodShareTotal = dashboardMoneyAdd($periodShareTotal, $share);
+            }
             $periodCompanyEarningsTotal = dashboardMoneyAdd($periodCompanyEarningsTotal, $companyEarning);
 
             $displayCode = $companyCodes[$companyId] ?? (string) $companyId;
@@ -1696,7 +1700,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
                 'my_earning' => dashboardOut($myEarning),
             ];
 
-            if (!$kpiOnly) {
+            if (!$kpiOnly && $hasCompanyEquity) {
                 $netDaily = dashboardCompanyNetProfitDailyFromPayload($data['daily_data'] ?? []);
                 foreach ($netDaily as $d => $net) {
                     $dayShare = money_mul($net, money_div($pctStr, '100', MONEY_SCALE), MONEY_SCALE);
@@ -1716,7 +1720,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
         'period_total' => $periodShareTotal,
         'company_earnings_total' => $periodCompanyEarningsTotal,
         'daily' => $dailyShare,
-        'has_equity' => money_cmp($periodShareTotal, '0') !== 0 || $dailyShare !== [] || $byCompany !== [],
+        'has_equity' => $hasEquity || money_cmp($periodShareTotal, '0') !== 0 || $dailyShare !== [],
         'by_company' => $byCompany,
     ];
 }
@@ -3646,10 +3650,7 @@ try {
         $groupAccountPct = (float) ($viewerGroupShare['percentage'] ?? 0);
         $hasGroupAccountOwnership = !empty($viewerGroupShare['has']);
         $subsidiaryCompanyEarningsTotal = (string) ($subsidiaryEarnings['company_earnings_total'] ?? '0');
-        $subsidiaryByCompany = $subsidiaryEarnings['by_company'] ?? [];
-        $groupKpiProfit = $subsidiaryByCompany !== []
-            ? $subsidiaryCompanyEarningsTotal
-            : (string) ($groupResult['profit']['period_total'] ?? '0');
+        $groupKpiProfit = $subsidiaryCompanyEarningsTotal;
         echo json_encode([
             'success' => true,
             'data' => [
