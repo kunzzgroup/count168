@@ -55,18 +55,39 @@ export function viewerHasEarningsConfig(dashboardData, options = {}) {
   return false;
 }
 
-/** Group earning = (subsidiary earnings + group ledger net profit) × viewer group %. */
+/** Viewer group account % as 0–1 multiplier (1 when unset). */
+export function resolveGroupAccountMultiplier(dashboardData) {
+  const accPct = parseFloat(dashboardData?.group_account_percentage) || 0;
+  return accPct > 0 ? accPct / 100 : 1;
+}
+
+/** Group-only: Σ subsidiary my_earning (each company's earnings under the group). */
+export function sumSubsidiaryMyEarning(dashboardData) {
+  if (!dashboardData) return 0;
+  const rows = dashboardData.subsidiary_earnings_by_company;
+  if (Array.isArray(rows) && rows.length) {
+    return rows.reduce((sum, row) => sum + (parseFloat(row.my_earning) || 0), 0);
+  }
+  const subTotal = parseFloat(dashboardData.subsidiary_earnings_total) || 0;
+  return subTotal * resolveGroupAccountMultiplier(dashboardData);
+}
+
+/** Group-only Currency tab: profit sourced from subsidiary earnings only. */
+export function computeGroupAggregateNetProfit(dashboardData) {
+  return sumSubsidiaryMyEarning(dashboardData);
+}
+
+/** Group Earning = Σ subsidiary my_earning + group ledger net profit × account %. */
 export function computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig = true } = {}) {
   if (!dashboardData) return 0;
   if (requireViewerConfig && !dashboardData.has_group_ownership) return 0;
-  const subEarn = parseFloat(dashboardData.subsidiary_earnings_total) || 0;
+  const subMy = sumSubsidiaryMyEarning(dashboardData);
   const grpNp =
     dashboardData.group_ledger_net_profit != null
       ? parseFloat(dashboardData.group_ledger_net_profit) || 0
       : 0;
-  const accPct = parseFloat(dashboardData.group_account_percentage) || 0;
-  const accountMul = accPct > 0 ? accPct / 100 : 1;
-  return (subEarn + grpNp) * accountMul;
+  const accountMul = resolveGroupAccountMultiplier(dashboardData);
+  return subMy + grpNp * accountMul;
 }
 
 export function isGroupAggregateEarningsPayload(dashboardData, options = {}) {
@@ -81,7 +102,7 @@ export function isGroupAggregateEarningsPayload(dashboardData, options = {}) {
 function resolveEarningsMultiplier(dashboardData, selectedGroup, options = {}, { requireViewerConfig = true } = {}) {
   if (!dashboardData) return 0;
   if (isGroupAggregateEarningsPayload(dashboardData, options)) {
-    const netProfit = netProfitFromDashboardPayload(dashboardData);
+    const netProfit = computeGroupAggregateNetProfit(dashboardData);
     if (!netProfit) return 0;
     return (
       computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig }) / netProfit
@@ -173,11 +194,13 @@ export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
   const rawExpenses = parseFloat(dashboardData?.period_total?.expenses) || 0;
   const displayProfitNum = rawProfit;
   const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-  const netProfitDisplay = displayProfitNum + displayExpensesNum;
+  const groupAggregate = isGroupAggregateEarningsPayload(dashboardData, options);
+  const netProfitDisplay = groupAggregate
+    ? computeGroupAggregateNetProfit(dashboardData)
+    : displayProfitNum + displayExpensesNum;
   const showEarnings = options.groupsAllCompaniesAggregate
     ? false
     : viewerHasEarningsConfig(dashboardData, options);
-  const groupAggregate = isGroupAggregateEarningsPayload(dashboardData, options);
   const panelMultiplier = resolvePanelEarningsPct(dashboardData, selectedGroup, options);
   const kpiMultiplier = resolveEffectiveOwnershipPct(dashboardData, selectedGroup, options);
   const earningsDisplay = !showEarnings

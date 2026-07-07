@@ -3536,13 +3536,6 @@ try {
             $kpiOnly,
             $groupAccountPctForSubsidiaries
         );
-        dashboardApplySingleSubsidiaryGroupLedgerEarnings(
-            $pdo,
-            $subsidiaryEarnings,
-            $groupLedgerCode,
-            $groupLedgerNetProfit,
-            $groupAccountPctForSubsidiaries
-        );
         $hasGroupOwnershipProfit = dashboardMergeGroupOwnershipProfitShare(
             $pdo,
             $groupResult,
