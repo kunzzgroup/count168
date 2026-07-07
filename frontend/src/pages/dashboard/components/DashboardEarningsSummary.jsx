@@ -35,6 +35,7 @@ export function DashboardEarningsSummary({
   exchangeRateScopeKey = "",
   showSummaryPanelTabs = false,
   showEarningPanelTab = false,
+  showNetProfitForTab = false,
   earningsPanelView = "currency",
   onEarningsPanelViewChange,
   panelAnimActive = false,
@@ -208,6 +209,7 @@ export function DashboardEarningsSummary({
   ]);
 
   const showMultiCurrencyBreakdown = currencies.length > 1;
+  const isCompanyBreakdownView = earningsPanelView === "netProfitFor";
   const isStackedLayout = true;
   const isCompactTable = !showMultiCurrencyBreakdown;
 
@@ -255,6 +257,19 @@ export function DashboardEarningsSummary({
           onClick={() => onEarningsPanelViewChange?.("earning")}
         >
           {i18n.earningChartTab}
+        </button>
+      )}
+      {showNetProfitForTab && (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={earningsPanelView === "netProfitFor"}
+          className={`dashboard-summary-view-tab${
+            earningsPanelView === "netProfitFor" ? " is-active" : ""
+          }`}
+          onClick={() => onEarningsPanelViewChange?.("netProfitFor")}
+        >
+          {i18n.netProfitChartTab}
         </button>
       )}
     </div>
@@ -373,14 +388,14 @@ export function DashboardEarningsSummary({
           aria-label={i18n.currencyBreakdown}
         >
           <div className="dashboard-summary-currency-list-head" aria-hidden="true">
-            <span>{i18n.breakdownCurrency}</span>
+            <span>{isCompanyBreakdownView ? i18n.breakdownCompany : i18n.breakdownCurrency}</span>
             <span>
               {showMultiCurrencyBreakdown && currencyCode
                 ? `${i18n.breakdownAmount} (${currencyCode})`
                 : i18n.breakdownAmount}
             </span>
-            {earningsBreakdownShowsRate && (
-              <span>{i18n.breakdownOriginalAmount}</span>
+            {(earningsBreakdownShowsRate || isCompanyBreakdownView) && (
+              <span>{isCompanyBreakdownView ? i18n.breakdownGroup : i18n.breakdownOriginalAmount}</span>
             )}
             <span>{earningsBreakdownShowsRate ? i18n.breakdownRate : i18n.breakdownShare}</span>
           </div>
@@ -407,6 +422,7 @@ export function DashboardEarningsSummary({
                     })
                   : undefined;
               const showOriginalAmount =
+                !isCompanyBreakdownView &&
                 earningsBreakdownShowsRate &&
                 useConvertedEarnings &&
                 String(row.code).toUpperCase() !== String(currencyCode).toUpperCase();
@@ -443,14 +459,16 @@ export function DashboardEarningsSummary({
                           : "—"}
                     </span>
                   </div>
-                  {earningsBreakdownShowsRate && (
+                  {(earningsBreakdownShowsRate || isCompanyBreakdownView) && (
                     <div className="dashboard-summary-currency-original-col">
                       <span className="dashboard-summary-currency-original">
-                        {rowAmountLoading
-                          ? "…"
-                          : showOriginalAmount && native != null
-                            ? formatCurrency(native)
-                            : "—"}
+                        {isCompanyBreakdownView
+                          ? row.group || "—"
+                          : rowAmountLoading
+                            ? "…"
+                            : showOriginalAmount && native != null
+                              ? formatCurrency(native)
+                              : "—"}
                       </span>
                     </div>
                   )}

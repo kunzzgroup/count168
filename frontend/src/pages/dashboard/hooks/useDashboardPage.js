@@ -6890,14 +6890,29 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   );
 
   const panelCurrencyRows = useMemo(
-    () =>
-      mapPanelCurrencyRows(earningsCurrencyRows, earningsPanelView, {
+    () => {
+      if (earningsPanelView === "netProfitFor") {
+        const companyRows = normalizeSubsidiaryEarningsByCompany(
+          dashboardData?.subsidiary_earnings_by_company
+        );
+        return companyRows.map((row) => ({
+          code: row.company_id,
+          group: row.group_id,
+          netProfit: row.net_profit,
+          earnings: row.net_profit,
+          netProfitConverted: null,
+          earningsConverted: null,
+        }));
+      }
+      return mapPanelCurrencyRows(earningsCurrencyRows, earningsPanelView, {
         useConverted: useConvertedEarnings,
-      }),
-    [earningsCurrencyRows, earningsPanelView, useConvertedEarnings]
+      });
+    },
+    [earningsCurrencyRows, earningsPanelView, useConvertedEarnings, dashboardData]
   );
 
   const convertedPanelTotal = useMemo(() => {
+    if (earningsPanelView === "netProfitFor") return null;
     if (!useConvertedEarnings) return null;
     const rows = earningsCurrencyRows.map((row) => ({
       code: row.code,
@@ -6946,6 +6961,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return sumConvertedEarnings(earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates).total;
   }, [useConvertedEarnings, earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates]);
 
+  const showNetProfitForTab = useMemo(
+    () =>
+      Boolean(groupOnlyDashboard) &&
+      normalizeSubsidiaryEarningsByCompany(dashboardData?.subsidiary_earnings_by_company).length > 0,
+    [groupOnlyDashboard, dashboardData]
+  );
+
   /** Currency + Earning tabs: multi-currency, group+company drill-down, or group-only ledger. */
   const showSummaryPanelTabs = useMemo(
     () =>
@@ -6959,15 +6981,24 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   /** Multi-currency breakdown uses Rate column; group+company tabs use same layout as IG+95. */
   const earningsBreakdownShowsRate = useMemo(
-    () => currencies.length > 1 || showSummaryPanelTabs,
-    [currencies.length, showSummaryPanelTabs]
+    () =>
+      (currencies.length > 1 || showSummaryPanelTabs) &&
+      earningsPanelView !== "netProfitFor",
+    [currencies.length, showSummaryPanelTabs, earningsPanelView]
   );
 
   const summaryPanelLabel =
-    earningsPanelView === "earning" ? i18n.earnings : i18n.netProfit;
+    earningsPanelView === "earning"
+      ? i18n.earnings
+      : earningsPanelView === "netProfitFor"
+        ? i18n.netProfitCompanyCaption
+        : i18n.netProfit;
 
   /** Pie panel hero total — matches KPI card unless All-currencies aggregate mode. */
   const summaryEarningsValue = useMemo(() => {
+    if (earningsPanelView === "netProfitFor") {
+      return panelCurrencyRows.reduce((sum, row) => sum + (parseFloat(row.netProfit) || 0), 0);
+    }
     const earningTab = earningsPanelView === "earning";
     if (showAllCurrencies && canShowAllCurrencies && multiCurrencyKpi) {
       return earningTab ? multiCurrencyKpi.earnings : multiCurrencyKpi.netProfit;
@@ -6986,6 +7017,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     convertedPanelTotal,
     kpi.netProfit,
     kpi.earnings,
+    panelCurrencyRows,
   ]);
 
   const summaryConversionNote = useMemo(() => {
@@ -6997,7 +7029,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (!showEarningPanelTab && earningsPanelView === "earning") {
       setEarningsPanelView("currency");
     }
-  }, [showEarningPanelTab, earningsPanelView]);
+    if (!showNetProfitForTab && earningsPanelView === "netProfitFor") {
+      setEarningsPanelView("currency");
+    }
+  }, [showEarningPanelTab, showNetProfitForTab, earningsPanelView]);
 
   const exchangeRateScopeKey = useMemo(
     () =>
@@ -7906,6 +7941,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     convertedPanelTotal,
     showSummaryPanelTabs,
     showEarningPanelTab,
+    showNetProfitForTab,
     earningsPanelView,
     setEarningsPanelView,
     handlePickGroup,
