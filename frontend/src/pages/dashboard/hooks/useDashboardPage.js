@@ -4578,15 +4578,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const enrichGroupAllMergedDashboard = useCallback(
     async (merged, rangeFrom, rangeTo, currencyOverride, groupKey, useActiveScopeAbort = true) => {
       if (!merged || !groupKey) return merged;
-      const ledger = await fetchGroupDashboardPayload(
-        rangeFrom,
-        rangeTo,
-        currencyOverride,
-        groupKey,
-        useActiveScopeAbort,
-        { earningsOnly: true }
-      );
-      return attachGroupAggregateEarningsFields(merged, ledger);
+      try {
+        const ledger = await fetchGroupDashboardPayload(
+          rangeFrom,
+          rangeTo,
+          currencyOverride,
+          groupKey,
+          useActiveScopeAbort,
+          { earningsOnly: true }
+        );
+        return attachGroupAggregateEarningsFields(merged, ledger);
+      } catch {
+        // Company login may not have group-ledger permission; keep merged subsidiary payload usable.
+        return merged;
+      }
     },
     [fetchGroupDashboardPayload]
   );
@@ -4636,6 +4641,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             useActiveScopeAbort: mergeAbort,
           });
           if (earningsOnly) return merged;
+          if (!canAccessGroupLedgerForGroup(meRef.current, selectedGroup, companies)) {
+            return merged;
+          }
           return enrichGroupAllMergedDashboard(
             merged,
             rangeFrom,
