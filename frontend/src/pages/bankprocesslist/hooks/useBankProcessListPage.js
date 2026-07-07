@@ -270,6 +270,9 @@ export function useBankProcessListPage() {
   const [currencyListOrdered, setCurrencyListOrdered] = useState([]);
   const [currencyFilterCode, setCurrencyFilterCode] = useState("");
   const [currencyPillDisplayOrder, setCurrencyPillDisplayOrder] = useState(null);
+  const [compactViewportScrollMode, setCompactViewportScrollMode] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 1366px), (max-height: 980px)").matches,
+  );
   const skipNextCurrencyPillClickRef = useRef(false);
   const userSelectedAllCurrenciesRef = useRef(false);
 
@@ -652,6 +655,19 @@ export function useBankProcessListPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const mq = window.matchMedia("(max-width: 1366px), (max-height: 980px)");
+    const onChange = () => setCompactViewportScrollMode(mq.matches);
+    onChange();
+    if (mq.addEventListener) {
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    }
+    mq.addListener(onChange);
+    return () => mq.removeListener(onChange);
+  }, []);
+
+  useEffect(() => {
     const syncLang = (event) => {
       const nextLang = event?.detail?.lang;
       setLang(resolveLang(nextLang));
@@ -955,6 +971,34 @@ export function useBankProcessListPage() {
     });
     return () => window.cancelAnimationFrame(raf);
   }, [showAll, notifyBankListLayoutChanged]);
+
+  useLayoutEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const html = document.documentElement;
+    const body = document.body;
+    if (!compactViewportScrollMode || showAll) return undefined;
+
+    const prevHtmlHeight = html.style.height;
+    const prevHtmlOverflowY = html.style.overflowY;
+    const prevBodyHeight = body.style.height;
+    const prevBodyMaxHeight = body.style.maxHeight;
+    const prevBodyOverflowY = body.style.overflowY;
+
+    // Small-screen hard fallback: allow vertical page scroll despite legacy 100vh lock rules.
+    html.style.height = "auto";
+    html.style.overflowY = "auto";
+    body.style.height = "auto";
+    body.style.maxHeight = "none";
+    body.style.overflowY = "auto";
+
+    return () => {
+      html.style.height = prevHtmlHeight;
+      html.style.overflowY = prevHtmlOverflowY;
+      body.style.height = prevBodyHeight;
+      body.style.maxHeight = prevBodyMaxHeight;
+      body.style.overflowY = prevBodyOverflowY;
+    };
+  }, [compactViewportScrollMode, showAll]);
 
   useEffect(() => {
     if (!modalOpen || !companyId) return;
@@ -2396,7 +2440,7 @@ export function useBankProcessListPage() {
 
   const pageSize = useAutoListPageSize({
     listRegionRef,
-    enabled: !showAll,
+    enabled: !showAll && !compactViewportScrollMode,
     minRows: PAGE_SIZE_MIN,
     maxRows: PAGE_SIZE_MAX,
     stableRowHeight: true,
@@ -2413,6 +2457,7 @@ export function useBankProcessListPage() {
       showOfficial,
       showEInvoice,
       showBlock,
+      compactViewportScrollMode,
     ],
   });
 
