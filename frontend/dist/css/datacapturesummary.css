@@ -884,6 +884,36 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             }
         }
 
+        /* Final override: keep add button aligned with Account + enforce 1.4rem table font. */
+        body.dashboard-page.datacapture-summary-page #summaryTable th,
+        body.dashboard-page.datacapture-summary-page #summaryTable td {
+            font-size: 1.4rem !important;
+            font-weight: 700 !important;
+            line-height: 1.35 !important;
+        }
+
+        body.dashboard-page.datacapture-summary-page #summaryTable tbody td:nth-child(2) {
+            padding-right: 2px !important;
+            border-right: none !important;
+        }
+
+        body.dashboard-page.datacapture-summary-page #summaryTable tbody td:nth-child(3) {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            padding-left: 0 !important;
+            border-left: none !important;
+        }
+
+        body.dashboard-page.datacapture-summary-page #summaryTable .add-account-btn {
+            float: none !important;
+            margin-left: 2px;
+            width: 1.8rem;
+            height: 1.8rem;
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+
 
         /* Empty State Styles */
         .empty-state {
