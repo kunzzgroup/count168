@@ -794,16 +794,6 @@ function resolveDashboardActiveCurrency({
 
 export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const { me, sessionReady } = useAuthSession();
-  const viewerRoleAllowsEarnings = useMemo(() => {
-    const role = String(me?.role || "").trim().toLowerCase();
-    const userType = String(me?.user_type || "").trim().toLowerCase();
-    return (
-      role === "owner" ||
-      role === "partnership" ||
-      userType === "owner" ||
-      userType === "partnership"
-    );
-  }, [me?.role, me?.user_type]);
   const location = useLocation();
   const initialPageState = useMemo(() => readInitialDashboardPageState(), []);
   const [loadError, setLoadError] = useState("");
@@ -970,35 +960,34 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   /** KPI earnings: group aggregate or subsidiary drill-down ownership multipliers. */
   const resolveKpiOwnershipOpts = useCallback(
     (cid = companyId, grp = selectedGroup) => {
-      const roleOpts = { viewerRoleAllowsEarnings };
       if (groupsAllMode && groupAllMode && (cid == null || cid === "")) {
-        return { ...roleOpts, groupsAllCompaniesAggregate: true };
+        return { groupsAllCompaniesAggregate: true };
       }
       if (groupAllMode && grp) {
-        return { ...roleOpts, groupAggregateEarnings: true, groupAllCompaniesEarningsSum: true };
+        return { groupAggregateEarnings: true, groupAllCompaniesEarningsSum: true };
       }
       if (groupsAllMode && !groupAllMode && (cid == null || cid === "")) {
-        return { ...roleOpts, groupAggregateEarnings: true };
+        return { groupAggregateEarnings: true };
       }
       if (!groupAllMode && !groupsAllMode && grp) {
-        if (cid == null) return { ...roleOpts, groupAggregateEarnings: true };
+        if (cid == null) return { groupAggregateEarnings: true };
         const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
-        if (companyRowIsGroupEntity(row, grp)) return { ...roleOpts, groupAggregateEarnings: true };
+        if (companyRowIsGroupEntity(row, grp)) return { groupAggregateEarnings: true };
       }
       if (groupsAllMode && !groupAllMode && cid != null && cid !== "") {
         const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
         const vg = resolveViewGroupForCompany(row, null);
         if (row && vg && !companyRowIsGroupEntity(row, vg)) {
-          return { ...roleOpts, subsidiaryGroupDrillDown: true };
+          return { subsidiaryGroupDrillDown: true };
         }
-        return roleOpts;
+        return {};
       }
-      if (cid == null || groupAllMode || !grp) return roleOpts;
+      if (cid == null || groupAllMode || !grp) return {};
       const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
-      if (companyRowIsGroupEntity(row, grp)) return roleOpts;
-      return { ...roleOpts, subsidiaryGroupDrillDown: true };
+      if (companyRowIsGroupEntity(row, grp)) return {};
+      return { subsidiaryGroupDrillDown: true };
     },
-    [companyId, selectedGroup, groupsAllMode, groupAllMode, companies, viewerRoleAllowsEarnings]
+    [companyId, selectedGroup, groupsAllMode, groupAllMode, companies]
   );
 
   /** Group All with no company = AP+IG ledger KPI (group login or company owner with group ledger). */
@@ -4701,14 +4690,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         }
         earningsEnabledGroupIdsRef.current = gids
           .map((gid, idx) => ({ gid, payload: settled[idx]?.status === "fulfilled" ? settled[idx].value : null }))
-          .filter(
-            ({ payload }) =>
-              payload && viewerHasEarningsConfig(payload, { viewerRoleAllowsEarnings })
-          )
+          .filter(({ payload }) => payload && viewerHasEarningsConfig(payload))
           .map(({ gid }) => String(gid).trim().toUpperCase());
-        const earningsResults = results.filter((row) =>
-          viewerHasEarningsConfig(row, { viewerRoleAllowsEarnings })
-        );
+        const earningsResults = results.filter((row) => viewerHasEarningsConfig(row));
         const merged = finalizeMergedGroupLedgerDashboard(
           mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo }),
           earningsResults
@@ -4718,10 +4702,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             gid,
             payload: settled[idx]?.status === "fulfilled" ? settled[idx].value : null,
           }))
-          .filter(
-            ({ payload }) =>
-              payload && viewerHasEarningsConfig(payload, { viewerRoleAllowsEarnings })
-          )
+          .filter(({ payload }) => payload && viewerHasEarningsConfig(payload))
           .map(({ gid }) => String(gid || "").trim().toUpperCase())
           .filter(Boolean);
         const byCompany = mergeCompanyBreakdownRowLists(
@@ -4757,7 +4738,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       fetchMergedCompanyDashboards,
       i18n.failedToLoadDashboard,
       me,
-      viewerRoleAllowsEarnings,
     ]
   );
 
