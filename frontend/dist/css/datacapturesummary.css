@@ -1638,7 +1638,6 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             white-space: nowrap !important;
             word-break: normal !important;
             overflow-wrap: normal !important;
-            vertical-align: middle !important;
             text-align: center !important;
         }
 
@@ -2117,17 +2116,17 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
         body.dashboard-page.datacapture-summary-page #summaryTable tbody tr,
         body.dashboard-page.datacapture-summary-page #summaryTable tfoot tr {
             grid-template-columns:
-                minmax(0, 2.3fr)
-                minmax(0, 2fr)
-                minmax(22px, 0.26fr)
-                minmax(0, 0.6fr)
-                minmax(0, 2.35fr)
-                minmax(0, 0.55fr)
-                minmax(0, 0.4fr)
-                minmax(0, 0.72fr)
-                minmax(0, 1.75fr)
-                minmax(0, 0.36fr)
-                minmax(0, 0.36fr) !important;
+                minmax(0, 2.2fr)
+                minmax(0, 1.95fr)
+                minmax(16px, 0.2fr)
+                minmax(0, 0.52fr)
+                minmax(0, 2.2fr)
+                minmax(0, 0.45fr)
+                minmax(0, 0.3fr)
+                minmax(0, 0.58fr)
+                minmax(0, 2.2fr)
+                minmax(0, 0.28fr)
+                minmax(0, 0.28fr) !important;
         }
 
         body.dashboard-page.datacapture-summary-page #summaryTable th,
@@ -2138,14 +2137,14 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             min-height: 36px !important;
         }
 
-        body.dashboard-page.datacapture-summary-page #summaryTable th:nth-child(2),
-        body.dashboard-page.datacapture-summary-page #summaryTable td:nth-child(2) {
+        body.dashboard-page.datacapture-summary-page #summaryTable thead th:nth-child(2),
+        body.dashboard-page.datacapture-summary-page #summaryTable tbody td:nth-child(2) {
             border-right: none !important;
             padding-right: 2px !important;
         }
 
-        body.dashboard-page.datacapture-summary-page #summaryTable th:nth-child(3),
-        body.dashboard-page.datacapture-summary-page #summaryTable td:nth-child(3) {
+        body.dashboard-page.datacapture-summary-page #summaryTable thead th:nth-child(3),
+        body.dashboard-page.datacapture-summary-page #summaryTable tbody td:nth-child(3) {
             border-left: none !important;
             padding-left: 0 !important;
             padding-right: 0 !important;
@@ -2161,9 +2160,9 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
         body.dashboard-page.datacapture-summary-page #summaryTable .add-account-btn {
             float: none !important;
             margin: 0 !important;
-            width: 1.6rem !important;
-            height: 1.6rem !important;
-            font-size: 1rem !important;
+            width: 2rem !important;
+            height: 2rem !important;
+            font-size: 1.8rem !important;
             line-height: 1 !important;
         }
 
@@ -2191,5 +2190,13 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
 
         body.dashboard-page.datacapture-summary-page #summaryTable td:nth-child(9) {
             text-overflow: clip !important;
+        }
+
+        /* Top process info row font size */
+        body.dashboard-page.datacapture-summary-page #processInfoContainer .process-info-label,
+        body.dashboard-page.datacapture-summary-page #processInfoContainer .process-info-value {
+            font-size: 1.4rem !important;
+            font-weight: 700 !important;
+            line-height: 1.35 !important;
         }
 
