@@ -1187,13 +1187,21 @@ function dashboardOwnershipFieldsFromDashboardPayload(array $data): array
     ];
 }
 
-/** Same earnings as the subsidiary company dashboard (e.g. C168 + AP → 1,148.21). */
+/** Same as company-dashboard Earnings KPI (图一): net profit after expenses × direct %, else full net. */
 function dashboardComputeCompanyViewerEarningsFromPayload(array $data): string
 {
-    return dashboardComputeSubsidiaryCompanyEarning(
-        dashboardCompanyPeriodNetProfitFromPayload($data),
-        dashboardOwnershipFieldsFromDashboardPayload($data)
-    );
+    $netProfit = dashboardCompanyPeriodNetProfitFromPayload($data);
+    $ownership = dashboardOwnershipFieldsFromDashboardPayload($data);
+    $direct = (float) ($ownership['ownership_percentage'] ?? 0);
+    if ($direct > 0) {
+        return money_mul(
+            $netProfit,
+            money_div((string) $direct, '100', MONEY_SCALE),
+            MONEY_SCALE
+        );
+    }
+
+    return $netProfit;
 }
 
 /**
