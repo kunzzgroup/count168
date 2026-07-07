@@ -1142,6 +1142,41 @@ function dashboardCompanyPeriodNetProfitFromPayload(array $data): string
 }
 
 /**
+ * Panel earnings multiplier for a subsidiary company (matches dashboardKpi subsidiary drill-down).
+ *
+ * @param array{ownership_percentage?:float,group_equity_percentage?:float,group_account_percentage?:float,has_group_ownership?:bool} $ownership
+ */
+function dashboardResolveSubsidiaryCompanyPanelMultiplier(array $ownership): float
+{
+    $direct = (float) ($ownership['ownership_percentage'] ?? 0);
+    if ($direct > 0) {
+        return $direct / 100.0;
+    }
+    $equity = (float) ($ownership['group_equity_percentage'] ?? 0);
+    $acc = (float) ($ownership['group_account_percentage'] ?? 0);
+    $hasGrp = !empty($ownership['has_group_ownership']);
+    if ($equity > 0) {
+        return $equity / 100.0;
+    }
+    if ($hasGrp && $acc > 0) {
+        return $acc / 100.0;
+    }
+
+    return 0.0;
+}
+
+/** Company-dashboard earnings for one subsidiary (net profit × viewer ownership on that company). */
+function dashboardComputeSubsidiaryCompanyEarning(string $netProfit, array $ownership): string
+{
+    $mul = dashboardResolveSubsidiaryCompanyPanelMultiplier($ownership);
+    if ($mul <= 0 || money_cmp($netProfit, '0') === 0) {
+        return dashboardMoneyZero();
+    }
+
+    return money_mul($netProfit, (string) $mul, MONEY_SCALE);
+}
+
+/**
  * @param array<string, mixed> $dailyData
  * @return array<string, string>
  */
@@ -1564,6 +1599,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
 ): array {
     $empty = [
         'period_total' => dashboardMoneyZero(),
+        'company_earnings_total' => dashboardMoneyZero(),
         'daily' => [],
         'has_equity' => false,
         'by_company' => [],
@@ -1591,6 +1627,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
     }
 
     $periodShareTotal = dashboardMoneyZero();
+    $periodCompanyEarningsTotal = dashboardMoneyZero();
     $dailyShare = [];
     $byCompany = [];
     $companyCodes = dashboardLoadCompanyDisplayCodes($pdo, array_keys($equityMap));
@@ -1625,9 +1662,17 @@ function dashboardComputeSubsidiaryEarningsTotal(
 
             $data = $cap['data'];
             $netProfit = dashboardCompanyPeriodNetProfitFromPayload($data);
+            $ownership = dashboardLoadCompanyDashboardOwnership(
+                $pdo,
+                (int) $companyId,
+                $dateToDisplay,
+                $groupLedgerCode
+            );
+            $companyEarning = dashboardComputeSubsidiaryCompanyEarning($netProfit, $ownership);
             $share = money_mul($netProfit, money_div($pctStr, '100', MONEY_SCALE), MONEY_SCALE);
             $myEarning = money_mul($share, $accountMul, MONEY_SCALE);
             $periodShareTotal = dashboardMoneyAdd($periodShareTotal, $share);
+            $periodCompanyEarningsTotal = dashboardMoneyAdd($periodCompanyEarningsTotal, $companyEarning);
 
             $displayCode = $companyCodes[$companyId] ?? (string) $companyId;
             $byCompany[] = [
@@ -1638,6 +1683,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
                 'group_equity_pct' => dashboardOut($pctStr, 2),
                 'account_pct' => dashboardOut((string) $accountPct, 2),
                 'group_share' => dashboardOut($share),
+                'company_earning' => dashboardOut($companyEarning),
                 'my_earning' => dashboardOut($myEarning),
             ];
 
@@ -1659,6 +1705,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
 
     return [
         'period_total' => $periodShareTotal,
+        'company_earnings_total' => $periodCompanyEarningsTotal,
         'daily' => $dailyShare,
         'has_equity' => money_cmp($periodShareTotal, '0') !== 0 || $dailyShare !== [] || $byCompany !== [],
         'by_company' => $byCompany,
@@ -3603,6 +3650,9 @@ try {
                 'has_group_ownership' => $hasGroupAccountOwnership,
                 'group_ledger_net_profit' => dashboardOut($groupLedgerNetProfit),
                 'subsidiary_earnings_total' => dashboardOut($subsidiaryEarnings['period_total']),
+                'subsidiary_company_earnings_total' => dashboardOut(
+                    $subsidiaryEarnings['company_earnings_total'] ?? '0'
+                ),
                 'subsidiary_earnings_by_company' => $subsidiaryEarnings['by_company'] ?? [],
                 '_group_aggregate_earnings' => true,
                 'period_total' => [

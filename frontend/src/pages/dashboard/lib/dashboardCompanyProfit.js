@@ -62,6 +62,7 @@ export function normalizeSubsidiaryEarningsByCompany(apiRows) {
         group_equity_pct: groupEquityPct,
         account_pct: parseFloat(row.account_pct) || 0,
         group_share: groupShare,
+        company_earning: parseFloat(row.company_earning) || 0,
         my_earning: parseFloat(row.my_earning) || 0,
       };
     })
