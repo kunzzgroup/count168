@@ -1574,10 +1574,15 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             line-height: 1.35 !important;
         }
 
-        /* Summary table anti-clipping overrides (font enlarged). */
+        /* Summary table: keep enlarged font without horizontal scrollbar. */
+        .summary-table-x-scroll {
+            overflow-x: hidden !important;
+        }
+
         #summaryTable {
-            table-layout: auto !important;
-            min-width: 2200px !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            table-layout: fixed !important;
         }
 
         #summaryTable th,
@@ -1589,33 +1594,34 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             min-height: calc(1.4rem * 1.35 + 12px);
             height: auto !important;
             vertical-align: middle !important;
-            overflow: visible !important;
-            text-overflow: unset !important;
-            white-space: nowrap !important;
+            min-width: 0 !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
         }
 
         #summaryTable th:nth-child(1),
-        #summaryTable td:nth-child(1) { min-width: 220px !important; }
+        #summaryTable td:nth-child(1) { min-width: 0 !important; }
         #summaryTable th:nth-child(2),
-        #summaryTable td:nth-child(2) { min-width: 220px !important; }
+        #summaryTable td:nth-child(2) { min-width: 0 !important; }
         #summaryTable th:nth-child(3),
-        #summaryTable td:nth-child(3) { min-width: 70px !important; }
+        #summaryTable td:nth-child(3) { min-width: 0 !important; }
         #summaryTable th:nth-child(4),
-        #summaryTable td:nth-child(4) { min-width: 140px !important; }
+        #summaryTable td:nth-child(4) { min-width: 0 !important; }
         #summaryTable th:nth-child(5),
-        #summaryTable td:nth-child(5) { min-width: 320px !important; }
+        #summaryTable td:nth-child(5) { min-width: 0 !important; }
         #summaryTable th:nth-child(6),
-        #summaryTable td:nth-child(6) { min-width: 120px !important; }
+        #summaryTable td:nth-child(6) { min-width: 0 !important; }
         #summaryTable th:nth-child(7),
-        #summaryTable td:nth-child(7) { min-width: 90px !important; }
+        #summaryTable td:nth-child(7) { min-width: 0 !important; }
         #summaryTable th:nth-child(8),
-        #summaryTable td:nth-child(8) { min-width: 150px !important; }
+        #summaryTable td:nth-child(8) { min-width: 0 !important; }
         #summaryTable th:nth-child(9),
-        #summaryTable td:nth-child(9) { min-width: 210px !important; }
+        #summaryTable td:nth-child(9) { min-width: 0 !important; }
         #summaryTable th:nth-child(10),
-        #summaryTable td:nth-child(10) { min-width: 90px !important; }
+        #summaryTable td:nth-child(10) { min-width: 0 !important; }
         #summaryTable th:nth-child(11),
-        #summaryTable td:nth-child(11) { min-width: 100px !important; }
+        #summaryTable td:nth-child(11) { min-width: 0 !important; }
 
         /* Enhanced Table Styles for Captured Data - 与datacapture.php中的excel-table样式完全一致 */
         /* Data Capture Table - 自动调整列宽，同时占满容器宽度（与datacapture.php中的excel-table一致） */
