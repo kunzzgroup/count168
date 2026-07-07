@@ -26,6 +26,12 @@ html:has(body.user-page:not(.user-page--show-all)) {
     overflow: hidden;
 }
 
+/* JS fallback for environments where :has timing/support is unstable */
+html.ec-user-page-scroll-lock {
+    height: 100%;
+    overflow: hidden !important;
+}
+
 body.user-page:not(.user-page--show-all) {
     overflow-x: hidden !important;
     overflow-y: hidden !important;
