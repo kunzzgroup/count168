@@ -124,6 +124,10 @@ export function computeGroupAggregateEarningsAmount(dashboardData, { requireView
 /** Group All (single group + company all): Earnings = Σ each company earnings. */
 export function computeGroupAllCompanyEarningsSum(dashboardData) {
   if (!dashboardData) return 0;
+  const rows = dashboardData.subsidiary_earnings_by_company;
+  if (Array.isArray(rows) && rows.length) {
+    return rows.reduce((sum, row) => sum + (parseFloat(row.my_earning) || 0), 0);
+  }
   const explicit = parseFloat(
     dashboardData?._subsidiary_earnings_total ?? dashboardData?.subsidiary_earnings_total
   );

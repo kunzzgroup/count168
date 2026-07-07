@@ -98,6 +98,8 @@ export function buildCompanyNetProfitRowFromPayload(companyRow, data, viewGroup 
   if (!companyRow || !data) return null;
   const netProfit = netProfitFromDashboardPayload(data);
   const profit = parseFloat(data?.period_total?.profit ?? data?.profit) || 0;
+  const earningMultiplier = resolveGroupAllCompanyEarningsMultiplier(data);
+  const companyEarnings = netProfit * earningMultiplier;
   const nativeG = companyRow?.group_id ? String(companyRow.group_id).trim().toUpperCase() : "";
   const linkG = companyRow?.link_source_group
     ? String(companyRow.link_source_group).trim().toUpperCase()
@@ -116,8 +118,23 @@ export function buildCompanyNetProfitRowFromPayload(companyRow, data, viewGroup 
     group_equity_pct: parseFloat(data.group_equity_percentage) || 0,
     account_pct: parseFloat(data.group_account_percentage) || 0,
     group_share: netProfit,
-    my_earning: 0,
+    // Group All KPI Earnings should sum per-company earnings by ownership.
+    my_earning: companyEarnings,
   };
+}
+
+function resolveGroupAllCompanyEarningsMultiplier(data) {
+  if (!data?.has_group_ownership) return 0;
+  const directPct = parseFloat(data.ownership_percentage) || 0;
+  if (directPct > 0) return directPct / 100;
+  const linkMul = parseFloat(data._link_multiplier || 0) || 0;
+  const hasLinkOwnership = linkMul > 0 && linkMul !== 1;
+  if (hasLinkOwnership) {
+    const groupAccountPct = parseFloat(data.group_account_percentage) || 0;
+    const viewerGroupShare = groupAccountPct > 0 ? groupAccountPct / 100 : 1;
+    return linkMul * viewerGroupShare;
+  }
+  return 0;
 }
 
 export function buildCompanyNetProfitRowsFromPairs(pairs, viewGroupFallback = "") {
