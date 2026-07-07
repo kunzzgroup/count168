@@ -58,6 +58,11 @@ body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .t
     min-height: clamp(38px, 2.45vw, 40px) !important;
 }
 
+/* Payment maintenance: keep Date Range trigger height aligned with Search input */
+body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker {
+    min-height: clamp(32px, 2.25vw, 36px) !important;
+}
+
 body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group #date-range-display,
 body.maintenance-page .customer-report-filters .report-outlined-inner .date-range-picker #date-range-display,
 body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group #date-range-display,
