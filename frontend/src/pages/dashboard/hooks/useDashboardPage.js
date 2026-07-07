@@ -3732,7 +3732,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           resolveKpiOwnershipOpts(cid, grp)
         );
         const netProfit = metrics?.netProfit ?? 0;
-        const earnings = metrics?.showEarnings ? metrics.earnings : netProfit;
+        const earnings = metrics?.earnings ?? netProfit;
         return { code, netProfit, earnings };
       });
     },
@@ -4658,7 +4658,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!metrics) return { netProfit: null, earnings: null };
       return {
         netProfit: metrics.netProfit,
-        earnings: metrics.showEarnings ? metrics.earnings : metrics.netProfit,
+        earnings: metrics.earnings,
       };
     },
     [applyDashboardPayloadAdjustments, companyId, selectedGroup, resolveKpiOwnershipOpts]
@@ -6854,7 +6854,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return sumConvertedEarnings(earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates).total;
   }, [useConvertedEarnings, earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates]);
 
-  const showEarningsPanelTabs = kpi.showEarnings;
+  /** Currency + Earning tabs: multi-currency breakdown or group+company drill-down (e.g. IG + 95). */
+  const showSummaryPanelTabs = useMemo(
+    () =>
+      currencies.length > 1 ||
+      Boolean(companyId != null && (selectedGroup || usesGroupLedgerDashboard)),
+    [currencies.length, companyId, selectedGroup, usesGroupLedgerDashboard]
+  );
+
+  const showEarningPanelTab = kpi.showEarnings || showSummaryPanelTabs;
 
   const summaryPanelLabel =
     earningsPanelView === "earning" ? i18n.earnings : i18n.netProfit;
@@ -6887,10 +6895,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   }, [earningsBreakdownShowsRate, i18n.earningsIncludesConversion]);
 
   useEffect(() => {
-    if (!showEarningsPanelTabs && earningsPanelView === "earning") {
+    if (!showEarningPanelTab && earningsPanelView === "earning") {
       setEarningsPanelView("currency");
     }
-  }, [showEarningsPanelTabs, earningsPanelView]);
+  }, [showEarningPanelTab, earningsPanelView]);
 
   const exchangeRateScopeKey = useMemo(
     () =>
@@ -7794,7 +7802,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     exchangeRatesLoading,
     exchangeRateScopeKey,
     convertedPanelTotal,
-    showEarningsPanelTabs,
+    showSummaryPanelTabs,
+    showEarningPanelTab,
     earningsPanelView,
     setEarningsPanelView,
     handlePickGroup,

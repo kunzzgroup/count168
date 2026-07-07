@@ -33,7 +33,8 @@ export function DashboardEarningsSummary({
   exchangeRates,
   exchangeRatesLoading,
   exchangeRateScopeKey = "",
-  showEarningsPanelTabs = false,
+  showSummaryPanelTabs = false,
+  showEarningPanelTab = false,
   earningsPanelView = "currency",
   onEarningsPanelViewChange,
   panelAnimActive = false,
@@ -230,7 +231,7 @@ export function DashboardEarningsSummary({
     </div>
   );
 
-  const summaryViewTabs = showEarningsPanelTabs ? (
+  const summaryViewTabs = showSummaryPanelTabs ? (
     <div className="dashboard-summary-view-tabs" role="tablist" aria-label={i18n.statistics}>
       <button
         type="button"
@@ -243,25 +244,27 @@ export function DashboardEarningsSummary({
       >
         {i18n.earningsChartTab}
       </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={earningsPanelView === "earning"}
-        className={`dashboard-summary-view-tab${
-          earningsPanelView === "earning" ? " is-active" : ""
-        }`}
-        onClick={() => onEarningsPanelViewChange?.("earning")}
-      >
-        {i18n.earningChartTab}
-      </button>
+      {showEarningPanelTab && (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={earningsPanelView === "earning"}
+          className={`dashboard-summary-view-tab${
+            earningsPanelView === "earning" ? " is-active" : ""
+          }`}
+          onClick={() => onEarningsPanelViewChange?.("earning")}
+        >
+          {i18n.earningChartTab}
+        </button>
+      )}
     </div>
   ) : null;
 
   return (
     <div
       className={`dashboard-panel-card dashboard-panel-card--summary${
-        showEarningsPanelTabs ? " dashboard-panel-card--summary-has-tabs" : ""
-      }${showEarningsPanelTabs ? " dashboard-panel-card--summary-has-earning-tab" : ""}${
+        showSummaryPanelTabs ? " dashboard-panel-card--summary-has-tabs" : ""
+      }${showEarningPanelTab ? " dashboard-panel-card--summary-has-earning-tab" : ""}${
         isStackedLayout ? " dashboard-panel-card--summary-compact" : ""
       }`}
     >

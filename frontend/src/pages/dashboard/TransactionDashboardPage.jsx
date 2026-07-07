@@ -72,7 +72,7 @@ export default function TransactionDashboardPage() {
 
           <div
             className={`dashboard-panels-row${
-              page.showEarningsPanelTabs ? " dashboard-panels-row--with-summary-tabs" : ""
+              page.showSummaryPanelTabs ? " dashboard-panels-row--with-summary-tabs" : ""
             }`}
           >
             <DashboardTrendChart
@@ -104,7 +104,8 @@ export default function TransactionDashboardPage() {
               exchangeRates={page.exchangeRates}
               exchangeRatesLoading={page.exchangeRatesLoading}
               exchangeRateScopeKey={page.exchangeRateScopeKey}
-              showEarningsPanelTabs={page.showEarningsPanelTabs}
+              showSummaryPanelTabs={page.showSummaryPanelTabs}
+              showEarningPanelTab={page.showEarningPanelTab}
               earningsPanelView={page.earningsPanelView}
               onEarningsPanelViewChange={page.setEarningsPanelView}
               panelAnimActive={page.panelsAnimReady}

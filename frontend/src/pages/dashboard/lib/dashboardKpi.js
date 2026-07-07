@@ -44,8 +44,13 @@ export function viewerHasEarningsConfig(dashboardData, options = {}) {
   if (directPct > 0) return true;
   const linkMul = parseFloat(dashboardData._link_multiplier || 0) || 0;
   if (linkMul > 0 && linkMul !== 1) return true;
-  if (options.subsidiaryGroupDrillDown) return false;
   if (options.groupsAllCompaniesAggregate) return false;
+  if (options.subsidiaryGroupDrillDown) {
+    const groupEquityPct = parseFloat(dashboardData.group_equity_percentage) || 0;
+    if (groupEquityPct > 0) return true;
+    const groupAccPct = parseFloat(dashboardData.group_account_percentage) || 0;
+    return groupAccPct > 0;
+  }
   if (dashboardData.has_group_ownership) return true;
   return false;
 }
