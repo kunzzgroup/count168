@@ -64,6 +64,10 @@ import {
   buildCompanyNetProfitRowsFromPairs,
 } from "../lib/dashboardCompanyProfit.js";
 import {
+  applyTenantLedgerToParams,
+  LEDGER_GROUP,
+} from "../../../utils/company/tenantLedgerParams.js";
+import {
   canAccessGroupLedgerForGroup,
   canPrefetchCompanyScope,
   canUseGroupOnlyMode,
@@ -186,6 +190,15 @@ function resolveViewGroupForCompany(companyRow, fallbackGroup = null) {
   return fallbackGroup ? String(fallbackGroup).trim().toUpperCase() : null;
 }
 
+/** Group ledger dashboard API params (view_group + group_only; never legacy group-entity company row). */
+function appendGroupLedgerDashboardParams(q, groupKey) {
+  const g = String(groupKey || "").trim().toUpperCase();
+  if (!g) return "";
+  applyTenantLedgerToParams(q, { ledger: LEDGER_GROUP, groupId: g, companyId: null });
+  q.set("view_group", g);
+  return g;
+}
+
 /** Query params for group-only dashboard currency (matches loadCurrencies group-only branch). */
 function buildGroupOnlyScopeCurrencyQuery(companies, groupKey) {
   const g = String(groupKey).trim().toUpperCase();
@@ -198,8 +211,7 @@ function buildGroupOnlyScopeCurrencyQuery(companies, groupKey) {
     q.set("group_id", g);
     q.set("group_aggregate", "1");
   } else {
-    q.set("group_id", g);
-    q.set("view_group", g);
+    appendGroupLedgerDashboardParams(q, g);
   }
   return q;
 }
@@ -348,10 +360,12 @@ function buildSubsidiaryCompanyCurrencyQuery(companyId, viewGroup) {
 function scopeCurrencyQueryUsesGroupLedger(queryString) {
   const params = new URLSearchParams(queryString);
   if (params.get("group_aggregate") === "1") return true;
+  if (params.get("group_only") === "1") return true;
   const vg = params.get("view_group") || params.get("group_id");
   if (!vg) return false;
   if (params.get("subsidiary_accounts_only") === "1") return false;
   if (params.get("company_ids")) return false;
+  if (params.get("company_id")) return false;
   return true;
 }
 
@@ -3703,13 +3717,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!data) return;
       const cur = currencyOverride ?? currencyCodeRef.current;
       if (usesGroupLedgerDashboard && selectedGroup) {
-        const vg = String(selectedGroup).trim().toUpperCase();
         const q = new URLSearchParams({
           date_from: rangeFrom,
           date_to: rangeTo,
-          view_group: vg,
-          group_id: vg,
         });
+        appendGroupLedgerDashboardParams(q, selectedGroup);
         if (cur) q.append("currency", cur);
         setDashboardPayloadCache(q.toString(), data);
         return;
@@ -3781,9 +3793,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const q = new URLSearchParams({
         date_from: rangeFrom,
         date_to: rangeTo,
-        view_group: g,
-        group_id: g,
       });
+      appendGroupLedgerDashboardParams(q, g);
       if (cur) q.append("currency", cur);
       setDashboardPayloadCache(q.toString(), data);
     },
@@ -3930,9 +3941,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         currency: code,
       });
       if (usesGroupLedgerDashboard && selectedGroup) {
-        const vg = String(selectedGroup).trim().toUpperCase();
-        q.set("view_group", vg);
-        q.set("group_id", vg);
+        appendGroupLedgerDashboardParams(q, selectedGroup);
       } else if (companyId != null) {
         q.set("company_id", String(companyId));
         appendDashboardGroupTabParams(q, dashboardViewGroup, { subsidiaryOnly: subsidiaryDashboardScope });
@@ -4116,9 +4125,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         bootstrap_scope: scope,
       });
       if (usesGroupLedgerDashboard && selectedGroup) {
-        const vg = String(selectedGroup).trim().toUpperCase();
-        q.set("view_group", vg);
-        q.set("group_id", vg);
+        appendGroupLedgerDashboardParams(q, selectedGroup);
       } else if (companyId != null) {
         q.set("company_id", String(companyId));
         appendDashboardGroupTabParams(q, dashboardViewGroup, { subsidiaryOnly: subsidiaryDashboardScope });
@@ -4358,8 +4365,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!canAccessGroupLedgerForGroup(meRef.current, vg, companies)) {
         throw new Error(i18n.failedToLoadDashboard);
       }
-      q.append("view_group", vg);
-      q.append("group_id", vg);
+      appendGroupLedgerDashboardParams(q, vg);
       const cacheKey = q.toString();
       const cachedPayload = getDashboardPayloadCache(cacheKey);
       if (cachedPayload != null) {
@@ -5738,13 +5744,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             hydratedFromPayload = true;
           }
         } else if (usesGroupLedgerDashboard && selectedGroup) {
-          const vg = String(selectedGroup).trim().toUpperCase();
           const q = new URLSearchParams({
             date_from: dateFrom,
             date_to: dateTo,
-            view_group: vg,
-            group_id: vg,
           });
+          appendGroupLedgerDashboardParams(q, selectedGroup);
           if (currencyCode) q.append("currency", currencyCode);
           const payload = getDashboardPayloadCache(q.toString());
           if (payload) {

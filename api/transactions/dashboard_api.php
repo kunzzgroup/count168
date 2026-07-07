@@ -3651,7 +3651,8 @@ try {
         $groupAccountPct = (float) ($viewerGroupShare['percentage'] ?? 0);
         $hasGroupAccountOwnership = !empty($viewerGroupShare['has']);
         $subsidiaryCompanyEarningsTotal = (string) ($subsidiaryEarnings['company_earnings_total'] ?? '0');
-        $groupKpiProfit = money_cmp($subsidiaryCompanyEarningsTotal, '0') !== 0
+        $subsidiaryByCompany = $subsidiaryEarnings['by_company'] ?? [];
+        $groupKpiProfit = $subsidiaryByCompany !== []
             ? $subsidiaryCompanyEarningsTotal
             : (string) ($groupResult['profit']['period_total'] ?? '0');
         echo json_encode([
