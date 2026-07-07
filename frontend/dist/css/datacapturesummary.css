@@ -1574,7 +1574,7 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             line-height: 1.35 !important;
         }
 
-        /* Summary table: keep enlarged font without horizontal scrollbar. */
+        /* Summary table grid template layout (no horizontal scroll). */
         .summary-table-x-scroll {
             overflow-x: hidden !important;
         }
@@ -1585,43 +1585,48 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             table-layout: fixed !important;
         }
 
+        #summaryTable thead,
+        #summaryTable tbody {
+            display: block;
+            width: 100%;
+        }
+
+        #summaryTable thead tr,
+        #summaryTable tbody tr {
+            display: grid;
+            grid-template-columns: 2.2fr 1.8fr 0.5fr 0.9fr 2.5fr 0.8fr 0.55fr 0.85fr 1fr 0.5fr 0.5fr;
+            width: 100%;
+            align-items: stretch;
+        }
+
         #summaryTable th,
         #summaryTable td {
             font-size: 1.4rem !important;
             font-weight: 700 !important;
             line-height: 1.35 !important;
-            padding: 6px 10px !important;
+            padding: 6px 8px !important;
             min-height: calc(1.4rem * 1.35 + 12px);
             height: auto !important;
-            vertical-align: middle !important;
             min-width: 0 !important;
-            white-space: normal !important;
-            word-break: break-word !important;
-            overflow-wrap: anywhere !important;
+            border: 1px solid #d0d7de !important;
+            box-sizing: border-box;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+            vertical-align: middle !important;
+            text-align: center !important;
         }
 
+        /* Left-align verbose text columns, keep short numeric/control columns centered. */
         #summaryTable th:nth-child(1),
-        #summaryTable td:nth-child(1) { min-width: 0 !important; }
+        #summaryTable td:nth-child(1),
         #summaryTable th:nth-child(2),
-        #summaryTable td:nth-child(2) { min-width: 0 !important; }
-        #summaryTable th:nth-child(3),
-        #summaryTable td:nth-child(3) { min-width: 0 !important; }
-        #summaryTable th:nth-child(4),
-        #summaryTable td:nth-child(4) { min-width: 0 !important; }
+        #summaryTable td:nth-child(2),
         #summaryTable th:nth-child(5),
-        #summaryTable td:nth-child(5) { min-width: 0 !important; }
-        #summaryTable th:nth-child(6),
-        #summaryTable td:nth-child(6) { min-width: 0 !important; }
-        #summaryTable th:nth-child(7),
-        #summaryTable td:nth-child(7) { min-width: 0 !important; }
-        #summaryTable th:nth-child(8),
-        #summaryTable td:nth-child(8) { min-width: 0 !important; }
-        #summaryTable th:nth-child(9),
-        #summaryTable td:nth-child(9) { min-width: 0 !important; }
-        #summaryTable th:nth-child(10),
-        #summaryTable td:nth-child(10) { min-width: 0 !important; }
-        #summaryTable th:nth-child(11),
-        #summaryTable td:nth-child(11) { min-width: 0 !important; }
+        #summaryTable td:nth-child(5) {
+            text-align: left !important;
+            justify-content: flex-start;
+        }
 
         /* Enhanced Table Styles for Captured Data - 与datacapture.php中的excel-table样式完全一致 */
         /* Data Capture Table - 自动调整列宽，同时占满容器宽度（与datacapture.php中的excel-table一致） */
