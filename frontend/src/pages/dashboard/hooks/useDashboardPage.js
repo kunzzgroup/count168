@@ -2640,6 +2640,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (curRes.ok && curJson.success && Array.isArray(curJson.data)) {
           codes = curJson.data.map((r) => String(r.code).toUpperCase());
         }
+        if (subsidiaryDashboardScope && singleCid) {
+          const row = companies.find((c) => parseInt(c.id, 10) === singleCid);
+          const settingCodes = await fetchCompanyCurrencySettingCodes(
+            singleCid,
+            row,
+            effectiveGroupKey,
+            groupIds
+          );
+          if (settingCodes.length) {
+            codes = [...new Set([...codes, ...settingCodes])];
+          }
+        }
         if (!codes.length && singleCid) {
           const cached = currenciesByCompanyRef.current.get(singleCid);
           if (cached?.length) codes = [...cached];
@@ -6799,12 +6811,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [earningsCurrencyRows, earningsPanelView, useConvertedEarnings]
   );
 
-  /** Multi-currency breakdown always uses the Rate column (never Share %). */
-  const earningsBreakdownShowsRate = useMemo(
-    () => currencies.length > 1,
-    [currencies.length]
-  );
-
   const convertedPanelTotal = useMemo(() => {
     if (!useConvertedEarnings) return null;
     const rows = earningsCurrencyRows.map((row) => ({
@@ -6863,6 +6869,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   );
 
   const showEarningPanelTab = kpi.showEarnings || showSummaryPanelTabs;
+
+  /** Multi-currency breakdown uses Rate column; group+company tabs use same layout as IG+95. */
+  const earningsBreakdownShowsRate = useMemo(
+    () => currencies.length > 1 || showSummaryPanelTabs,
+    [currencies.length, showSummaryPanelTabs]
+  );
 
   const summaryPanelLabel =
     earningsPanelView === "earning" ? i18n.earnings : i18n.netProfit;

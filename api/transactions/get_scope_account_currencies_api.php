@@ -130,8 +130,27 @@ try {
             }
             $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $viewGroup);
         } elseif ($subsidiaryAccountsOnly && $primaryCompanyId > 0) {
-            // Subsidiary drill-down: Currency Setting table only (exclude group SGD on shared anchor FK).
+            // Subsidiary drill-down: Currency Setting + active account_currency (matches IG+95 multi-currency panel).
             $map = dashboardLoadCurrencyMap($pdo, $primaryCompanyId, true);
+            $accountIds = dashboardCollectScopeAccountIds(
+                $pdo,
+                $primaryCompanyId,
+                $viewGroup !== '' ? $viewGroup : null,
+                0,
+                true
+            );
+            if ($accountIds !== []) {
+                $accountMap = dashboardLoadAccountCurrencyMap(
+                    $pdo,
+                    $accountIds,
+                    [$primaryCompanyId],
+                    false,
+                    true
+                );
+                foreach ($accountMap as $id => $code) {
+                    $map[(int) $id] = $code;
+                }
+            }
             $rows = [];
             foreach ($map as $id => $code) {
                 $rows[] = ['id' => (int) $id, 'code' => $code];
