@@ -236,7 +236,7 @@ export default function CaptureMaintenancePage() {
 
   // -- Boot Logic --
   useEffect(() => {
-    if (!sessionReady || !me) return;
+    if (!sessionReady || !me || !bootLoading) return;
     let cancelled = false;
     (async () => {
       try {
