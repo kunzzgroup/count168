@@ -6986,16 +6986,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [groupOnlyDashboard, dashboardData]
   );
 
-  /** Currency + Earning tabs: multi-currency, group+company drill-down, or group-only ledger. */
-  const showSummaryPanelTabs = useMemo(
-    () =>
-      currencies.length > 1 ||
-      Boolean(groupOnlyDashboard) ||
-      Boolean(companyId != null && (selectedGroup || usesGroupLedgerDashboard)),
-    [currencies.length, groupOnlyDashboard, companyId, selectedGroup, usesGroupLedgerDashboard]
-  );
-
   const showEarningPanelTab = kpi.showEarnings;
+  /** Show tab strip only when there is an alternate view to switch to. */
+  const showSummaryPanelTabs = useMemo(
+    () => showEarningPanelTab || showNetProfitForTab,
+    [showEarningPanelTab, showNetProfitForTab]
+  );
 
   /** Multi-currency breakdown uses Rate column; group+company tabs use same layout as IG+95. */
   const earningsBreakdownShowsRate = useMemo(
