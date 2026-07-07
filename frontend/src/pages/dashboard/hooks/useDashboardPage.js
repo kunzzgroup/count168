@@ -753,6 +753,23 @@ function dashboardScopeNeedsCurrency({
   return companyId != null;
 }
 
+/** Best-effort currency for API/cache before React state settles (subsidiary MYR, etc.). */
+function resolveProvisionalDashboardCurrency({
+  currencyCode,
+  companyId,
+  currenciesRef,
+  currenciesByCompanyRef,
+}) {
+  if (currencyCode) return String(currencyCode).trim().toUpperCase();
+  const cid = companyId != null ? parseInt(companyId, 10) : Number.NaN;
+  if (Number.isFinite(cid) && cid > 0) {
+    const fromCompany = currenciesByCompanyRef?.current?.get(cid)?.[0];
+    if (fromCompany) return String(fromCompany).trim().toUpperCase();
+  }
+  const fromList = currenciesRef?.current?.[0];
+  return fromList ? String(fromList).trim().toUpperCase() : "";
+}
+
 function resolveDashboardActiveCurrency({
   codes,
   scopeKey,
@@ -997,9 +1014,21 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         overrides.mergedSubsetIds !== undefined ? overrides.mergedSubsetIds : mergedSubsetIds;
       const cur = overrides.currencyCode !== undefined ? overrides.currencyCode : currencyCode;
       let effectiveCur = cur ? String(cur).trim().toUpperCase() : "";
-      if (!effectiveCur && gaMode && cid == null) {
-        const list = currenciesRef.current.length ? currenciesRef.current : currencies;
-        effectiveCur = list[0] ? String(list[0]).trim().toUpperCase() : "";
+      const list = currenciesRef.current.length ? currenciesRef.current : currencies;
+      if (!effectiveCur && gaMode && cid == null && list[0]) {
+        effectiveCur = String(list[0]).trim().toUpperCase();
+      }
+      if (!effectiveCur && cid != null && list[0]) {
+        const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
+        const usesLedger =
+          !gAll &&
+          !gaMode &&
+          selGroup &&
+          row &&
+          companyRowIsGroupEntity(row, selGroup);
+        if (!usesLedger) {
+          effectiveCur = String(list[0]).trim().toUpperCase();
+        }
       }
       const from = overrides.dateFrom ?? dateFrom;
       const to = overrides.dateTo ?? dateTo;
@@ -2868,7 +2897,21 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   /** Dashboard KPI can load before currency pills settle — retry after merge data is ready. */
   useEffect(() => {
     if (!gcBootstrapReady || !sessionReady || !meRef.current) return;
-    if (companyId != null) return;
+    if (companyId != null) {
+      if (!subsidiaryDashboardScope || currencyCode || currencies.length < 1) return;
+      const scopeKey = buildDashboardCurrencyScopeKey({ companyId, selectedGroup });
+      const nextCode = resolveActiveCurrencyForScope({
+        codes: currencies,
+        scopeKey,
+        isCompanyOnlyScope: false,
+        isGroupOnlyScope: false,
+        prev: currencyCodeRef.current,
+      });
+      if (nextCode && nextCode !== currencyCodeRef.current) {
+        setCurrencyCode(nextCode);
+      }
+      return;
+    }
     if (!groupAllMode && !(groupsAllMode && !groupAllMode)) return;
     if (currencies.length > 1) return;
     primeCurrenciesFromCache({
@@ -2888,8 +2931,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     selectedGroup,
     companiesSig,
     currencies.length,
+    currencies,
+    currencyCode,
+    subsidiaryDashboardScope,
     me?.user_id,
     primeCurrenciesFromCache,
+    resolveActiveCurrencyForScope,
   ]);
 
   useEffect(() => {
@@ -4132,7 +4179,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       } else {
         throw new Error(i18n.failedToLoadDashboard);
       }
-      const effectiveCurrency = currencyOverride ?? currencyCode;
+      const effectiveCurrency =
+        currencyOverride ??
+        (currencyCodeRef.current ||
+          resolveProvisionalDashboardCurrency({
+            currencyCode: currencyCodeRef.current,
+            companyId,
+            currenciesRef,
+            currenciesByCompanyRef,
+          }));
       if (effectiveCurrency) q.set("currency", effectiveCurrency);
 
       const codesForBootstrap = currencyOverride
@@ -5728,12 +5783,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         scopeEarningsReady
       ) {
         if (companyId != null) {
+          const provisionalCur = resolveProvisionalDashboardCurrency({
+            currencyCode,
+            companyId,
+            currenciesRef,
+            currenciesByCompanyRef,
+          });
           const q = new URLSearchParams({
             date_from: dateFrom,
             date_to: dateTo,
             company_id: String(companyId),
           });
-          if (currencyCode) q.append("currency", currencyCode);
+          if (provisionalCur) q.append("currency", provisionalCur);
           appendDashboardGroupTabParams(q, dashboardViewGroup, { subsidiaryOnly: subsidiaryDashboardScope });
           const payload = getDashboardPayloadCache(q.toString());
           if (payload) {
@@ -5813,13 +5874,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       groupsAllMode,
       mergedSubsetIds,
     });
-    const provisionalCurrency =
-      currencyCode ||
-      (companyId != null
-        ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))?.[0]
-        : null) ||
-      currenciesRef.current[0] ||
-      "";
+    const provisionalCurrency = resolveProvisionalDashboardCurrency({
+      currencyCode,
+      companyId,
+      currenciesRef,
+      currenciesByCompanyRef,
+    });
     if (
       needsDashboardFetch &&
       scopeNeedsCurrency &&

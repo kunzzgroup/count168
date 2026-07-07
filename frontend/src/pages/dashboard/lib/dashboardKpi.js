@@ -130,15 +130,15 @@ function resolveEarningsMultiplier(dashboardData, selectedGroup, options = {}, {
   const hasLinkOwnership = linkMul > 0 && linkMul !== 1;
   const inGroupView = !!selectedGroup;
   const directPct = ownershipPercentage / 100;
+  // Subsidiary company view (e.g. AP + C168): Earnings = Net Profit after company expenses (图一).
+  if (subsidiaryGroupDrillDown) {
+    return 1;
+  }
   if (hasLinkOwnership) {
     const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
     return linkMul * viewerGroupShare;
   }
   if (directPct > 0) return directPct;
-  // Subsidiary company view (e.g. AP + C168): Earnings = Net Profit after company expenses (图一).
-  if (subsidiaryGroupDrillDown) {
-    return 1;
-  }
   if (hasGroupOwnership) {
     return (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
   }

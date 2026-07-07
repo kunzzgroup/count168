@@ -1187,21 +1187,10 @@ function dashboardOwnershipFieldsFromDashboardPayload(array $data): array
     ];
 }
 
-/** Same as company-dashboard Earnings KPI (图一): net profit after expenses × direct %, else full net. */
+/** Same as company-dashboard Earnings KPI (图一): full net profit after expenses (not × ownership %). */
 function dashboardComputeCompanyViewerEarningsFromPayload(array $data): string
 {
-    $netProfit = dashboardCompanyPeriodNetProfitFromPayload($data);
-    $ownership = dashboardOwnershipFieldsFromDashboardPayload($data);
-    $direct = (float) ($ownership['ownership_percentage'] ?? 0);
-    if ($direct > 0) {
-        return money_mul(
-            $netProfit,
-            money_div((string) $direct, '100', MONEY_SCALE),
-            MONEY_SCALE
-        );
-    }
-
-    return $netProfit;
+    return dashboardCompanyPeriodNetProfitFromPayload($data);
 }
 
 /**
