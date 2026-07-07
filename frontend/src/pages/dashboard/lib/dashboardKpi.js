@@ -82,7 +82,14 @@ export function sumSubsidiaryCompanyEarnings(dashboardData) {
   if (!dashboardData) return 0;
   const rows = dashboardData.subsidiary_earnings_by_company;
   if (Array.isArray(rows) && rows.length) {
-    return rows.reduce((sum, row) => sum + (parseFloat(row.company_earning) || 0), 0);
+    return rows.reduce((sum, row) => {
+      const companyEarning = parseFloat(row.company_earning);
+      if (Number.isFinite(companyEarning)) {
+        return sum + companyEarning;
+      }
+      // Backward compatibility for synthetic rows that only carried net_profit.
+      return sum + (parseFloat(row.net_profit) || 0);
+    }, 0);
   }
   const explicit = parseFloat(dashboardData.subsidiary_company_earnings_total);
   return Number.isFinite(explicit) ? explicit : 0;

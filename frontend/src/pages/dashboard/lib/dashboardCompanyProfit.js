@@ -109,6 +109,8 @@ export function buildCompanyNetProfitRowFromPayload(companyRow, data, viewGroup 
     company_id: companyId,
     group_id: groupId,
     net_profit: netProfit,
+    // Group All synthetic rows should still satisfy group-aggregate Profit = Σ company_earning.
+    company_earning: netProfit,
     group_equity_pct: parseFloat(data.group_equity_percentage) || 0,
     account_pct: parseFloat(data.group_account_percentage) || 0,
     group_share: netProfit,
