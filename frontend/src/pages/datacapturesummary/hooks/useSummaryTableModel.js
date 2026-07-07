@@ -235,6 +235,9 @@ export function useSummaryTableModel({
 
   useEffect(() => {
     if (!enabled || !hasCaptureData || !tableData || dataPopulating) return;
+    // Auto-repopulate is only for initial bootstrap recovery.
+    // After first successful populate, user edits (e.g. delete/clear) must not be auto-overwritten.
+    if (initialPopulateCompletedRef.current) return;
     if (summaryRowsLookPopulated(rows)) return;
     if (Array.isArray(rows) && rows.length === 0 && loadSuppressedRowKeys().size > 0) return;
     if (!freshFromCapture && serverStateQueryEnabled && serverStateLoading) return;
