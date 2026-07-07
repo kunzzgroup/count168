@@ -6867,13 +6867,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const summaryPanelLabel =
     earningsPanelView === "earning" ? i18n.earnings : i18n.netProfit;
 
-  /** Pie panel hero total — multi-currency: converted sum for active tab. */
+  /** Pie panel hero total — matches KPI card unless All-currencies aggregate mode. */
   const summaryEarningsValue = useMemo(() => {
     const earningTab = earningsPanelView === "earning";
     if (showAllCurrencies && canShowAllCurrencies && multiCurrencyKpi) {
       return earningTab ? multiCurrencyKpi.earnings : multiCurrencyKpi.netProfit;
     }
-    if (currencies.length > 1 && useConvertedEarnings && convertedPanelTotal != null) {
+    if (showAllCurrencies && canShowAllCurrencies && currencies.length > 1 && useConvertedEarnings && convertedPanelTotal != null) {
       return convertedPanelTotal;
     }
     return earningTab ? kpi.earnings : kpi.netProfit;
@@ -6924,7 +6924,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       (exchangeRatesLoading ||
         earningsByCurrencyLoading ||
         !allCurrencyEarningsReady ||
-        (useConvertedEarnings && convertedPanelTotal == null)));
+        (showAllCurrencies &&
+          canShowAllCurrencies &&
+          useConvertedEarnings &&
+          convertedPanelTotal == null)));
   const earningsPanelStable =
     currencies.length <= 1 ||
     (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
