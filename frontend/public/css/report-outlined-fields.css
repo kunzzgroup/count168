@@ -73,6 +73,7 @@ body.maintenance-page .payment-maintenance-page-root .customer-report-filters .r
 body.maintenance-page .payment-maintenance-page-root .customer-report-filters .report-date-range-picker-container .date-range-picker i.fa-calendar-alt {
     margin: 0 !important;
     flex: 0 0 auto;
+    border-radius: 6px 0 0 6px !important;
 }
 
 body.maintenance-page .payment-maintenance-page-root .customer-report-filters .report-date-range-picker-container .date-range-picker #date-range-display {
