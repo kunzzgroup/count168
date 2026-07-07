@@ -249,19 +249,6 @@ export function DashboardEarningsSummary({
       >
         {i18n.earningsChartTab}
       </button>
-      {showEarningPanelTab && (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={earningsPanelView === "earning"}
-          className={`dashboard-summary-view-tab${
-            earningsPanelView === "earning" ? " is-active" : ""
-          }`}
-          onClick={() => onEarningsPanelViewChange?.("earning")}
-        >
-          {i18n.earningChartTab}
-        </button>
-      )}
       {showNetProfitForTab && (
         <button
           type="button"
@@ -273,6 +260,19 @@ export function DashboardEarningsSummary({
           onClick={() => onEarningsPanelViewChange?.("netProfitFor")}
         >
           {i18n.netProfitChartTab}
+        </button>
+      )}
+      {showEarningPanelTab && (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={earningsPanelView === "earning"}
+          className={`dashboard-summary-view-tab${
+            earningsPanelView === "earning" ? " is-active" : ""
+          }`}
+          onClick={() => onEarningsPanelViewChange?.("earning")}
+        >
+          {i18n.earningChartTab}
         </button>
       )}
     </div>
