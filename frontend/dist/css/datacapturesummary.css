@@ -2112,3 +2112,58 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             border-top: none !important;
         }
 
+        /* Final final override: summary table button/account alignment + 1.4rem typography */
+        body.dashboard-page.datacapture-summary-page #summaryTable thead tr,
+        body.dashboard-page.datacapture-summary-page #summaryTable tbody tr,
+        body.dashboard-page.datacapture-summary-page #summaryTable tfoot tr {
+            grid-template-columns:
+                minmax(0, 2.4fr)
+                minmax(0, 2.2fr)
+                minmax(24px, 0.3fr)
+                minmax(0, 0.9fr)
+                minmax(0, 2.6fr)
+                minmax(0, 0.8fr)
+                minmax(0, 0.55fr)
+                minmax(0, 0.95fr)
+                minmax(0, 1.1fr)
+                minmax(0, 0.5fr)
+                minmax(0, 0.55fr) !important;
+        }
+
+        body.dashboard-page.datacapture-summary-page #summaryTable th,
+        body.dashboard-page.datacapture-summary-page #summaryTable td {
+            font-size: 1.4rem !important;
+            font-weight: 700 !important;
+            line-height: 1.35 !important;
+            min-height: 36px !important;
+        }
+
+        body.dashboard-page.datacapture-summary-page #summaryTable th:nth-child(2),
+        body.dashboard-page.datacapture-summary-page #summaryTable td:nth-child(2) {
+            border-right: none !important;
+            padding-right: 2px !important;
+        }
+
+        body.dashboard-page.datacapture-summary-page #summaryTable th:nth-child(3),
+        body.dashboard-page.datacapture-summary-page #summaryTable td:nth-child(3) {
+            border-left: none !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            text-align: left !important;
+        }
+
+        body.dashboard-page.datacapture-summary-page #summaryTable tbody td:nth-child(3) {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+        }
+
+        body.dashboard-page.datacapture-summary-page #summaryTable .add-account-btn {
+            float: none !important;
+            margin: 0 !important;
+            width: 1.6rem !important;
+            height: 1.6rem !important;
+            font-size: 1rem !important;
+            line-height: 1 !important;
+        }
+
