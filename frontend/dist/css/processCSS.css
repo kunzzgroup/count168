@@ -16,19 +16,20 @@ body.process-page {
     background-blend-mode: screen, screen, multiply, screen, normal;
     color: #334155;
     overflow-x: hidden;
-    overflow-y: hidden;
+    overflow-y: auto;
     position: relative;
 }
 
-/* Games Process List（非 Bank / 非 Show All）：全视口一屏，禁止整页纵向滚动（含普通 desktop） */
+/* Games Process List（非 Bank / 非 Show All）：允许整页纵向滚动 */
 html:has(body.process-page:not(.process-page--bank):not(.process-page--show-all)) {
     height: 100%;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 body.process-page:not(.process-page--bank):not(.process-page--show-all) {
     overflow-x: hidden !important;
-    overflow-y: hidden !important;
+    overflow-y: auto !important;
     height: 100vh !important;
     max-height: 100vh !important;
 }
@@ -36,7 +37,8 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) {
 body.process-page:not(.process-page--bank):not(.process-page--show-all) .container {
     height: 100vh !important;
     max-height: 100vh !important;
-    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
     display: flex !important;
     flex-direction: column !important;
     box-sizing: border-box !important;
@@ -47,7 +49,7 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
     min-height: 0 !important;
     height: auto !important;
     max-height: none !important;
-    overflow: hidden !important;
+    overflow-y: auto !important;
     display: flex !important;
     flex-direction: column !important;
 }
