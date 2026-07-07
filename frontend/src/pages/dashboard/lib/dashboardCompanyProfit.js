@@ -124,6 +124,7 @@ export function buildCompanyNetProfitRowFromPayload(companyRow, data, viewGroup 
 }
 
 function resolveGroupAllCompanyEarningsMultiplier(data) {
+  if (!data?.has_ownership_setup) return 0;
   const directPct = parseFloat(data.ownership_percentage) || 0;
   if (directPct > 0) return directPct / 100;
   const linkMul = parseFloat(data._link_multiplier || 0) || 0;

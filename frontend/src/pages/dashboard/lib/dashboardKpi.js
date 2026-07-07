@@ -41,6 +41,7 @@ export function netProfitFromDashboardPayload(dashboardData) {
 export function viewerHasEarningsConfig(dashboardData, options = {}) {
   if (!dashboardData) return false;
   const subsidiaryGroupDrillDown = !!options.subsidiaryGroupDrillDown;
+  if (subsidiaryGroupDrillDown && !dashboardData.has_ownership_setup) return false;
   const directPct = parseFloat(dashboardData.ownership_percentage) || 0;
   if (subsidiaryGroupDrillDown) {
     if (directPct > 0) return true;
@@ -162,6 +163,7 @@ function resolveEarningsMultiplier(dashboardData, selectedGroup, options = {}, {
   // - In group drill-down, only explicit ownership should affect earnings.
   // - No ownership config means no earnings (0), no fallback to full net profit.
   if (subsidiaryGroupDrillDown) {
+    if (!dashboardData.has_ownership_setup) return 0;
     if (directPct > 0) return directPct;
     if (hasLinkOwnership) {
       const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
