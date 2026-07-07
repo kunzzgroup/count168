@@ -1,0 +1,1 @@
+import{r as i}from"./index-B-zT00wh.js";import{u as n,g as d}from"./partnershipAuditReadOnly-C8lzfQ6Y.js";function p(t,r,a){const u=n(t),o="Read-only account: this action is not allowed.",e=i.useCallback(()=>d(t,()=>{typeof r=="function"&&r(a||o,"danger")}),[t,r,a]);return{mutationsBlocked:u,guardWrite:e,isLocked:u}}export{p as u};
