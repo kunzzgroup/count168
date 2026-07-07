@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { buildTemplateKey } from "../formula/summarySaveTemplatePure.js";
-import { addSuppressedRows } from "../lib/summarySuppressedRows.js";
+import { addSuppressedRows, makeSuppressionKey } from "../lib/summarySuppressedRows.js";
 import {
   mapRowsWithAmountRecalc,
   recalculateRowAmounts,
@@ -87,6 +87,7 @@ export function SummaryProvider({ children, initialRows = [] }) {
 
   const deleteSelectedRows = useCallback(() => {
     const selectedToRemove = new Set();
+    const selectedSuppressionKeys = new Set();
     const removedMainRefs = [];
     const templatesToDelete = [];
     const suppressedRows = [];
@@ -94,6 +95,10 @@ export function SummaryProvider({ children, initialRows = [] }) {
       if (!row.deleteChecked) continue;
       suppressedRows.push(row);
       selectedToRemove.add(row.key);
+      const suppressionKey = makeSuppressionKey(row);
+      if (suppressionKey) {
+        selectedSuppressionKeys.add(suppressionKey);
+      }
       const templateKey = row.templateKey || buildTemplateKey(row) || row.idProduct;
       if (templateKey || row.templateId) {
         templatesToDelete.push({
@@ -121,6 +126,7 @@ export function SummaryProvider({ children, initialRows = [] }) {
         .filter(Boolean)
     );
     let nextRows = rowsRef.current;
+    const beforeCount = rowsRef.current.length;
     flushSync(() => {
       setRows((prev) => {
         const shouldRemoveByMainSelection = (row) => {
@@ -135,9 +141,10 @@ export function SummaryProvider({ children, initialRows = [] }) {
           );
         };
 
-        let next = prev.filter(
-          (row) => !selectedToRemove.has(row.key) && !shouldRemoveByMainSelection(row)
-        );
+        const shouldRemoveDirectly = (row) =>
+          selectedToRemove.has(row.key) || selectedSuppressionKeys.has(makeSuppressionKey(row));
+
+        let next = prev.filter((row) => !shouldRemoveDirectly(row) && !shouldRemoveByMainSelection(row));
         for (const parent of parentsToResequence) {
           next = resequenceSubOrdersInRows(next, parent);
         }
@@ -146,7 +153,7 @@ export function SummaryProvider({ children, initialRows = [] }) {
       });
     });
     return {
-      removed: selectedCount,
+      removed: Math.max(selectedCount, beforeCount - nextRows.length),
       cleared: 0,
       templatesToDelete,
       nextRows,

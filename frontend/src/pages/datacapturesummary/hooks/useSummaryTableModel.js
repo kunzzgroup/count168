@@ -29,6 +29,7 @@ import { mapRowsWithAmountRecalc } from "../table/summaryRowAmount.js";
 
 import { pushSummaryNotification } from "../lib/summaryNotify.js";
 import { resolveDataCaptureScopeFromSessionMeta } from "../../datacapture/lib/dataCaptureScope.js";
+import { loadSuppressedRowKeys } from "../lib/summarySuppressedRows.js";
 
 function readCaptureId() {
   try {
@@ -235,6 +236,7 @@ export function useSummaryTableModel({
   useEffect(() => {
     if (!enabled || !hasCaptureData || !tableData || dataPopulating) return;
     if (summaryRowsLookPopulated(rows)) return;
+    if (Array.isArray(rows) && rows.length === 0 && loadSuppressedRowKeys().size > 0) return;
     if (!freshFromCapture && serverStateQueryEnabled && serverStateLoading) return;
     if (repopulateAttemptRef.current >= 3) return;
 
