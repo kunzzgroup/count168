@@ -167,6 +167,10 @@ function resolveEarningsMultiplier(dashboardData, selectedGroup, options = {}, {
     if (groupEquityPercentage > 0) {
       return groupEquityPercentage / 100;
     }
+    // Explicit ownership setup exists but resolves to 0% (e.g. VG configured 0%): show 0 earnings.
+    if (hasGroupOwnership || groupAccountPercentage > 0) {
+      return 0;
+    }
     return 1;
   }
   if (hasLinkOwnership) {

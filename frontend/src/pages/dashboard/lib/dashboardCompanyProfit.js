@@ -124,7 +124,6 @@ export function buildCompanyNetProfitRowFromPayload(companyRow, data, viewGroup 
 }
 
 function resolveGroupAllCompanyEarningsMultiplier(data) {
-  if (!data?.has_group_ownership) return 0;
   const directPct = parseFloat(data.ownership_percentage) || 0;
   if (directPct > 0) return directPct / 100;
   const linkMul = parseFloat(data._link_multiplier || 0) || 0;
@@ -134,6 +133,8 @@ function resolveGroupAllCompanyEarningsMultiplier(data) {
     const viewerGroupShare = groupAccountPct > 0 ? groupAccountPct / 100 : 1;
     return linkMul * viewerGroupShare;
   }
+  const groupEquityPct = parseFloat(data.group_equity_percentage) || 0;
+  if (groupEquityPct > 0) return groupEquityPct / 100;
   return 0;
 }
 
