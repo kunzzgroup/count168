@@ -2536,7 +2536,7 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
     width: clamp(110px, 8.5vw, 200px);
 }
 
-@media (max-height: 980px) {
+@media (max-height: 980px), (max-width: 1366px) {
 
     .process-page.process-page--bank .bank-data-table {
         font-size: clamp(11px, 0.8vw, 14px);
@@ -8781,6 +8781,7 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
     body.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region,
     body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
         overflow-x: auto !important;
+        overflow-y: auto !important;
     }
 
     body.process-page.process-page--bank:not(.process-page--bank-show-all) .pagination-container,
