@@ -1549,6 +1549,23 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             transform: translateY(-1px);
         }
 
+        /* Summary 主表（图一）统一放大字体，并修复放大后文字被裁切（图二） */
+        body.datacapture-summary-page #summaryTable th,
+        body.datacapture-summary-page #summaryTable td {
+            font-size: 1.4rem !important;
+            font-weight: 700 !important;
+            line-height: 1.35 !important;
+            padding: 6px 10px !important;
+            min-height: calc(1.4rem * 1.35 + 12px);
+            height: auto !important;
+            vertical-align: middle !important;
+            text-overflow: clip;
+        }
+
+        body.datacapture-summary-page #summaryTable .row-header {
+            min-width: 46px !important;
+        }
+
         /* Enhanced Table Styles for Captured Data - 与datacapture.php中的excel-table样式完全一致 */
         /* Data Capture Table - 自动调整列宽，同时占满容器宽度（与datacapture.php中的excel-table一致） */
         #capturedDataTable {
