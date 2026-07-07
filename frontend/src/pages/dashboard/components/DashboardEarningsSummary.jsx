@@ -51,6 +51,7 @@ export function DashboardEarningsSummary({
     height: 0,
   });
   const [hoveredPieSector, setHoveredPieSector] = useState(null);
+  const isCompanyBreakdownView = earningsPanelView === "netProfitFor";
 
   const earningsPieSlices = useMemo(() => {
     return buildEarningsPieSlices(panelCurrencyRows, { useConverted: useConvertedEarnings });
@@ -63,10 +64,13 @@ export function DashboardEarningsSummary({
   }, [panelCurrencyRows, currencyCode, useConvertedEarnings]);
 
   const pieCenterMetrics = useMemo(() => {
-    return computePieCenterMetrics(panelCurrencyRows, currencyCode, {
+    const centerCode = isCompanyBreakdownView
+      ? panelCurrencyRows?.[0]?.code || currencyCode
+      : currencyCode;
+    return computePieCenterMetrics(panelCurrencyRows, centerCode, {
       useConverted: useConvertedEarnings,
     });
-  }, [panelCurrencyRows, currencyCode, useConvertedEarnings]);
+  }, [panelCurrencyRows, currencyCode, useConvertedEarnings, isCompanyBreakdownView]);
 
   const currencyPieFillByCode = useMemo(() => {
     const map = {};
@@ -209,7 +213,6 @@ export function DashboardEarningsSummary({
   ]);
 
   const showMultiCurrencyBreakdown = currencies.length > 1;
-  const isCompanyBreakdownView = earningsPanelView === "netProfitFor";
   const isStackedLayout = true;
   const isCompactTable = !showMultiCurrencyBreakdown;
 
@@ -397,7 +400,9 @@ export function DashboardEarningsSummary({
             {(earningsBreakdownShowsRate || isCompanyBreakdownView) && (
               <span>{isCompanyBreakdownView ? i18n.breakdownGroup : i18n.breakdownOriginalAmount}</span>
             )}
-            <span>{earningsBreakdownShowsRate ? i18n.breakdownRate : i18n.breakdownShare}</span>
+            {!isCompanyBreakdownView && (
+              <span>{earningsBreakdownShowsRate ? i18n.breakdownRate : i18n.breakdownShare}</span>
+            )}
           </div>
           <div className="dashboard-summary-currency-list-body" role="list">
             {panelCurrencyRows.map((row, index) => {
@@ -472,17 +477,19 @@ export function DashboardEarningsSummary({
                       </span>
                     </div>
                   )}
-                  <span className="dashboard-summary-currency-rate" title={unitRateTitle}>
-                    {rowRateLoading
-                      ? "…"
-                      : earningsBreakdownShowsRate
-                        ? unitRateLabel && unitRateLabel !== "—"
-                          ? unitRateLabel
-                          : "—"
-                        : sharePct != null
-                          ? `${Number(sharePct).toFixed(1)}%`
-                          : "—"}
-                  </span>
+                  {!isCompanyBreakdownView && (
+                    <span className="dashboard-summary-currency-rate" title={unitRateTitle}>
+                      {rowRateLoading
+                        ? "…"
+                        : earningsBreakdownShowsRate
+                          ? unitRateLabel && unitRateLabel !== "—"
+                            ? unitRateLabel
+                            : "—"
+                          : sharePct != null
+                            ? `${Number(sharePct).toFixed(1)}%`
+                            : "—"}
+                    </span>
+                  )}
                 </div>
               );
             })}
