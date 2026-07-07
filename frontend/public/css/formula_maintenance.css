@@ -630,7 +630,6 @@ body.dashboard-page.maintenance-page {
     padding-right: var(--formula-col-formula-padding-x);
 }
 
-.formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(6).maintenance-table-cell .product-display,
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td.maintenance-table-cell.formula-cell-text .source-display,
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td.maintenance-table-cell.formula-cell-text .input-method-display,
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td.maintenance-table-cell.formula-cell-text .formula-display,
@@ -647,6 +646,18 @@ body.dashboard-page.maintenance-page {
     overflow-wrap: break-word;
     text-overflow: ellipsis;
     line-height: var(--formula-list-cell-line-height);
+}
+
+.formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(6).maintenance-table-cell .product-display,
+.formula-maintenance-page-root .formula-virtual-cell--product .product-display {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: normal;
+    overflow-wrap: normal;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(7).maintenance-table-cell .input-method-display {

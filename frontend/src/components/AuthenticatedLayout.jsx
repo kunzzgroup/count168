@@ -1471,7 +1471,7 @@ export default function AuthenticatedLayout() {
                         className={`submenu-item ${pageKey === "bankprocess-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/bankprocess-maintenance"
                       >
-                        <span>{i18n.sidebarProcess}</span>
+                        <span>{i18n.sidebarBankProcess}</span>
                       </a>
                     )}
                 </SidebarFlyoutSubmenu>

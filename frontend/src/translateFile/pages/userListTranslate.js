@@ -410,8 +410,12 @@ const USER_ROLE_I18N_KEYS = {
 
 /** User list table / modal: localized role badge */
 export function formatUserRoleDisplay(t, role) {
-  const key = USER_ROLE_I18N_KEYS[String(role || "").trim().toLowerCase()];
-  if (key) return t(key);
+  const normalizedRole = String(role || "").trim().toLowerCase();
+  const key = USER_ROLE_I18N_KEYS[normalizedRole];
+  if (key) {
+    const label = t(key);
+    return normalizedRole === "admin" ? String(label).toUpperCase() : label;
+  }
   return String(role || "").toUpperCase();
 }
 
