@@ -1585,16 +1585,11 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             table-layout: fixed !important;
         }
 
-        #summaryTable thead,
-        #summaryTable tbody {
-            display: block;
-            width: 100%;
-        }
-
         #summaryTable thead tr,
         #summaryTable tbody tr {
             display: grid;
-            grid-template-columns: 2.2fr 1.8fr 0.5fr 0.9fr 2.5fr 0.8fr 0.55fr 0.85fr 1fr 0.5fr 0.5fr;
+            /* Match fig2 proportions: readable key columns, compact control columns. */
+            grid-template-columns: 18% 15% 4% 8% 20% 7% 4% 8% 10% 3% 3%;
             width: 100%;
             align-items: stretch;
         }
@@ -1607,14 +1602,26 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             padding: 6px 8px !important;
             min-height: calc(1.4rem * 1.35 + 12px);
             height: auto !important;
+            width: auto !important;
             min-width: 0 !important;
+            max-width: none !important;
             border: 1px solid #d0d7de !important;
             box-sizing: border-box;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
             white-space: nowrap !important;
+            word-break: normal !important;
+            overflow-wrap: normal !important;
             vertical-align: middle !important;
             text-align: center !important;
+        }
+
+        /* Cancel old fixed-table widths/min-widths in legacy rules above. */
+        #summaryTable th:nth-child(n),
+        #summaryTable td:nth-child(n) {
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
         }
 
         /* Left-align verbose text columns, keep short numeric/control columns centered. */
