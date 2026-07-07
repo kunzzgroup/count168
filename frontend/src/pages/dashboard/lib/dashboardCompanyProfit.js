@@ -97,6 +97,7 @@ export function applySingleSubsidiaryGroupEarningsRows(rows, dashboardData, opti
 export function buildCompanyNetProfitRowFromPayload(companyRow, data, viewGroup = "") {
   if (!companyRow || !data) return null;
   const netProfit = netProfitFromDashboardPayload(data);
+  const profit = parseFloat(data?.period_total?.profit ?? data?.profit) || 0;
   const nativeG = companyRow?.group_id ? String(companyRow.group_id).trim().toUpperCase() : "";
   const linkG = companyRow?.link_source_group
     ? String(companyRow.link_source_group).trim().toUpperCase()
@@ -108,9 +109,10 @@ export function buildCompanyNetProfitRowFromPayload(companyRow, data, viewGroup 
     company_pk: parseInt(companyRow?.id, 10) || null,
     company_id: companyId,
     group_id: groupId,
+    profit,
     net_profit: netProfit,
-    // Group All synthetic rows should still satisfy group-aggregate Profit = Σ company_earning.
-    company_earning: netProfit,
+    // Group All KPI Profit should use all-company Profit (not Net Profit).
+    company_earning: profit,
     group_equity_pct: parseFloat(data.group_equity_percentage) || 0,
     account_pct: parseFloat(data.group_account_percentage) || 0,
     group_share: netProfit,

@@ -87,6 +87,10 @@ export function sumSubsidiaryCompanyEarnings(dashboardData) {
       if (Number.isFinite(companyEarning)) {
         return sum + companyEarning;
       }
+      const fallbackProfit = parseFloat(row.profit);
+      if (Number.isFinite(fallbackProfit)) {
+        return sum + fallbackProfit;
+      }
       // Backward compatibility for synthetic rows that only carried net_profit.
       return sum + (parseFloat(row.net_profit) || 0);
     }, 0);
