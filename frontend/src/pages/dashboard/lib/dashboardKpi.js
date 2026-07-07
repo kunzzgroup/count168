@@ -112,11 +112,8 @@ export function computeGroupAggregateEarningsAmount(dashboardData, { requireView
 
 export function isGroupAggregateEarningsPayload(dashboardData, options = {}) {
   if (!dashboardData) return false;
-  if (options.groupAggregateEarnings || dashboardData._group_aggregate_earnings) return true;
-  return (
-    dashboardData.subsidiary_earnings_total != null &&
-    dashboardData.group_ledger_net_profit != null
-  );
+  if (options.groupAggregateEarnings) return true;
+  return dashboardData._group_aggregate_earnings === true;
 }
 
 function resolveEarningsMultiplier(dashboardData, selectedGroup, options = {}, { requireViewerConfig = true } = {}) {

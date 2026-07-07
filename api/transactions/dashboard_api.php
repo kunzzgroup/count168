@@ -1679,9 +1679,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
             if ($filterCurrencyCode !== null && trim($filterCurrencyCode) !== '') {
                 $captureParams['currency'] = $filterCurrencyCode;
             }
-            if ($kpiOnly) {
-                $captureParams['kpi_only'] = '1';
-            }
+            // Full company dashboard (incl. EXPENSES) — never kpi_only; group Profit = Σ company Earnings.
 
             $cap = dashboard_api_capture($captureParams);
             if (empty($cap['success']) || !is_array($cap['data'] ?? null)) {
@@ -3736,7 +3734,8 @@ try {
         $currency_map = dashboardLoadCurrencyMap($pdo, $company_id);
     }
 
-    $scopeViewGroup = $subsidiaryAccountsOnly ? null : $viewGroupCodeForScope;
+    // Subsidiary drill-down still needs view_group for EXPENSES pool on group-entity (e.g. AP expenses for C168).
+    $scopeViewGroup = $viewGroupCodeForScope !== '' ? $viewGroupCodeForScope : null;
     $dashAcSubSql = $subsidiaryAccountsOnly ? dashboard_sql_account_company_subsidiary_only($pdo, 'ac') : '';
     $dashTxnSubSql = dashboard_sql_txn_subsidiary_only($pdo, 't');
     $dashTxnSubSqlH = dashboard_sql_txn_subsidiary_only($pdo, 'h');
