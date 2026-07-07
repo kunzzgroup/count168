@@ -1046,6 +1046,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
         return companyRowIsGroupEntity(row, selGroup);
       })();
+      if (!effectiveCur && cid == null && usesLedger && list[0]) {
+        effectiveCur = String(list[0]).trim().toUpperCase();
+      }
       const subScope = cid != null && !gAll && !gaMode && selGroup && !usesLedger;
 
       if (subScope && scopeCompanyKey != null) {
@@ -2912,6 +2915,21 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       return;
     }
+    if (usesGroupLedgerDashboard) {
+      if (currencyCode || currencies.length < 1) return;
+      const scopeKey = buildDashboardCurrencyScopeKey({ companyId: null, selectedGroup });
+      const nextCode = resolveActiveCurrencyForScope({
+        codes: currencies,
+        scopeKey,
+        isCompanyOnlyScope: false,
+        isGroupOnlyScope: true,
+        prev: currencyCodeRef.current,
+      });
+      if (nextCode && nextCode !== currencyCodeRef.current) {
+        setCurrencyCode(nextCode);
+      }
+      return;
+    }
     if (!groupAllMode && !(groupsAllMode && !groupAllMode)) return;
     if (currencies.length > 1) return;
     primeCurrenciesFromCache({
@@ -2934,6 +2952,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     currencies,
     currencyCode,
     subsidiaryDashboardScope,
+    usesGroupLedgerDashboard,
     me?.user_id,
     primeCurrenciesFromCache,
     resolveActiveCurrencyForScope,
