@@ -3782,6 +3782,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     (rangeFrom, rangeTo, currencyOverride, data, viewGroupOverride) => {
       if (!data) return;
       const cur = currencyOverride ?? currencyCodeRef.current;
+      if (companyId != null) {
+        const q = new URLSearchParams({
+          date_from: rangeFrom,
+          date_to: rangeTo,
+          company_id: String(companyId),
+        });
+        if (cur) q.append("currency", cur);
+        const viewGroup =
+          viewGroupOverride ??
+          (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null);
+        appendDashboardGroupTabParams(q, viewGroup, { subsidiaryOnly: subsidiaryDashboardScope });
+        setDashboardPayloadCache(q.toString(), data);
+        return;
+      }
       if (usesGroupLedgerDashboard && selectedGroup) {
         const q = new URLSearchParams({
           date_from: rangeFrom,
@@ -3792,18 +3806,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         setDashboardPayloadCache(q.toString(), data);
         return;
       }
-      if (companyId == null) return;
-      const q = new URLSearchParams({
-        date_from: rangeFrom,
-        date_to: rangeTo,
-        company_id: String(companyId),
-      });
-      if (cur) q.append("currency", cur);
-      const viewGroup =
-        viewGroupOverride ??
-        (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null);
-      appendDashboardGroupTabParams(q, viewGroup, { subsidiaryOnly: subsidiaryDashboardScope });
-      setDashboardPayloadCache(q.toString(), data);
     },
     [companyId, usesGroupLedgerDashboard, selectedGroup, subsidiaryDashboardScope]
   );
@@ -4006,11 +4008,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         prefetch: "1",
         currency: code,
       });
-      if (usesGroupLedgerDashboard && selectedGroup) {
-        appendGroupLedgerDashboardParams(q, selectedGroup);
-      } else if (companyId != null) {
+      if (companyId != null) {
         q.set("company_id", String(companyId));
         appendDashboardGroupTabParams(q, dashboardViewGroup, { subsidiaryOnly: subsidiaryDashboardScope });
+      } else if (usesGroupLedgerDashboard && selectedGroup) {
+        appendGroupLedgerDashboardParams(q, selectedGroup);
       } else {
         return;
       }
@@ -4190,11 +4192,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         date_to: dateTo,
         bootstrap_scope: scope,
       });
-      if (usesGroupLedgerDashboard && selectedGroup) {
-        appendGroupLedgerDashboardParams(q, selectedGroup);
-      } else if (companyId != null) {
+      if (companyId != null) {
         q.set("company_id", String(companyId));
         appendDashboardGroupTabParams(q, dashboardViewGroup, { subsidiaryOnly: subsidiaryDashboardScope });
+      } else if (usesGroupLedgerDashboard && selectedGroup) {
+        appendGroupLedgerDashboardParams(q, selectedGroup);
       } else {
         throw new Error(i18n.failedToLoadDashboard);
       }
@@ -4594,6 +4596,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const mergeAbort =
         useActiveScopeAbort !== undefined ? useActiveScopeAbort : !groupAllMode;
       const earningsOpts = earningsOnly ? { earningsOnly: true } : {};
+      if (companyId != null) {
+        const row = companies.find((c) => parseInt(c.id, 10) === parseInt(companyId, 10));
+        const viewGroup =
+          dashboardViewGroup ?? resolveViewGroupForCompany(row, selectedGroup);
+        return fetchDashboardPayload(
+          companyId,
+          rangeFrom,
+          rangeTo,
+          currencyOverride,
+          viewGroup,
+          mergeAbort,
+          earningsOpts
+        );
+      }
       if (usesGroupLedgerDashboard && selectedGroup) {
         return fetchGroupDashboardPayload(
           rangeFrom,
@@ -4679,21 +4695,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           merged.subsidiary_earnings_by_company = byCompany;
         }
         return merged;
-      }
-
-      if (companyId != null) {
-        const row = companies.find((c) => parseInt(c.id, 10) === parseInt(companyId, 10));
-        const viewGroup =
-          dashboardViewGroup ?? resolveViewGroupForCompany(row, selectedGroup);
-        return fetchDashboardPayload(
-          companyId,
-          rangeFrom,
-          rangeTo,
-          currencyOverride,
-          viewGroup,
-          mergeAbort,
-          earningsOpts
-        );
       }
 
       if (mergedSubsetIds && mergedSubsetIds.length > 1) {
