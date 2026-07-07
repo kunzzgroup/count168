@@ -42,14 +42,18 @@ export function viewerHasEarningsConfig(dashboardData, options = {}) {
   if (!dashboardData) return false;
   const subsidiaryGroupDrillDown = !!options.subsidiaryGroupDrillDown;
   const directPct = parseFloat(dashboardData.ownership_percentage) || 0;
+  if (subsidiaryGroupDrillDown) {
+    if (directPct > 0) return true;
+    const linkMul = parseFloat(dashboardData._link_multiplier || 0) || 0;
+    if (linkMul > 0 && linkMul !== 1) return true;
+    const groupEquityPct = parseFloat(dashboardData.group_equity_percentage) || 0;
+    const groupAccPct = parseFloat(dashboardData.group_account_percentage) || 0;
+    return groupEquityPct > 0 && groupAccPct > 0;
+  }
   const linkMul = parseFloat(dashboardData._link_multiplier || 0) || 0;
   if (linkMul > 0 && linkMul !== 1) return true;
-  if (!subsidiaryGroupDrillDown && directPct > 0) return true;
+  if (directPct > 0) return true;
   if (options.groupsAllCompaniesAggregate) return false;
-  if (subsidiaryGroupDrillDown) {
-    const groupEquityPct = parseFloat(dashboardData.group_equity_percentage) || 0;
-    return groupEquityPct > 0;
-  }
   if (dashboardData._group_aggregate_earnings || options.groupAggregateEarnings) {
     if (dashboardData.has_group_ownership) return true;
     const groupAccPct = parseFloat(dashboardData.group_account_percentage) || 0;
@@ -155,21 +159,19 @@ function resolveEarningsMultiplier(dashboardData, selectedGroup, options = {}, {
   const inGroupView = !!selectedGroup;
   const directPct = ownershipPercentage / 100;
   // Subsidiary company view:
-  // - In group drill-down, only group-chain ownership (link / group equity) should affect earnings.
-  // - If no group ownership chain exists at all, fallback remains full net profit.
+  // - In group drill-down, only explicit ownership should affect earnings.
+  // - No ownership config means no earnings (0), no fallback to full net profit.
   if (subsidiaryGroupDrillDown) {
+    if (directPct > 0) return directPct;
     if (hasLinkOwnership) {
       const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
       return linkMul * viewerGroupShare;
     }
     if (groupEquityPercentage > 0) {
-      return groupEquityPercentage / 100;
+      const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 0;
+      return (groupEquityPercentage / 100) * viewerGroupShare;
     }
-    // Explicit ownership setup exists but resolves to 0% (e.g. VG configured 0%): show 0 earnings.
-    if (hasGroupOwnership || groupAccountPercentage > 0) {
-      return 0;
-    }
-    return 1;
+    return 0;
   }
   if (hasLinkOwnership) {
     const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
