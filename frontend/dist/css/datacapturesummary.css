@@ -2117,17 +2117,17 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
         body.dashboard-page.datacapture-summary-page #summaryTable tbody tr,
         body.dashboard-page.datacapture-summary-page #summaryTable tfoot tr {
             grid-template-columns:
-                minmax(0, 2.4fr)
-                minmax(0, 2.2fr)
-                minmax(24px, 0.3fr)
-                minmax(0, 0.9fr)
-                minmax(0, 2.6fr)
-                minmax(0, 0.8fr)
+                minmax(0, 2.3fr)
+                minmax(0, 2fr)
+                minmax(22px, 0.26fr)
+                minmax(0, 0.6fr)
+                minmax(0, 2.35fr)
                 minmax(0, 0.55fr)
-                minmax(0, 0.95fr)
-                minmax(0, 1.1fr)
-                minmax(0, 0.5fr)
-                minmax(0, 0.55fr) !important;
+                minmax(0, 0.4fr)
+                minmax(0, 0.72fr)
+                minmax(0, 1.75fr)
+                minmax(0, 0.36fr)
+                minmax(0, 0.36fr) !important;
         }
 
         body.dashboard-page.datacapture-summary-page #summaryTable th,
@@ -2165,5 +2165,31 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             height: 1.6rem !important;
             font-size: 1rem !important;
             line-height: 1 !important;
+        }
+
+        /* Save space on narrow columns and give Processed Amount more room. */
+        body.dashboard-page.datacapture-summary-page #summaryTable th:nth-child(4),
+        body.dashboard-page.datacapture-summary-page #summaryTable td:nth-child(4),
+        body.dashboard-page.datacapture-summary-page #summaryTable th:nth-child(6),
+        body.dashboard-page.datacapture-summary-page #summaryTable td:nth-child(6),
+        body.dashboard-page.datacapture-summary-page #summaryTable th:nth-child(7),
+        body.dashboard-page.datacapture-summary-page #summaryTable td:nth-child(7),
+        body.dashboard-page.datacapture-summary-page #summaryTable th:nth-child(8),
+        body.dashboard-page.datacapture-summary-page #summaryTable td:nth-child(8),
+        body.dashboard-page.datacapture-summary-page #summaryTable th:nth-child(10),
+        body.dashboard-page.datacapture-summary-page #summaryTable td:nth-child(10),
+        body.dashboard-page.datacapture-summary-page #summaryTable th:nth-child(11),
+        body.dashboard-page.datacapture-summary-page #summaryTable td:nth-child(11) {
+            padding-left: 2px !important;
+            padding-right: 2px !important;
+        }
+
+        body.dashboard-page.datacapture-summary-page #summaryTable th:nth-child(9) {
+            white-space: normal !important;
+            line-height: 1.1 !important;
+        }
+
+        body.dashboard-page.datacapture-summary-page #summaryTable td:nth-child(9) {
+            text-overflow: clip !important;
         }
 
