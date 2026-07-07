@@ -1555,19 +1555,22 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
         }
 
         #summaryTable {
+            display: block !important;
             width: 100% !important;
             min-width: 0 !important;
             table-layout: fixed !important;
         }
 
         #summaryTable thead,
-        #summaryTable tbody {
+        #summaryTable tbody,
+        #summaryTable tfoot {
             display: block;
             width: 100%;
         }
 
         #summaryTable thead tr,
-        #summaryTable tbody tr {
+        #summaryTable tbody tr,
+        #summaryTable tfoot tr {
             display: grid;
             /* Reference other pages' minmax grid pattern; keep all columns horizontal/readable. */
             grid-template-columns:
@@ -1588,6 +1591,7 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
 
         #summaryTable th,
         #summaryTable td {
+            display: block;
             font-size: clamp(10px, 0.63vw, 12px) !important;
             font-weight: 700 !important;
             line-height: 1.3 !important;
@@ -1605,6 +1609,16 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             word-break: normal !important;
             overflow-wrap: normal !important;
             vertical-align: middle !important;
+            text-align: center !important;
+        }
+
+        /* Keep total row placement readable in grid mode. */
+        #summaryTable tfoot td.summary-total-label {
+            grid-column: 1 / span 8;
+            text-align: right !important;
+        }
+        #summaryTable tfoot td#summaryTotalAmount {
+            grid-column: 9;
             text-align: center !important;
         }
 
