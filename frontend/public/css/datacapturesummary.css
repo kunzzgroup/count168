@@ -2116,17 +2116,17 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
         body.dashboard-page.datacapture-summary-page #summaryTable tbody tr,
         body.dashboard-page.datacapture-summary-page #summaryTable tfoot tr {
             grid-template-columns:
-                minmax(0, 2.1fr)
-                minmax(0, 1.9fr)
+                minmax(0, 1.8fr)
+                minmax(0, 1.8fr)
                 minmax(14px, 0.18fr)
-                minmax(0, 0.5fr)
-                minmax(0, 2.7fr)
-                minmax(0, 0.42fr)
+                minmax(0, 0.45fr)
+                minmax(0, 3.2fr)
+                minmax(0, 0.35fr)
                 minmax(0, 0.27fr)
-                minmax(0, 0.52fr)
-                minmax(0, 1.2fr)
-                minmax(0, 0.23fr)
-                minmax(0, 0.23fr) !important;
+                minmax(0, 0.48fr)
+                minmax(0, 0.9fr)
+                minmax(0, 0.3fr)
+                minmax(0, 0.3fr) !important;
         }
 
         body.dashboard-page.datacapture-summary-page #summaryTable th,
