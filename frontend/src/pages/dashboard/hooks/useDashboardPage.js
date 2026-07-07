@@ -6860,12 +6860,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return sumConvertedEarnings(earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates).total;
   }, [useConvertedEarnings, earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates]);
 
-  /** Currency + Earning tabs: multi-currency breakdown or group+company drill-down (e.g. IG + 95). */
+  /** Currency + Earning tabs: multi-currency, group+company drill-down, or group-only ledger. */
   const showSummaryPanelTabs = useMemo(
     () =>
       currencies.length > 1 ||
+      Boolean(groupOnlyDashboard) ||
       Boolean(companyId != null && (selectedGroup || usesGroupLedgerDashboard)),
-    [currencies.length, companyId, selectedGroup, usesGroupLedgerDashboard]
+    [currencies.length, groupOnlyDashboard, companyId, selectedGroup, usesGroupLedgerDashboard]
   );
 
   const showEarningPanelTab = kpi.showEarnings || showSummaryPanelTabs;

@@ -1176,11 +1176,48 @@ function dashboardResolveViewerOwnerType(): array
     if ($userType === 'owner' || $role === 'owner') {
         $ownerTypeStr = 'owner';
         $userId = (int) ($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $userId);
-    } elseif ($userType === 'user') {
+    } elseif (
+        $userType === 'user'
+        || in_array($role, ['user', 'partnership', 'audit', 'member'], true)
+    ) {
         $ownerTypeStr = 'user';
     }
 
     return ['user_id' => $userId, 'owner_type' => $ownerTypeStr];
+}
+
+/**
+ * Candidate (account_id, owner_type) pairs for group_ownership lookup — matches Ownership page rows.
+ *
+ * @return list<array{0:int,1:string}>
+ */
+function dashboardGroupOwnershipViewerCandidates(array $viewer): array
+{
+    $candidates = [];
+    $seen = [];
+    $add = static function (int $accountId, string $ownerType) use (&$candidates, &$seen): void {
+        if ($accountId <= 0 || $ownerType === '' || $ownerType === 'account') {
+            return;
+        }
+        $key = $accountId . ':' . $ownerType;
+        if (isset($seen[$key])) {
+            return;
+        }
+        $seen[$key] = true;
+        $candidates[] = [$accountId, $ownerType];
+    };
+
+    $add((int) ($viewer['user_id'] ?? 0), (string) ($viewer['owner_type'] ?? ''));
+
+    $sessionUserId = (int) ($_SESSION['user_id'] ?? 0);
+    $realOwnerId = (int) ($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? 0);
+    $add($sessionUserId, 'user');
+    $add($realOwnerId, 'owner');
+    if ($sessionUserId > 0 && (string) ($viewer['owner_type'] ?? '') === 'account') {
+        $add($sessionUserId, 'owner');
+    }
+
+    return $candidates;
 }
 
 /** Viewer's allocation % in a group ledger (group_ownership), month-aware for past months. */
@@ -1210,7 +1247,8 @@ function dashboardLoadViewerGroupAccountPercentage(
     }
 
     $viewer = dashboardResolveViewerOwnerType();
-    if ($viewer['user_id'] <= 0) {
+    $candidates = dashboardGroupOwnershipViewerCandidates($viewer);
+    if ($candidates === []) {
         return $out;
     }
 
@@ -1224,15 +1262,18 @@ function dashboardLoadViewerGroupAccountPercentage(
           {$monthSql}
         LIMIT 1
     ");
-    $stmt->execute(
-        $useHistory
-            ? [$g, $viewer['user_id'], $viewer['owner_type'], $effectiveMonth]
-            : [$g, $viewer['user_id'], $viewer['owner_type']]
-    );
-    $pct = $stmt->fetchColumn();
-    if ($pct !== false) {
-        $out['percentage'] = (float) $pct;
-        $out['has'] = true;
+    foreach ($candidates as [$accountId, $ownerType]) {
+        $stmt->execute(
+            $useHistory
+                ? [$g, $accountId, $ownerType, $effectiveMonth]
+                : [$g, $accountId, $ownerType]
+        );
+        $pct = $stmt->fetchColumn();
+        if ($pct !== false) {
+            $out['percentage'] = (float) $pct;
+            $out['has'] = true;
+            break;
+        }
     }
 
     return $out;

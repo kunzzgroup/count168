@@ -51,6 +51,11 @@ export function viewerHasEarningsConfig(dashboardData, options = {}) {
     const groupAccPct = parseFloat(dashboardData.group_account_percentage) || 0;
     return groupAccPct > 0;
   }
+  if (dashboardData._group_aggregate_earnings || options.groupAggregateEarnings) {
+    if (dashboardData.has_group_ownership) return true;
+    const groupAccPct = parseFloat(dashboardData.group_account_percentage) || 0;
+    return groupAccPct > 0;
+  }
   if (dashboardData.has_group_ownership) return true;
   return false;
 }
@@ -80,7 +85,8 @@ export function computeGroupAggregateNetProfit(dashboardData) {
 /** Group Earning = Σ subsidiary my_earning + group ledger net profit × account %. */
 export function computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig = true } = {}) {
   if (!dashboardData) return 0;
-  if (requireViewerConfig && !dashboardData.has_group_ownership) return 0;
+  const groupAccPct = parseFloat(dashboardData.group_account_percentage) || 0;
+  if (requireViewerConfig && !dashboardData.has_group_ownership && groupAccPct <= 0) return 0;
   const subMy = sumSubsidiaryMyEarning(dashboardData);
   const grpNp =
     dashboardData.group_ledger_net_profit != null
