@@ -660,6 +660,18 @@ body.dashboard-page.maintenance-page {
     overflow-wrap: normal;
 }
 
+.formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(2).maintenance-table-cell .process-display,
+.formula-maintenance-page-root .formula-virtual-data-row .process-display {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: normal;
+    overflow-wrap: normal;
+}
+
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(7).maintenance-table-cell .input-method-display {
     word-break: break-all;
     overflow-wrap: anywhere;

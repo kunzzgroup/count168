@@ -439,7 +439,7 @@ export default function UserListPage() {
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("user-page");
     return () => {
@@ -449,7 +449,7 @@ export default function UserListPage() {
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (showAll) document.body.classList.add("user-page--show-all");
     else document.body.classList.remove("user-page--show-all");
     return () => document.body.classList.remove("user-page--show-all");

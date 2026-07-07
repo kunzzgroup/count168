@@ -296,6 +296,26 @@ export default function AuthenticatedLayout() {
     };
   }, []);
 
+  /*
+   * Route-level body class pre-toggle:
+   * keep overflow policy stable while lazy route chunks are still loading.
+   */
+  useLayoutEffect(() => {
+    const onAccountLike = pathnameIs("account-list", location.pathname) || pathnameIs("deleted-log", location.pathname);
+    const onUserLike = pathnameIs("userlist", location.pathname);
+    const onAutoRenew = pathnameIs("auto-renew", location.pathname);
+    const onAnnouncement = pathnameIs("announcement", location.pathname);
+
+    document.body.classList.toggle("account-page", onAccountLike);
+    document.body.classList.toggle("user-page", onUserLike || onAutoRenew);
+    document.body.classList.toggle("auto-renew-page-body", onAutoRenew);
+    document.body.classList.toggle("announcement-page", onAnnouncement);
+
+    if (onAccountLike || onUserLike || onAutoRenew || onAnnouncement) {
+      document.body.classList.remove("bg");
+    }
+  }, [location.pathname]);
+
   /* Process 路由：父级 layout 阶段即挂上 body class，避免 SPA 切入时 Global Unlock 先撑出双 scrollbar */
   useLayoutEffect(() => {
     if (pathnameIs("bank-process-list", location.pathname)) {

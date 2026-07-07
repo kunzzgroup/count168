@@ -1326,7 +1326,7 @@ body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-
     flex: 1 1 auto;
     max-height: 100%;
     overflow-x: visible !important;
-    overflow-y: hidden !important;
+    overflow-y: auto !important;
 }
 
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
@@ -3741,7 +3741,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         grid-template-columns: subgrid !important;
         grid-template-rows: auto !important;
         overflow-x: visible !important;
-        overflow-y: hidden !important;
+        overflow-y: auto !important;
     }
 
     body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll.process-cards,
