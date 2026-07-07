@@ -82,15 +82,10 @@ export function sumSubsidiaryCompanyEarnings(dashboardData) {
   if (!dashboardData) return 0;
   const rows = dashboardData.subsidiary_earnings_by_company;
   if (Array.isArray(rows) && rows.length) {
-    return rows.reduce((sum, row) => {
-      const companyEarning = parseFloat(row.company_earning);
-      if (Number.isFinite(companyEarning)) return sum + companyEarning;
-      return sum + (parseFloat(row.my_earning) || 0);
-    }, 0);
+    return rows.reduce((sum, row) => sum + (parseFloat(row.company_earning) || 0), 0);
   }
   const explicit = parseFloat(dashboardData.subsidiary_company_earnings_total);
-  if (Number.isFinite(explicit)) return explicit;
-  return sumSubsidiaryMyEarning(dashboardData);
+  return Number.isFinite(explicit) ? explicit : 0;
 }
 
 /** Group-only Currency / Profit KPI: sum of subsidiary company earnings. */

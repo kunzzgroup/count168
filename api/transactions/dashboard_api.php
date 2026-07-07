@@ -1176,6 +1176,26 @@ function dashboardComputeSubsidiaryCompanyEarning(string $netProfit, array $owne
     return money_mul($netProfit, (string) $mul, MONEY_SCALE);
 }
 
+/** Ownership fields from a company dashboard_api capture payload. */
+function dashboardOwnershipFieldsFromDashboardPayload(array $data): array
+{
+    return [
+        'ownership_percentage' => (float) ($data['ownership_percentage'] ?? 0),
+        'group_equity_percentage' => (float) ($data['group_equity_percentage'] ?? 0),
+        'group_account_percentage' => (float) ($data['group_account_percentage'] ?? 0),
+        'has_group_ownership' => !empty($data['has_group_ownership']),
+    ];
+}
+
+/** Same earnings as the subsidiary company dashboard (e.g. C168 + AP → 1,148.21). */
+function dashboardComputeCompanyViewerEarningsFromPayload(array $data): string
+{
+    return dashboardComputeSubsidiaryCompanyEarning(
+        dashboardCompanyPeriodNetProfitFromPayload($data),
+        dashboardOwnershipFieldsFromDashboardPayload($data)
+    );
+}
+
 /**
  * @param array<string, mixed> $dailyData
  * @return array<string, string>
@@ -1662,13 +1682,7 @@ function dashboardComputeSubsidiaryEarningsTotal(
 
             $data = $cap['data'];
             $netProfit = dashboardCompanyPeriodNetProfitFromPayload($data);
-            $ownership = dashboardLoadCompanyDashboardOwnership(
-                $pdo,
-                (int) $companyId,
-                $dateToDisplay,
-                $groupLedgerCode
-            );
-            $companyEarning = dashboardComputeSubsidiaryCompanyEarning($netProfit, $ownership);
+            $companyEarning = dashboardComputeCompanyViewerEarningsFromPayload($data);
             $share = money_mul($netProfit, money_div($pctStr, '100', MONEY_SCALE), MONEY_SCALE);
             $myEarning = money_mul($share, $accountMul, MONEY_SCALE);
             $periodShareTotal = dashboardMoneyAdd($periodShareTotal, $share);
@@ -3636,12 +3650,16 @@ try {
         );
         $groupAccountPct = (float) ($viewerGroupShare['percentage'] ?? 0);
         $hasGroupAccountOwnership = !empty($viewerGroupShare['has']);
+        $subsidiaryCompanyEarningsTotal = (string) ($subsidiaryEarnings['company_earnings_total'] ?? '0');
+        $groupKpiProfit = money_cmp($subsidiaryCompanyEarningsTotal, '0') !== 0
+            ? $subsidiaryCompanyEarningsTotal
+            : (string) ($groupResult['profit']['period_total'] ?? '0');
         echo json_encode([
             'success' => true,
             'data' => [
                 'capital' => $groupResult['capital']['total_balance'],
                 'expenses' => $groupResult['expenses']['period_total'],
-                'profit' => $groupResult['profit']['total_balance'],
+                'profit' => dashboardOut($groupKpiProfit),
                 'ownership_percentage' => 0,
                 'has_ownership_setup' => $hasGroupOwnershipProfit || $hasGroupAccountOwnership
                     || money_cmp($subsidiaryEarnings['period_total'], '0') !== 0,
@@ -3658,7 +3676,7 @@ try {
                 'period_total' => [
                     'capital' => $groupResult['capital']['period_total'],
                     'expenses' => $groupResult['expenses']['period_total'],
-                    'profit' => $groupResult['profit']['period_total']
+                    'profit' => dashboardOut($groupKpiProfit),
                 ],
                 'initial_balance' => [
                     'capital' => $groupResult['capital']['initial_balance'],

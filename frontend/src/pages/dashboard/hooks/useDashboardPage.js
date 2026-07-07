@@ -6573,6 +6573,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (ownershipCurrent) {
       current = {
         ...current,
+        profit: ownershipCurrent.profit,
+        netProfit: ownershipCurrent.netProfit,
         earnings: ownershipCurrent.earnings,
         kpiCardEarnings: ownershipCurrent.kpiCardEarnings,
         showEarnings: ownershipCurrent.showEarnings,
