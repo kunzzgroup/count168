@@ -121,6 +121,16 @@ export function computeGroupAggregateEarningsAmount(dashboardData, { requireView
   return netProfit * resolveGroupAccountMultiplier(dashboardData);
 }
 
+/** Group All (single group + company all): Earnings = Σ each company earnings. */
+export function computeGroupAllCompanyEarningsSum(dashboardData) {
+  if (!dashboardData) return 0;
+  const explicit = parseFloat(
+    dashboardData?._subsidiary_earnings_total ?? dashboardData?.subsidiary_earnings_total
+  );
+  if (Number.isFinite(explicit)) return explicit;
+  return 0;
+}
+
 export function isGroupAggregateEarningsPayload(dashboardData, options = {}) {
   if (!dashboardData) return false;
   if (options.groupAggregateEarnings) return true;
@@ -230,6 +240,7 @@ export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
   const displayProfitNum = rawProfit;
   const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
   const groupAggregate = isGroupAggregateEarningsPayload(dashboardData, options);
+  const groupAllCompanyEarningsSum = !!options.groupAllCompaniesEarningsSum;
   const groupProfitSum = groupAggregate ? computeGroupAggregateProfit(dashboardData) : null;
   const netProfitDisplay = groupAggregate
     ? computeGroupAggregateNetProfit(dashboardData)
@@ -239,13 +250,20 @@ export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
     : viewerHasEarningsConfig(dashboardData, options);
   const panelMultiplier = resolvePanelEarningsPct(dashboardData, selectedGroup, options);
   const kpiMultiplier = resolveEffectiveOwnershipPct(dashboardData, selectedGroup, options);
+  const mergedGroupAllEarnings = groupAllCompanyEarningsSum
+    ? computeGroupAllCompanyEarningsSum(dashboardData)
+    : null;
   const earningsDisplay = !showEarnings
     ? netProfitDisplay
-    : groupAggregate
+    : groupAllCompanyEarningsSum
+      ? mergedGroupAllEarnings
+      : groupAggregate
       ? computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: false })
       : netProfitDisplay * panelMultiplier;
   const kpiCardEarnings = showEarnings
-    ? groupAggregate
+    ? groupAllCompanyEarningsSum
+      ? mergedGroupAllEarnings
+      : groupAggregate
       ? computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: true })
       : netProfitDisplay * kpiMultiplier
     : 0;

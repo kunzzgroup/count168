@@ -964,7 +964,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (groupsAllMode && groupAllMode && (cid == null || cid === "")) {
         return { groupsAllCompaniesAggregate: true };
       }
-      if (groupAllMode && grp) return { groupAggregateEarnings: true };
+      if (groupAllMode && grp) {
+        return { groupAggregateEarnings: true, groupAllCompaniesEarningsSum: true };
+      }
       if (groupsAllMode && !groupAllMode && (cid == null || cid === "")) {
         return { groupAggregateEarnings: true };
       }
