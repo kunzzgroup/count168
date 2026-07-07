@@ -649,7 +649,12 @@ export function useBankProcessListPage() {
     document.body.classList.remove("bg", "dashboard-page", "account-page", "announcement-page");
     document.body.classList.add("process-page", "process-page--bank");
     return () => {
-      document.body.classList.remove("process-page", "process-page--bank", "process-page--bank-show-all");
+      document.body.classList.remove(
+        "process-page",
+        "process-page--bank",
+        "process-page--bank-show-all",
+        "process-page--bank-compact-scroll",
+      );
       document.body.classList.add("dashboard-page");
     };
   }, []);
@@ -963,20 +968,24 @@ export function useBankProcessListPage() {
     void loadCurrencyMeta(companyId);
   }, [companyId, loading, loadCurrencyMeta, currencyListOrdered.length]);
 
+  const compactScrollActive = compactViewportScrollMode && !showAll;
+
   useLayoutEffect(() => {
     if (showAll) document.body.classList.add("process-page--bank-show-all");
     else document.body.classList.remove("process-page--bank-show-all");
+    if (compactScrollActive) document.body.classList.add("process-page--bank-compact-scroll");
+    else document.body.classList.remove("process-page--bank-compact-scroll");
     const raf = window.requestAnimationFrame(() => {
       notifyBankListLayoutChanged();
     });
     return () => window.cancelAnimationFrame(raf);
-  }, [showAll, notifyBankListLayoutChanged]);
+  }, [showAll, compactScrollActive, notifyBankListLayoutChanged]);
 
   useLayoutEffect(() => {
     if (typeof document === "undefined") return undefined;
     const html = document.documentElement;
     const body = document.body;
-    if (!compactViewportScrollMode || showAll) return undefined;
+    if (!compactScrollActive) return undefined;
 
     const prevHtmlHeight = html.style.height;
     const prevHtmlOverflowY = html.style.overflowY;
@@ -998,7 +1007,7 @@ export function useBankProcessListPage() {
       body.style.maxHeight = prevBodyMaxHeight;
       body.style.overflowY = prevBodyOverflowY;
     };
-  }, [compactViewportScrollMode, showAll]);
+  }, [compactScrollActive]);
 
   useEffect(() => {
     if (!modalOpen || !companyId) return;
@@ -2440,7 +2449,7 @@ export function useBankProcessListPage() {
 
   const pageSize = useAutoListPageSize({
     listRegionRef,
-    enabled: !showAll && !compactViewportScrollMode,
+    enabled: !showAll && !compactScrollActive,
     minRows: PAGE_SIZE_MIN,
     maxRows: PAGE_SIZE_MAX,
     stableRowHeight: true,
@@ -2457,7 +2466,7 @@ export function useBankProcessListPage() {
       showOfficial,
       showEInvoice,
       showBlock,
-      compactViewportScrollMode,
+      compactScrollActive,
     ],
   });
 

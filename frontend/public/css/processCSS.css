@@ -8723,72 +8723,69 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
     margin-bottom: calc(var(--space-gap, 0.75rem) * 0.65) !important;
 }
 
-/* Bank Process：极限高度屏幕允许整页上下滚动，避免内容被 100vh 锁死 */
-@media (max-height: 820px) {
-    html:has(body.process-page.process-page--bank:not(.process-page--bank-show-all)) {
-        height: auto;
-        overflow-y: auto;
-    }
+/* Bank Process：小屏/缩窗时由 JS 添加 class，解锁整页纵向滚动。 */
+html:has(body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all)) {
+    height: auto;
+    overflow-y: auto;
+}
 
-    body.process-page.process-page--bank:not(.process-page--bank-show-all),
-    body.dashboard-page.process-page.process-page--bank:not(.process-page--bank-show-all),
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) {
-        overflow-y: auto !important;
-        height: auto !important;
-        max-height: none !important;
-        min-height: 100vh !important;
-    }
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all),
+body.dashboard-page.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all),
+body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) {
+    overflow-y: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 100vh !important;
+}
 
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) #root,
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .ec-page-shell,
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .ec-page-shell__content {
-        height: auto !important;
-        max-height: none !important;
-        overflow: visible !important;
-    }
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) #root,
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .ec-page-shell,
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .ec-page-shell__content {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
 
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .container,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .container,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) #root > .container {
-        height: auto !important;
-        max-height: none !important;
-        overflow: visible !important;
-        min-height: calc(100vh - var(--layout-page-top-inset)) !important;
-        padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
-    }
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .container,
+body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .container,
+body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) #root > .container {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    min-height: calc(100vh - var(--layout-page-top-inset)) !important;
+    padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
+}
 
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .content,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .content,
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region,
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table-inner,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table-inner,
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
-        height: auto !important;
-        max-height: none !important;
-        overflow-y: visible !important;
-    }
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .content,
+body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .content,
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-process-list-body,
+body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-process-list-body,
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region,
+body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region,
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-virtual-table,
+body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-virtual-table,
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-virtual-table-inner,
+body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-virtual-table-inner,
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+}
 
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
-        overflow-x: auto !important;
-        overflow-y: auto !important;
-    }
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region,
+body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+}
 
-    body.process-page.process-page--bank:not(.process-page--bank-show-all) .pagination-container,
-    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .pagination-container {
-        position: static !important;
-        margin-top: 10px;
-        margin-bottom: max(8px, env(safe-area-inset-bottom, 0px));
-    }
+body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .pagination-container,
+body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .pagination-container {
+    position: static !important;
+    margin-top: 10px;
+    margin-bottom: max(8px, env(safe-area-inset-bottom, 0px));
 }
 
