@@ -1067,8 +1067,15 @@ export function ensureMaintenanceDateRangePicker() {
     if (!quickRange) {
       return;
     }
-    calendarStartDate = quickRange.startDate;
-    calendarEndDate = quickRange.endDate;
+    if (activeRangeBinding.collapseSingleDisplay) {
+      const singleDate = new Date(quickRange.endDate);
+      singleDate.setHours(0, 0, 0, 0);
+      calendarStartDate = singleDate;
+      calendarEndDate = new Date(singleDate);
+    } else {
+      calendarStartDate = quickRange.startDate;
+      calendarEndDate = quickRange.endDate;
+    }
     isSelectingRange = false;
     calendarCurrentDate = new Date(calendarStartDate.getFullYear(), calendarStartDate.getMonth(), 1);
     setMonthControlValue(calendarCurrentDate.getMonth());

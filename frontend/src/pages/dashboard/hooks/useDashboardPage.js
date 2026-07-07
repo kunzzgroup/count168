@@ -7014,6 +7014,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       return panelCurrencyRows.reduce((sum, row) => sum + (parseFloat(row.netProfit) || 0), 0);
     }
     const earningTab = earningsPanelView === "earning";
+    if (currencies.length > 1 && useConvertedEarnings && convertedPanelTotal != null) {
+      return convertedPanelTotal;
+    }
     if (showAllCurrencies && canShowAllCurrencies && multiCurrencyKpi) {
       return earningTab ? multiCurrencyKpi.earnings : multiCurrencyKpi.netProfit;
     }
