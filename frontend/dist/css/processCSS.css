@@ -1326,7 +1326,7 @@ body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-
     flex: 1 1 auto;
     max-height: 100%;
     overflow-x: visible !important;
-    overflow-y: auto !important;
+    overflow-y: hidden !important;
 }
 
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
@@ -2536,7 +2536,7 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
     width: clamp(110px, 8.5vw, 200px);
 }
 
-@media (max-height: 980px), (max-width: 1366px) {
+@media (max-height: 820px) {
 
     .process-page.process-page--bank .bank-data-table {
         font-size: clamp(11px, 0.8vw, 14px);
@@ -3741,7 +3741,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         grid-template-columns: subgrid !important;
         grid-template-rows: auto !important;
         overflow-x: visible !important;
-        overflow-y: auto !important;
+        overflow-y: hidden !important;
     }
 
     body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll.process-cards,
@@ -8721,71 +8721,5 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
 #addModal .modal-content.process-form-modal .add-col > .process-form-section:first-child > .account-section-header,
 #editModal .modal-content.process-form-modal .add-col > .process-form-section:first-child > .account-section-header {
     margin-bottom: calc(var(--space-gap, 0.75rem) * 0.65) !important;
-}
-
-/* Bank Process：小屏/缩窗时由 JS 添加 class，解锁整页纵向滚动。 */
-html:has(body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all)) {
-    height: auto;
-    overflow-y: auto;
-}
-
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all),
-body.dashboard-page.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all),
-body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) {
-    overflow-y: auto !important;
-    height: auto !important;
-    max-height: none !important;
-    min-height: 100vh !important;
-}
-
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) #root,
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .ec-page-shell,
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .ec-page-shell__content {
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-}
-
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .container,
-body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .container,
-body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) #root > .container {
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    min-height: calc(100vh - var(--layout-page-top-inset)) !important;
-    padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
-}
-
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .content,
-body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .content,
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-process-list-body,
-body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-process-list-body,
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
-body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region,
-body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region,
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-virtual-table,
-body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-virtual-table,
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-virtual-table-inner,
-body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-virtual-table-inner,
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
-    height: auto !important;
-    max-height: none !important;
-    overflow-y: visible !important;
-}
-
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
-body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region,
-body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
-    overflow-x: auto !important;
-    overflow-y: auto !important;
-}
-
-body.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .pagination-container,
-body.ec-auth-shell.process-page.process-page--bank.process-page--bank-compact-scroll:not(.process-page--bank-show-all) .pagination-container {
-    position: static !important;
-    margin-top: 10px;
-    margin-bottom: max(8px, env(safe-area-inset-bottom, 0px));
 }
 
