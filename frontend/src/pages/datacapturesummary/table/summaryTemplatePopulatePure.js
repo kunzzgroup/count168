@@ -1,6 +1,5 @@
 import { buildColumnAEntries } from "./summaryColumnAData.js";
 import {
-  clearRowEditableFields,
   createMainRowFromEntry,
   createSubRowFromTemplate,
   applyMainTemplateToRowModel,
@@ -242,9 +241,11 @@ export async function populateSummaryRowsPure({
     });
   }
 
-  rows = rows
-    .filter((row) => row.productType !== "sub" || !isParentRowSuppressed(row, rows, suppressed))
-    .map((row) => (isRowSuppressed(row, suppressed) ? clearRowEditableFields(row) : row));
+  rows = rows.filter((row) => {
+    if (isRowSuppressed(row, suppressed)) return false;
+    if (row.productType === "sub" && isParentRowSuppressed(row, rows, suppressed)) return false;
+    return true;
+  });
 
   rows = sortRowsByRowIndex(rows);
   rows = restoreRateValuesOnRows(rows, captureScope);
