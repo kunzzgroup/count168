@@ -656,7 +656,7 @@ function readInitialDashboardPageState() {
 }
 
 /** Coalesce rapid scope updates (company pick + currency hydrate) into one load. */
-const LOAD_DASHBOARD_DEBOUNCE_MS = 0;
+const LOAD_DASHBOARD_DEBOUNCE_MS = 90;
 const DASHBOARD_STALE_RETRY_MAX = 3;
 const EARNINGS_INCOMPLETE_RETRY_MAX = 5;
 const PREFETCH_WAIT_MAX_ROUNDS = 40;
@@ -6356,11 +6356,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     groupIds,
     companies,
     companyId,
-    groupAllMode,
-    dateFrom,
-    dateTo,
     prefetchDashboardCompany,
-    prefetchDashboardGroupLedger,
     shouldPrefetchCompanyScope,
   ]);
 
@@ -7433,19 +7429,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           }
         }, COMPANY_SWITCH_PREFETCH_DELAY_MS);
       }
+      const sessionViewGroup = groupsAllMode ? null : (gid || null);
       window.setTimeout(() => {
         if (switchGen !== companySwitchGenRef.current) return;
-        void syncCompanySession(id, groupsAllMode ? null : gid || selectedGroup, switchGen).then((ok) => {
-        if (switchGen !== companySwitchGenRef.current) return;
-        if (!ok && prevId != null) {
-          const prevCo = companies.find((x) => parseInt(x.id, 10) === parseInt(prevId, 10));
-          if (!groupsAllMode && prevCo?.group_id) {
-            setSelectedGroup(String(prevCo.group_id).toUpperCase());
-            sessionStorage.setItem("dashboard_group_filter", String(prevCo.group_id).toUpperCase());
-            persistDashboardGroupsAllMode(false);
+        void syncCompanySession(id, sessionViewGroup, switchGen).then((ok) => {
+          if (switchGen !== companySwitchGenRef.current) return;
+          if (!ok && prevId != null) {
+            const prevCo = companies.find((x) => parseInt(x.id, 10) === parseInt(prevId, 10));
+            if (!groupsAllMode && prevCo?.group_id) {
+              setSelectedGroup(String(prevCo.group_id).toUpperCase());
+              sessionStorage.setItem("dashboard_group_filter", String(prevCo.group_id).toUpperCase());
+              persistDashboardGroupsAllMode(false);
+            }
+            applyCompanySelection(prevId);
           }
-          applyCompanySelection(prevId);
-        }
         });
       }, COMPANY_SESSION_DEFER_MS);
     },
