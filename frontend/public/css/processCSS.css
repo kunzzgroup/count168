@@ -2536,7 +2536,7 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
     width: clamp(110px, 8.5vw, 200px);
 }
 
-@media (max-height: 820px) {
+@media (max-height: 980px) {
 
     .process-page.process-page--bank .bank-data-table {
         font-size: clamp(11px, 0.8vw, 14px);
