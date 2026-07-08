@@ -178,6 +178,11 @@ body.ec-auth-shell .custom-select-search input {
   font-family: var(--font-ui) !important;
   color: var(--select-text) !important;
   background: #fff !important;
+  text-transform: uppercase !important;
+}
+
+body.ec-auth-shell .custom-select-search input::placeholder {
+  text-transform: uppercase !important;
 }
 
 body.ec-auth-shell .custom-select-search input:focus-visible {
