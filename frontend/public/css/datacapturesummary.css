@@ -2131,7 +2131,7 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
 
         body.dashboard-page.datacapture-summary-page #summaryTable th,
         body.dashboard-page.datacapture-summary-page #summaryTable td {
-            font-size: 1.4rem !important;
+            font-size: 1.2rem !important;
             font-weight: 700 !important;
             line-height: 1.35 !important;
             min-height: 36px !important;
