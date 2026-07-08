@@ -1078,7 +1078,6 @@ body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-pro
 body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region {
     overflow-x: auto !important;
     overflow-y: hidden !important;
-    scrollbar-gutter: stable both-edges;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
     scrollbar-color: var(--bank-list-scrollbar-thumb) var(--bank-list-scrollbar-track);
@@ -1333,7 +1332,6 @@ body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-
     max-height: 100%;
     overflow-x: visible !important;
     overflow-y: auto !important;
-    scrollbar-gutter: stable both-edges;
 }
 
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
