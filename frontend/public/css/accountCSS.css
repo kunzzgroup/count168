@@ -218,7 +218,7 @@ body.account-page:not(.account-page--show-all) .account-table-header.account-lis
 .account-list-table {
     width: 100%;
     --list-table-min-width: 980px;
-    --account-list-row-min-height: 26px;
+    --account-list-row-min-height: 30px;
     --account-list-grid-cols:
         38px
         minmax(120px, 1.5fr)
