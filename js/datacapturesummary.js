@@ -19098,11 +19098,16 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
 
         // 修复：两个 SUB 没有设置到抓格子的数据。当 SUB 模板的 source_columns 为空但公式有内容时，从父 MAIN 行继承 source_columns，使 SUB 行能关联到 Data Capture 的抓格数据。
         let sourceColumnsValue = template.source_columns || '';
+        // FIX: 记录 source_columns 是否从 MAIN 行继承。
+        // 若是继承来的，source_columns 里的 id_product 可能属于 MAIN（或其他行），
+        // 不能直接用于 sub row 的 $n 解析，必须替换为当前 sub 自身的 idProduct。
+        let sourceColumnsInheritedFromMain = false;
         if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
             const mainSourceColumns = mainRow ? (mainRow.getAttribute('data-source-columns') || '').trim() : '';
             const hasFormula = (template.formula_operators || '').trim() !== '' || (template.formula_display || '').trim() !== '';
             if (mainSourceColumns && hasFormula) {
                 sourceColumnsValue = mainSourceColumns;
+                sourceColumnsInheritedFromMain = true;
                 console.log('applySubTemplatesToSummaryRow: SUB template had no source_columns, inherited from MAIN row:', sourceColumnsValue);
             }
         }
@@ -19317,6 +19322,9 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
 
             // IMPORTANT: 从 sourceColumnsValue 构建 columnNumber 到 id_product, row_label, dataColumnIndex 的映射
             // 这样可以使用正确的 id_product（可能来自其他 id product 的数据）而不是当前 sub row 的 idProduct
+            // FIX: 若 sourceColumnsValue 是从 MAIN 行继承来的（sub 自身没有 source_columns），
+            // 则 parsedPart.idProduct 可能指向 MAIN 或其他行，须强制替换为当前 sub 的 idProduct，
+            // 确保 $n 从 sub 自身所属的 Data Capture 行读取数据，而非错误地读取其他行。
             const sourceColumnRefsMap = new Map(); // Map: columnNumber -> {idProduct, rowLabel, dataColumnIndex, displayColumnIndex}
             if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
                 const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
@@ -19326,8 +19334,14 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     // source_columns 存的是 dataColumnIndex；公式里的 $n 是 displayColumnIndex。
                     // 例如 HBS212:F:10 必须对应 $11，而不是 $10。
                     const displayColumnKey = parsedPart.dataColumnIndex + 1;
+                    // FIX: 若 source_columns 是从 MAIN 继承来的，强制用当前 sub 的 idProduct，
+                    // 防止取到其他 id product 行的数据（如 4.10 来自另一行而非 -216.98 自身行）。
+                    const effectiveIdProduct = sourceColumnsInheritedFromMain ? idProduct : parsedPart.idProduct;
+                    if (sourceColumnsInheritedFromMain && parsedPart.idProduct !== idProduct) {
+                        console.log('applySubTemplatesToSummaryRow: sourceColumns inherited from MAIN, overriding idProduct from', parsedPart.idProduct, 'to sub idProduct:', idProduct, 'for column:', displayColumnKey);
+                    }
                     sourceColumnRefsMap.set(displayColumnKey, {
-                        idProduct: parsedPart.idProduct,
+                        idProduct: effectiveIdProduct,
                         rowLabel: parsedPart.rowLabel || null,
                         dataColumnIndex: parsedPart.dataColumnIndex,
                         displayColumnIndex: displayColumnKey,
