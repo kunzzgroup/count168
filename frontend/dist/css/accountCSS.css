@@ -871,6 +871,11 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
     box-sizing: border-box;
 }
 
+/* Account 列表行使用统一列宽变量，避免被 legacy 固定 fr 覆盖后与 UserList 宽度模型不一致 */
+.account-list-table .account-list-row.account-card {
+    grid-template-columns: var(--account-list-grid-cols);
+}
+
 .account-card:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     transform: translateY(-1px);
