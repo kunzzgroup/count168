@@ -8758,7 +8758,7 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
 }
 
 /* Bank 非 Show All（最终策略）：
- * 1) 表格内部仅纵向滚动（.bank-virtual-scroll-clip）
+ * 1) 交给 auto page size 控制显示行数（不启用表格内纵向滚动）
  * 2) 关闭横向滚动，避免底部 x-scroll
  * 3) 其他祖先链全部 overflow:hidden，防止双滚动
  */
@@ -8801,11 +8801,12 @@ body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-vir
     min-width: 0 !important;
 }
 
-body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
     min-height: 0 !important;
     max-height: 100% !important;
     overflow-x: hidden !important;
-    overflow-y: auto !important;
+    overflow-y: hidden !important;
     overscroll-behavior: contain;
 }
 
