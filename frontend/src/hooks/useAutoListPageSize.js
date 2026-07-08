@@ -162,11 +162,6 @@ export function useAutoListPageSize({
    * 不依赖渲染后被 1fr 拉伸的实际行高 → 消除「行高↔行数」反馈环导致的刷新结果漂移。
    */
   stableRowHeight = false,
-  /**
-   * Optional visibility tolerance in rows: allows at most N extra rows
-   * beyond strict "fully visible" counting before clipping.
-   */
-  visibleClampBufferRows = 0,
   remeasureDeps = [],
 }) {
   const [pageSize, setPageSize] = useState(DEFAULT_FALLBACK_PAGE_SIZE);
@@ -200,8 +195,7 @@ export function useAutoListPageSize({
           // Currency 等筛选后 DOM 可能只有 1 行，勿把 pageSize 锁死；数据变多后应信任预算重算
           const domUnderfilled = rows.length > 0 && rows.length < budgetFit;
           if (!domUnderfilled) {
-            const visibleCap = visible + Math.max(0, visibleClampBufferRows);
-            next = Math.min(next, visibleCap);
+            next = Math.min(next, visible);
           }
         }
       }
@@ -247,7 +241,7 @@ export function useAutoListPageSize({
       window.visualViewport?.removeEventListener("resize", onWindow);
       window.visualViewport?.removeEventListener("scroll", onWindow);
     };
-  }, [enabled, listRegionRef, headerSelector, rowSelector, paginationSelector, minRows, maxRows, stableRowHeight, visibleClampBufferRows, ...remeasureDeps]);
+  }, [enabled, listRegionRef, headerSelector, rowSelector, paginationSelector, minRows, maxRows, stableRowHeight, ...remeasureDeps]);
 
   return enabled ? pageSize : maxRows;
 }
