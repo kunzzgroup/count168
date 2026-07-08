@@ -1495,6 +1495,7 @@ function dashboardLoadCompanyDashboardOwnership(
                 );
                 if ($pathDec !== null) {
                     $multiGroupPathResolved = true;
+                    $result['has_group_ownership_config'] = true;
                     $result['group_equity_percentage'] = $pathDec * 100.0;
                     try {
                         $hasGroupTable = $useHistory
@@ -1519,7 +1520,6 @@ function dashboardLoadCompanyDashboardOwnership(
                                 $result['group_account_percentage'] = (float) $accSharePct;
                                 $result['has_group_ownership'] = true;
                             } else {
-                                $result['group_equity_percentage'] = 0.0;
                                 $result['group_account_percentage'] = 0.0;
                             }
                         }
@@ -1569,6 +1569,7 @@ function dashboardLoadCompanyDashboardOwnership(
 
                 if ($grpEquityRow && $grpEquityRow['partner_group_id']) {
                     $companyGroupId = $grpEquityRow['partner_group_id'];
+                    $result['has_group_ownership_config'] = true;
                     $result['group_equity_percentage'] = (float) $grpEquityRow['percentage'];
 
                     try {
