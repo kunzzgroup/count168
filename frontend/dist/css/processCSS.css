@@ -8763,3 +8763,41 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
     margin-bottom: calc(var(--space-gap, 0.75rem) * 0.65) !important;
 }
 
+/* Bank 非 Show All：移除表格内纵向滚动，改为整页滚动 */
+html:has(body.process-page.process-page--bank:not(.process-page--bank-show-all)) {
+    overflow-y: auto !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all),
+body.dashboard-page.process-page.process-page--bank:not(.process-page--bank-show-all),
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) {
+    overflow-y: auto !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) #root,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .ec-page-shell,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .ec-page-shell__content,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .container,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .content,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table-inner,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
+    height: auto !important;
+    max-height: none !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table-inner,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
+    overflow-y: visible !important;
+}
+
