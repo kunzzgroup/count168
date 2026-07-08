@@ -257,24 +257,32 @@ export default function EditFormulaModal({
                           id="account_dropdown"
                         >
                           <div className="custom-select-search">
-                            <input
-                              ref={accountSearchInputRef}
-                              type="text"
-                              placeholder={t("searchAccount")}
-                              autoComplete="off"
-                              value={accountSearch}
-                              onChange={(e) => setAccountSearch(e.target.value.toUpperCase())}
-                              onKeyDown={(e) => {
-                                handleListKeyDown(e, {
-                                  len: filteredAccounts.length,
-                                  onSelectIndex: (idx) => {
-                                    const acc = filteredAccounts[idx];
-                                    if (acc) selectAccount(acc);
-                                  },
-                                  onClose: () => setAccountOpen(false),
-                                });
-                              }}
-                            />
+                            <div className="search-container userlist-search-bar summary-account-search-bar">
+                              <span className="userlist-search-bar__icon" aria-hidden="true">
+                                <svg fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                                </svg>
+                              </span>
+                              <input
+                                ref={accountSearchInputRef}
+                                type="text"
+                                placeholder={t("searchAccount")}
+                                className="search-input userlist-search-input summary-account-search-input"
+                                autoComplete="off"
+                                value={accountSearch}
+                                onChange={(e) => setAccountSearch(e.target.value.toUpperCase())}
+                                onKeyDown={(e) => {
+                                  handleListKeyDown(e, {
+                                    len: filteredAccounts.length,
+                                    onSelectIndex: (idx) => {
+                                      const acc = filteredAccounts[idx];
+                                      if (acc) selectAccount(acc);
+                                    },
+                                    onClose: () => setAccountOpen(false),
+                                  });
+                                }}
+                              />
+                            </div>
                           </div>
                           <div className="custom-select-options" ref={listRef}>
                             {filteredAccounts.map((acc, idx) => (
