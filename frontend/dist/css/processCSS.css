@@ -3381,6 +3381,33 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         overscroll-behavior: auto;
     }
 
+    /* 小屏 + 非 Show All：改为数据区单层纵向滚动（避免 body 锁滚后无法上下查看数据） */
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region,
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table-inner {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: auto;
+        max-height: 100%;
+        overflow: hidden;
+    }
+
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: 100%;
+        overflow-x: visible;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
     .process-page.process-page--bank .bank-virtual-scroll.process-cards {
         grid-auto-rows: minmax(var(--bank-list-data-row-estimate), auto);
     }
