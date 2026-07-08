@@ -1898,19 +1898,6 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             box-sizing: border-box;
         }
 
-        /* Edit Formula: compact search input size */
-        #editFormulaModal .custom-select-search {
-            padding: 6px;
-        }
-
-        #editFormulaModal .custom-select-search input {
-            padding: 4px 7px;
-            min-height: 26px;
-            border-radius: 3px;
-            font-size: 12px;
-            line-height: 1.2;
-        }
-
         .custom-select-options {
             max-height: 250px;
             overflow-y: auto;
