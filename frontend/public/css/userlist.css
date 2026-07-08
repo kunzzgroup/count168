@@ -3433,7 +3433,7 @@ body.user-page:not(.user-page--show-all) .user-list-table .user-list-row {
     flex: 0 0 auto;
     width: 100%;
     height: auto;
-    min-height: 0;
+    min-height: var(--user-list-row-min-height, 30px);
     box-sizing: border-box;
     align-items: center;
 }
