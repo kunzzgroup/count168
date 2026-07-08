@@ -1677,7 +1677,8 @@ body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
-    padding-bottom: 52px;
+    /* Keep room for floating pager, but avoid over-reserving a full row. */
+    padding-bottom: 30px;
     box-sizing: border-box;
 }
 
