@@ -68,6 +68,7 @@ import {
   prefetchRouteModule,
 } from "../utils/routing/routePrefetch.js";
 import { clearChunkReloadFlag } from "../utils/routing/lazyWithRetry.js";
+import { DASHBOARD_NET_GUARDS } from "../pages/dashboard/lib/dashboardConstants.js";
 import {
   canAccessC168AutoRenew,
   canAccessC168DomainPages,
@@ -877,7 +878,11 @@ export default function AuthenticatedLayout() {
     }
 
     prefetchRouteModule(path);
-    if (pageKey !== "dashboard" && canAccessPermission(me, "home")) {
+    if (
+      DASHBOARD_NET_GUARDS.routeWarmEnabled &&
+      pageKey !== "dashboard" &&
+      canAccessPermission(me, "home")
+    ) {
       prefetchRouteModule(spaPath("dashboard"));
       void import("../pages/dashboard/dashboardRoutePrefetch.js").then(({ warmDashboardRouteCache }) => {
         warmDashboardRouteCache({ me });

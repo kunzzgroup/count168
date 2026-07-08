@@ -927,18 +927,18 @@ body.ec-auth-shell.process-page.process-page--bank .search-container.userlist-se
     border: 0.0625rem solid #e0e0e0;
 }
 
-/* Bank Process（非 Show All）：全页允许纵向滚动 */
+/* Bank Process（非 Show All）：锁整页，仅数据区纵向滚动 */
 html:has(body.process-page.process-page--bank:not(.process-page--bank-show-all)) {
     height: 100%;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: hidden;
 }
 
 body.process-page.process-page--bank:not(.process-page--bank-show-all),
 body.dashboard-page.process-page.process-page--bank:not(.process-page--bank-show-all),
 body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) {
     overflow-x: hidden !important;
-    overflow-y: auto !important;
+    overflow-y: hidden !important;
     height: 100vh !important;
     min-height: 100vh !important;
     max-height: 100vh !important;
@@ -1077,7 +1077,8 @@ body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
 body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region {
     overflow-x: auto !important;
-    overflow-y: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-gutter: stable both-edges;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
     scrollbar-color: var(--bank-list-scrollbar-thumb) var(--bank-list-scrollbar-track);
@@ -1331,7 +1332,8 @@ body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-
     flex: 1 1 auto;
     max-height: 100%;
     overflow-x: visible !important;
-    overflow-y: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-gutter: stable both-edges;
 }
 
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
@@ -2586,6 +2588,10 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
     .process-page.process-page--bank .separator-line {
         margin-bottom: 0px;
     }
+
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
+        max-height: clamp(220px, calc(100vh - 300px), 100%);
+    }
 }
 
 @media (max-height: 720px) {
@@ -2603,6 +2609,10 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
         max-height: 28px;
         padding: 0 12px;
         font-size: clamp(8px, 0.7vw, 10px);
+    }
+
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
+        max-height: clamp(170px, calc(100vh - 260px), 100%);
     }
 }
 
@@ -3733,7 +3743,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         flex: 1 1 auto !important;
         min-height: 0 !important;
         overflow-x: auto !important;
-        overflow-y: auto !important;
+        overflow-y: hidden !important;
         -webkit-overflow-scrolling: touch;
     }
 
@@ -3773,7 +3783,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         grid-template-columns: subgrid !important;
         grid-template-rows: auto !important;
         overflow-x: visible !important;
-        overflow-y: hidden !important;
+        overflow-y: auto !important;
     }
 
     body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll.process-cards,
