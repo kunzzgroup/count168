@@ -866,10 +866,9 @@ body.ec-auth-shell.process-page.process-page--bank .search-container.userlist-se
 }
 
 .process-page .bank-status-option.keyboard-focus {
-    background-color: #1d4ed8;
-    color: #ffffff;
-    border-color: #1d4ed8;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.36);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.16);
     font-weight: 600;
 }
 
