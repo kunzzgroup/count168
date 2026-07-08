@@ -85,6 +85,7 @@ export function useTransactionForm({
   const [rateMiddlemanAccount, setRateMiddlemanAccount] = useState(null);
   const [rateMiddlemanRate, setRateMiddlemanRate] = useState("");
   const [rateMiddlemanAmount, setRateMiddlemanAmount] = useState("");
+  const [rateMiddlemanInputAmount, setRateMiddlemanInputAmount] = useState("");
   const queryClient = useQueryClient();
 
   const changeTxAmount = useCallback((val) => {
@@ -400,6 +401,7 @@ export function useTransactionForm({
           setRateFromAmountGrossStr("");
           setRateMiddlemanRate("");
           setRateMiddlemanAmount("");
+          setRateMiddlemanInputAmount("");
           setRateToAccount(null);
           setRateFromAccount(null);
           setRateTransferToAccount(null);
@@ -576,6 +578,8 @@ export function useTransactionForm({
     setRateMiddlemanRate,
     rateMiddlemanAmount,
     setRateMiddlemanAmount,
+    rateMiddlemanInputAmount,
+    setRateMiddlemanInputAmount,
     onSubmitTx,
     handleBalanceCellClick,
   };
