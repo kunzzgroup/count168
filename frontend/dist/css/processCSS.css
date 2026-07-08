@@ -1829,7 +1829,7 @@ body.process-page.process-page--bank .bank-process-filter-panel {
     transition: grid-template-columns 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-body.process-page.process-page--bank .bank-process-toolbar-primary .userlist-filter-chips--bank-process {
+body.process-page.process-page--bank .bank-process-toolbar-primary .userlist-filter-chips--bank-process:not(.userlist-filter-chips--bank-process-dropdown) {
     flex: 1 1 auto;
     min-width: 0;
     flex-wrap: nowrap;
@@ -1971,7 +1971,7 @@ body.process-page.process-page--bank .bank-process-filter-panel--dropdown {
     flex: none;
     width: max-content;
     min-width: 0;
-    max-width: min(calc(100vw - 16px), calc(100% + 520px));
+    max-width: min(calc(100vw - 16px), 820px);
     overflow: visible;
     pointer-events: none;
     opacity: 0;
@@ -1982,6 +1982,12 @@ body.process-page.process-page--bank .bank-process-filter-panel--dropdown {
         opacity 0.18s ease,
         transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1),
         visibility 0.18s ease;
+}
+
+body.process-page.process-page--bank .bank-process-filter-panel--dropdown .userlist-filter-chips--bank-process-dropdown {
+    flex-wrap: wrap !important;
+    max-width: 100% !important;
+    overflow-x: visible !important;
 }
 
 body.process-page.process-page--bank .bank-process-filter-panel--dropdown.is-open {
