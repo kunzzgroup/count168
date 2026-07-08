@@ -25,9 +25,6 @@ export function buildKpiCompare(current, previous) {
 
 export function viewerHasEarningsConfig(dashboardData) {
   if (!dashboardData) return false;
-  if (typeof dashboardData.can_view_earnings === "boolean") {
-    return dashboardData.can_view_earnings;
-  }
   const directPct = parseFloat(dashboardData.ownership_percentage) || 0;
   if (directPct > 0) return true;
   const linkMul = parseFloat(dashboardData._link_multiplier || 0) || 0;
@@ -38,9 +35,6 @@ export function viewerHasEarningsConfig(dashboardData) {
 
 export function resolveEarningsMultiplier(dashboardData, requireViewerConfig) {
   if (!dashboardData) return 0;
-  const canView = viewerHasEarningsConfig(dashboardData);
-  if (!canView) return 0;
-  const visibilityMode = String(dashboardData?.earnings_visibility_mode || "").trim().toLowerCase();
   const ownershipPercentage = parseFloat(dashboardData?.ownership_percentage) || 0;
   const groupEquityPercentage = parseFloat(dashboardData?.group_equity_percentage) || 0;
   const groupAccountPercentage = parseFloat(dashboardData?.group_account_percentage) || 0;
@@ -48,11 +42,6 @@ export function resolveEarningsMultiplier(dashboardData, requireViewerConfig) {
   const linkMul = parseFloat(dashboardData?._link_multiplier || 0) || 0;
   const hasLinkOwnership = linkMul > 0 && linkMul !== 1;
   const directPct = ownershipPercentage / 100;
-
-  if (visibilityMode === "group_shared") {
-    if (groupEquityPercentage > 0) return groupEquityPercentage / 100;
-    return 1;
-  }
 
   if (hasLinkOwnership) {
     const viewerGroupShare = groupAccountPercentage > 0 ? groupAccountPercentage / 100 : 1;
@@ -62,7 +51,6 @@ export function resolveEarningsMultiplier(dashboardData, requireViewerConfig) {
   if (hasGroupOwnership) {
     return (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
   }
-  if (visibilityMode === "account_owner") return 1;
   if (requireViewerConfig) return 0;
   return 0;
 }
@@ -77,7 +65,7 @@ export function computeKpiMetrics(dashboardData) {
   const showEarnings = viewerHasEarningsConfig(dashboardData);
   const panelMultiplier = resolveEarningsMultiplier(dashboardData, false);
   const kpiMultiplier = resolveEarningsMultiplier(dashboardData, true);
-  const earningsDisplay = !showEarnings ? 0 : netProfitDisplay * panelMultiplier;
+  const earningsDisplay = !showEarnings ? netProfitDisplay : netProfitDisplay * panelMultiplier;
   const kpiCardEarnings = showEarnings ? netProfitDisplay * kpiMultiplier : 0;
 
   return {
