@@ -82,8 +82,7 @@ export async function fetchCompanyPermissions(companyCode) {
     return ["Games", "Gambling"];
   }
   const permissions = await fetchCompanyPermissionsRaw(companyCode);
-  const filtered = permissions.filter((p) => p !== "Bank");
-  return filtered.length > 0 ? filtered : ["Games", "Gambling", "Loan", "Rate", "Money"];
+  return permissions.length > 0 ? permissions : ["Games", "Gambling", "Bank", "Loan", "Rate", "Money"];
 }
 
 export { isBankOnlyCategoryCompany } from "../shared/maintenanceCompanyApi.js";
@@ -116,7 +115,7 @@ export async function bootstrapFormulaMaintenanceMeta({ companies, groupId = nul
   const rawPerms = code
     ? await fetchCompanyPermissionsRaw(code)
     : ["Games", "Gambling", "Bank", "Loan", "Rate", "Money"];
-  const companyPerms = rawPerms.filter((p) => p !== "Bank");
+  const companyPerms = rawPerms;
   const savedPerm = code ? localStorage.getItem(`selectedPermission_${code}`) : null;
   const initialActive =
     savedPerm && companyPerms.includes(savedPerm) ? savedPerm : companyPerms.length > 0 ? companyPerms[0] : "";

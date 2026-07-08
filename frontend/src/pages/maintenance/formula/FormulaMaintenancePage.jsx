@@ -8,7 +8,6 @@ import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnersh
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/maintenanceStylesheets.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import { runMaintenanceCompanySwitch } from "../shared/maintenanceCompanySwitch.js";
-import { useMaintenanceBankOnlyGuard } from "../shared/useMaintenanceBankOnlyGuard.js";
 import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScrollLock.js";
 import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import {
@@ -111,7 +110,6 @@ export default function FormulaMaintenancePage() {
 
   // -- Filter State --
   const [companyId, setCompanyId] = useState(null);
-  useMaintenanceBankOnlyGuard(companyId);
   const [companyCode, setCompanyCode] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedProcess, setSelectedProcess] = useState(null);
@@ -173,7 +171,7 @@ export default function FormulaMaintenancePage() {
     switchCompany: (c) => switchCompanyRef.current(c),
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
-    pillCategory: "games",
+    pillCategory: "datacapture",
   });
 
   const formulaScope = useMemo(
@@ -513,18 +511,14 @@ export default function FormulaMaintenancePage() {
           });
           if (!skipCategoryGuard) {
             const hasGames = rawPerms.includes("Games") || rawPerms.includes("Gambling");
-            const bankOnly = rawPerms.includes("Bank") && !hasGames;
-            if (bankOnly) {
-              navigate(spaPath("dashboard"), { replace: true });
-              return;
-            }
-            if (!hasGames) {
+            const hasBank = rawPerms.includes("Bank");
+            if (!hasGames && !hasBank) {
               navigate(spaPath("dashboard"), { replace: true });
               return;
             }
           }
 
-          const permList = rawPerms.filter((p) => p !== "Bank");
+          const permList = rawPerms;
           setPermissions(permList);
           setProcesses(procList);
 
