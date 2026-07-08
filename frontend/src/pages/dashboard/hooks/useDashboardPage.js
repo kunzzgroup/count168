@@ -2330,18 +2330,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       currencyScopeLoadedRef.current = { key: scopeKey, count: list.length };
     };
 
-    const deferGroupAllCurrencyNetworkRefresh = (refreshFn) => {
-      const wait = () => {
-        if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
-        if (dashboardFetchInFlightScopeRef.current) {
-          window.setTimeout(wait, 250);
-          return;
-        }
-        void refreshFn();
-      };
-      window.setTimeout(wait, CURRENCY_REFRESH_DEFER_MS);
-    };
-
     /** Group "All" aggregate: union group-ledger currencies from every visible group (AP + IG). */
     if (groupsAllLedgerCurrencyScope) {
       const gids = filterGroupIdsForLedgerAccess(me, groupIds, companies);
@@ -2428,6 +2416,40 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         .map((c) => parseInt(c.id, 10))
         .filter((id) => Number.isFinite(id) && id > 0);
 
+      const filterMergeCompanyIdsByOwnershipVisibility = async (rows) => {
+        const list = (rows || []).filter(Boolean);
+        if (!list.length) return [];
+        const effectiveCurrency =
+          currencyCodeRef.current ||
+          currenciesRef.current?.[0] ||
+          "";
+        const results = await runTasksInBatches(
+          list,
+          MERGE_DASHBOARD_PARALLEL_BATCH,
+          async (row) => {
+            const cid = parseInt(row?.id, 10);
+            if (!Number.isFinite(cid) || cid <= 0) return null;
+            const vg = resolveViewGroupForCompany(row, groupKey);
+            try {
+              const payload = await fetchDashboardPayload(
+                cid,
+                dateFromRef.current,
+                dateToRef.current,
+                effectiveCurrency,
+                vg,
+                false,
+                { earningsOnly: true }
+              );
+              const ownershipOpts = resolveKpiOwnershipOpts(cid, vg || groupKey);
+              return viewerHasEarningsConfig(payload, ownershipOpts) ? cid : null;
+            } catch {
+              return null;
+            }
+          }
+        );
+        return [...new Set(results.filter((id) => Number.isFinite(id) && id > 0))];
+      };
+
       if (!mergeCompanyIds.length) {
         if (!companies.length) return;
         const cachedFallback = groupsAllMode
@@ -2451,14 +2473,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return;
       }
 
-      const readCachedGroupAllCurrencyCodes = () =>
-        groupsAllMode
-          ? currenciesByGroupRef.current.get("GROUPS:ALL") ??
-            readPersistedGroupsAllCurrencyCodes()
-          : groupKey
-            ? currenciesByGroupRef.current.get(`${groupKey}:ALL`) ??
-              readPersistedGroupAllCurrencyCodes(groupKey)
-            : null;
+      mergeCompanyIds = await filterMergeCompanyIdsByOwnershipVisibility(mergeRows);
+      if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
+      if (!mergeCompanyIds.length) {
+        commitCurrencyList([]);
+        return;
+      }
 
       const loadGroupAllCurrenciesFromNetwork = async () => {
         if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) {
@@ -2543,13 +2563,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         }
       };
 
-      const cachedGroupAllCodes = readCachedGroupAllCurrencyCodes();
-      if (cachedGroupAllCodes?.length > 1) {
-        commitCurrencyList(cachedGroupAllCodes);
-        deferGroupAllCurrencyNetworkRefresh(loadGroupAllCurrenciesFromNetwork);
-      } else {
-        await loadGroupAllCurrenciesFromNetwork();
-      }
+      await loadGroupAllCurrenciesFromNetwork();
       return;
     }
 
@@ -2839,6 +2853,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     resolveMergeCompanyList,
     me,
     companiesForPicker,
+    fetchDashboardPayload,
+    resolveKpiOwnershipOpts,
   ]);
 
   loadCurrenciesRef.current = loadCurrencies;
