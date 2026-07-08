@@ -3517,11 +3517,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (!snap?.current) return null;
         snapshots.push({ ...snap, company: row, viewGroup: vg });
       }
+      const visibleSnapshots = snapshots.filter((s) =>
+        viewerHasEarningsConfig(
+          s.current,
+          resolveKpiOwnershipOpts(parseInt(s.company?.id, 10), s.viewGroup || null)
+        )
+      );
 
       const mergedCurrent = mergeGroupData(
         snapshots.map((s) => s.current),
         { startDate: from, endDate: to }
       );
+      mergedCurrent.can_view_earnings = visibleSnapshots.length > 0;
+      mergedCurrent.earnings_visibility_mode =
+        visibleSnapshots.length > 0 ? "mixed" : "hidden";
       const byCompanyCurrent = buildCompanyNetProfitRowsFromPairs(
         snapshots.map((s) => ({ company: s.company, data: s.current, viewGroup: s.viewGroup })),
         selGroup
@@ -3536,6 +3545,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             { startDate: from, endDate: to }
           )
         : null;
+      if (mergedPrevious) {
+        const previousVisibleSnapshots = snapshots.filter((s) =>
+          viewerHasEarningsConfig(
+            s.previous,
+            resolveKpiOwnershipOpts(parseInt(s.company?.id, 10), s.viewGroup || null)
+          )
+        );
+        mergedPrevious.can_view_earnings = previousVisibleSnapshots.length > 0;
+        mergedPrevious.earnings_visibility_mode =
+          previousVisibleSnapshots.length > 0 ? "mixed" : "hidden";
+      }
 
       const earningsLists = snapshots.map((s) => s.earnings).filter((e) => Array.isArray(e) && e.length);
       const mergedEarnings =
@@ -3560,6 +3580,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       groupIds,
       resolveMemberDashboardSnapshot,
       buildCompanyNetProfitRowsFromPairs,
+      resolveKpiOwnershipOpts,
     ]
   );
 
@@ -4531,6 +4552,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         throw new Error(i18n.failedToLoadDashboard);
       }
       const merged = mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
+      const visiblePairs = pairs.filter((pair) =>
+        viewerHasEarningsConfig(
+          pair.data,
+          resolveKpiOwnershipOpts(parseInt(pair.company?.id, 10), pair.viewGroup || null)
+        )
+      );
+      merged.can_view_earnings = visiblePairs.length > 0;
+      merged.earnings_visibility_mode = visiblePairs.length > 0 ? "mixed" : "hidden";
       const byCompany = buildCompanyNetProfitRowsFromPairs(
         pairs,
         viewGroupFallback ?? selectedGroup
@@ -4540,7 +4569,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       return merged;
     },
-    [fetchDashboardPayload, selectedGroup, companies, i18n.failedToLoadDashboard]
+    [
+      fetchDashboardPayload,
+      selectedGroup,
+      companies,
+      i18n.failedToLoadDashboard,
+      resolveKpiOwnershipOpts,
+    ]
   );
 
   const fetchGroupAllMergedDashboard = useCallback(

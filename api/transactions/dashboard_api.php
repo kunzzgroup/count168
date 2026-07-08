@@ -1339,7 +1339,10 @@ function dashboardLoadViewerGroupAccountPercentage(
  *   has_ownership_setup:bool,
  *   group_equity_percentage:float,
  *   group_account_percentage:float,
- *   has_group_ownership:bool
+ *   has_group_ownership:bool,
+ *   has_group_ownership_config:bool,
+ *   can_view_earnings:bool,
+ *   earnings_visibility_mode:string
  * }
  */
 function dashboardLoadCompanyDashboardOwnership(
@@ -1348,12 +1351,16 @@ function dashboardLoadCompanyDashboardOwnership(
     string $dateToDisplay,
     string $viewGroup = ''
 ): array {
+    $normalizedViewGroup = reportNormalizeGroupId($viewGroup);
     $result = [
         'ownership_percentage' => 0.0,
         'has_ownership_setup' => false,
         'group_equity_percentage' => 0.0,
         'group_account_percentage' => 0.0,
         'has_group_ownership' => false,
+        'has_group_ownership_config' => false,
+        'can_view_earnings' => false,
+        'earnings_visibility_mode' => 'hidden',
     ];
 
     $monthCtx = dashboardResolveOwnershipMonthFromDate($dateToDisplay);
@@ -1396,6 +1403,45 @@ function dashboardLoadCompanyDashboardOwnership(
         $userId = $viewer['user_id'];
         $ownerTypeStr = $viewer['owner_type'];
         $userType = strtolower((string) ($_SESSION['user_type'] ?? ''));
+        $isOwnerViewer = ($ownerTypeStr === 'owner');
+
+        if ($hasOwnerType) {
+            if ($normalizedViewGroup !== '') {
+                $stmtGroupCfg = $pdo->prepare("
+                    SELECT 1
+                    FROM {$companyTable}
+                    WHERE company_id = ?
+                      AND owner_type = 'group'
+                      AND percentage > 0
+                      AND partner_group_id IS NOT NULL
+                      AND TRIM(partner_group_id) <> ''
+                      AND UPPER(TRIM(partner_group_id)) = UPPER(TRIM(?))
+                      {$monthSql}
+                    LIMIT 1
+                ");
+                $stmtGroupCfg->execute(
+                    $useHistory
+                        ? [$companyId, $normalizedViewGroup, $effectiveMonth]
+                        : [$companyId, $normalizedViewGroup]
+                );
+            } else {
+                $stmtGroupCfg = $pdo->prepare("
+                    SELECT 1
+                    FROM {$companyTable}
+                    WHERE company_id = ?
+                      AND owner_type = 'group'
+                      AND percentage > 0
+                      {$monthSql}
+                    LIMIT 1
+                ");
+                $stmtGroupCfg->execute(
+                    $useHistory
+                        ? [$companyId, $effectiveMonth]
+                        : [$companyId]
+                );
+            }
+            $result['has_group_ownership_config'] = $stmtGroupCfg->fetchColumn() !== false;
+        }
 
         if ($hasOwnerType) {
             $stmtPct = $pdo->prepare("
@@ -1552,6 +1598,24 @@ function dashboardLoadCompanyDashboardOwnership(
                 }
             }
         }
+
+        $directPct = (float) ($result['ownership_percentage'] ?? 0);
+        $canViewEarnings = false;
+        $visibilityMode = 'hidden';
+        if ($result['has_group_ownership_config'] && $normalizedViewGroup !== '') {
+            // Group+Company scope: group ownership exists for this scope => all permitted viewers can see.
+            $canViewEarnings = true;
+            $visibilityMode = 'group_shared';
+        } elseif ($directPct > 0) {
+            $canViewEarnings = true;
+            $visibilityMode = 'account_assignment';
+        } elseif ($isOwnerViewer) {
+            // Account-only scope: owner can always view earnings even without an explicit row.
+            $canViewEarnings = true;
+            $visibilityMode = 'account_owner';
+        }
+        $result['can_view_earnings'] = $canViewEarnings;
+        $result['earnings_visibility_mode'] = $visibilityMode;
     } catch (Throwable $e) {
         // ignore — tables may not exist yet
     }
@@ -3649,6 +3713,17 @@ try {
         );
         $groupAccountPct = (float) ($viewerGroupShare['percentage'] ?? 0);
         $hasGroupAccountOwnership = !empty($viewerGroupShare['has']);
+        $hasGroupOwnershipConfig = $hasGroupOwnershipProfit || !empty($subsidiaryEarnings['by_company']);
+        $groupCanViewEarnings = $hasGroupOwnershipConfig || $hasGroupAccountOwnership;
+        $subsidiaryEarningsTotalOut = $groupCanViewEarnings
+            ? dashboardOut($subsidiaryEarnings['period_total'])
+            : dashboardOut('0');
+        $subsidiaryCompanyEarningsTotalOut = $groupCanViewEarnings
+            ? dashboardOut($subsidiaryEarnings['company_earnings_total'] ?? '0')
+            : dashboardOut('0');
+        $subsidiaryEarningsByCompanyOut = $groupCanViewEarnings
+            ? ($subsidiaryEarnings['by_company'] ?? [])
+            : [];
         $subsidiaryCompanyEarningsTotal = (string) ($subsidiaryEarnings['company_earnings_total'] ?? '0');
         $groupKpiProfit = $subsidiaryCompanyEarningsTotal;
         echo json_encode([
@@ -3663,12 +3738,13 @@ try {
                 'group_equity_percentage' => 0,
                 'group_account_percentage' => $groupAccountPct,
                 'has_group_ownership' => $hasGroupAccountOwnership,
+                'has_group_ownership_config' => $hasGroupOwnershipConfig,
+                'can_view_earnings' => $groupCanViewEarnings,
+                'earnings_visibility_mode' => $groupCanViewEarnings ? 'group_shared' : 'hidden',
                 'group_ledger_net_profit' => dashboardOut($groupLedgerNetProfit),
-                'subsidiary_earnings_total' => dashboardOut($subsidiaryEarnings['period_total']),
-                'subsidiary_company_earnings_total' => dashboardOut(
-                    $subsidiaryEarnings['company_earnings_total'] ?? '0'
-                ),
-                'subsidiary_earnings_by_company' => $subsidiaryEarnings['by_company'] ?? [],
+                'subsidiary_earnings_total' => $subsidiaryEarningsTotalOut,
+                'subsidiary_company_earnings_total' => $subsidiaryCompanyEarningsTotalOut,
+                'subsidiary_earnings_by_company' => $subsidiaryEarningsByCompanyOut,
                 '_group_aggregate_earnings' => true,
                 'period_total' => [
                     'capital' => $groupResult['capital']['period_total'],
@@ -4418,6 +4494,9 @@ try {
             'group_equity_percentage' => $group_equity_percentage,
             'group_account_percentage' => $group_account_percentage,
             'has_group_ownership' => $has_group_ownership,
+            'has_group_ownership_config' => $ownershipFields['has_group_ownership_config'] ?? false,
+            'can_view_earnings' => $ownershipFields['can_view_earnings'] ?? false,
+            'earnings_visibility_mode' => $ownershipFields['earnings_visibility_mode'] ?? 'hidden',
             'period_total' => [
                 'capital' => $result['capital']['period_total'],
                 'expenses' => $result['expenses']['period_total'],
