@@ -56,7 +56,13 @@ import {
   shouldAggregateChartByMonth,
 } from "../lib/dashboardDateUtils.js";
 import { formatI18nTemplate } from "../lib/dashboardFormat.js";
-import { buildKpiCompare, computeKpiMetrics, mergeDashboardOwnershipFields, viewerHasEarningsConfig } from "../lib/dashboardKpi.js";
+import {
+  buildKpiCompare,
+  canIncludeCompanyInMergedEarnings,
+  computeKpiMetrics,
+  mergeDashboardOwnershipFields,
+  viewerHasEarningsConfig,
+} from "../lib/dashboardKpi.js";
 import {
   mergeCompanyBreakdownRowLists,
   normalizeSubsidiaryEarningsByCompany,
@@ -2441,7 +2447,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
                 { earningsOnly: true }
               );
               const ownershipOpts = resolveKpiOwnershipOpts(cid, vg || groupKey);
-              return viewerHasEarningsConfig(payload, ownershipOpts) ? cid : null;
+              return canIncludeCompanyInMergedEarnings(payload, ownershipOpts) ? cid : null;
             } catch {
               return null;
             }
@@ -3534,7 +3540,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         snapshots.push({ ...snap, company: row, viewGroup: vg });
       }
       const visibleSnapshots = snapshots.filter((s) =>
-        viewerHasEarningsConfig(
+        canIncludeCompanyInMergedEarnings(
           s.current,
           resolveKpiOwnershipOpts(parseInt(s.company?.id, 10), s.viewGroup || null)
         )
@@ -3563,7 +3569,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         : null;
       if (mergedPrevious) {
         const previousVisibleSnapshots = snapshots.filter((s) =>
-          viewerHasEarningsConfig(
+          canIncludeCompanyInMergedEarnings(
             s.previous,
             resolveKpiOwnershipOpts(parseInt(s.company?.id, 10), s.viewGroup || null)
           )
@@ -4569,7 +4575,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       const merged = mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
       const visiblePairs = pairs.filter((pair) =>
-        viewerHasEarningsConfig(
+        canIncludeCompanyInMergedEarnings(
           pair.data,
           resolveKpiOwnershipOpts(parseInt(pair.company?.id, 10), pair.viewGroup || null)
         )

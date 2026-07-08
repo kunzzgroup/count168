@@ -1,4 +1,5 @@
 import {
+  canIncludeCompanyInMergedEarnings,
   computeGroupAggregateEarningsAmount,
   isGroupAggregateEarningsPayload,
   netProfitFromDashboardPayload,
@@ -98,7 +99,7 @@ export function buildCompanyNetProfitRowFromPayload(companyRow, data, viewGroup 
   if (!companyRow || !data) return null;
   const netProfit = netProfitFromDashboardPayload(data);
   const profit = parseFloat(data?.period_total?.profit ?? data?.profit) || 0;
-  const canViewEarnings = data?.can_view_earnings !== false;
+  const canViewEarnings = canIncludeCompanyInMergedEarnings(data);
   const earningMultiplier = resolveGroupAllCompanyEarningsMultiplier(data);
   const companyEarnings = canViewEarnings ? netProfit * earningMultiplier : 0;
   const nativeG = companyRow?.group_id ? String(companyRow.group_id).trim().toUpperCase() : "";
@@ -122,11 +123,15 @@ export function buildCompanyNetProfitRowFromPayload(companyRow, data, viewGroup 
     // Group All KPI Earnings should sum per-company earnings by ownership.
     my_earning: companyEarnings,
     can_view_earnings: canViewEarnings,
+    has_ownership_setup: !!data?.has_ownership_setup,
+    earnings_visibility_mode: String(data?.earnings_visibility_mode || "")
+      .trim()
+      .toLowerCase(),
   };
 }
 
 function resolveGroupAllCompanyEarningsMultiplier(data) {
-  if (!data || data?.can_view_earnings === false) return 0;
+  if (!data || !canIncludeCompanyInMergedEarnings(data)) return 0;
   const mode = String(data?.earnings_visibility_mode || "").trim().toLowerCase();
   if (mode === "group_shared") {
     const groupEquityPct = parseFloat(data.group_equity_percentage) || 0;

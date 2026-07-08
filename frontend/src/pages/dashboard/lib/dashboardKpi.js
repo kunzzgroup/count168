@@ -71,6 +71,20 @@ export function viewerHasEarningsConfig(dashboardData, options = {}) {
   return false;
 }
 
+/**
+ * Group-All merge guard:
+ * - must be earnings-visible for viewer
+ * - account_owner fallback is valid only when the company has ownership setup
+ */
+export function canIncludeCompanyInMergedEarnings(dashboardData, options = {}) {
+  if (!viewerHasEarningsConfig(dashboardData, options)) return false;
+  const visibilityMode = resolveEarningsVisibilityMode(dashboardData);
+  if (visibilityMode === "account_owner" && !dashboardData?.has_ownership_setup) {
+    return false;
+  }
+  return true;
+}
+
 /** Viewer group account % as 0–1 multiplier (1 when unset). */
 export function resolveGroupAccountMultiplier(dashboardData) {
   const accPct = parseFloat(dashboardData?.group_account_percentage) || 0;
@@ -142,7 +156,7 @@ export function computeGroupAllCompanyEarningsSum(dashboardData) {
   const rows = dashboardData.subsidiary_earnings_by_company;
   if (Array.isArray(rows) && rows.length) {
     return rows.reduce((sum, row) => {
-      if (row?.can_view_earnings === false) return sum;
+      if (!canIncludeCompanyInMergedEarnings(row)) return sum;
       return sum + (parseFloat(row.my_earning) || 0);
     }, 0);
   }

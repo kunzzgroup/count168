@@ -1610,8 +1610,8 @@ function dashboardLoadCompanyDashboardOwnership(
         } elseif ($directPct > 0) {
             $canViewEarnings = true;
             $visibilityMode = 'account_assignment';
-        } elseif ($isOwnerViewer) {
-            // Account-only scope: owner can always view earnings even without an explicit row.
+        } elseif ($isOwnerViewer && !empty($result['has_ownership_setup'])) {
+            // Account-only scope: owner can view earnings when the company has ownership config.
             $canViewEarnings = true;
             $visibilityMode = 'account_owner';
         }
