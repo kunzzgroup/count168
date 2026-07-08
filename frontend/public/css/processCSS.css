@@ -8809,3 +8809,17 @@ body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-vir
     overscroll-behavior: contain;
 }
 
+/* 非 Show All：彻底禁用横向滚动轨道，仅保留纵向滚动 */
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table-inner {
+    overflow-x: hidden !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar:horizontal,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip::-webkit-scrollbar:horizontal {
+    height: 0 !important;
+    display: none !important;
+}
+
