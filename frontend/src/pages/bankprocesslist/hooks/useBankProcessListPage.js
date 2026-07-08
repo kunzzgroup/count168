@@ -2402,6 +2402,8 @@ export function useBankProcessListPage() {
     // Show inactive / select column can alter effective row height.
     // Use real rendered rows to prevent clipped rows near page bottom.
     stableRowHeight: false,
+    // Non-show-all bank list can usually fit one more row visually.
+    visibleClampBufferRows: 1,
     remeasureDeps: [
       visibleRows.length,
       tableLoading,
