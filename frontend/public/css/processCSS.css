@@ -8761,10 +8761,10 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
     margin-bottom: calc(var(--space-gap, 0.75rem) * 0.65) !important;
 }
 
-/* Bank 非 Show All（最终策略）：
+/* Bank 非 Show All（当前策略）：
  * 1) 交给 auto page size 控制显示行数（不启用表格内纵向滚动）
- * 2) 关闭横向滚动，避免底部 x-scroll
- * 3) 其他祖先链全部 overflow:hidden，防止双滚动
+ * 2) 保留表格区域横向滚动（小屏可完整查看列）
+ * 3) 其他祖先链 overflow:hidden，防止双滚动
  */
 html:has(body.process-page.process-page--bank:not(.process-page--bank-show-all)) {
     overflow-x: hidden !important;
@@ -8774,7 +8774,7 @@ html:has(body.process-page.process-page--bank:not(.process-page--bank-show-all))
 body.process-page.process-page--bank:not(.process-page--bank-show-all),
 body.dashboard-page.process-page.process-page--bank:not(.process-page--bank-show-all),
 body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) {
-    --bank-virtual-table-min-width: 100%;
+    --bank-virtual-table-min-width: 1440px;
     overflow-x: hidden !important;
     overflow-y: hidden !important;
     height: 100vh !important;
@@ -8788,9 +8788,6 @@ body.process-page.process-page--bank:not(.process-page--bank-show-all) .ec-page-
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .container,
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .content,
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
-body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
-body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region,
-body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table-inner {
     min-height: 0 !important;
     max-height: 100% !important;
@@ -8798,11 +8795,20 @@ body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-vir
     overflow-y: hidden !important;
 }
 
-body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table-inner,
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll.process-cards,
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-data-row {
     min-width: 0 !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table {
+    min-width: max(100%, var(--bank-virtual-table-min-width, 1440px)) !important;
 }
 
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip,
@@ -8814,17 +8820,17 @@ body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-
     overscroll-behavior: contain;
 }
 
-/* 非 Show All：彻底禁用横向滚动轨道，仅保留纵向滚动 */
+/* 非 Show All：允许表格区域横向滚动，避免小屏列被压缩 */
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region,
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table-inner {
-    overflow-x: hidden !important;
+    overflow-x: auto !important;
 }
 
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region::-webkit-scrollbar:horizontal,
 body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip::-webkit-scrollbar:horizontal {
-    height: 0 !important;
-    display: none !important;
+    height: 6px !important;
+    display: block !important;
 }
 
