@@ -402,17 +402,6 @@ export default function TransactionAddSection({
             <input
               type="number"
               step="0.01"
-              id="rate_middleman_amount"
-              className="transaction-input"
-              placeholder={m.amount}
-              readOnly
-              disabled={mutationsBlocked}
-              value={rateMiddlemanAmount}
-              aria-label={m.middleMan}
-            />
-            <input
-              type="number"
-              step="0.01"
               id="rate_middleman_input_amount"
               className="transaction-input"
               placeholder={m.amount}
@@ -420,6 +409,17 @@ export default function TransactionAddSection({
               value={rateMiddlemanInputAmount}
               onChange={(e) => setRateMiddlemanInputAmount(e.target.value)}
               aria-label={m.amount}
+            />
+            <input
+              type="number"
+              step="0.01"
+              id="rate_middleman_amount"
+              className="transaction-input"
+              placeholder={m.amount}
+              readOnly
+              disabled={mutationsBlocked}
+              value={rateMiddlemanAmount}
+              aria-label={m.middleMan}
             />
           </div>
         </div>
