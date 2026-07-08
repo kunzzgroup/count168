@@ -3446,11 +3446,11 @@ body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-row .card-item
     letter-spacing: 0 !important;
 }
 
-/* 末页不足一页：紧凑行高，避免文字被压扁 */
+/* 末页不足一页：保持与 Account 一致的最小行高，避免数据上下密度不一致 */
 body.user-page:not(.user-page--show-all) .user-list-table .user-cards:not(.user-cards--paged-fill) .user-list-row,
 body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-table .user-cards:not(.user-cards--paged-fill) .user-list-row {
     flex: 0 0 auto;
-    min-height: 0 !important;
+    min-height: var(--user-list-row-min-height, 30px) !important;
     height: auto;
 }
 
