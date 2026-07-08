@@ -7989,8 +7989,16 @@ body.process-page.process-page--bank.process-page--bank-show-all .bank-process-l
 body.process-page.process-page--bank.process-page--bank-show-all .bank-process-list-scroll-region {
     max-height: none !important;
     overflow-y: visible !important;
+}
+
+body.process-page.process-page--bank.process-page--bank-show-all .content,
+body.process-page.process-page--bank.process-page--bank-show-all .bank-process-list-body {
+    overflow-x: hidden !important;
+}
+
+body.process-page.process-page--bank.process-page--bank-show-all .bank-process-list-scroll-region {
     overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
+    -webkit-overflow-scrolling: touch !important;
 }
 
 body.process-page.process-page--bank.process-page--bank-show-all .bank-table-wrapper,
@@ -7999,8 +8007,7 @@ body.process-page.process-page--bank.process-page--bank-show-all .process-table-
     height: auto !important;
     max-height: none !important;
     overflow-y: visible !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: visible !important;
 }
 
 /* Status 下拉走 portal/fixed，单元格可 hidden 防止胶囊溢出遮挡 Date */
