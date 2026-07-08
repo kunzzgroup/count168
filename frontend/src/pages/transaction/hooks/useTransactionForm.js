@@ -17,6 +17,24 @@ import { submitTransaction, transactionQueryKeys } from "../lib/transactionApi.j
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 import { resolveGridRowToAccountOption } from "../lib/transactionPaymentLogic.js";
 
+function sanitizeTransactionAmountInput(value) {
+  const raw = String(value ?? "").replace(/,/g, "");
+  if (raw === "") return "";
+
+  const filtered = raw.replace(/[^\d.-]/g, "");
+  if (filtered === "") return "";
+
+  const hasLeadingMinus = filtered.startsWith("-");
+  let unsigned = filtered.replace(/-/g, "");
+
+  const firstDotIdx = unsigned.indexOf(".");
+  if (firstDotIdx !== -1) {
+    unsigned = `${unsigned.slice(0, firstDotIdx + 1)}${unsigned.slice(firstDotIdx + 1).replace(/\./g, "")}`;
+  }
+
+  return hasLeadingMinus ? `-${unsigned}` : unsigned;
+}
+
 export function useTransactionForm({
   todayDmy,
   pushToast,
@@ -70,7 +88,7 @@ export function useTransactionForm({
   const queryClient = useQueryClient();
 
   const changeTxAmount = useCallback((val) => {
-    setTxAmount(val);
+    setTxAmount(sanitizeTransactionAmountInput(val));
     setTxFullAmount("");
   }, []);
 

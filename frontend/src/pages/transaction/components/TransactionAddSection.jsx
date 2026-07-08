@@ -188,8 +188,8 @@ export default function TransactionAddSection({
             {m.amount}
           </label>
           <input
-            type="number"
-            step="0.01"
+            type="text"
+            inputMode="decimal"
             id="action_amount"
             className="transaction-input"
             value={txAmount}
