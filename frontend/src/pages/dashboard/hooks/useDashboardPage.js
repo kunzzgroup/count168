@@ -863,6 +863,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const companySwitchGenRef = useRef(0);
   const currencyLoadGenRef = useRef(0);
   const loadCurrenciesRef = useRef(null);
+  const fetchDashboardPayloadRef = useRef(null);
   const loadCurrenciesCoalesceTimerRef = useRef(null);
   /** Skip redundant currency network reloads for the same filter scope. */
   const currencyScopeLoadedRef = useRef({ key: "", count: 0 });
@@ -2437,7 +2438,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             if (!Number.isFinite(cid) || cid <= 0) return null;
             const vg = resolveViewGroupForCompany(row, groupKey);
             try {
-              const payload = await fetchDashboardPayload(
+              const payloadFetcher = fetchDashboardPayloadRef.current;
+              if (typeof payloadFetcher !== "function") return null;
+              const payload = await payloadFetcher(
                 cid,
                 dateFromRef.current,
                 dateToRef.current,
@@ -2859,7 +2862,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     resolveMergeCompanyList,
     me,
     companiesForPicker,
-    fetchDashboardPayload,
     resolveKpiOwnershipOpts,
   ]);
 
@@ -3423,6 +3425,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     },
     [selectedGroup, companies, i18n]
   );
+  fetchDashboardPayloadRef.current = fetchDashboardPayload;
 
   const applyDashboardPayloadAdjustments = useCallback(
     (data, cid, viewGroupOverride, rangeTo = dateToRef.current) => {

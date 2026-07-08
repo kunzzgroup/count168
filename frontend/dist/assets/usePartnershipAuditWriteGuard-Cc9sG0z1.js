@@ -1,1 +1,0 @@
-import{r as i}from"./index-Oaz7Tu63.js";import{u as n,g as d}from"./partnershipAuditReadOnly-wpI_75ue.js";function p(t,r,a){const u=n(t),o="Read-only account: this action is not allowed.",e=i.useCallback(()=>d(t,()=>{typeof r=="function"&&r(a||o,"danger")}),[t,r,a]);return{mutationsBlocked:u,guardWrite:e,isLocked:u}}export{p as u};
