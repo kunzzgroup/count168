@@ -41,14 +41,7 @@ import {
   sumConvertedKpiMetrics,
   warmFrankfurterRatesForCurrencies,
 } from "../../../utils/dashboard/frankfurterRates.js";
-import {
-  DASHBOARD_API,
-  DASHBOARD_BOOTSTRAP_API,
-  DASHBOARD_NET_GUARDS,
-  DASHBOARD_PANEL_ANIM_DURATION_MS,
-  DASHBOARD_PROFIT_COLOR,
-  isDashboardHistoricalOwnershipMonth,
-} from "../lib/dashboardConstants.js";
+import { DASHBOARD_API, DASHBOARD_BOOTSTRAP_API, DASHBOARD_PANEL_ANIM_DURATION_MS, DASHBOARD_PROFIT_COLOR, isDashboardHistoricalOwnershipMonth } from "../lib/dashboardConstants.js";
 import {
   buildChartRows,
   buildSkeletonChartRows,
@@ -5672,17 +5665,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     (cacheKey, cached, multiCurrencyCodes) => {
       if (!cacheKey || cacheKey !== resolveDashboardScopeKey() || !cached?.current) return;
 
-      if (!DASHBOARD_NET_GUARDS.deferPreviousEnabled && !cached.previous) {
+      if (!cached.previous) {
         void loadDashboardPreviousPeriod(cacheKey);
       }
-      if (!DASHBOARD_NET_GUARDS.deferChartEnabled && dashboardPayloadNeedsChartDaily(cached.current)) {
+      if (dashboardPayloadNeedsChartDaily(cached.current)) {
         scheduleChartDailyLoad(cacheKey, resolveDashboardScopeKey, loadDashboardChartDaily);
       }
 
       const needsMultiCurrencyEarnings =
         Array.isArray(multiCurrencyCodes) && multiCurrencyCodes.length > 1;
       if (
-        !DASHBOARD_NET_GUARDS.deferEarningsEnabled &&
         needsMultiCurrencyEarnings &&
         !cacheEntryHasFullEarnings(cached, multiCurrencyCodes)
       ) {
@@ -5938,11 +5930,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     if (!needsDashboardFetch && needsEarningsUpgrade) {
       setLoading(false);
-      setEarningsByCurrencyLoading(!DASHBOARD_NET_GUARDS.deferEarningsEnabled);
+      setEarningsByCurrencyLoading(true);
       ensureDeferredDashboardLoads(cacheKey, latestCached, multiCurrencyCodes);
-      if (!DASHBOARD_NET_GUARDS.deferEarningsEnabled) {
-        void upgradeActiveScopeEarnings();
-      }
+      void upgradeActiveScopeEarnings();
       return;
     }
 
@@ -6009,24 +5999,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
                 primaryMetrics.earnings
               )
             );
-            if (DASHBOARD_NET_GUARDS.deferEarningsEnabled) {
-              setEarningsByCurrencyLoading(false);
-            } else {
-              setEarningsByCurrencyLoading(true);
-              void upgradeActiveScopeEarnings();
-            }
+            setEarningsByCurrencyLoading(true);
+            void upgradeActiveScopeEarnings();
           } else {
             setEarningsByCurrencyLoading(false);
           }
 
           setDashboardCache(cacheKey, cacheEntry);
-          if (!DASHBOARD_NET_GUARDS.deferPreviousEnabled && !boot.previous) {
+          if (!boot.previous) {
             void loadDashboardPreviousPeriod(cacheKey);
           }
-          if (
-            !DASHBOARD_NET_GUARDS.deferChartEnabled &&
-            dashboardPayloadNeedsChartDaily(boot.current)
-          ) {
+          if (dashboardPayloadNeedsChartDaily(boot.current)) {
             scheduleChartDailyLoad(cacheKey, resolveDashboardScopeKey, loadDashboardChartDaily);
           }
           return;
@@ -6104,12 +6087,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
               primaryMetrics.earnings
             )
           );
-          if (DASHBOARD_NET_GUARDS.deferEarningsEnabled) {
-            setEarningsByCurrencyLoading(false);
-          } else {
-            setEarningsByCurrencyLoading(true);
-            void upgradeActiveScopeEarnings();
-          }
+          setEarningsByCurrencyLoading(true);
+          void upgradeActiveScopeEarnings();
         }
 
         patchDashboardCache(cacheKey, cachePatch);
@@ -6290,7 +6269,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   /** Warm active group companies (incl. current) so first entry and 95↔AG switches hit cache. */
   useEffect(() => {
-    if (!DASHBOARD_NET_GUARDS.groupWarmEnabled) return undefined;
     if (
       !gcBootstrapReady ||
       !companies.length ||
@@ -6364,7 +6342,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   /** Warm dashboard cache for sibling groups/companies so first AP↔IG / company switches feel instant. */
   useEffect(() => {
-    if (!DASHBOARD_NET_GUARDS.siblingWarmEnabled) return undefined;
     if (!gcBootstrapReady || !companies.length || !dateFrom || !dateTo || groupAllMode) {
       return undefined;
     }
@@ -6452,7 +6429,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   /** One-time per login: warm accessible companies at current currency so later switches are instant. */
   useEffect(() => {
-    if (!DASHBOARD_NET_GUARDS.sessionWarmEnabled) return undefined;
     if (
       !gcBootstrapReady ||
       !companies.length ||
@@ -6578,9 +6554,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       !(mergedSubsetIds && mergedSubsetIds.length > 1) &&
       (companyId != null || groupAggregateMode);
     if (canUseBootstrap) {
-      if (!DASHBOARD_NET_GUARDS.deferEarningsEnabled) {
-        void upgradeActiveScopeEarnings();
-      }
+      void upgradeActiveScopeEarnings();
       return undefined;
     }
     void loadEarningsByCurrency();
@@ -6611,8 +6585,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   }, [currencies, dateTo, currencyCode]);
 
   useEffect(() => {
-    const prefetchLimit = Number(DASHBOARD_NET_GUARDS.currencyPrefetchLimit || 0);
-    if (prefetchLimit <= 0) return undefined;
     if (!gcBootstrapReady || currencies.length <= 1 || !dashboardScopeKey) return undefined;
     let cancelled = false;
     let waitRounds = 0;
@@ -6631,20 +6603,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return;
       }
       const codes = currenciesRef.current;
-      const targets = codes
-        .filter((code) => code !== currencyCodeRef.current)
-        .slice(0, prefetchLimit);
       let idx = 0;
       const drain = () => {
         if (cancelled || interactionGen !== scopeInteractionGenRef.current) return;
         const batch = [];
-        while (batch.length < 2 && idx < targets.length) {
-          batch.push(targets[idx++]);
+        while (batch.length < 2 && idx < codes.length) {
+          const code = codes[idx++];
+          if (code !== currencyCodeRef.current) {
+            batch.push(code);
+          }
         }
         if (!batch.length) return;
         void Promise.allSettled(batch.map((code) => prefetchActiveScopeCurrency(code))).then(
           () => {
-            if (idx < targets.length && !cancelled) {
+            if (idx < codes.length && !cancelled) {
               window.setTimeout(drain, 150);
             }
           }

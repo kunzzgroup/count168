@@ -1,15 +1,5 @@
 export const DASHBOARD_API = "api/transactions/dashboard_api.php";
 export const DASHBOARD_BOOTSTRAP_API = "api/transactions/dashboard_bootstrap_api.php";
-export const DASHBOARD_NET_GUARDS = {
-  routeWarmEnabled: false,
-  groupWarmEnabled: false,
-  siblingWarmEnabled: false,
-  sessionWarmEnabled: false,
-  currencyPrefetchLimit: 0,
-  deferPreviousEnabled: true,
-  deferChartEnabled: true,
-  deferEarningsEnabled: true,
-};
 
 /** Trend + pie panels: shared Recharts / number animation timing. */
 export const DASHBOARD_PANEL_ANIM_DURATION_MS = 800;
