@@ -862,8 +862,8 @@ const PDF_TABLE_COLUMN_STYLES = {
   3: { cellWidth: 28, halign: "right", overflow: "hidden" },
   4: { cellWidth: 28, halign: "right", overflow: "hidden" },
   5: { cellWidth: 30, halign: "right", overflow: "hidden" },
-  6: { cellWidth: 76, halign: "left", overflow: "linebreak" },
-  7: { cellWidth: 39, halign: "left", overflow: "linebreak" },
+  6: { cellWidth: 68, halign: "left", overflow: "linebreak" },
+  7: { cellWidth: 47, halign: "left", overflow: "linebreak" },
 };
 
 /**
@@ -1012,7 +1012,7 @@ export async function downloadMemberReportPdf({
       styles: {
         font: PDF_FALLBACK_FONT_FAMILY,
         fontSize: 9,
-        cellPadding: 1.4,
+        cellPadding: { top: 0.8, right: 1.2, bottom: 0.8, left: 1.2 },
         lineColor: [232, 237, 243],
         lineWidth: 0.2,
         textColor: [15, 23, 42],
@@ -1024,7 +1024,7 @@ export async function downloadMemberReportPdf({
         textColor: 255,
         fontStyle: "bold",
         fontSize: 9,
-        minCellHeight: 6.4,
+        minCellHeight: 5.8,
         valign: "middle",
       },
       footStyles: {
@@ -1036,17 +1036,29 @@ export async function downloadMemberReportPdf({
       alternateRowStyles: { fillColor: [244, 247, 252] },
       columnStyles: PDF_TABLE_COLUMN_STYLES,
       didParseCell: (hookData) => {
+        const colIdx = hookData.column.index;
         const cellText = Array.isArray(hookData.cell?.text) ? hookData.cell.text.join(" ") : String(hookData.cell?.raw || "");
+        const isDescOrRemarkBody = hookData.section === "body" && (colIdx === 6 || colIdx === 7);
+        if (isDescOrRemarkBody) {
+          // Enforce unified typography for Description + Remark columns.
+          hookData.cell.styles.font = cjkFontFamily || PDF_FALLBACK_FONT_FAMILY;
+          hookData.cell.styles.fontStyle = "bold";
+          hookData.cell.styles.fontSize = 9;
+          hookData.cell.styles.lineHeight = 1.0;
+          hookData.cell.styles.halign = "left";
+          hookData.cell.styles.overflow = "linebreak";
+          hookData.cell.styles.textColor = [15, 23, 42];
+        }
         const isCjkCell = !!(cjkFontFamily && hasCjkText(cellText));
-        if (isCjkCell) {
+        if (isCjkCell && !isDescOrRemarkBody) {
           hookData.cell.styles.font = cjkFontFamily;
           applyPdfCjkCellStyle(hookData.cell, {
-            columnIndex: hookData.column.index,
+            columnIndex: colIdx,
             inHeader: hookData.section === "head",
           });
         }
         if (hookData.section === "head") {
-          hookData.cell.styles.cellPadding = { top: 2, right: 2, bottom: 2, left: 2 };
+          hookData.cell.styles.cellPadding = { top: 1, right: 1.2, bottom: 1, left: 1.2 };
         }
         if (hookData.section === "body") {
           const row = sourceRows[hookData.row.index];
@@ -1054,23 +1066,23 @@ export async function downloadMemberReportPdf({
             hookData.cell.styles.fillColor = [238, 244, 255];
             hookData.cell.styles.textColor = [30, 58, 95];
           }
-          if (hookData.column.index === 0) {
+          if (colIdx === 0) {
             hookData.cell.styles.overflow = "hidden";
             hookData.cell.styles.whiteSpace = "nowrap";
           }
-          if (hookData.column.index === 3) applyPdfMoneyStyle(hookData.cell, row?.win_loss);
-          if (hookData.column.index === 4) applyPdfMoneyStyle(hookData.cell, row?.cr_dr);
-          if (hookData.column.index === 5) applyPdfMoneyStyle(hookData.cell, row?.balance);
-          if (hookData.column.index === 6) {
+          if (colIdx === 3) applyPdfMoneyStyle(hookData.cell, row?.win_loss);
+          if (colIdx === 4) applyPdfMoneyStyle(hookData.cell, row?.cr_dr);
+          if (colIdx === 5) applyPdfMoneyStyle(hookData.cell, row?.balance);
+          if (colIdx === 6 && !isDescOrRemarkBody) {
             if (!isCjkCell) hookData.cell.styles.fontStyle = "bold";
             hookData.cell.styles.overflow = "linebreak";
           }
-          if (hookData.column.index === 7) {
+          if (colIdx === 7 && !isDescOrRemarkBody) {
             if (!isCjkCell) hookData.cell.styles.fontStyle = "bold";
             hookData.cell.styles.overflow = "linebreak";
             hookData.cell.styles.halign = "left";
           }
-          if (hookData.column.index === 2) {
+          if (colIdx === 2) {
             hookData.cell.styles.textColor = [100, 116, 139];
           }
         }
