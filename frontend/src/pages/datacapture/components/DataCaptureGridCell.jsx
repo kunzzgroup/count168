@@ -43,6 +43,30 @@ function shouldRenderCellTextHighlight(cell) {
   return true;
 }
 
+const CELL_HIGHLIGHT_CHAR_COUNT = 3;
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function buildHighlightedTextHtml(value, highlightCount = CELL_HIGHLIGHT_CHAR_COUNT) {
+  const raw = String(value ?? "");
+  if (!raw) return "";
+
+  const chars = Array.from(raw);
+  const safeCount = Math.max(0, Math.min(highlightCount, chars.length));
+  const leading = chars.slice(0, safeCount).join("");
+  const trailing = chars.slice(safeCount).join("");
+
+  if (!leading) return escapeHtml(raw);
+  return `<span class="dc-cell-highlight-token">${escapeHtml(leading)}</span>${escapeHtml(trailing)}`;
+}
+
 /**
  * Editable grid cell — contentEditable for input UX; React grid model is SSOT.
  */
@@ -59,6 +83,8 @@ function DataCaptureGridCell({
 }) {
   const elRef = useRef(null);
   const lastVersionRef = useRef(-1);
+  const enableTextHighlight = shouldRenderCellTextHighlight(cell);
+  const plainCellValue = String(cell?.value ?? "");
 
   const setRef = useCallback((el) => {
     elRef.current = el;
@@ -72,7 +98,14 @@ function DataCaptureGridCell({
     }
     if (document.activeElement === elRef.current && !versionBumped) return;
     applyCellModelToElement(elRef.current, cell);
-  }, [cell, gridVersion]);
+    if (document.activeElement === elRef.current) return;
+    if (!enableTextHighlight) return;
+
+    const highlightedHtml = buildHighlightedTextHtml(plainCellValue);
+    if (highlightedHtml && elRef.current.innerHTML !== highlightedHtml) {
+      elRef.current.innerHTML = highlightedHtml;
+    }
+  }, [cell, gridVersion, enableTextHighlight, plainCellValue]);
 
   const commitCellValue = useCallback(
     (value, extraPatch = {}) => {
@@ -96,12 +129,19 @@ function DataCaptureGridCell({
     [commitCellValue],
   );
 
-  const handleFocus = useCallback((e) => {
-    const target = e.currentTarget;
-    target.classList.add("selected");
-    highlightHeadersForCell(target);
-    gridRecomputeSubmitState();
-  }, []);
+  const handleFocus = useCallback(
+    (e) => {
+      const target = e.currentTarget;
+      const value = String(cell?.value ?? target.textContent ?? "");
+      if ((target.textContent ?? "") !== value) {
+        target.textContent = value;
+      }
+      target.classList.add("selected");
+      highlightHeadersForCell(target);
+      gridRecomputeSubmitState();
+    },
+    [cell?.value],
+  );
 
   const handleBlur = useCallback(
     (e) => {
@@ -121,8 +161,6 @@ function DataCaptureGridCell({
   const handlePaste = useCallback((e) => {
     gridHandleCellPaste(e);
   }, []);
-
-  const enableTextHighlight = shouldRenderCellTextHighlight(cell);
 
   const sharedProps = {
     ref: setRef,
