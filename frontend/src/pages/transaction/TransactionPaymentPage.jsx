@@ -211,6 +211,10 @@ function TransactionPaymentPageMain() {
     [m],
   );
 
+  const onTypeSearch = useCallback(() => {
+    search.runTypeSearch(form.txType);
+  }, [search.runTypeSearch, form.txType]);
+
   const onSearch = useCallback(() => {
     search.runSearch({ silent: false });
   }, [search.runSearch]);
@@ -346,7 +350,7 @@ function TransactionPaymentPageMain() {
             setTxConfirm={form.setTxConfirm}
             submitting={form.submitting}
             onSubmitTx={form.onSubmitTx}
-            onSearch={onSearch}
+            onTypeSearch={onTypeSearch}
             searchLoading={search.searchLoading}
             accountOptions={data.accountOptions}
             currencyOptions={data.currencyOptions}

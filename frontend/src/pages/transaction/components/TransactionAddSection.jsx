@@ -62,7 +62,7 @@ export default function TransactionAddSection({
   setTxConfirm,
   submitting,
   onSubmitTx,
-  onSearch,
+  onTypeSearch,
   searchLoading,
   mutationsBlocked = false,
   m,
@@ -472,7 +472,7 @@ export default function TransactionAddSection({
           >
             {submitting ? m.submitting : m.submit}
           </button>
-          <button type="button" id="action_search_btn" className="transaction-search-btn" onClick={onSearch} disabled={searchLoading}>
+          <button type="button" id="action_search_btn" className="transaction-search-btn" onClick={onTypeSearch} disabled={searchLoading}>
             {m.search}
           </button>
         </div>
