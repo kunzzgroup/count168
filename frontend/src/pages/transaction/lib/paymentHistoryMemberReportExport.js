@@ -1037,18 +1037,8 @@ export async function downloadMemberReportPdf({
       columnStyles: PDF_TABLE_COLUMN_STYLES,
       didParseCell: (hookData) => {
         const cellText = Array.isArray(hookData.cell?.text) ? hookData.cell.text.join(" ") : String(hookData.cell?.raw || "");
-        const isRemarkBodyCell = hookData.section === "body" && hookData.column.index === 7;
-        if (isRemarkBodyCell) {
-          // Keep remark typography consistent across all rows (EN/CN mixed content).
-          hookData.cell.styles.font = cjkFontFamily || PDF_FALLBACK_FONT_FAMILY;
-          hookData.cell.styles.fontStyle = "normal";
-          hookData.cell.styles.halign = "left";
-          hookData.cell.styles.overflow = "linebreak";
-          hookData.cell.styles.fontSize = 9;
-          hookData.cell.styles.lineHeight = 1.2;
-        }
         const isCjkCell = !!(cjkFontFamily && hasCjkText(cellText));
-        if (isCjkCell && !isRemarkBodyCell) {
+        if (isCjkCell) {
           hookData.cell.styles.font = cjkFontFamily;
           applyPdfCjkCellStyle(hookData.cell, {
             columnIndex: hookData.column.index,
@@ -1075,12 +1065,13 @@ export async function downloadMemberReportPdf({
             if (!isCjkCell) hookData.cell.styles.fontStyle = "bold";
             hookData.cell.styles.overflow = "linebreak";
           }
-          if (hookData.column.index === 2 || hookData.column.index === 7) {
-            hookData.cell.styles.textColor = [100, 116, 139];
-          }
           if (hookData.column.index === 7) {
+            if (!isCjkCell) hookData.cell.styles.fontStyle = "bold";
             hookData.cell.styles.overflow = "linebreak";
             hookData.cell.styles.halign = "left";
+          }
+          if (hookData.column.index === 2) {
+            hookData.cell.styles.textColor = [100, 116, 139];
           }
         }
         if (hookData.section === "foot") {
