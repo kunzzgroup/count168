@@ -6,7 +6,6 @@ export default function TransactionTablesSection({
   searchLoading,
   tp,
   searchState,
-  typeSearchActive = false,
   getRoleClass,
   fallbackRoleClass,
   openHistory,
@@ -16,7 +15,7 @@ export default function TransactionTablesSection({
 }) {
   const hasTableData = tp.mode !== "none";
   const showTablesWhileLoading = searchLoading && hasTableData;
-  const showNameColumn = Boolean(searchState.showName || typeSearchActive);
+  const showNameColumn = Boolean(searchState.showName);
 
   return (
     <>

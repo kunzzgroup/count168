@@ -781,7 +781,7 @@ export function useTransactionSearch({
       if (!normalizedType) return;
 
       const clearedState = {
-        showName: true,
+        showName: false,
         showPaymentOnly: false,
         showCaptureOnly: false,
         showZeroBalance: false,
