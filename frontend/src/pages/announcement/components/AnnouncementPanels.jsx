@@ -65,7 +65,7 @@ export function AnnouncementPanel({ t, announcements, onEdit, onDelete, onPublis
                 onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
               />
             </div>
-            <div className="form-group form-group-rich-text form-group-rich-text--create">
+            <div className="form-group">
               <label htmlFor="announcement-content">{t("contentRequired")}</label>
               <RichTextEditor
                 id="announcement-content"
@@ -180,7 +180,7 @@ export function MaintenancePanel({ t, maintenanceList, onEdit, onDelete, onPubli
                 onChange={(e) => setForm((p) => ({ ...p, prefix: e.target.value }))}
               />
             </div>
-            <div className="form-group form-group-rich-text form-group-rich-text--create">
+            <div className="form-group">
               <label htmlFor="maintenanceContent">{t("contentRequired")}</label>
               <RichTextEditor
                 id="maintenanceContent"
