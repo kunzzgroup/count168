@@ -31,6 +31,18 @@ function finalizeCellEditValue(value, captureType = getBridgeCaptureType("")) {
   return next;
 }
 
+function shouldRenderCellTextHighlight(cell) {
+  const value = String(cell?.value ?? "").trim();
+  if (!value) return false;
+  if (cell?.html) return false;
+  if (cell?.styleCssText) return false;
+  if (cell?.className) return false;
+  if (cell?.style && typeof cell.style === "object" && Object.keys(cell.style).length > 0) {
+    return false;
+  }
+  return true;
+}
+
 /**
  * Editable grid cell — contentEditable for input UX; React grid model is SSOT.
  */
@@ -110,12 +122,15 @@ function DataCaptureGridCell({
     gridHandleCellPaste(e);
   }, []);
 
+  const enableTextHighlight = shouldRenderCellTextHighlight(cell);
+
   const sharedProps = {
     ref: setRef,
     contentEditable: true,
     suppressContentEditableWarning: true,
     "data-col": colIndex,
     "data-row": rowIndex,
+    "data-dc-highlight-text": enableTextHighlight ? "1" : "0",
     onMouseDown,
     onMouseOver,
     onClick,

@@ -2025,6 +2025,25 @@ body.datacapture-page .excel-table-scroll-body .excel-table tbody td {
     text-transform: uppercase;
 }
 
+/* Phrase highlight: keep subtle and avoid caret/selection conflicts. */
+.excel-table td[contenteditable="true"][data-dc-highlight-text="1"]:not(.selected):not(.multi-selected):not(:focus) {
+    background-image: linear-gradient(
+        180deg,
+        transparent 58%,
+        rgba(255, 226, 122, 0.65) 58%,
+        rgba(255, 226, 122, 0.65) 92%,
+        transparent 92%
+    );
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+}
+
+.excel-table td[contenteditable="true"][data-dc-highlight-text="1"].selected,
+.excel-table td[contenteditable="true"][data-dc-highlight-text="1"].multi-selected,
+.excel-table td[contenteditable="true"][data-dc-highlight-text="1"]:focus {
+    background-image: none;
+}
+
 /* 2.Format模式：确保粘贴的单元格内容样式不被覆盖 */
 .excel-table td[contenteditable="true"][style] {
     color: inherit !important;
