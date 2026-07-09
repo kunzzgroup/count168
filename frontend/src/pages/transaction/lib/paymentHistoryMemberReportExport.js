@@ -621,12 +621,12 @@ function applyPdfCjkCellStyle(cell, { columnIndex, inHeader = false } = {}) {
   const isRemark = columnIndex === 7;
   if (inHeader) {
     cell.styles.fontSize = 9;
-    cell.styles.lineHeight = 1.15;
+    cell.styles.lineHeight = 1.08;
     return;
   }
   if (!isDescription && !isRemark) return;
   cell.styles.fontSize = 8.7;
-  cell.styles.lineHeight = 1.2;
+  cell.styles.lineHeight = 1.08;
   if (cell.styles.fontStyle === "bold") {
     cell.styles.fontStyle = "normal";
   }
@@ -1012,7 +1012,7 @@ export async function downloadMemberReportPdf({
       styles: {
         font: PDF_FALLBACK_FONT_FAMILY,
         fontSize: 9,
-        cellPadding: 2.5,
+        cellPadding: 1.4,
         lineColor: [232, 237, 243],
         lineWidth: 0.2,
         textColor: [15, 23, 42],
@@ -1024,7 +1024,7 @@ export async function downloadMemberReportPdf({
         textColor: 255,
         fontStyle: "bold",
         fontSize: 9,
-        minCellHeight: 8,
+        minCellHeight: 6.4,
         valign: "middle",
       },
       footStyles: {
@@ -1046,7 +1046,7 @@ export async function downloadMemberReportPdf({
           });
         }
         if (hookData.section === "head") {
-          hookData.cell.styles.cellPadding = { top: 3, right: 2, bottom: 3, left: 2 };
+          hookData.cell.styles.cellPadding = { top: 2, right: 2, bottom: 2, left: 2 };
         }
         if (hookData.section === "body") {
           const row = sourceRows[hookData.row.index];
