@@ -1037,8 +1037,18 @@ export async function downloadMemberReportPdf({
       columnStyles: PDF_TABLE_COLUMN_STYLES,
       didParseCell: (hookData) => {
         const cellText = Array.isArray(hookData.cell?.text) ? hookData.cell.text.join(" ") : String(hookData.cell?.raw || "");
+        const isRemarkBodyCell = hookData.section === "body" && hookData.column.index === 7;
+        if (isRemarkBodyCell) {
+          // Keep remark typography consistent across all rows (EN/CN mixed content).
+          hookData.cell.styles.font = cjkFontFamily || PDF_FALLBACK_FONT_FAMILY;
+          hookData.cell.styles.fontStyle = "normal";
+          hookData.cell.styles.halign = "left";
+          hookData.cell.styles.overflow = "linebreak";
+          hookData.cell.styles.fontSize = 9;
+          hookData.cell.styles.lineHeight = 1.2;
+        }
         const isCjkCell = !!(cjkFontFamily && hasCjkText(cellText));
-        if (isCjkCell) {
+        if (isCjkCell && !isRemarkBodyCell) {
           hookData.cell.styles.font = cjkFontFamily;
           applyPdfCjkCellStyle(hookData.cell, {
             columnIndex: hookData.column.index,
