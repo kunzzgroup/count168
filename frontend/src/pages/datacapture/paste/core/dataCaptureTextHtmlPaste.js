@@ -5,7 +5,6 @@ import {
   plainTextFromSanitizedHtml,
   sanitizePastedCellHtml,
 } from "./dataCaptureClipboard.js";
-import { buildFormatDataCellStyle } from "./dataCaptureFormatHtmlMatrix.js";
 
 function emptyPatch() {
   return { value: "" };
@@ -25,7 +24,7 @@ function getPlainPastedCellValue(sourceCell) {
   return text;
 }
 
-function patchFromSourceCell(sourceCell, { includeFormatStyle = false } = {}) {
+function patchFromSourceCell(sourceCell) {
   let cellContent = sourceCell.innerHTML;
   if (!cellContent || cellContent.trim() === "") {
     cellContent = sourceCell.textContent || "";
@@ -34,18 +33,15 @@ function patchFromSourceCell(sourceCell, { includeFormatStyle = false } = {}) {
   const cleanContent = sanitizePastedCellHtml(cellContent);
   const rawText = plainTextFromSanitizedHtml(cleanContent) || getPlainPastedCellValue(sourceCell);
   const cellText = isBlankPastedCellText(rawText) ? "" : rawText;
-  const styleCssText = includeFormatStyle ? buildFormatDataCellStyle(sourceCell) : "";
 
   if (cleanContent.includes("<") && cleanContent.includes(">")) {
     return {
       value: cellText,
       html: cleanContent,
-      ...(styleCssText ? { styleCssText } : {}),
     };
   }
   return {
     value: cellText,
-    ...(styleCssText ? { styleCssText } : {}),
   };
 }
 
@@ -88,7 +84,7 @@ function buildRowPatchesWithSpanOccupancy(sourceRows, maxCols) {
 
       const colspan = Math.max(1, parseInt(sourceCell.getAttribute("colspan") || "1", 10) || 1);
       const rowspan = Math.max(1, parseInt(sourceCell.getAttribute("rowspan") || "1", 10) || 1);
-      const patch = patchFromSourceCell(sourceCell, { includeFormatStyle: true });
+      const patch = patchFromSourceCell(sourceCell);
 
       for (let offset = 0; offset < colspan; offset += 1) {
         const targetCol = nextCol + offset;
@@ -156,7 +152,7 @@ export function parseAndFillHtmlTableForText(htmlString, anchorCell) {
 }
 
 /**
- * 1.Text format-merge mode: preserve text + style and expand rowspan occupancy.
+ * 1.Text format-merge mode: keep Text-like display while expanding rowspan occupancy.
  */
 export function parseAndFillHtmlTableForTextWithFormat(htmlString, anchorCell) {
   try {
@@ -180,7 +176,7 @@ export function parseAndFillHtmlTableForTextWithFormat(htmlString, anchorCell) {
 
     if (successCount > 0) {
       notifyPasteSuccess(
-        `成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${cols} 列)，已在1.Text保留格式显示!`,
+        `成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${cols} 列)，已按1.Text显示并兼容合并格占位!`,
       );
       recomputeSubmitStateAfterPaste();
       return true;
