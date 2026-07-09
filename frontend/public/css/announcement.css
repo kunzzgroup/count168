@@ -60,8 +60,11 @@ body.announcement-page #root {
 }
 
 .announcement-scroll-area > .page-panel {
+    display: flex;
+    flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+    overflow: hidden;
 }
 
 /* Tab row (page title removed) */
@@ -93,6 +96,7 @@ body.announcement-page .page-header h1 {
     margin-top: 20px;
     height: 100%;
     min-height: 0;
+    flex: 1 1 auto;
     overflow: hidden;
 }
 
@@ -114,9 +118,15 @@ body.announcement-page .page-header h1 {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     min-height: 0;
     max-height: none;
-    overflow-y: auto;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
+}
+
+#announcementList {
+    min-height: 0;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
 }
 
 .form-group {
@@ -397,6 +407,7 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
     margin-top: 20px;
     height: 100%;
     min-height: 0;
+    flex: 1 1 auto;
     overflow: hidden;
 }
 
@@ -424,9 +435,15 @@ body.announcement-page .sidebar-scroll {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     min-height: 0;
     max-height: none;
-    overflow-y: auto;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
+}
+
+#maintenanceList {
+    min-height: 0;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
 }
 
 .maintenance-item {
