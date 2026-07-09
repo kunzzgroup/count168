@@ -73,10 +73,19 @@ export default function AnnouncementPage() {
     document.body.classList.remove("bg", "dashboard-page");
     document.body.classList.add("announcement-page");
     return () => {
+      document.body.classList.remove("announcement-modal-open");
       document.body.classList.remove("announcement-page", "bg");
       document.body.classList.add("dashboard-page");
     };
   }, []);
+
+  useEffect(() => {
+    const hasModalOpen = announcementModalOpen || maintenanceModalOpen;
+    document.body.classList.toggle("announcement-modal-open", hasModalOpen);
+    return () => {
+      document.body.classList.remove("announcement-modal-open");
+    };
+  }, [announcementModalOpen, maintenanceModalOpen]);
 
   const loadAnnouncements = useCallback(async () => {
     try {

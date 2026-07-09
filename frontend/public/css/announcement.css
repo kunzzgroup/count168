@@ -20,6 +20,10 @@ body.announcement-page {
     overflow-y: auto !important;
 }
 
+body.announcement-page.announcement-modal-open {
+    overflow: hidden !important;
+}
+
 .announcement-page-container.container {
     max-width: none;
     margin: 0;
@@ -487,17 +491,22 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
-    overflow: auto;
+    overflow: hidden;
+    overscroll-behavior: contain;
 }
 
 .edit-modal-content {
     background-color: white;
-    margin: 5% auto;
+    margin: 3vh auto;
     padding: clamp(20px, 2.08vw, 40px);
     border-radius: 12px;
     width: 90%;
     max-width: 600px;
+    max-height: 90vh;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .edit-modal-header {
@@ -530,6 +539,41 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
     display: flex;
     gap: 12px;
     margin-top: clamp(16px, 1.35vw, 24px);
+    flex-shrink: 0;
+}
+
+.edit-modal-content form {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+}
+
+.edit-modal-content .form-group-rich-text--modal {
+    min-height: 0;
+    margin-bottom: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.edit-modal-content .form-group-rich-text--modal .rich-text-editor {
+    min-height: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.edit-modal-content .form-group-rich-text--modal .rich-text-editor .ql-container.ql-snow {
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+}
+
+.edit-modal-content .form-group-rich-text--modal .rich-text-editor .ql-editor {
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
 }
 
 .edit-modal-btn {

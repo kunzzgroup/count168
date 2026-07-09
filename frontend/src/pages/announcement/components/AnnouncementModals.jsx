@@ -32,7 +32,7 @@ export function EditAnnouncementModal({ t, open, draft, setDraft, onClose, onSav
               onChange={(e) => setDraft((p) => ({ ...p, title: e.target.value }))}
             />
           </div>
-          <div className="form-group">
+          <div className="form-group form-group-rich-text form-group-rich-text--modal">
             <label htmlFor="editAnnouncementContent">{t("contentRequired")}</label>
             <RichTextEditor
               id="editAnnouncementContent"
@@ -86,7 +86,7 @@ export function EditMaintenanceModal({ t, open, draft, setDraft, onClose, onSave
               onChange={(e) => setDraft((p) => ({ ...p, prefix: e.target.value }))}
             />
           </div>
-          <div className="form-group">
+          <div className="form-group form-group-rich-text form-group-rich-text--modal">
             <label htmlFor="editMaintenanceContent">{t("contentRequired")}</label>
             <RichTextEditor
               id="editMaintenanceContent"
