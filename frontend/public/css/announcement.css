@@ -504,18 +504,20 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
     margin: 0;
     padding: clamp(20px, 2.08vw, 40px);
     border-radius: 12px;
-    width: 90%;
+    width: min(90vw, 600px);
     max-width: 600px;
     max-height: calc(100vh - 48px);
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    min-width: 0;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .edit-modal-content form {
     flex: 1;
     min-height: 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
 }
@@ -523,6 +525,7 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
 .edit-modal .form-group-rich-content {
     flex: 1;
     min-height: 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     margin-bottom: 0;
@@ -531,6 +534,7 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
 .edit-modal .form-group-rich-content .rich-text-editor {
     flex: 1;
     min-height: 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
 }
@@ -538,6 +542,7 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
 .edit-modal .form-group-rich-content .rich-text-editor .ql-container.ql-snow {
     min-height: 0;
     height: 100%;
+    min-width: 0;
     overflow: hidden;
 }
 
@@ -546,6 +551,10 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
     height: 100%;
     max-height: none;
     overflow-y: auto;
+    overflow-x: hidden;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
 }
 
 .edit-modal-header {
