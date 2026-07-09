@@ -114,6 +114,13 @@ export async function fetchProcesses(companyId, scope = null, permission = "") {
   return mapped;
 }
 
+/** Pick Category for formula maintenance (saved localStorage perm when still valid). */
+export function pickFormulaMaintenancePermission(permissions, saved) {
+  const perms = Array.isArray(permissions) ? permissions : [];
+  if (saved && perms.includes(saved)) return saved;
+  return perms.length > 0 ? perms[0] : "";
+}
+
 export async function bootstrapFormulaMaintenanceMeta({ companies, groupId = null }) {
   const anchor =
     (groupId ? companiesNativeInGroupList(companies, groupId)[0] : null) ??
@@ -125,8 +132,7 @@ export async function bootstrapFormulaMaintenanceMeta({ companies, groupId = nul
     : ["Games", "Gambling", "Bank", "Loan", "Rate", "Money"];
   const companyPerms = rawPerms;
   const savedPerm = code ? localStorage.getItem(`selectedPermission_${code}`) : null;
-  const initialActive =
-    savedPerm && companyPerms.includes(savedPerm) ? savedPerm : companyPerms.length > 0 ? companyPerms[0] : "";
+  const initialActive = pickFormulaMaintenancePermission(companyPerms, savedPerm);
   return { permissions: companyPerms, activePermission: initialActive, rawPerms };
 }
 
