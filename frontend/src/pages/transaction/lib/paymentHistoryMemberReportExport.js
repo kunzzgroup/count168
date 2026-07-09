@@ -616,6 +616,32 @@ function applyPdfMoneyStyle(cell, rawValue) {
   }
 }
 
+function applyPdfCjkCellStyle(cell, { columnIndex, inHeader = false } = {}) {
+  // Keep CJK rows visually aligned with UI: slightly larger line-height and
+  // avoid synthetic bold that can look blurry in embedded variable fonts.
+  const isDescription = columnIndex === 6;
+  const isRemark = columnIndex === 7;
+  if (inHeader) {
+    cell.styles.fontSize = 9;
+    cell.styles.lineHeight = 1.15;
+    return;
+  }
+  if (!isDescription && !isRemark) return;
+  cell.styles.fontSize = 8.7;
+  cell.styles.lineHeight = 1.2;
+  if (cell.styles.fontStyle === "bold") {
+    cell.styles.fontStyle = "normal";
+  }
+  if (isDescription) {
+    cell.styles.halign = "left";
+    cell.styles.overflow = "linebreak";
+  }
+  if (isRemark) {
+    cell.styles.halign = "center";
+    cell.styles.overflow = "linebreak";
+  }
+}
+
 const PDF_LOGO_PATH = "images/count_brandlogo.png";
 const PDF_LOGO_HEIGHT_MM = 8;
 const PDF_LOGO_TOP_TRIM_MM = 1.1;
@@ -1013,8 +1039,13 @@ export async function downloadMemberReportPdf({
       columnStyles: PDF_TABLE_COLUMN_STYLES,
       didParseCell: (hookData) => {
         const cellText = Array.isArray(hookData.cell?.text) ? hookData.cell.text.join(" ") : String(hookData.cell?.raw || "");
-        if (cjkFontFamily && hasCjkText(cellText)) {
+        const isCjkCell = !!(cjkFontFamily && hasCjkText(cellText));
+        if (isCjkCell) {
           hookData.cell.styles.font = cjkFontFamily;
+          applyPdfCjkCellStyle(hookData.cell, {
+            columnIndex: hookData.column.index,
+            inHeader: hookData.section === "head",
+          });
         }
         if (hookData.section === "head") {
           hookData.cell.styles.cellPadding = { top: 3, right: 2, bottom: 3, left: 2 };
@@ -1033,7 +1064,7 @@ export async function downloadMemberReportPdf({
           if (hookData.column.index === 4) applyPdfMoneyStyle(hookData.cell, row?.cr_dr);
           if (hookData.column.index === 5) applyPdfMoneyStyle(hookData.cell, row?.balance);
           if (hookData.column.index === 6) {
-            hookData.cell.styles.fontStyle = "bold";
+            if (!isCjkCell) hookData.cell.styles.fontStyle = "bold";
             hookData.cell.styles.overflow = "linebreak";
           }
           if (hookData.column.index === 2 || hookData.column.index === 7) {
