@@ -235,36 +235,38 @@ export default function AnnouncementPage() {
   return (
     <>
       <div className="container announcement-page-container">
-        <div className="page-header">
-          <PagePillTabSwitch
-            value={activeTab}
-            onChange={setActiveTab}
-            options={[
-              { value: "announcement", label: t("announcementTab") },
-              { value: "maintenance", label: t("maintenanceTab") },
-            ]}
-          />
+        <div className="announcement-scroll-area">
+          <div className="page-header">
+            <PagePillTabSwitch
+              value={activeTab}
+              onChange={setActiveTab}
+              options={[
+                { value: "announcement", label: t("announcementTab") },
+                { value: "maintenance", label: t("maintenanceTab") },
+              ]}
+            />
+          </div>
+          {activeTab === "announcement" && (
+            <AnnouncementPanel
+              t={t}
+              announcements={announcements}
+              onEdit={handleAnnouncementEdit}
+              onDelete={handleAnnouncementDelete}
+              onPublished={() => { loadAnnouncements(); showNotice(t("announcementPublishedSuccess")); }}
+              onPublishFailed={(message) => showNotice(t("publishFailed", { message }), "error")}
+            />
+          )}
+          {activeTab === "maintenance" && (
+            <MaintenancePanel
+              t={t}
+              maintenanceList={maintenanceList}
+              onEdit={handleMaintenanceEdit}
+              onDelete={handleMaintenanceDelete}
+              onPublished={() => { loadMaintenance(); showNotice(t("maintenancePublishedSuccess")); }}
+              onPublishFailed={(message) => showNotice(t("publishFailed", { message }), "error")}
+            />
+          )}
         </div>
-        {activeTab === "announcement" && (
-          <AnnouncementPanel
-            t={t}
-            announcements={announcements}
-            onEdit={handleAnnouncementEdit}
-            onDelete={handleAnnouncementDelete}
-            onPublished={() => { loadAnnouncements(); showNotice(t("announcementPublishedSuccess")); }}
-            onPublishFailed={(message) => showNotice(t("publishFailed", { message }), "error")}
-          />
-        )}
-        {activeTab === "maintenance" && (
-          <MaintenancePanel
-            t={t}
-            maintenanceList={maintenanceList}
-            onEdit={handleMaintenanceEdit}
-            onDelete={handleMaintenanceDelete}
-            onPublished={() => { loadMaintenance(); showNotice(t("maintenancePublishedSuccess")); }}
-            onPublishFailed={(message) => showNotice(t("publishFailed", { message }), "error")}
-          />
-        )}
       </div>
       <AnnouncementToast notices={notices} />
       <EditAnnouncementModal t={t} open={announcementModalOpen} draft={editAnnouncement} setDraft={setEditAnnouncement} onClose={() => setAnnouncementModalOpen(false)} onSave={saveEditedAnnouncement} />
