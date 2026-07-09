@@ -395,10 +395,16 @@ function TransactionPaymentPageMain() {
           getRoleClass={getRoleClass}
           fallbackRoleClass={singleCategoryFallbackRoleClass}
           openHistory={(row) =>
-            ui.onViewHistory(row, search.effectiveDateFrom, search.effectiveDateTo, scopeApi, {
+            ui.onViewHistory(
+              row,
+              search.typeSearchActive ? "01/01/2000" : search.effectiveDateFrom,
+              search.typeSearchActive ? todayDmy : search.effectiveDateTo,
+              scopeApi,
+              {
               selectedCurrencies: search.selectedCurrencies,
               showAllCurrencies: search.showAllCurrencies,
-            })
+              },
+            )
           }
           handleBalanceCellClick={form.handleBalanceCellClick}
           m={m}

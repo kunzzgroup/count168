@@ -1,6 +1,7 @@
 <?php
 /**
- * Build Transaction Payment grid rows (one row per approved transaction) for right-side type search.
+ * Build Transaction Payment grid rows for right-side type search.
+ * Final payload is aggregated to one row per account + currency.
  */
 
 require_once __DIR__ . '/type_account_search_lib.php';
@@ -133,7 +134,6 @@ function typeTxSearchRowToGrid(array $row): array
     $amount = money_out($row['amount'] ?? '0');
     $description = typeTxSearchBuildDescription($row);
     $dateLabel = typeTxSearchFormatDateYmd((string) ($row['transaction_date_raw'] ?? ''));
-    $nameLabel = trim($dateLabel . ($description !== '' ? ' ' . $description : ''));
 
     $crDr = '0.00';
     $winLoss = '0.00';
@@ -151,7 +151,7 @@ function typeTxSearchRowToGrid(array $row): array
 
     return [
         'account_id' => (string) ($row['account_code'] ?? ''),
-        'account_name' => $nameLabel,
+        'account_name' => trim((string) ($row['account_name_raw'] ?? '')),
         'account_db_id' => (int) ($row['account_db_id'] ?? 0),
         'role' => (string) ($row['account_role'] ?? ''),
         'currency' => strtoupper(trim((string) ($row['currency_code'] ?? ''))),
@@ -208,6 +208,7 @@ function typeTxSearchFetchTransactions(
                 COALESCE(t.sms, '') AS sms,
                 t.account_id AS account_db_id,
                 to_acc.account_id AS account_code,
+                to_acc.name AS account_name_raw,
                 to_acc.role AS account_role,
                 from_acc.account_id AS from_account_code,
                 UPPER(COALESCE(c.code, '')) AS currency_code
@@ -261,6 +262,7 @@ function typeTxSearchFetchRateTransactions(PDO $pdo, array $listScope, array $cu
                 COALESCE(h.sms, '') AS sms,
                 e.account_id AS account_db_id,
                 acc.account_id AS account_code,
+                acc.name AS account_name_raw,
                 acc.role AS account_role,
                 NULL AS from_account_code,
                 UPPER(COALESCE(c.code, '')) AS currency_code
@@ -304,10 +306,87 @@ function typeTxSearchFetchRateTransactions(PDO $pdo, array $listScope, array $cu
 
 /**
  * @param array<int, array<string, mixed>> $rows
+ * @return array<int, array<string, mixed>>
+ */
+function typeTxSearchAggregateRows(array $rows): array
+{
+    $grouped = [];
+    foreach ($rows as $row) {
+        $accountDbId = (int) ($row['account_db_id'] ?? 0);
+        $currency = strtoupper(trim((string) ($row['currency'] ?? '')));
+        if ($accountDbId <= 0 || $currency === '') {
+            continue;
+        }
+        $key = $accountDbId . '|' . $currency;
+        if (!isset($grouped[$key])) {
+            $grouped[$key] = [
+                'account_id' => (string) ($row['account_id'] ?? ''),
+                'account_name' => (string) ($row['account_name'] ?? ''),
+                'account_db_id' => $accountDbId,
+                'role' => (string) ($row['role'] ?? ''),
+                'currency' => $currency,
+                'bf_raw' => '0',
+                'win_loss_raw' => '0',
+                'cr_dr_raw' => '0',
+                'has_crdr_transactions' => 0,
+                'has_win_loss_transactions' => 0,
+                'type_search_row' => 1,
+            ];
+        }
+        $grouped[$key]['bf_raw'] = money_add($grouped[$key]['bf_raw'], (string) ($row['bf'] ?? '0'), 8);
+        $wlFull = (string) ($row['win_loss_full'] ?? ($row['win_loss'] ?? '0'));
+        $grouped[$key]['win_loss_raw'] = money_add($grouped[$key]['win_loss_raw'], $wlFull, 8);
+        $grouped[$key]['cr_dr_raw'] = money_add($grouped[$key]['cr_dr_raw'], (string) ($row['cr_dr'] ?? '0'), 8);
+        $grouped[$key]['has_crdr_transactions'] =
+            ($grouped[$key]['has_crdr_transactions'] === 1 || (int) ($row['has_crdr_transactions'] ?? 0) === 1)
+                ? 1
+                : 0;
+        $grouped[$key]['has_win_loss_transactions'] =
+            ($grouped[$key]['has_win_loss_transactions'] === 1 || (int) ($row['has_win_loss_transactions'] ?? 0) === 1)
+                ? 1
+                : 0;
+    }
+
+    $out = [];
+    foreach ($grouped as $agg) {
+        $bf6 = searchMoney2($agg['bf_raw']);
+        $wl6 = searchMoney2($agg['win_loss_raw']);
+        $cr6 = searchMoney2($agg['cr_dr_raw']);
+        $bal6 = searchMoney2(money_add(money_add($bf6, $wl6, 8), $cr6, 8));
+        $out[] = [
+            'account_id' => $agg['account_id'],
+            'account_name' => $agg['account_name'],
+            'account_db_id' => $agg['account_db_id'],
+            'role' => $agg['role'],
+            'currency' => $agg['currency'],
+            'bf' => searchMoneyHalfUp2($bf6),
+            'win_loss' => searchMoneyHalfUp2($wl6),
+            'win_loss_full' => $wl6,
+            'cr_dr' => searchMoneyHalfUp2($cr6),
+            'balance' => searchMoneyHalfUp2($bal6),
+            'balance_full' => $bal6,
+            'has_crdr_transactions' => $agg['has_crdr_transactions'],
+            'has_win_loss_transactions' => $agg['has_win_loss_transactions'],
+            'type_search_row' => 1,
+        ];
+    }
+
+    usort($out, static function ($a, $b) {
+        $curCmp = strcmp((string) ($a['currency'] ?? ''), (string) ($b['currency'] ?? ''));
+        if ($curCmp !== 0) return $curCmp;
+        return strcmp((string) ($a['account_id'] ?? ''), (string) ($b['account_id'] ?? ''));
+    });
+
+    return $out;
+}
+
+/**
+ * @param array<int, array<string, mixed>> $rows
  * @return array{left_table: array, right_table: array, totals: array, active_currency_codes: array}
  */
 function typeTxSearchBuildPayload(array $rows): array
 {
+    $rows = typeTxSearchAggregateRows($rows);
     $left = [];
     $right = [];
     foreach ($rows as $row) {
