@@ -67,6 +67,15 @@ body.announcement-page #root {
     overflow: hidden;
 }
 
+body.announcement-page #panel-announcement,
+body.announcement-page #panel-maintenance {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
 /* Tab row (page title removed) */
 body.announcement-page .page-header {
     display: flex;
@@ -107,7 +116,7 @@ body.announcement-page .page-header h1 {
     padding: clamp(16px, 1.25vw, 24px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     min-height: 0;
-    overflow: visible;
+    overflow: hidden;
 }
 
 .announcement-list-section {
@@ -124,7 +133,10 @@ body.announcement-page .page-header h1 {
 }
 
 #announcementList {
-    min-height: 0;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100%;
+    max-height: calc(100vh - 230px);
     overflow-y: auto !important;
     overscroll-behavior: contain;
 }
@@ -424,7 +436,7 @@ body.announcement-page .sidebar-scroll {
     padding: clamp(16px, 1.25vw, 24px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     min-height: 0;
-    overflow: visible;
+    overflow: hidden;
 }
 
 .maintenance-list-section {
@@ -441,7 +453,10 @@ body.announcement-page .sidebar-scroll {
 }
 
 #maintenanceList {
-    min-height: 0;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100%;
+    max-height: calc(100vh - 230px);
     overflow-y: auto !important;
     overscroll-behavior: contain;
 }
