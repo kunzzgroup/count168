@@ -142,13 +142,23 @@ body.announcement-page .page-header h1 {
     border: 1px solid #cbd5e1;
     border-top: none;
     border-radius: 0 0 8px 8px;
-    min-height: clamp(140px, 10.5vw, 220px);
+    height: clamp(180px, 24vh, 260px);
+    max-height: 260px;
+    min-height: 180px;
     font-size: clamp(11px, 0.73vw, 14px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .rich-text-editor .ql-editor {
-    min-height: clamp(140px, 10.5vw, 220px);
+    min-height: 0;
+    height: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
     line-height: 1.55;
+    word-break: break-word;
 }
 
 .rich-text-editor .ql-editor.ql-blank::before {
