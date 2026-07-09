@@ -1431,7 +1431,7 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             background: none;
             border: none;
             cursor: pointer;
-            font-size: clamp(8px, 0.625vw, 12px);
+            font-size: 1.3rem;
             padding: 2px 4px;
             border-radius: 3px;
             transition: all 0.2s ease;
