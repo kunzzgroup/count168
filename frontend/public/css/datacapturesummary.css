@@ -1960,11 +1960,18 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             min-height: 28px;
             width: 28px;
             height: 28px;
+            font-size: 1.4rem !important;
+            line-height: 1 !important;
         }
 
         .account-add-btn:hover {
             background: var(--btn-add-gradient-hover);
             transform: scale(1.05);
+        }
+
+        /* Keep add-account plus size consistent in Edit Formula modal. */
+        #editFormulaModal .account-add-btn:hover {
+            transform: scale(1) !important;
         }
 
         .account-add-btn:active {
@@ -2241,7 +2248,7 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
         #editFormulaModal .edit-formula-form-container .custom-select-no-results,
         #editFormulaModal .edit-formula-form-container .formula-data-grid-item,
         #editFormulaModal .edit-formula-form-container .account-add-btn {
-            font-size: 1.3rem !important;
+            font-size: 1.4rem !important;
         }
 
         /* Keep the modal title at its original size */
