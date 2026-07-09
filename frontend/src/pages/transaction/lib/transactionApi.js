@@ -13,6 +13,8 @@ export const transactionQueryKeys = {
     hideZeroBalance,
     categories,
     currencyCodes,
+    typeSearch,
+    typeAccountIds,
   }) => [
     "tx-search",
     {
@@ -26,6 +28,10 @@ export const transactionQueryKeys = {
       hideZeroBalance: !!hideZeroBalance,
       categories: Array.isArray(categories) ? [...categories].sort() : [],
       currencyCodes: Array.isArray(currencyCodes) ? [...currencyCodes].sort() : [],
+      typeSearch: !!typeSearch,
+      typeAccountIds: Array.isArray(typeAccountIds)
+        ? [...typeAccountIds].map((id) => Number(id)).filter((id) => id > 0).sort((a, b) => a - b)
+        : [],
     },
   ],
   categories: () => ["tx-categories"],
@@ -259,6 +265,8 @@ export async function searchTransactions({
   hideZeroBalance,
   currencyCodes,
   categories,
+  typeSearch,
+  typeAccountIds,
   signal,
 } = {}) {
   const params = new URLSearchParams();
@@ -274,6 +282,15 @@ export async function searchTransactions({
   params.set("show_inactive", showInactive ? "1" : "0");
   params.set("show_capture_only", showCaptureOnly ? "1" : "0");
   params.set("hide_zero_balance", hideZeroBalance ? "1" : "0");
+  if (typeSearch) {
+    params.set("type_search", "1");
+    const ids = Array.isArray(typeAccountIds)
+      ? typeAccountIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+      : [];
+    if (ids.length > 0) {
+      params.set("type_account_ids", ids.join(","));
+    }
+  }
   if (Array.isArray(currencyCodes) && currencyCodes.length > 0) params.set("currency", currencyCodes.join(","));
   if (Array.isArray(categories) && categories.length > 0) params.set("category", categories.join(","));
 
