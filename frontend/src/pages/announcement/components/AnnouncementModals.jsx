@@ -10,7 +10,7 @@ export function EditAnnouncementModal({ t, open, draft, setDraft, onClose, onSav
     <div
       id="editAnnouncementModal"
       className="edit-modal"
-      style={{ display: "block" }}
+      style={{ display: "flex" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="edit-modal-content">
@@ -32,7 +32,7 @@ export function EditAnnouncementModal({ t, open, draft, setDraft, onClose, onSav
               onChange={(e) => setDraft((p) => ({ ...p, title: e.target.value }))}
             />
           </div>
-          <div className="form-group">
+          <div className="form-group form-group-rich-content">
             <label htmlFor="editAnnouncementContent">{t("contentRequired")}</label>
             <RichTextEditor
               id="editAnnouncementContent"
@@ -63,7 +63,7 @@ export function EditMaintenanceModal({ t, open, draft, setDraft, onClose, onSave
     <div
       id="editMaintenanceModal"
       className="edit-modal"
-      style={{ display: "block" }}
+      style={{ display: "flex" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="edit-modal-content">
@@ -86,7 +86,7 @@ export function EditMaintenanceModal({ t, open, draft, setDraft, onClose, onSave
               onChange={(e) => setDraft((p) => ({ ...p, prefix: e.target.value }))}
             />
           </div>
-          <div className="form-group">
+          <div className="form-group form-group-rich-content">
             <label htmlFor="editMaintenanceContent">{t("contentRequired")}</label>
             <RichTextEditor
               id="editMaintenanceContent"
