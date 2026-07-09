@@ -1123,18 +1123,24 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 }
 
 
-.maintenance-edit-btn {
-    background-color: transparent;
+.maintenance-edit-btn,
+.edit-formula-btn {
+    background: none;
     color: black;
-    padding: clamp(2px, 0.31vw, 6px) 0;
-    margin: 0;
-    border: transparent;
+    border: none;
     cursor: pointer;
+    font-size: 1.3rem;
+    padding: 2px 4px;
+    margin: 0;
+    border-radius: 3px;
+    transition: all .2s ease;
     display: inline-block;
     vertical-align: middle;
+    flex-shrink: 0;
 }
 
-.maintenance-edit-btn:hover {
+.maintenance-edit-btn:hover,
+.edit-formula-btn:hover {
     background-color: transparent;
     box-shadow: none;
 }
