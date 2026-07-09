@@ -1874,6 +1874,7 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
         /* Ensure account dropdown in edit formula modal has highest priority and can overflow */
         #editFormulaModal .custom-select-dropdown {
             z-index: 10002;
+            max-height: none;
         }
 
         .custom-select-dropdown.show {
