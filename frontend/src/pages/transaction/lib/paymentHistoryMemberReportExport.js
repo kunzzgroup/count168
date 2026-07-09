@@ -627,9 +627,6 @@ function applyPdfCjkCellStyle(cell, { columnIndex, inHeader = false } = {}) {
   if (!isDescription && !isRemark) return;
   cell.styles.fontSize = 8.7;
   cell.styles.lineHeight = 1.08;
-  if (cell.styles.fontStyle === "bold") {
-    cell.styles.fontStyle = "normal";
-  }
   if (isDescription) {
     cell.styles.halign = "left";
     cell.styles.overflow = "linebreak";
@@ -1041,7 +1038,7 @@ export async function downloadMemberReportPdf({
         const isDescOrRemarkBody = hookData.section === "body" && (colIdx === 6 || colIdx === 7);
         if (isDescOrRemarkBody) {
           // Enforce unified typography for Description + Remark columns.
-          hookData.cell.styles.font = cjkFontFamily || PDF_FALLBACK_FONT_FAMILY;
+          hookData.cell.styles.font = resolvePdfFontFamilyForText(cellText, cjkFontFamily);
           hookData.cell.styles.fontStyle = "bold";
           hookData.cell.styles.fontSize = 9;
           hookData.cell.styles.lineHeight = 1.0;
