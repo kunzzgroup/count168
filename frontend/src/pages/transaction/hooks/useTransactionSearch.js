@@ -9,6 +9,7 @@ import {
   buildTxListSessionKey,
   calculateTotals,
   countDisplayedRows,
+  applyTypeSearchAccountFilter,
   normalizeRateRowsByCrDr,
   readTransactionCurrencyFilterState,
   pickTransactionDefaultCurrency,
@@ -19,6 +20,7 @@ import {
 } from "../lib/transactionPaymentLogic.js";
 import {
   searchTransactions as searchTransactionsApi,
+  fetchTypeAccountSearch,
   saveUserCurrencyOrder,
   transactionQueryKeys,
 } from "../lib/transactionApi.js";
@@ -74,6 +76,9 @@ export function useTransactionSearch({
   const [rawSearchData, setRawSearchData] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [tablesVisible, setTablesVisible] = useState(false);
+  /** All-time type search: account_db_id set from type_account_search_api (right-side Search). */
+  const [typeSearchAccountIds, setTypeSearchAccountIds] = useState(null);
+  const [typeSearchFormType, setTypeSearchFormType] = useState(null);
 
   const queryClient = useQueryClient();
   const latestRunTokenRef = useRef(0);
@@ -492,6 +497,9 @@ export function useTransactionSearch({
       forceRefresh = false,
       notifyErrors: notifyErrorsOpt,
       showBlockingOverlay: showBlockingOverlayOpt,
+      searchStateOverride = null,
+      typeAccountIdsOverride = undefined,
+      typeSearchFormTypeOverride = undefined,
     } = {}) => {
       const cid = scopeCacheCompanyKey;
       const notifyErr = notifyErrorsOpt !== undefined ? notifyErrorsOpt : !silent;
@@ -507,6 +515,11 @@ export function useTransactionSearch({
         return;
       }
 
+      const effectiveSearchState = searchStateOverride ?? searchState;
+      const typeIdsForDisplay =
+        typeAccountIdsOverride !== undefined ? typeAccountIdsOverride : typeSearchAccountIds;
+      const presentationFormType = typeSearchFormTypeOverride ?? typeSearchFormType ?? txType;
+
       const categoryParam =
         selectedCategories.length > 0 && !selectedCategories.includes("")
           ? [...selectedCategories].sort().join(",")
@@ -514,7 +527,7 @@ export function useTransactionSearch({
       const singleSelectedCurrency =
         !showAllCurrencies && selectedCurrencies.length === 1 ? String(selectedCurrencies[0] || "").toUpperCase() : "";
 
-      const queryFilters = buildTransactionSearchQueryFilters(searchState);
+      const queryFilters = buildTransactionSearchQueryFilters(effectiveSearchState);
       const { showInactiveForQuery, showCaptureOnlyForQuery, hideZeroBalanceForQuery } = queryFilters;
 
       const requestKey = buildTransactionSearchRequestKey({
@@ -624,7 +637,7 @@ export function useTransactionSearch({
         lastCompletedSearchKeyRef.current = requestKey;
         lastCompletedSearchTsRef.current = Date.now();
         const totalAccounts = (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
-        const displayed = countDisplayedRows(cleaned, searchState, txType);
+        const displayed = countDisplayedRows(cleaned, effectiveSearchState, presentationFormType, typeIdsForDisplay);
         setTablesVisible(displayed > 0);
         if (!silent) {
           if (totalAccounts === 0) {
@@ -696,7 +709,7 @@ export function useTransactionSearch({
               },
             };
           }
-        } else if (searchState.showCaptureOnly && totalAccounts === 0) {
+        } else if (effectiveSearchState.showCaptureOnly && totalAccounts === 0) {
           const fallback = await fetchSearch({
             ...paramsBase,
             showCaptureOnly: false,
@@ -734,12 +747,84 @@ export function useTransactionSearch({
       saveTxListToSession,
       queryClient,
       txType,
+      typeSearchAccountIds,
+      typeSearchFormType,
       rawSearchData,
       m,
       t,
     ],
   );
   runSearchRef.current = runSearch;
+
+  const runTypeSearch = useCallback(
+    async (formTxType) => {
+      const normalizedType = String(formTxType || "").toUpperCase().trim();
+      if (!normalizedType) return;
+
+      const clearedState = {
+        showName: false,
+        showPaymentOnly: false,
+        showCaptureOnly: false,
+        showZeroBalance: false,
+      };
+      setSearchState((prev) => ({ ...prev, ...clearedState }));
+
+      if (!scopeReady || !scopeCacheCompanyKey) return;
+      if (!effectiveDateFrom || !effectiveDateTo) {
+        pushToast(m.pleaseSelectDateRange, "error");
+        return;
+      }
+      if (!showAllCurrencies && selectedCurrencies.length === 0) {
+        pushToast(m.pleaseSelectAtLeastOneCurrency, "info");
+        return;
+      }
+
+      setSearchLoading(true);
+      try {
+        const subsidiarySearch =
+          scopeApi.subsidiaryAccountsOnly ||
+          (scopeApi.companyId != null && Number(scopeApi.companyId) > 0);
+        const accountIds = await fetchTypeAccountSearch({
+          ...scopeApi,
+          viewGroup: subsidiarySearch ? undefined : scopeApi.viewGroup,
+          groupId: subsidiarySearch ? undefined : scopeApi.groupId,
+          groupAggregate: subsidiarySearch ? undefined : scopeApi.groupAggregate,
+          subsidiaryAccountsOnly: subsidiarySearch ? true : scopeApi.subsidiaryAccountsOnly,
+          transactionType: normalizedType,
+        });
+        const idSet = new Set(accountIds);
+        setTypeSearchAccountIds(idSet);
+        setTypeSearchFormType(normalizedType);
+
+        await runSearch({
+          forceRefresh: true,
+          silent: false,
+          searchStateOverride: clearedState,
+          typeAccountIdsOverride: idSet,
+          typeSearchFormTypeOverride: normalizedType,
+        });
+      } catch (e) {
+        if (e?.name === "AbortError" || isCancelledError(e)) return;
+        console.error(e);
+        pushToast(t("searchFailedWithMessage", { message: e.message }), "error");
+      } finally {
+        setSearchLoading(false);
+      }
+    },
+    [
+      scopeReady,
+      scopeCacheCompanyKey,
+      scopeApi,
+      effectiveDateFrom,
+      effectiveDateTo,
+      showAllCurrencies,
+      selectedCurrencies,
+      runSearch,
+      pushToast,
+      m,
+      t,
+    ],
+  );
 
   useEffect(() => {
     return () => {
@@ -769,13 +854,14 @@ export function useTransactionSearch({
     // rawSearchData is already sanitized on commit/replay; avoid duplicate dedupe pass.
     const rawLeft = Array.isArray(rawSearchData.left_table) ? rawSearchData.left_table : [];
     const rawRight = Array.isArray(rawSearchData.right_table) ? rawSearchData.right_table : [];
-    const norm = normalizeRateRowsByCrDr(rawLeft, rawRight, txType === "RATE");
+    const presentationTxType = typeSearchFormType || txType;
+    const norm = normalizeRateRowsByCrDr(rawLeft, rawRight, presentationTxType === "RATE");
     return {
       hasData: true,
       baseLeft: sortByRole(norm.leftRows),
       baseRight: sortByRole(norm.rightRows),
     };
-  }, [rawSearchData, txType]);
+  }, [rawSearchData, txType, typeSearchFormType]);
 
   const tablePresentation = useMemo(() => {
     if (!rawSearchData) {
@@ -790,11 +876,13 @@ export function useTransactionSearch({
         singleCurrencyTitle: null,
       };
     }
-    const filtered = filterTransactionTableRows(baseRowsPresentation.baseLeft, baseRowsPresentation.baseRight, {
-      showZeroBalance: searchState.showZeroBalance,
-      showPaymentOnly: searchState.showPaymentOnly,
-      showCaptureOnly: searchState.showCaptureOnly,
-    });
+    const filtered = typeSearchAccountIds?.size
+      ? applyTypeSearchAccountFilter(baseRowsPresentation.baseLeft, baseRowsPresentation.baseRight, typeSearchAccountIds)
+      : filterTransactionTableRows(baseRowsPresentation.baseLeft, baseRowsPresentation.baseRight, {
+          showZeroBalance: searchState.showZeroBalance,
+          showPaymentOnly: searchState.showPaymentOnly,
+          showCaptureOnly: searchState.showCaptureOnly,
+        });
     const sortedLeft = filtered.left;
     const sortedRight = filtered.right;
     const totalsLeft = calculateTotals(sortedLeft);
@@ -882,7 +970,20 @@ export function useTransactionSearch({
       grouped,
       singleCurrencyTitle: null,
     };
-  }, [rawSearchData, baseRowsPresentation, searchState, showAllCurrencies, selectedCurrencies, currencyRowsOrdered]);
+  }, [rawSearchData, baseRowsPresentation, searchState, typeSearchAccountIds, showAllCurrencies, selectedCurrencies, currencyRowsOrdered]);
+
+  useEffect(() => {
+    if (!typeSearchAccountIds?.size) return;
+    if (searchState.showPaymentOnly || searchState.showCaptureOnly || searchState.showZeroBalance) {
+      setTypeSearchAccountIds(null);
+      setTypeSearchFormType(null);
+    }
+  }, [
+    searchState.showPaymentOnly,
+    searchState.showCaptureOnly,
+    searchState.showZeroBalance,
+    typeSearchAccountIds,
+  ]);
 
   /** 切换 scope（含 group/company 模式）：中止旧请求、清空列表，后台重搜。 */
   const scopeKey = transactionScopeCacheKey(transactionScope) || null;
@@ -1132,6 +1233,8 @@ export function useTransactionSearch({
     tablesVisible,
     setTablesVisible,
     runSearch,
+    runTypeSearch,
+    typeSearchActive: Boolean(typeSearchAccountIds?.size),
     persistCurrencyFilter,
     initialSearchDoneRef,
     lastSearchCommitMsRef,

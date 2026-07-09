@@ -487,16 +487,39 @@ export function readTransactionCurrencyFilterState(companyId) {
   }
 }
 
+/** @param {Set<number>|null|undefined} typeSearchAccountIds */
+export function rowMatchesTypeSearchAccountSet(row, typeSearchAccountIds) {
+  if (!typeSearchAccountIds || typeSearchAccountIds.size === 0) return false;
+  const dbId = Number(row?.account_db_id);
+  if (!Number.isFinite(dbId) || dbId <= 0) return false;
+  return typeSearchAccountIds.has(dbId);
+}
+
+/** Keep only rows whose account_db_id appears in the all-time type search set. */
+export function applyTypeSearchAccountFilter(left, right, typeSearchAccountIds) {
+  if (!typeSearchAccountIds || typeSearchAccountIds.size === 0) {
+    return { left: [], right: [] };
+  }
+  const keep = (rows) =>
+    (Array.isArray(rows) ? rows : []).filter((row) => rowMatchesTypeSearchAccountSet(row, typeSearchAccountIds));
+  return { left: keep(left), right: keep(right) };
+}
+
 /** Row count after the same client filters as the main grid (for search-complete toasts). */
-export function countDisplayedRows(rawSearchData, searchState, txType) {
+export function countDisplayedRows(rawSearchData, searchState, txType, typeSearchAccountIds = null) {
   if (!rawSearchData) return 0;
   const rawLeft = dedupeRowsByAccountAndCurrency(rawSearchData.left_table || []);
   const rawRight = dedupeRowsByAccountAndCurrency(rawSearchData.right_table || []);
-  const z = filterTransactionTableRows(rawLeft, rawRight, {
-    showZeroBalance: searchState.showZeroBalance,
-    showPaymentOnly: searchState.showPaymentOnly,
-    showCaptureOnly: searchState.showCaptureOnly,
-  });
+  let z;
+  if (typeSearchAccountIds?.size) {
+    z = applyTypeSearchAccountFilter(rawLeft, rawRight, typeSearchAccountIds);
+  } else {
+    z = filterTransactionTableRows(rawLeft, rawRight, {
+      showZeroBalance: searchState.showZeroBalance,
+      showPaymentOnly: searchState.showPaymentOnly,
+      showCaptureOnly: searchState.showCaptureOnly,
+    });
+  }
   const norm = normalizeRateRowsByCrDr(z.left, z.right, txType === "RATE");
   return (norm.leftRows?.length || 0) + (norm.rightRows?.length || 0);
 }
