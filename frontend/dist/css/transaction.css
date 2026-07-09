@@ -3878,3 +3878,11 @@ body.ec-payment-history-chromeless.transaction-payment-history-page--popup-compa
     font-size: var(--txn-history-text-error);
 }
 
+/* Unify font weight to 700 in the transaction/payment type add section */
+body.transaction-page .transaction-add-section,
+body.transaction-page .transaction-add-section *,
+body.transaction-page .transaction-add-section input::placeholder {
+    font-weight: 700 !important;
+}
+
+
