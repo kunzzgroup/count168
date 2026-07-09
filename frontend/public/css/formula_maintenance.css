@@ -1561,9 +1561,10 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     font-weight: 500;
     color: #1f2937;
     line-height: 1.35;
-    white-space: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    overflow: hidden;
 }
 
 .formula-maintenance-page-root .formula-input-textarea:focus {

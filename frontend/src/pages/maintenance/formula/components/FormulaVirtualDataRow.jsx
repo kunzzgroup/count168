@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useLayoutEffect, useRef } from "react";
 import { toUpperDisplay, syncEditFormSourcePercent } from "../formulaMaintenanceLogic.js";
 import { assetUrl } from "../../../../utils/core/apiUrl.js";
 import MaintenanceEllipsisText from "../../shared/MaintenanceEllipsisText.jsx";
@@ -20,6 +20,16 @@ const FormulaVirtualDataRow = memo(function FormulaVirtualDataRow({
 }) {
   const stripe = index % 2 === 1 ? "maintenance-virtual-data-row--stripe" : "";
   const patchForm = (field, value) => onEditFormChange((prev) => ({ ...prev, [field]: value }));
+  const formulaTextareaRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (!isEditing) return;
+    const el = formulaTextareaRef.current;
+    if (!(el instanceof HTMLTextAreaElement)) return;
+    // Auto expand to full content so users can review/edit without scrolling.
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [isEditing, editForm.formula]);
 
   return (
     <div
@@ -106,11 +116,11 @@ const FormulaVirtualDataRow = memo(function FormulaVirtualDataRow({
       <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left formula-virtual-cell--wrap formula-virtual-cell--formula">
         {isEditing ? (
           <textarea
+            ref={formulaTextareaRef}
             className="formula-input formula-input-textarea"
             value={editForm.formula}
             onChange={(e) => patchForm("formula", e.target.value)}
             rows={2}
-            wrap="off"
           />
         ) : (
           <MaintenanceEllipsisText
