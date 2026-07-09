@@ -2653,6 +2653,14 @@ try {
             $transactionCreatedBy = $row['created_by_owner_name'];
         }
 
+        $rateFirstRowRemark = null;
+        if (in_array($entryType, ['RATE_FIRST_FROM', 'RATE_FIRST_TO'], true)) {
+            $headerSms = trim((string) ($row['sms'] ?? ''));
+            if ($headerSms !== '') {
+                $rateFirstRowRemark = $headerSms;
+            }
+        }
+
         $events[] = [
             'row_type' => 'transaction',
             'transaction_id' => $row['header_id'],
@@ -2671,8 +2679,8 @@ try {
             'percent' => '-',
             'rate' => '-',
             'description' => $description,
-            'sms' => $row['sms'] ?: '-',
-            'remark' => null,
+            'sms' => '-',
+            'remark' => $rateFirstRowRemark,
             'created_by' => $transactionCreatedBy,
             'from_currency_code' => $row['from_currency_code'] ?? null,
             'to_currency_code' => $row['to_currency_code'] ?? null,
