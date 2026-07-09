@@ -54,9 +54,14 @@ body.announcement-page #root {
     flex: 1 1 auto;
     min-height: 0;
     max-height: 100%;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.announcement-scroll-area > .page-panel {
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 /* Tab row (page title removed) */
@@ -86,6 +91,8 @@ body.announcement-page .page-header h1 {
     align-items: stretch;
     gap: 24px;
     margin-top: 20px;
+    height: 100%;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -107,7 +114,7 @@ body.announcement-page .page-header h1 {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     min-height: 0;
     max-height: none;
-    overflow: visible;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
 }
@@ -388,6 +395,8 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
     align-items: stretch;
     gap: 24px;
     margin-top: 20px;
+    height: 100%;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -415,7 +424,7 @@ body.announcement-page .sidebar-scroll {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     min-height: 0;
     max-height: none;
-    overflow: visible;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
 }
