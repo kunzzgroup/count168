@@ -81,6 +81,7 @@ import { pathnameIs, pathnameToPageKey, spaPath } from "../utils/routing/pageRou
 import { stripPrivateQueryFromBrowserUrl } from "../utils/routing/privateBrowserUrl.js";
 import { resetDashboardSessionCaches } from "../utils/dashboard/dashboardCache.js";
 import { resetMaintenanceCalendarPopupOnNavigation } from "../utils/date/dateRangePicker.js";
+import { toSafeRenderHtml } from "../utils/content/richTextSanitizer.js";
 import "../../public/css/modal-close-unified.css";
 import "../../public/css/select-unified.css";
 
@@ -1566,7 +1567,10 @@ export default function AuthenticatedLayout() {
                 onClick={() => markAnnouncementRead(index)}
               >
                 <div className="notification-title">{announcement.title}</div>
-                <div className="notification-message">{announcement.content}</div>
+                <div
+                  className="notification-message rich-text-renderer"
+                  dangerouslySetInnerHTML={{ __html: toSafeRenderHtml(announcement.content) }}
+                />
                 <div className="notification-time">{announcement.created_at}</div>
               </div>
             ))

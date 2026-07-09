@@ -128,6 +128,37 @@ body.announcement-page .page-header h1 {
     resize: vertical;
 }
 
+.rich-text-editor .ql-toolbar.ql-snow {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px 8px 0 0;
+    background: #f8fafc;
+}
+
+.rich-text-editor .ql-container.ql-snow {
+    border: 1px solid #cbd5e1;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    min-height: clamp(140px, 10.5vw, 220px);
+    font-size: clamp(11px, 0.73vw, 14px);
+}
+
+.rich-text-editor .ql-editor {
+    min-height: clamp(140px, 10.5vw, 220px);
+    line-height: 1.55;
+}
+
+.rich-text-editor .ql-editor.ql-blank::before {
+    color: #94a3b8;
+    font-style: normal;
+}
+
+.rich-text-editor.is-disabled .ql-toolbar.ql-snow,
+.rich-text-editor.is-disabled .ql-container.ql-snow {
+    background-color: #f3f4f6;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
 .submit-btn {
     width: 100%;
     padding: clamp(8px, 0.625vw, 12px);
@@ -280,7 +311,6 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
     font-size: clamp(12px, 0.73vw, 14px);
     line-height: 1.6;
     margin-bottom: clamp(8px, 0.625vw, 12px);
-    white-space: pre-wrap;
     word-break: break-word;
 }
 
@@ -373,8 +403,61 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
     font-size: clamp(12px, 0.73vw, 14px);
     line-height: 1.6;
     margin-bottom: clamp(8px, 0.625vw, 12px);
-    white-space: pre-wrap;
     word-break: break-word;
+}
+
+.rich-text-renderer {
+    white-space: normal;
+}
+
+.rich-text-renderer > *:first-child {
+    margin-top: 0;
+}
+
+.rich-text-renderer > *:last-child {
+    margin-bottom: 0;
+}
+
+.rich-text-renderer p,
+.rich-text-renderer ul,
+.rich-text-renderer ol,
+.rich-text-renderer blockquote,
+.rich-text-renderer pre,
+.rich-text-renderer h1,
+.rich-text-renderer h2,
+.rich-text-renderer h3,
+.rich-text-renderer h4 {
+    margin: 0 0 8px 0;
+}
+
+.rich-text-renderer ul,
+.rich-text-renderer ol {
+    padding-left: 20px;
+}
+
+.rich-text-renderer blockquote {
+    border-left: 3px solid #93c5fd;
+    padding-left: 10px;
+    color: #475569;
+}
+
+.rich-text-renderer code {
+    background: #e2e8f0;
+    border-radius: 4px;
+    padding: 0 4px;
+}
+
+.rich-text-renderer pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    overflow-x: auto;
+}
+
+.rich-text-renderer a {
+    color: #2563eb;
+    text-decoration: underline;
 }
 
 .maintenance-list-header {
