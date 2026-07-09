@@ -19,7 +19,7 @@ import {
 } from "../lib/transactionPaymentLogic.js";
 import {
   searchTransactions as searchTransactionsApi,
-  fetchTypeAccountSearch,
+  fetchTypeTransactionSearch,
   saveUserCurrencyOrder,
   transactionQueryKeys,
 } from "../lib/transactionApi.js";
@@ -517,8 +517,14 @@ export function useTransactionSearch({
       }
 
       const effectiveSearchState = searchStateOverride ?? searchState;
-      const activeTypeSearch =
+      let activeTypeSearch =
         typeSearchOverride === true || (typeSearchOverride !== false && typeSearchActive);
+      if (typeSearchOverride !== true && typeSearchActive) {
+        setTypeSearchActive(false);
+        setTypeSearchFormType(null);
+        setTypeSearchAccountIds([]);
+        activeTypeSearch = false;
+      }
       const accountIdsForType =
         typeAccountIdsOverride !== undefined
           ? typeAccountIdsOverride
@@ -775,7 +781,7 @@ export function useTransactionSearch({
       if (!normalizedType) return;
 
       const clearedState = {
-        showName: false,
+        showName: true,
         showPaymentOnly: false,
         showCaptureOnly: false,
         showZeroBalance: false,
@@ -783,10 +789,6 @@ export function useTransactionSearch({
       setSearchState((prev) => ({ ...prev, ...clearedState }));
 
       if (!scopeReady || !scopeCacheCompanyKey) return;
-      if (!effectiveDateFrom || !effectiveDateTo) {
-        pushToast(m.pleaseSelectDateRange, "error");
-        return;
-      }
       if (!showAllCurrencies && selectedCurrencies.length === 0) {
         pushToast(m.pleaseSelectAtLeastOneCurrency, "info");
         return;
@@ -797,26 +799,41 @@ export function useTransactionSearch({
         const subsidiarySearch =
           scopeApi.subsidiaryAccountsOnly ||
           (scopeApi.companyId != null && Number(scopeApi.companyId) > 0);
-        const accountIds = await fetchTypeAccountSearch({
+        const currencyCodes =
+          !showAllCurrencies && selectedCurrencies.length > 0
+            ? selectedCurrencies.map((c) => String(c || "").toUpperCase().trim()).filter(Boolean)
+            : undefined;
+
+        const payload = await fetchTypeTransactionSearch({
           ...scopeApi,
           viewGroup: subsidiarySearch ? undefined : scopeApi.viewGroup,
           groupId: subsidiarySearch ? undefined : scopeApi.groupId,
           groupAggregate: subsidiarySearch ? undefined : scopeApi.groupAggregate,
           subsidiaryAccountsOnly: subsidiarySearch ? true : scopeApi.subsidiaryAccountsOnly,
           transactionType: normalizedType,
+          currencyCodes,
         });
-        setTypeSearchActive(true);
-        setTypeSearchAccountIds(accountIds);
-        setTypeSearchFormType(normalizedType);
 
-        await runSearch({
-          forceRefresh: true,
-          silent: false,
-          searchStateOverride: clearedState,
-          typeSearchOverride: true,
-          typeAccountIdsOverride: accountIds,
-          typeSearchFormTypeOverride: normalizedType,
-        });
+        if (!payload) {
+          pushToast(m.searchFailed, "error");
+          return;
+        }
+
+        const cleaned = sanitizeSearchApiData(payload);
+        setTypeSearchActive(true);
+        setTypeSearchFormType(normalizedType);
+        setTypeSearchAccountIds([]);
+        setRawSearchData(cleaned);
+        clearTxSearchCache();
+
+        const displayed =
+          (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
+        setTablesVisible(displayed > 0);
+        if (displayed === 0) {
+          pushToast(m.searchCompletedNoData, "info");
+        } else {
+          pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
+        }
       } catch (e) {
         if (e?.name === "AbortError" || isCancelledError(e)) return;
         console.error(e);
@@ -829,11 +846,8 @@ export function useTransactionSearch({
       scopeReady,
       scopeCacheCompanyKey,
       scopeApi,
-      effectiveDateFrom,
-      effectiveDateTo,
       showAllCurrencies,
       selectedCurrencies,
-      runSearch,
       pushToast,
       m,
       t,
@@ -868,6 +882,13 @@ export function useTransactionSearch({
     // rawSearchData is already sanitized on commit/replay; avoid duplicate dedupe pass.
     const rawLeft = Array.isArray(rawSearchData.left_table) ? rawSearchData.left_table : [];
     const rawRight = Array.isArray(rawSearchData.right_table) ? rawSearchData.right_table : [];
+    if (typeSearchActive) {
+      return {
+        hasData: true,
+        baseLeft: rawLeft,
+        baseRight: rawRight,
+      };
+    }
     const presentationTxType = typeSearchFormType || txType;
     const norm = normalizeRateRowsByCrDr(rawLeft, rawRight, presentationTxType === "RATE");
     return {
@@ -875,7 +896,7 @@ export function useTransactionSearch({
       baseLeft: sortByRole(norm.leftRows),
       baseRight: sortByRole(norm.rightRows),
     };
-  }, [rawSearchData, txType, typeSearchFormType]);
+  }, [rawSearchData, txType, typeSearchFormType, typeSearchActive]);
 
   const tablePresentation = useMemo(() => {
     if (!rawSearchData) {
@@ -990,6 +1011,7 @@ export function useTransactionSearch({
       setTypeSearchActive(false);
       setTypeSearchAccountIds([]);
       setTypeSearchFormType(null);
+      void runSearchRef.current?.({ forceRefresh: true, silent: false, typeSearchOverride: false });
     }
   }, [
     searchState.showPaymentOnly,

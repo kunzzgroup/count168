@@ -6,6 +6,7 @@ export default function TransactionTablesSection({
   searchLoading,
   tp,
   searchState,
+  typeSearchActive = false,
   getRoleClass,
   fallbackRoleClass,
   openHistory,
@@ -15,6 +16,7 @@ export default function TransactionTablesSection({
 }) {
   const hasTableData = tp.mode !== "none";
   const showTablesWhileLoading = searchLoading && hasTableData;
+  const showNameColumn = Boolean(searchState.showName || typeSearchActive);
 
   return (
     <>
@@ -51,7 +53,7 @@ export default function TransactionTablesSection({
                 <thead>
                   <tr className="transaction-table-header">
                     <th>{m.accountTable}</th>
-                    <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>{m.nameTable}</th>
+                    <th className="transaction-name-column" style={{ display: showNameColumn ? "" : "none" }}>{m.nameTable}</th>
                     <th>{m.bfTable}</th><th>{m.winLossTable}</th><th>{m.crDrTable}</th><th>{m.balanceTable}</th>
                   </tr>
                 </thead>
@@ -60,9 +62,9 @@ export default function TransactionTablesSection({
                     const roleClass = getRoleClass(row.role || "") || fallbackRoleClass;
                     const accountCellClass = roleClass ? `transaction-account-cell ${roleClass}` : "transaction-account-cell";
                     return (
-                      <tr key={`${row.account_db_id}-${row.currency || ""}`} className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}>
+                      <tr key={`${row.transaction_id || row.account_db_id}-${row.currency || ""}`} className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}>
                         <td className={accountCellClass} style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>{row.account_id}</td>
-                        <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>{toUpperDisplay(row.account_name)}</td>
+                        <td className="transaction-name-column" style={{ display: showNameColumn ? "" : "none" }}>{toUpperDisplay(row.account_name)}</td>
                         <td><TransactionWinLossCell value={row.bf} /></td>
                         <td><TransactionWinLossCell value={row.win_loss} /></td>
                         <td><TransactionWinLossCell value={row.cr_dr} /></td>
@@ -74,7 +76,7 @@ export default function TransactionTablesSection({
                 <tfoot>
                   <tr className="transaction-table-footer">
                     <td>{m.total}</td>
-                    <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
+                    <td className="transaction-name-column" style={{ display: showNameColumn ? "" : "none" }} />
                     <td id="left_total_bf"><TransactionWinLossCell value={tp.totalsLeft?.bf ?? "0"} /></td>
                     <td id="left_total_winloss"><TransactionWinLossCell value={tp.totalsLeft?.win_loss ?? "0"} /></td>
                     <td id="left_total_crdr"><TransactionWinLossCell value={tp.totalsLeft?.cr_dr ?? "0"} /></td>
@@ -88,7 +90,7 @@ export default function TransactionTablesSection({
                 <thead>
                   <tr className="transaction-table-header">
                     <th>{m.accountTable}</th>
-                    <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>{m.nameTable}</th>
+                    <th className="transaction-name-column" style={{ display: showNameColumn ? "" : "none" }}>{m.nameTable}</th>
                     <th>{m.bfTable}</th><th>{m.winLossTable}</th><th>{m.crDrTable}</th><th>{m.balanceTable}</th>
                   </tr>
                 </thead>
@@ -97,9 +99,9 @@ export default function TransactionTablesSection({
                     const roleClass = getRoleClass(row.role || "") || fallbackRoleClass;
                     const accountCellClass = roleClass ? `transaction-account-cell ${roleClass}` : "transaction-account-cell";
                     return (
-                      <tr key={`${row.account_db_id}-${row.currency || ""}`} className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}>
+                      <tr key={`${row.transaction_id || row.account_db_id}-${row.currency || ""}`} className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}>
                         <td className={accountCellClass} style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>{row.account_id}</td>
-                        <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>{toUpperDisplay(row.account_name)}</td>
+                        <td className="transaction-name-column" style={{ display: showNameColumn ? "" : "none" }}>{toUpperDisplay(row.account_name)}</td>
                         <td><TransactionWinLossCell value={row.bf} /></td>
                         <td><TransactionWinLossCell value={row.win_loss} /></td>
                         <td><TransactionWinLossCell value={row.cr_dr} /></td>
@@ -111,7 +113,7 @@ export default function TransactionTablesSection({
                 <tfoot>
                   <tr className="transaction-table-footer">
                     <td>{m.total}</td>
-                    <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
+                    <td className="transaction-name-column" style={{ display: showNameColumn ? "" : "none" }} />
                     <td id="right_total_bf"><TransactionWinLossCell value={tp.totalsRight?.bf ?? "0"} /></td>
                     <td id="right_total_winloss"><TransactionWinLossCell value={tp.totalsRight?.win_loss ?? "0"} /></td>
                     <td id="right_total_crdr"><TransactionWinLossCell value={tp.totalsRight?.cr_dr ?? "0"} /></td>
@@ -146,7 +148,7 @@ export default function TransactionTablesSection({
                       <thead>
                         <tr className="transaction-table-header">
                           <th>{m.accountTable}</th>
-                          <th className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>{m.nameTable}</th>
+                          <th className="transaction-name-column" style={{ display: showNameColumn ? "" : "none" }}>{m.nameTable}</th>
                           <th>{m.bfTable}</th><th>{m.winLossTable}</th><th>{m.crDrTable}</th><th>{m.balanceTable}</th>
                         </tr>
                       </thead>
@@ -155,9 +157,9 @@ export default function TransactionTablesSection({
                           const roleClass = getRoleClass(row.role || "") || fallbackRoleClass;
                           const accountCellClass = roleClass ? `transaction-account-cell ${roleClass}` : "transaction-account-cell";
                           return (
-                            <tr key={`${side.key}-${row.account_db_id}-${row.currency || ""}`} className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}>
+                            <tr key={`${side.key}-${row.transaction_id || row.account_db_id}-${row.currency || ""}`} className={`transaction-table-row${row.is_alert == 1 || row.is_alert === true ? " transaction-alert-row" : ""}`}>
                               <td className={accountCellClass} style={{ cursor: "pointer" }} onClick={() => openHistory(row)}>{row.account_id}</td>
-                              <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>{toUpperDisplay(row.account_name)}</td>
+                              <td className="transaction-name-column" style={{ display: showNameColumn ? "" : "none" }}>{toUpperDisplay(row.account_name)}</td>
                               <td><TransactionWinLossCell value={row.bf} /></td>
                               <td><TransactionWinLossCell value={row.win_loss} /></td>
                               <td><TransactionWinLossCell value={row.cr_dr} /></td>
@@ -169,7 +171,7 @@ export default function TransactionTablesSection({
                       <tfoot>
                         <tr className="transaction-table-footer">
                           <td>{m.total}</td>
-                          <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
+                          <td className="transaction-name-column" style={{ display: showNameColumn ? "" : "none" }} />
                           <td><TransactionWinLossCell value={side.totals?.bf ?? "0"} /></td>
                           <td><TransactionWinLossCell value={side.totals?.win_loss ?? "0"} /></td>
                           <td><TransactionWinLossCell value={side.totals?.cr_dr ?? "0"} /></td>

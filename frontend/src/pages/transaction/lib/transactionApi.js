@@ -252,6 +252,43 @@ export async function fetchTypeAccountSearch({
   return Array.isArray(ids) ? ids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0) : [];
 }
 
+/** Type search: one grid row per approved transaction (all history, PM-aligned). */
+export async function fetchTypeTransactionSearch({
+  companyId,
+  viewGroup,
+  groupId,
+  groupAggregate,
+  subsidiaryAccountsOnly,
+  transactionType,
+  currencyCodes,
+  signal,
+} = {}) {
+  const params = new URLSearchParams();
+  appendTransactionScope(params, {
+    companyId,
+    viewGroup,
+    groupId,
+    groupAggregate,
+    subsidiaryAccountsOnly,
+  });
+  params.set("transaction_type", String(transactionType || "").toUpperCase().trim());
+  if (Array.isArray(currencyCodes) && currencyCodes.length > 0) {
+    params.set("currency", currencyCodes.join(","));
+  }
+
+  const res = await fetch(buildApiUrl(`api/transactions/type_transaction_search_api.php?${params.toString()}`), {
+    credentials: "include",
+    cache: "no-cache",
+    headers: { "Cache-Control": "no-cache" },
+    signal,
+  });
+  const body = await safeJson(res);
+  if (!body?.success) {
+    throw new Error(body?.message || body?.error || "Type transaction search failed");
+  }
+  return body?.data ?? null;
+}
+
 export async function searchTransactions({
   companyId,
   viewGroup,
