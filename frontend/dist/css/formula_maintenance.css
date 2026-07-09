@@ -388,7 +388,7 @@ body.dashboard-page.maintenance-page {
     --formula-list-cell-line-clamp: 2;
 }
 
-/* 长文本最多显示 2 行，超出省略（悬停 title 可看全文） */
+/* 长文本默认最多显示 2 行；formula 列会单独覆盖为完整展示 */
 .formula-maintenance-page-root .formula-cell-clamp-2 {
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -400,6 +400,21 @@ body.dashboard-page.maintenance-page {
     word-break: break-word;
     overflow-wrap: break-word;
     text-overflow: ellipsis;
+    line-height: var(--formula-list-cell-line-height);
+}
+
+/* Formula 列：列表中完整显示，不做行数截断 */
+.formula-maintenance-page-root .formula-display--full {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    text-overflow: initial;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
     line-height: var(--formula-list-cell-line-height);
 }
 
@@ -631,7 +646,6 @@ body.dashboard-page.maintenance-page {
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td.maintenance-table-cell.formula-cell-text .source-display,
-.formula-maintenance-page-root .maintenance-list-container .maintenance-table td.maintenance-table-cell.formula-cell-text .formula-display,
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td.maintenance-table-cell.formula-cell-text .description-display,
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(3).maintenance-table-cell .account-display {
     display: -webkit-box;
@@ -1525,12 +1539,22 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 .formula-maintenance-page-root .formula-virtual-data-row--editing .source-input,
 .formula-maintenance-page-root .formula-virtual-data-row--editing .input-method-select,
 .formula-maintenance-page-root .formula-virtual-data-row--editing .formula-input,
+.formula-maintenance-page-root .formula-virtual-data-row--editing .formula-input-textarea,
 .formula-maintenance-page-root .formula-virtual-data-row--editing .description-input {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
     font-size: clamp(10px, 0.88vw, 14px);
     font-weight: bold;
+}
+
+.formula-maintenance-page-root .formula-input-textarea {
+    min-height: clamp(64px, 8vh, 110px);
+    resize: vertical;
+    line-height: 1.4;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 .formula-maintenance-page-root .formula-virtual-th--left {
