@@ -907,11 +907,11 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
 
         body.dashboard-page.datacapture-summary-page #summaryTable .add-account-btn {
             float: none !important;
-            margin-left: 2px;
-            width: 1.8rem;
-            height: 1.8rem;
-            font-size: 1.2rem;
-            line-height: 1;
+            margin: 0 !important;
+            width: 1.8rem !important;
+            height: 1.8rem !important;
+            font-size: 1.3rem !important;
+            line-height: 1 !important;
         }
 
 
@@ -2116,17 +2116,17 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
         body.dashboard-page.datacapture-summary-page #summaryTable tbody tr,
         body.dashboard-page.datacapture-summary-page #summaryTable tfoot tr {
             grid-template-columns:
-                minmax(0, 2.7fr)
+                minmax(0, 2.0fr)
                 minmax(0, 1.5fr)
-                minmax(14px, 0.18fr)
-                minmax(0, 0.45fr)
+                minmax(14px, .18fr)
+                minmax(0, .5fr)
                 minmax(0, 3.2fr)
-                minmax(0, 0.35fr)
-                minmax(0, 0.27fr)
-                minmax(0, 0.47fr)
-                minmax(0, 0.85fr)
-                minmax(0, 0.3fr)
-                minmax(0, 0.3fr) !important;
+                minmax(0, .4fr)
+                minmax(0, .30fr)
+                minmax(0, .55fr)
+                minmax(0, 1.0fr)
+                minmax(0, .33fr)
+                minmax(0, .35fr) !important;
         }
 
         body.dashboard-page.datacapture-summary-page #summaryTable th,
@@ -2164,12 +2164,26 @@ body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
             justify-content: flex-start !important;
         }
 
+        /* Allow long account-like values to wrap to a second line. */
+        body.dashboard-page.datacapture-summary-page #summaryTable tbody td:nth-child(1),
+        body.dashboard-page.datacapture-summary-page #summaryTable tbody td:nth-child(2) {
+            white-space: normal !important;
+            overflow: hidden !important;
+            text-overflow: initial !important;
+            display: -webkit-box !important;
+            -webkit-box-orient: vertical !important;
+            -webkit-line-clamp: 2 !important;
+            line-clamp: 2;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+        }
+
         body.dashboard-page.datacapture-summary-page #summaryTable .add-account-btn {
             float: none !important;
             margin: 0 !important;
-            width: 2rem !important;
-            height: 2rem !important;
-            font-size: 1.8rem !important;
+            width: 1.8rem !important;
+            height: 1.8rem !important;
+            font-size: 1.3rem !important;
             line-height: 1 !important;
         }
 
