@@ -732,12 +732,23 @@ async function ensurePdfExportFont(doc) {
     doc.addFont(PDF_CJK_FONT_FILE, PDF_CJK_FONT_FAMILY, "bold");
     return PDF_CJK_FONT_FAMILY;
   } catch {
-    return PDF_FALLBACK_FONT_FAMILY;
+    return null;
   }
 }
 
-function setPdfFont(doc, family, style = "normal") {
-  doc.setFont(family || PDF_FALLBACK_FONT_FAMILY, style);
+function hasCjkText(value) {
+  const text = String(value || "");
+  if (!text) return false;
+  return /[\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(text);
+}
+
+function resolvePdfFontFamilyForText(text, cjkFontFamily) {
+  if (cjkFontFamily && hasCjkText(text)) return cjkFontFamily;
+  return PDF_FALLBACK_FONT_FAMILY;
+}
+
+function setPdfFontForText(doc, text, cjkFontFamily, style = "normal") {
+  doc.setFont(resolvePdfFontFamilyForText(text, cjkFontFamily), style);
 }
 
 function pdfCapHeightMm(fontSizePt) {
@@ -748,7 +759,7 @@ function pdfLineHeightMm(fontSizePt) {
   return fontSizePt * 0.352778 * 1.15;
 }
 
-function drawPdfPageHeader(doc, { logo, pageW, marginX, title, meta, currencyTitle, showTitle, showLogo, fontFamily }) {
+function drawPdfPageHeader(doc, { logo, pageW, marginX, title, meta, currencyTitle, showTitle, showLogo, cjkFontFamily }) {
   const capTopY = PDF_HEADER_TOP_MM;
   let blockBottomY = capTopY;
   const leftX = marginX;
@@ -766,14 +777,14 @@ function drawPdfPageHeader(doc, { logo, pageW, marginX, title, meta, currencyTit
   const titleMaxW = pageW - marginX * 2 - (logoImgW > 0 ? logoImgW + 4 : 0);
 
   if (showTitle && title) {
-    setPdfFont(doc, fontFamily, "bold");
+    setPdfFontForText(doc, title, cjkFontFamily, "bold");
     doc.setFontSize(PDF_TITLE_FONT_PT);
     doc.setTextColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
     const titleBaselineY = capTopY + pdfCapHeightMm(PDF_TITLE_FONT_PT);
     doc.text(title, leftX, titleBaselineY, { align: "left", maxWidth: titleMaxW });
     blockBottomY = Math.max(blockBottomY, titleBaselineY);
     if (meta) {
-      setPdfFont(doc, fontFamily, "normal");
+      setPdfFontForText(doc, meta, cjkFontFamily, "normal");
       doc.setFontSize(PDF_META_FONT_PT);
       doc.setTextColor(100, 116, 139);
       const metaBaselineY = titleBaselineY + pdfLineHeightMm(PDF_META_FONT_PT);
@@ -784,7 +795,7 @@ function drawPdfPageHeader(doc, { logo, pageW, marginX, title, meta, currencyTit
 
   if (currencyTitle) {
     const currencyBaselineY = blockBottomY + 2 + pdfCapHeightMm(PDF_CURRENCY_FONT_PT);
-    setPdfFont(doc, fontFamily, "bold");
+    setPdfFontForText(doc, currencyTitle, cjkFontFamily, "bold");
     doc.setFontSize(PDF_CURRENCY_FONT_PT);
     doc.setTextColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
     doc.text(currencyTitle, leftX, currencyBaselineY, { align: "left", maxWidth: titleMaxW });
@@ -798,10 +809,10 @@ function drawPdfPageHeader(doc, { logo, pageW, marginX, title, meta, currencyTit
   return sepY + PDF_HEADER_TABLE_GAP_MM;
 }
 
-function drawPdfSectionCurrencyHeading(doc, { pageW, marginX, startY, currencyTitle, fontFamily }) {
+function drawPdfSectionCurrencyHeading(doc, { pageW, marginX, startY, currencyTitle, cjkFontFamily }) {
   const titleMaxW = pageW - marginX * 2;
   const currencyBaselineY = startY + pdfCapHeightMm(PDF_CURRENCY_FONT_PT);
-  setPdfFont(doc, fontFamily, "bold");
+  setPdfFontForText(doc, currencyTitle, cjkFontFamily, "bold");
   doc.setFontSize(PDF_CURRENCY_FONT_PT);
   doc.setTextColor(PDF_BRAND_BAR_RGB[0], PDF_BRAND_BAR_RGB[1], PDF_BRAND_BAR_RGB[2]);
   doc.text(currencyTitle, marginX, currencyBaselineY, { align: "left", maxWidth: titleMaxW });
@@ -812,8 +823,8 @@ function drawPdfSectionCurrencyHeading(doc, { pageW, marginX, startY, currencyTi
   return sepY + PDF_HEADER_TABLE_GAP_MM;
 }
 
-function drawPdfPageFooter(doc, { pageW, pageH, pageLabel, fontFamily }) {
-  setPdfFont(doc, fontFamily, "normal");
+function drawPdfPageFooter(doc, { pageW, pageH, pageLabel, cjkFontFamily }) {
+  setPdfFontForText(doc, pageLabel, cjkFontFamily, "normal");
   doc.setFontSize(9);
   doc.setTextColor(100, 116, 139);
   doc.text(pageLabel, pageW / 2, pageH - PDF_FOOTER_BOTTOM_MM, { align: "center" });
@@ -852,7 +863,7 @@ export async function downloadMemberReportPdf({
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const marginX = 10;
-  const fontFamily = await ensurePdfExportFont(doc);
+  const cjkFontFamily = await ensurePdfExportFont(doc);
   const logo = await loadPdfLogoAsset();
 
   const headerSection = buildMemberReportSectionData({
@@ -885,7 +896,7 @@ export async function downloadMemberReportPdf({
       currencyTitle: multiCurrency ? headerSection.currencyTitle : null,
       showTitle: true,
       showLogo: true,
-      fontFamily,
+      cjkFontFamily,
     });
     headerPagesDrawn.add(1);
   }
@@ -914,7 +925,7 @@ export async function downloadMemberReportPdf({
           marginX,
           startY: cursorY,
           currencyTitle: sectionData.currencyTitle,
-          fontFamily,
+          cjkFontFamily,
         });
       }
     }
@@ -960,7 +971,7 @@ export async function downloadMemberReportPdf({
               marginX,
               startY: PDF_HEADER_TOP_MM,
               currencyTitle: pendingCurrencyHeading,
-              fontFamily,
+              cjkFontFamily,
             });
             pendingCurrencyHeading = null;
           }
@@ -971,11 +982,11 @@ export async function downloadMemberReportPdf({
           pageW,
           pageH,
           pageLabel: t("exportPdfPageLabel", { page: docPage }),
-          fontFamily,
+          cjkFontFamily,
         });
       },
       styles: {
-        font: fontFamily,
+        font: PDF_FALLBACK_FONT_FAMILY,
         fontSize: 9,
         cellPadding: 2.5,
         lineColor: [232, 237, 243],
@@ -1001,6 +1012,10 @@ export async function downloadMemberReportPdf({
       alternateRowStyles: { fillColor: [244, 247, 252] },
       columnStyles: PDF_TABLE_COLUMN_STYLES,
       didParseCell: (hookData) => {
+        const cellText = Array.isArray(hookData.cell?.text) ? hookData.cell.text.join(" ") : String(hookData.cell?.raw || "");
+        if (cjkFontFamily && hasCjkText(cellText)) {
+          hookData.cell.styles.font = cjkFontFamily;
+        }
         if (hookData.section === "head") {
           hookData.cell.styles.cellPadding = { top: 3, right: 2, bottom: 3, left: 2 };
         }
