@@ -403,7 +403,7 @@ body.dashboard-page.maintenance-page {
     line-height: var(--formula-list-cell-line-height);
 }
 
-/* Formula 列：列表中完整显示，不做行数截断 */
+/* Formula 列：与其他 table 一致，单行展示（不换行、不滚动条） */
 .formula-maintenance-page-root .formula-display--full {
     display: block;
     width: 100%;
@@ -411,21 +411,11 @@ body.dashboard-page.maintenance-page {
     white-space: nowrap;
     word-break: normal;
     overflow-wrap: normal;
-    text-overflow: clip;
-    overflow-x: auto;
-    overflow-y: hidden;
+    text-overflow: ellipsis;
+    overflow: hidden;
     -webkit-line-clamp: unset;
     line-clamp: unset;
     line-height: var(--formula-list-cell-line-height);
-}
-
-.formula-maintenance-page-root .formula-display--full::-webkit-scrollbar {
-    height: 6px;
-}
-
-.formula-maintenance-page-root .formula-display--full::-webkit-scrollbar-thumb {
-    background: rgba(100, 116, 139, 0.55);
-    border-radius: 999px;
 }
 
 .formula-maintenance-table-region {
@@ -1561,25 +1551,26 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 }
 
 .formula-maintenance-page-root .formula-input-textarea {
-    min-height: clamp(64px, 8vh, 110px);
-    resize: vertical;
-    padding: clamp(6px, 0.6vw, 10px) clamp(8px, 0.8vw, 12px);
-    border: 1px solid #cbd5e1;
+    min-height: clamp(42px, 4.5vh, 64px);
+    resize: none;
+    padding: clamp(5px, 0.5vw, 8px) clamp(8px, 0.8vw, 12px);
+    border: 1px solid #d1d5db;
     border-radius: 6px;
-    background: #ffffff;
-    font-family: Consolas, "Courier New", monospace;
-    font-weight: 600;
+    background: #f8fafc;
+    font-family: inherit;
+    font-weight: 500;
     color: #1f2937;
-    line-height: 1.4;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .formula-maintenance-page-root .formula-input-textarea:focus {
     outline: none;
     border-color: #0d60ff;
-    box-shadow: 0 0 0 2px rgba(13, 96, 255, 0.15);
+    background: #ffffff;
+    box-shadow: 0 0 0 2px rgba(13, 96, 255, 0.12);
 }
 
 .formula-maintenance-page-root .formula-virtual-th--left {

@@ -109,7 +109,8 @@ const FormulaVirtualDataRow = memo(function FormulaVirtualDataRow({
             className="formula-input formula-input-textarea"
             value={editForm.formula}
             onChange={(e) => patchForm("formula", e.target.value)}
-            rows={3}
+            rows={2}
+            wrap="off"
           />
         ) : (
           <MaintenanceEllipsisText

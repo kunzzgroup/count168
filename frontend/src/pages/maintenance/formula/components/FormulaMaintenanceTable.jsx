@@ -193,7 +193,8 @@ export default function FormulaMaintenanceTable({
               value={editForm.formula}
               onChange={(e) => setEditForm({ ...editForm, formula: e.target.value })}
               style={{ display: "block", width: "100%" }}
-              rows={3}
+              rows={2}
+              wrap="off"
             />
           ) : (
             <MaintenanceEllipsisText
