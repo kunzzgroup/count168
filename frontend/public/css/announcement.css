@@ -6,7 +6,7 @@ body.announcement-page {
     margin: 0;
     padding: 0;
     min-height: 100vh;
-    height: 100vh !important;
+    height: auto !important;
     font-weight: 700;
     background-color: #e9f1ff;
     background-image:
@@ -17,7 +17,7 @@ body.announcement-page {
         linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
     background-blend-mode: screen, screen, multiply, screen, normal;
     overflow-x: hidden !important;
-    overflow-y: hidden !important;
+    overflow-y: auto !important;
 }
 
 body.announcement-page.announcement-modal-open {
@@ -31,11 +31,9 @@ body.announcement-page.announcement-modal-open {
     padding-bottom: 40px;
     width: 100%;
     min-height: 100vh;
-    height: 100vh !important;
+    height: auto !important;
     box-sizing: border-box;
-    overflow: hidden !important;
-    display: flex;
-    flex-direction: column;
+    overflow: visible !important;
 }
 
 /* Tab row (page title removed) */
@@ -46,7 +44,6 @@ body.announcement-page .page-header {
     gap: clamp(16px, 1.5vw, 24px);
     flex-wrap: wrap;
     margin-bottom: clamp(12px, 1.04vw, 20px);
-    flex-shrink: 0;
 }
 
 body.announcement-page .page-header h1 {
@@ -65,9 +62,7 @@ body.announcement-page .page-header h1 {
     display: flex;
     align-items: stretch;
     gap: 24px;
-    margin-top: 0;
-    flex: 1;
-    min-height: 0;
+    margin-top: 20px;
     overflow: hidden;
 }
 
@@ -78,9 +73,7 @@ body.announcement-page .page-header h1 {
     padding: clamp(16px, 1.25vw, 24px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     min-height: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    overflow-y: auto;
 }
 
 .announcement-list-section {
@@ -91,24 +84,9 @@ body.announcement-page .page-header h1 {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     min-height: 0;
     max-height: none;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-#announcementForm,
-#maintenanceForm {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-}
-
-#announcementList,
-#maintenanceList {
-    flex: 1;
-    min-height: 0;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .form-group {
@@ -239,10 +217,6 @@ body.announcement-page .page-header h1 {
     padding-bottom: clamp(10px, 0.83vw, 16px);
     border-bottom: 2px solid #e5e7eb;
     flex-shrink: 0;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: #ffffff;
 }
 
 .announcement-list-header h2 {
@@ -390,9 +364,7 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
     display: flex;
     align-items: stretch;
     gap: 24px;
-    margin-top: 0;
-    flex: 1;
-    min-height: 0;
+    margin-top: 20px;
     overflow: hidden;
 }
 
@@ -403,9 +375,7 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
     padding: clamp(16px, 1.25vw, 24px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     min-height: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    overflow-y: auto;
 }
 
 .maintenance-list-section {
@@ -416,7 +386,7 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     min-height: 0;
     max-height: none;
-    overflow: hidden;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
 }
@@ -512,10 +482,6 @@ body.announcement-page .announcement-item-actions .btn-delete:hover {
     padding-bottom: clamp(10px, 0.83vw, 16px);
     border-bottom: 2px solid #e5e7eb;
     flex-shrink: 0;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: #ffffff;
 }
 
 .maintenance-list-header h2 {

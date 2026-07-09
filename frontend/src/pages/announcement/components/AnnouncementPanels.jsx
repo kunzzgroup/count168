@@ -84,7 +84,7 @@ export function AnnouncementPanel({ t, announcements, onEdit, onDelete, onPublis
           <div className="announcement-list-header">
             <h2>{t("publishedAnnouncements")}</h2>
           </div>
-          <div id="announcementList" style={{ flex: 1, minHeight: 0 }}>
+          <div id="announcementList" style={{ flex: 1, overflowY: "auto" }}>
             {announcements.length === 0 ? (
               <div className="empty-state"><p>{t("noAnnouncements")}</p></div>
             ) : (
@@ -200,7 +200,7 @@ export function MaintenancePanel({ t, maintenanceList, onEdit, onDelete, onPubli
           <div className="maintenance-list-header">
             <h2>{t("publishedMaintenanceContent")}</h2>
           </div>
-          <div id="maintenanceList" style={{ flex: 1, minHeight: 0 }}>
+          <div id="maintenanceList" style={{ flex: 1, overflowY: "auto" }}>
             {maintenanceList.length === 0 ? (
               <div className="empty-state"><p>{t("noMaintenanceContent")}</p></div>
             ) : (
