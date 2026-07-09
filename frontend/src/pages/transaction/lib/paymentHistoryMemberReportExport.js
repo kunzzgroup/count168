@@ -217,11 +217,9 @@ function remarkCell(row) {
   return String(raw).toUpperCase();
 }
 
-/** PDF remark: break at word boundaries so labels like STARTING BALANCE do not split mid-word. */
+/** PDF remark text: preserve natural spacing/wrapping (no forced per-word line breaks). */
 function pdfRemarkText(row) {
-  const text = remarkCell(row);
-  if (!text || text === "-" || !/\s/.test(text)) return text;
-  return text.trim().split(/\s+/).join("\n");
+  return remarkCell(row);
 }
 
 /** Account currencies for export modal (member report scope). */
@@ -637,7 +635,7 @@ function applyPdfCjkCellStyle(cell, { columnIndex, inHeader = false } = {}) {
     cell.styles.overflow = "linebreak";
   }
   if (isRemark) {
-    cell.styles.halign = "center";
+    cell.styles.halign = "left";
     cell.styles.overflow = "linebreak";
   }
 }
@@ -856,20 +854,20 @@ function drawPdfPageFooter(doc, { pageW, pageH, pageLabel, cjkFontFamily }) {
   doc.text(pageLabel, pageW / 2, pageH - PDF_FOOTER_BOTTOM_MM, { align: "center" });
 }
 
-/** A4 portrait — column widths total 190mm; Date fits dd/mm/yyyy on one line. */
+/** A4 landscape — column widths total 277mm; tuned for readable remark/description columns. */
 const PDF_TABLE_COLUMN_STYLES = {
-  0: { cellWidth: 24, halign: "left", overflow: "hidden", fontStyle: "bold" },
-  1: { cellWidth: 22, overflow: "hidden", fontStyle: "bold" },
-  2: { cellWidth: 14, halign: "right", overflow: "hidden" },
-  3: { cellWidth: 20, halign: "right", overflow: "hidden" },
-  4: { cellWidth: 20, halign: "right", overflow: "hidden" },
-  5: { cellWidth: 24, halign: "right", overflow: "hidden" },
-  6: { cellWidth: 42, overflow: "linebreak" },
-  7: { cellWidth: 24, halign: "center", overflow: "linebreak" },
+  0: { cellWidth: 30, halign: "left", overflow: "hidden", fontStyle: "bold" },
+  1: { cellWidth: 30, overflow: "hidden", fontStyle: "bold" },
+  2: { cellWidth: 16, halign: "right", overflow: "hidden" },
+  3: { cellWidth: 28, halign: "right", overflow: "hidden" },
+  4: { cellWidth: 28, halign: "right", overflow: "hidden" },
+  5: { cellWidth: 30, halign: "right", overflow: "hidden" },
+  6: { cellWidth: 76, halign: "left", overflow: "linebreak" },
+  7: { cellWidth: 39, halign: "left", overflow: "linebreak" },
 };
 
 /**
- * Generate a proper A4 portrait PDF and trigger download (no browser print dialog).
+ * Generate a proper A4 landscape PDF and trigger download (no browser print dialog).
  */
 export async function downloadMemberReportPdf({
   sections,
@@ -885,7 +883,7 @@ export async function downloadMemberReportPdf({
     import("jspdf-autotable"),
   ]);
 
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const marginX = 10;
@@ -1072,6 +1070,7 @@ export async function downloadMemberReportPdf({
           }
           if (hookData.column.index === 7) {
             hookData.cell.styles.overflow = "linebreak";
+            hookData.cell.styles.halign = "left";
           }
         }
         if (hookData.section === "foot") {
