@@ -1,7 +1,6 @@
 import { memo } from "react";
 import { toUpperDisplay, syncEditFormSourcePercent } from "../formulaMaintenanceLogic.js";
 import { assetUrl } from "../../../../utils/core/apiUrl.js";
-import PortalTooltip from "../../../../components/PortalTooltip.jsx";
 import MaintenanceEllipsisText from "../../shared/MaintenanceEllipsisText.jsx";
 
 const FormulaVirtualDataRow = memo(function FormulaVirtualDataRow({
@@ -106,19 +105,12 @@ const FormulaVirtualDataRow = memo(function FormulaVirtualDataRow({
       </div>
       <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left formula-virtual-cell--wrap formula-virtual-cell--formula">
         {isEditing ? (
-          <PortalTooltip
-            content={editForm.formula}
-            enabled={String(editForm.formula ?? "").trim() !== ""}
-            placement="below"
-            tooltipClassName="app-portal-tooltip--multiline"
-          >
-            <textarea
-              className="formula-input formula-input-textarea"
-              value={editForm.formula}
-              onChange={(e) => patchForm("formula", e.target.value)}
-              rows={3}
-            />
-          </PortalTooltip>
+          <textarea
+            className="formula-input formula-input-textarea"
+            value={editForm.formula}
+            onChange={(e) => patchForm("formula", e.target.value)}
+            rows={3}
+          />
         ) : (
           <MaintenanceEllipsisText
             value={row._formula ?? toUpperDisplay(row.formula)}

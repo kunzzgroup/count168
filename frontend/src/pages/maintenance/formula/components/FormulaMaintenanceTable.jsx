@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toUpperDisplay, syncEditFormSourcePercent, createFormulaEditFormFromRow } from "../formulaMaintenanceLogic.js";
 import { assetUrl } from "../../../../utils/core/apiUrl.js";
-import PortalTooltip from "../../../../components/PortalTooltip.jsx";
 import FormulaVirtualRows, { FormulaVirtualTableHead } from "./FormulaVirtualRows.jsx";
 import { MAINTENANCE_FORMULA_EDIT_ROW_HEIGHT, MAINTENANCE_REPORT_ROW_HEIGHT } from "../../shared/maintenanceReportRowMetrics.js";
 import MaintenanceEllipsisText from "../../shared/MaintenanceEllipsisText.jsx";
@@ -189,20 +188,13 @@ export default function FormulaMaintenanceTable({
         </td>
         <td className="maintenance-table-cell formula-cell-text">
           {isEditing ? (
-            <PortalTooltip
-              content={editForm.formula}
-              enabled={String(editForm.formula ?? "").trim() !== ""}
-              placement="below"
-              tooltipClassName="app-portal-tooltip--multiline"
-            >
-              <textarea
-                className="formula-input formula-input-textarea"
-                value={editForm.formula}
-                onChange={(e) => setEditForm({ ...editForm, formula: e.target.value })}
-                style={{ display: "block", width: "100%" }}
-                rows={3}
-              />
-            </PortalTooltip>
+            <textarea
+              className="formula-input formula-input-textarea"
+              value={editForm.formula}
+              onChange={(e) => setEditForm({ ...editForm, formula: e.target.value })}
+              style={{ display: "block", width: "100%" }}
+              rows={3}
+            />
           ) : (
             <MaintenanceEllipsisText
               value={toUpperDisplay(row.formula)}
