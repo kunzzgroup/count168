@@ -112,7 +112,9 @@ function typeAccountSearchFetchAccountIds(PDO $pdo, array $listScope, string $fo
         return [];
     }
 
-    $scope = typeAccountSearchScopeFilter($pdo, $listScope, 't');
+    $txnFilter = tx_search_transaction_filter($pdo, $listScope, 't');
+    $txnWhere = $txnFilter['sql'];
+    $txnBind = (int) $txnFilter['bind'];
     $inTypes = implode(',', array_map(static fn ($x) => $pdo->quote($x), $types));
     $approvalSql = tx_sql_transaction_approval_where($pdo, 't');
     $bankDescSql = typeAccountSearchBankProcessDescriptionExcludeSql('t');
@@ -124,7 +126,7 @@ function typeAccountSearchFetchAccountIds(PDO $pdo, array $listScope, string $fo
     $queries = [
         "SELECT DISTINCT t.account_id AS account_id
          FROM transactions t
-         WHERE {$scope['sql']}
+         WHERE {$txnWhere}
            AND t.account_id IS NOT NULL
            AND t.account_id > 0
            AND t.transaction_type IN ({$inTypes})
@@ -133,7 +135,7 @@ function typeAccountSearchFetchAccountIds(PDO $pdo, array $listScope, string $fo
            {$bankSrcSql}",
         "SELECT DISTINCT t.from_account_id AS account_id
          FROM transactions t
-         WHERE {$scope['sql']}
+         WHERE {$txnWhere}
            AND t.from_account_id IS NOT NULL
            AND t.from_account_id > 0
            AND t.transaction_type IN ({$inTypes})
@@ -144,7 +146,7 @@ function typeAccountSearchFetchAccountIds(PDO $pdo, array $listScope, string $fo
 
     foreach ($queries as $sql) {
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$scope['bind']]);
+        $stmt->execute([$txnBind]);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $id = (int) ($row['account_id'] ?? 0);
             if ($id > 0) {
@@ -163,7 +165,7 @@ function typeAccountSearchFetchAccountIds(PDO $pdo, array $listScope, string $fo
  */
 function typeAccountSearchFetchRateAccountIds(PDO $pdo, array $listScope): array
 {
-    $hScope = typeAccountSearchScopeFilter($pdo, $listScope, 'h');
+    $hFilter = tx_search_transaction_filter($pdo, $listScope, 'h');
     $permCompanyId = tx_permission_company_id_for_scope($pdo, $listScope);
     $isGroup = (($listScope['mode'] ?? '') === 'group');
 
@@ -176,13 +178,13 @@ function typeAccountSearchFetchRateAccountIds(PDO $pdo, array $listScope): array
             JOIN transactions h ON e.header_id = h.id
             JOIN account acc ON e.account_id = acc.id
             {$companyJoin}
-            WHERE {$hScope['sql']}
+            WHERE {$hFilter['sql']}
               AND h.transaction_type = 'RATE'
               AND e.entry_type IN ('RATE_FIRST_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_FROM', 'RATE_TRANSFER_TO')
               AND e.account_id IS NOT NULL
               AND e.account_id > 0";
 
-    $params = [$hScope['bind']];
+    $params = [(int) $hFilter['bind']];
     if (!$isGroup) {
         $params[] = $permCompanyId > 0 ? $permCompanyId : (int) ($listScope['company_id'] ?? 0);
     }

@@ -506,20 +506,15 @@ export function applyTypeSearchAccountFilter(left, right, typeSearchAccountIds) 
 }
 
 /** Row count after the same client filters as the main grid (for search-complete toasts). */
-export function countDisplayedRows(rawSearchData, searchState, txType, typeSearchAccountIds = null) {
+export function countDisplayedRows(rawSearchData, searchState, txType, typeSearchActive = false) {
   if (!rawSearchData) return 0;
   const rawLeft = dedupeRowsByAccountAndCurrency(rawSearchData.left_table || []);
   const rawRight = dedupeRowsByAccountAndCurrency(rawSearchData.right_table || []);
-  let z;
-  if (typeSearchAccountIds?.size) {
-    z = applyTypeSearchAccountFilter(rawLeft, rawRight, typeSearchAccountIds);
-  } else {
-    z = filterTransactionTableRows(rawLeft, rawRight, {
-      showZeroBalance: searchState.showZeroBalance,
-      showPaymentOnly: searchState.showPaymentOnly,
-      showCaptureOnly: searchState.showCaptureOnly,
-    });
-  }
+  const z = filterTransactionTableRows(rawLeft, rawRight, {
+    showZeroBalance: typeSearchActive ? true : searchState.showZeroBalance,
+    showPaymentOnly: typeSearchActive ? false : searchState.showPaymentOnly,
+    showCaptureOnly: typeSearchActive ? false : searchState.showCaptureOnly,
+  });
   const norm = normalizeRateRowsByCrDr(z.left, z.right, txType === "RATE");
   return (norm.leftRows?.length || 0) + (norm.rightRows?.length || 0);
 }

@@ -1053,6 +1053,21 @@ try {
     $show_inactive = isset($_GET['show_inactive']) && $_GET['show_inactive'] === '1';
     $show_capture_only = isset($_GET['show_capture_only']) && $_GET['show_capture_only'] === '1';
     $hide_zero_balance = isset($_GET['hide_zero_balance']) && $_GET['hide_zero_balance'] === '1';
+    /** Right-side type search: restrict account list to ids from type_account_search_api (all-time type filter). */
+    $type_search_active = isset($_GET['type_search']) && (string) $_GET['type_search'] === '1';
+    $type_account_ids = [];
+    if ($type_search_active && isset($_GET['type_account_ids']) && trim((string) $_GET['type_account_ids']) !== '') {
+        foreach (explode(',', (string) $_GET['type_account_ids']) as $rawTypeAccId) {
+            $typeAccId = (int) trim($rawTypeAccId);
+            if ($typeAccId > 0 && !in_array($typeAccId, $type_account_ids, true)) {
+                $type_account_ids[] = $typeAccId;
+            }
+        }
+    }
+    if ($type_search_active) {
+        // Type search must list every matching account even when period balance is zero.
+        $hide_zero_balance = false;
+    }
     /** 诊断用：附带 Win/Loss 按来源桶汇总与非零明细（与列表Σ win_loss_full 对齐）；不传或!=1 则无此字段且不写入缓存键 */
     $debug_wl_total = isset($_GET['debug_wl_total']) && (string) $_GET['debug_wl_total'] === '1';
 
@@ -1180,10 +1195,13 @@ try {
             'categories' => array_values($category_filters),
             'currencies' => array_values($currency_filters),
             'target_account_ids' => array_values($target_account_ids),
+            'type_search' => (int) $type_search_active,
+            'type_account_ids' => array_values($type_account_ids),
         ];
         sort($cache_key_payload['categories']);
         sort($cache_key_payload['currencies']);
         sort($cache_key_payload['target_account_ids']);
+        sort($cache_key_payload['type_account_ids']);
         $cache_hash = sha1(json_encode($cache_key_payload, JSON_UNESCAPED_UNICODE));
         $cache_file = $cache_dir . DIRECTORY_SEPARATOR . $cache_hash . '.json';
 
@@ -1227,6 +1245,16 @@ try {
         $placeholders = implode(',', array_fill(0, count($target_account_ids), '?'));
         $where_conditions[] = "a.id IN ($placeholders)";
         $params = array_merge($params, $target_account_ids);
+    }
+
+    if ($type_search_active) {
+        if ($type_account_ids === []) {
+            $where_conditions[] = '1=0';
+        } else {
+            $typePlaceholders = implode(',', array_fill(0, count($type_account_ids), '?'));
+            $where_conditions[] = "a.id IN ($typePlaceholders)";
+            $params = array_merge($params, $type_account_ids);
+        }
     }
 
     if (!empty($category_filters)) {
