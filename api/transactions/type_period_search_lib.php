@@ -105,13 +105,12 @@ function typePeriodSearchFilterByPeriodActivityOnly(string $formType): bool
 
 /**
  * Type Search grid metrics from full account ledger (aligned with Payment History).
- * B/F, Win/Loss, Cr/Dr use calculateBFByCurrency / calculateWinLossByCurrency / calculateCrDrByCurrency.
- * List visibility still requires pure PAYMENT activity in Capture Date.
- * Phase 1: PAYMENT only; CONTRA / CLAIM / CLEAR may follow later.
+ * B/F, Win/Loss, Cr/Dr use calculateBFByCurrency + history-column alignment.
+ * List visibility still requires pure type activity in Capture Date (per form type).
  */
 function typePeriodSearchUsesAccountNativeBf(string $formType): bool
 {
-    return strtoupper(trim($formType)) === 'PAYMENT';
+    return in_array(strtoupper(trim($formType)), ['PAYMENT', 'CONTRA', 'CLAIM'], true);
 }
 
 /**

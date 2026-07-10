@@ -32,11 +32,10 @@ function typeTxSearchSupportsPureManualFilter(string $formType): bool
 
 /**
  * Payment History from Type Search: show full account ledger (no pure-type row filter).
- * Phase 1: PAYMENT only; CONTRA / CLAIM / CLEAR may follow later.
  */
 function typeTxSearchHistoryUsesFullAccountLedger(string $formType): bool
 {
-    return strtoupper(trim($formType)) === 'PAYMENT';
+    return in_array(strtoupper(trim($formType)), ['PAYMENT', 'CONTRA', 'CLAIM'], true);
 }
 
 /**

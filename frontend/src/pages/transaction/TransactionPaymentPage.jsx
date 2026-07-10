@@ -42,6 +42,9 @@ const ROUTE_BODY_CLASSES_TO_CLEAR = [
   "member-winloss-page",
 ];
 
+/** Type Search opens Payment History with full account ledger (not pure-type filtered). */
+const TYPE_SEARCH_FULL_ACCOUNT_LEDGER_TYPES = new Set(["PAYMENT", "CONTRA", "CLAIM"]);
+
 export default function TransactionPaymentPage() {
   const [searchParams] = useSearchParams();
   if (isPaymentHistoryView(searchParams)) {
@@ -404,7 +407,10 @@ function TransactionPaymentPageMain() {
                 selectedCurrencies: search.selectedCurrencies,
                 showAllCurrencies: search.showAllCurrencies,
                 pureTypeSearch:
-                  search.typeSearchActive && search.typeSearchFormType !== "PAYMENT"
+                  search.typeSearchActive &&
+                  !TYPE_SEARCH_FULL_ACCOUNT_LEDGER_TYPES.has(
+                    String(search.typeSearchFormType || "").toUpperCase(),
+                  )
                     ? search.typeSearchFormType
                     : null,
               },
