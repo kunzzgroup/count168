@@ -973,22 +973,38 @@ export function useTransactionSearch({
       const currencyCode = String(submitCurrency || "").toUpperCase().trim();
 
       let currencyOverrides = {};
-      const keepMultiCurrency = showAllCurrencies || selectedCurrencies.length > 1;
-      const sameSingleCurrency =
-        !keepMultiCurrency &&
-        selectedCurrencies.length === 1 &&
-        String(selectedCurrencies[0] || "").toUpperCase().trim() === currencyCode;
+      if (currencyCode && !showAllCurrencies) {
+        const current = selectedCurrencies
+          .map((c) => String(c || "").toUpperCase().trim())
+          .filter(Boolean);
+        const alreadySelected = current.includes(currencyCode);
 
-      if (currencyCode && !keepMultiCurrency && !sameSingleCurrency) {
-        suppressCrossPageCurrencyRef.current = false;
-        setShowAllCurrencies(false);
-        setSelectedCurrencies([currencyCode]);
-        persistCurrencyFilter(scopeCacheCompanyKey, false, [currencyCode], transactionScope?.selectedGroup);
-        notifySingleCurrencyIfNeeded([currencyCode]);
-        currencyOverrides = {
-          showAllCurrenciesOverride: false,
-          selectedCurrenciesOverride: [currencyCode],
-        };
+        if (!alreadySelected) {
+          const merged = [...current, currencyCode];
+          const order = (currencyRowsOrdered || [])
+            .map((r) => String(r.code || "").toUpperCase().trim())
+            .filter(Boolean);
+          const nextSel = merged.sort((a, b) => {
+            const ia = order.indexOf(a);
+            const ib = order.indexOf(b);
+            if (ia === -1 && ib === -1) return a.localeCompare(b);
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+          });
+
+          suppressCrossPageCurrencyRef.current = nextSel.length !== 1;
+          setShowAllCurrencies(false);
+          setSelectedCurrencies(nextSel);
+          persistCurrencyFilter(scopeCacheCompanyKey, false, nextSel, transactionScope?.selectedGroup);
+          if (nextSel.length === 1) {
+            notifySingleCurrencyIfNeeded(nextSel);
+          }
+          currencyOverrides = {
+            showAllCurrenciesOverride: false,
+            selectedCurrenciesOverride: nextSel,
+          };
+        }
       }
 
       setSearchLoading(true);
@@ -1024,6 +1040,7 @@ export function useTransactionSearch({
       submitFocusRangeKey,
       showAllCurrencies,
       selectedCurrencies,
+      currencyRowsOrdered,
       persistCurrencyFilter,
       transactionScope?.selectedGroup,
       notifySingleCurrencyIfNeeded,
