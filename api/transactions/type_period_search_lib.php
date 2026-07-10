@@ -1,7 +1,7 @@
 <?php
 /**
  * Type Search × Capture Date: period-scoped metrics with all-time account eligibility.
- * Phase 1: CONTRA / PAYMENT (Cr/Dr) + PROFIT (Win/Loss), pure manual, To + From perspectives.
+ * Phase 1: CONTRA / PAYMENT / CLAIM (Cr/Dr) + PROFIT (Win/Loss), pure manual, To + From perspectives.
  */
 
 require_once __DIR__ . '/transaction_scope.php';
@@ -62,12 +62,12 @@ function typePeriodSearchCurrencyJoin(PDO $pdo, array $listScope): array
  */
 function typePeriodSearchSupportedFormTypes(): array
 {
-    return ['CONTRA', 'PAYMENT', 'PROFIT'];
+    return ['CONTRA', 'PAYMENT', 'CLAIM', 'PROFIT'];
 }
 
 function typePeriodSearchIsDualSideManualType(string $formType): bool
 {
-    return in_array(strtoupper(trim($formType)), ['CONTRA', 'PAYMENT'], true);
+    return in_array(strtoupper(trim($formType)), ['CONTRA', 'PAYMENT', 'CLAIM'], true);
 }
 
 function typePeriodSearchIsProfitType(string $formType): bool
@@ -94,7 +94,7 @@ function typePeriodSearchFilterByPeriodActivityOnly(string $formType): bool
 }
 
 /**
- * Accounts that ever had pure manual CONTRA or PAYMENT (To or From side).
+ * Accounts that ever had pure manual CONTRA, PAYMENT, CLAIM, or PROFIT (To or From side).
  *
  * @return int[]
  */

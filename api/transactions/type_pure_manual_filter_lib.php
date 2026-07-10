@@ -27,7 +27,7 @@ function typeTxSearchBuildDescription(array $row): string
  */
 function typeTxSearchSupportsPureManualFilter(string $formType): bool
 {
-    return in_array(strtoupper(trim($formType)), ['PAYMENT', 'CONTRA', 'ADJUSTMENT', 'RATE', 'PROFIT'], true);
+    return in_array(strtoupper(trim($formType)), ['PAYMENT', 'CONTRA', 'CLAIM', 'ADJUSTMENT', 'RATE', 'PROFIT'], true);
 }
 
 /**
@@ -103,6 +103,8 @@ function typeTxSearchPassesPureManualFilter(string $formType, array $row): bool
             return !typeTxSearchIsExcludedNonManualPayment((string) ($row['sms'] ?? ''), $canonical);
         case 'CONTRA':
             return strpos($canonical, 'CONTRA FROM ') === 0;
+        case 'CLAIM':
+            return strpos($canonical, 'CLAIM FROM ') === 0;
         case 'ADJUSTMENT':
             return strpos($canonical, 'ADJUSTMENT - WIN/LOSS') === 0;
         case 'PROFIT':
@@ -131,7 +133,7 @@ function typeTxSearchIsPureRateEntryDescription(string $description): bool
 function typeTxSearchPureManualSqlFragment(string $formType, string $alias = 't'): string
 {
     $formType = strtoupper(trim($formType));
-    if (!in_array($formType, ['PAYMENT', 'CONTRA', 'ADJUSTMENT', 'PROFIT'], true)) {
+    if (!in_array($formType, ['PAYMENT', 'CONTRA', 'CLAIM', 'ADJUSTMENT', 'PROFIT'], true)) {
         return '';
     }
 
@@ -162,6 +164,11 @@ function typeTxSearchPureManualSqlFragment(string $formType, string $alias = 't'
             return " AND (
                     ({$emptyDesc} AND {$hasFrom})
                     OR {$desc} LIKE 'CONTRA FROM %'
+                )";
+        case 'CLAIM':
+            return " AND (
+                    ({$emptyDesc} AND {$hasFrom})
+                    OR {$desc} LIKE 'CLAIM FROM %'
                 )";
         case 'ADJUSTMENT':
             return " AND (
@@ -246,6 +253,18 @@ function typeTxSearchPassesPureHistoryEvent(string $formType, array $event): boo
             }
 
             return strpos($desc, 'CONTRA TO ') === 0;
+        case 'CLAIM':
+            if ($txType !== 'CLAIM') {
+                return false;
+            }
+            if (typeTxSearchPassesPureManualFilter('CLAIM', typeTxSearchPureHistoryRowFromEvent($event))) {
+                return true;
+            }
+            if (!empty($event['is_view_to_account'])) {
+                return strpos($desc, 'CLAIM FROM ') === 0;
+            }
+
+            return strpos($desc, 'CLAIM TO ') === 0;
         case 'ADJUSTMENT':
             if (typeTxSearchPassesPureManualFilter('ADJUSTMENT', typeTxSearchPureHistoryRowFromEvent($event))) {
                 return true;
