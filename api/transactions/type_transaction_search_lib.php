@@ -197,6 +197,74 @@ function typeTxSearchPureManualSqlFragment(string $formType, string $alias = 't'
     }
 }
 
+function typeTxSearchNormalizeHistoryDescription(string $description): string
+{
+    $desc = strtoupper(trim($description));
+    if (strpos($desc, '[PENDING APPROVAL] ') === 0) {
+        $desc = trim(substr($desc, strlen('[PENDING APPROVAL] ')));
+    }
+
+    return $desc;
+}
+
+/**
+ * Payment History (Type Search drill-down): keep rows that match the same pure manual rules as the grid.
+ *
+ * @param array<string, mixed> $event
+ */
+function typeTxSearchPassesPureHistoryEvent(string $formType, array $event): bool
+{
+    $formType = strtoupper(trim($formType));
+    if (!typeTxSearchSupportsPureManualFilter($formType)) {
+        return true;
+    }
+    if (($event['row_type'] ?? '') !== 'transaction') {
+        return false;
+    }
+
+    $txType = strtoupper(trim((string) ($event['transaction_type'] ?? '')));
+    $desc = typeTxSearchNormalizeHistoryDescription((string) ($event['description'] ?? ''));
+    $sms = (string) ($event['sms'] ?? '');
+
+    switch ($formType) {
+        case 'PAYMENT':
+            if ($txType !== 'PAYMENT') {
+                return false;
+            }
+            if (strpos($desc, 'PAYMENT FROM ') !== 0) {
+                return false;
+            }
+
+            return !typeTxSearchIsExcludedNonManualPayment($sms, $desc);
+        case 'CONTRA':
+            return $txType === 'CONTRA' && strpos($desc, 'CONTRA FROM ') === 0;
+        case 'ADJUSTMENT':
+            return $txType === 'ADJUSTMENT' && strpos($desc, 'ADJUSTMENT - WIN/LOSS') === 0;
+        case 'RATE':
+            if ($txType !== 'RATE' && strtoupper(trim((string) ($event['source'] ?? ''))) !== 'RATE') {
+                return false;
+            }
+            $entryType = strtoupper(trim((string) ($event['entry_type'] ?? '')));
+            if ($entryType === 'RATE_MIDDLEMAN') {
+                return false;
+            }
+            if (preg_match('/^TRANSACTION (FROM|TO) .+ \(RATE: .+\)$/i', $desc)) {
+                return true;
+            }
+            if (preg_match('/^EXCH RATE .+ \| (FROM|TO) .+$/i', $desc)) {
+                return true;
+            }
+            $raw = trim((string) ($event['entry_description_raw'] ?? ''));
+            if ($raw !== '') {
+                return typeTxSearchIsPureRateEntryDescription($raw);
+            }
+
+            return typeTxSearchIsPureRateEntryDescription((string) ($event['description'] ?? ''));
+        default:
+            return true;
+    }
+}
+
 function typeTxSearchSignedCrDrToAccount(string $type, string $amount, string $sms = '', string $description = ''): string
 {
     $amt = money_out($amount ?? '0');

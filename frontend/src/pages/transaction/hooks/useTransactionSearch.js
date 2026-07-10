@@ -1270,6 +1270,7 @@ export function useTransactionSearch({
     runSearch,
     runTypeSearch,
     typeSearchActive,
+    typeSearchFormType,
     persistCurrencyFilter,
     initialSearchDoneRef,
     lastSearchCommitMsRef,

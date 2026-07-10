@@ -87,6 +87,9 @@ function buildPaymentHistoryScopePayload({ row, dateFrom, dateTo, scopeApi, opts
 
   if (!accountDbId && accountCode) params.set("virtual_company_code", accountCode.toUpperCase());
 
+  const pureType = String(opts.pureTypeSearch || "").toUpperCase().trim();
+  if (pureType) params.set("pure_type_search", pureType);
+
   return parsePaymentHistoryParams(params);
 }
 
@@ -111,6 +114,7 @@ export function resolvePaymentHistoryScope(searchParams, scopeApi = null) {
     dateTo: parsed.dateTo ?? stored?.dateTo,
     currency: parsed.currency ?? stored?.currency,
     virtualCompanyCode: parsed.virtualCompanyCode ?? stored?.virtualCompanyCode,
+    pureTypeSearch: parsed.pureTypeSearch ?? stored?.pureTypeSearch,
   };
 
   if ((!merged.companyId || merged.companyId <= 0) && (merged.subsidiaryAccountsOnly || merged.accountDbId)) {
@@ -167,6 +171,7 @@ export function parsePaymentHistoryParams(searchParams) {
     dateTo: get("date_to"),
     currency: get("currency"),
     virtualCompanyCode: get("virtual_company_code"),
+    pureTypeSearch: get("pure_type_search"),
   };
 }
 

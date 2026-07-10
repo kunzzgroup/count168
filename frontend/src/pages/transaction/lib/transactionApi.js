@@ -380,6 +380,7 @@ export async function getHistory({
   dateTo,
   currency,
   virtualCompanyCode,
+  pureTypeSearch,
   signal,
 } = {}) {
   const params = new URLSearchParams();
@@ -395,6 +396,8 @@ export async function getHistory({
   if (dateTo) params.set("date_to", String(dateTo));
   if (currency) params.set("currency", String(currency));
   if (virtualCompanyCode) params.set("virtual_company_code", String(virtualCompanyCode));
+  const pureType = String(pureTypeSearch || "").toUpperCase().trim();
+  if (pureType) params.set("pure_type_search", pureType);
 
   const res = await fetch(buildApiUrl(`api/transactions/history_api.php?${params.toString()}&_t=${Date.now()}`), {
     credentials: "include",

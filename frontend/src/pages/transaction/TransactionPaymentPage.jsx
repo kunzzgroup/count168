@@ -401,8 +401,9 @@ function TransactionPaymentPageMain() {
               search.typeSearchActive ? todayDmy : search.effectiveDateTo,
               scopeApi,
               {
-              selectedCurrencies: search.selectedCurrencies,
-              showAllCurrencies: search.showAllCurrencies,
+                selectedCurrencies: search.selectedCurrencies,
+                showAllCurrencies: search.showAllCurrencies,
+                pureTypeSearch: search.typeSearchActive ? search.typeSearchFormType : null,
               },
             )
           }
