@@ -81,6 +81,7 @@ function TransactionPaymentPageMain() {
 
   // 3. Form Logic
   const formSearchRef = useRef(null);
+  const afterSubmitRef = useRef(async () => {});
   const onFormSearch = useCallback((opts) => {
     if (formSearchRef.current) formSearchRef.current(opts);
   }, []);
@@ -89,6 +90,7 @@ function TransactionPaymentPageMain() {
     todayDmy,
     pushToast,
     onSearch: onFormSearch,
+    onAfterSuccessfulSubmit: (opts) => afterSubmitRef.current(opts),
     refreshContraInboxBadge: ui.refreshContraInboxBadge,
     filterSnapshot,
     transactionScope,
@@ -111,6 +113,7 @@ function TransactionPaymentPageMain() {
     t,
   });
   formSearchRef.current = search.runSearch;
+  afterSubmitRef.current = (opts) => search.jumpToSubmitDateAndRefresh(opts);
 
   // 5. Defaults (useLayoutEffect: must run before passive effects that call runSearch)
   useTransactionInitialization({
@@ -243,8 +246,14 @@ function TransactionPaymentPageMain() {
   }, [ui.refreshContraInboxBadge, scopeApi]);
 
   const onApproveContra = useCallback(
-    (opts) => ui.onApproveContra(opts.transactionId, scopeApi, search.runSearch),
-    [ui.onApproveContra, scopeApi, search.runSearch],
+    async (opts) => {
+      const res = await ui.onApproveContra(opts.transactionId, scopeApi);
+      const submitDate = String(opts.transactionDate || "").trim();
+      if (res?.success && submitDate && submitDate !== "-") {
+        await search.jumpToSubmitDateAndRefresh({ submitDateDmy: submitDate });
+      }
+    },
+    [ui.onApproveContra, scopeApi, search.jumpToSubmitDateAndRefresh],
   );
 
   const onRejectContra = useCallback(
