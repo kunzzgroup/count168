@@ -175,7 +175,10 @@ export function MaintenancePanel({
           </h2>
           <div className={`maintenance-mode-card ${maintenanceMode?.enabled ? "is-enabled" : "is-disabled"}`}>
             <div className="maintenance-mode-header">
-              <span className="maintenance-mode-label">{t("modeStatusLabel")}</span>
+              <div className="maintenance-mode-title-wrap">
+                <span className="maintenance-mode-label">{t("modeStatusLabel")}</span>
+                <span className="maintenance-mode-hint">{t("modeHint")}</span>
+              </div>
               <span className={`maintenance-mode-pill ${maintenanceMode?.enabled ? "is-enabled" : "is-disabled"}`}>
                 {maintenanceMode?.enabled ? t("modeOn") : t("modeOff")}
               </span>
@@ -187,7 +190,7 @@ export function MaintenancePanel({
               <div className="maintenance-mode-actions">
                 <button
                   type="button"
-                  className="maintenance-mode-btn maintenance-mode-btn--enable"
+                  className={`maintenance-mode-btn maintenance-mode-btn--enable ${maintenanceMode?.enabled ? "is-dimmed" : ""}`}
                   disabled={modeSubmitting || maintenanceMode?.enabled || maintenanceList.length === 0}
                   onClick={onEnableMaintenanceMode}
                 >
@@ -195,7 +198,7 @@ export function MaintenancePanel({
                 </button>
                 <button
                   type="button"
-                  className="maintenance-mode-btn maintenance-mode-btn--disable"
+                  className={`maintenance-mode-btn maintenance-mode-btn--disable ${!maintenanceMode?.enabled ? "is-dimmed" : ""}`}
                   disabled={modeSubmitting || !maintenanceMode?.enabled}
                   onClick={onDisableMaintenanceMode}
                 >
