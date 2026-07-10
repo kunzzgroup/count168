@@ -207,6 +207,16 @@ function typeTxSearchNormalizeHistoryDescription(string $description): string
     return $desc;
 }
 
+function typeTxSearchPureHistoryRowFromEvent(array $event): array
+{
+    return [
+        'transaction_type' => (string) ($event['transaction_type'] ?? ''),
+        'description' => (string) ($event['raw_transaction_description'] ?? ($event['description'] ?? '')),
+        'sms' => (string) ($event['raw_transaction_sms'] ?? ($event['sms'] ?? '')),
+        'from_account_code' => (string) ($event['raw_from_account_code'] ?? ''),
+    ];
+}
+
 /**
  * Payment History (Type Search drill-down): keep rows that match the same pure manual rules as the grid.
  *
@@ -224,21 +234,40 @@ function typeTxSearchPassesPureHistoryEvent(string $formType, array $event): boo
 
     $txType = strtoupper(trim((string) ($event['transaction_type'] ?? '')));
     $desc = typeTxSearchNormalizeHistoryDescription((string) ($event['description'] ?? ''));
-    $sms = (string) ($event['sms'] ?? '');
+    $rawSms = trim((string) ($event['raw_transaction_sms'] ?? ''));
+    $sms = $rawSms !== '' ? $rawSms : (string) ($event['sms'] ?? '');
+    if ($sms === '-') {
+        $sms = '';
+    }
 
     switch ($formType) {
         case 'PAYMENT':
             if ($txType !== 'PAYMENT') {
                 return false;
             }
-            if (strpos($desc, 'PAYMENT FROM ') !== 0) {
+            if (empty($event['is_view_to_account'])) {
                 return false;
             }
+            if (typeTxSearchPassesPureManualFilter('PAYMENT', typeTxSearchPureHistoryRowFromEvent($event))) {
+                return true;
+            }
 
-            return !typeTxSearchIsExcludedNonManualPayment($sms, $desc);
+            return strpos($desc, 'PAYMENT FROM ') === 0
+                && !typeTxSearchIsExcludedNonManualPayment($sms, $desc);
         case 'CONTRA':
-            return $txType === 'CONTRA' && strpos($desc, 'CONTRA FROM ') === 0;
+            if ($txType !== 'CONTRA' || empty($event['is_view_to_account'])) {
+                return false;
+            }
+            if (typeTxSearchPassesPureManualFilter('CONTRA', typeTxSearchPureHistoryRowFromEvent($event))) {
+                return true;
+            }
+
+            return strpos($desc, 'CONTRA FROM ') === 0;
         case 'ADJUSTMENT':
+            if (typeTxSearchPassesPureManualFilter('ADJUSTMENT', typeTxSearchPureHistoryRowFromEvent($event))) {
+                return true;
+            }
+
             return $txType === 'ADJUSTMENT' && strpos($desc, 'ADJUSTMENT - WIN/LOSS') === 0;
         case 'RATE':
             if ($txType !== 'RATE' && strtoupper(trim((string) ($event['source'] ?? ''))) !== 'RATE') {
@@ -248,18 +277,15 @@ function typeTxSearchPassesPureHistoryEvent(string $formType, array $event): boo
             if ($entryType === 'RATE_MIDDLEMAN') {
                 return false;
             }
+            $raw = trim((string) ($event['entry_description_raw'] ?? ''));
+            if ($raw !== '' && typeTxSearchIsPureRateEntryDescription($raw)) {
+                return true;
+            }
             if (preg_match('/^TRANSACTION (FROM|TO) .+ \(RATE: .+\)$/i', $desc)) {
                 return true;
             }
-            if (preg_match('/^EXCH RATE .+ \| (FROM|TO) .+$/i', $desc)) {
-                return true;
-            }
-            $raw = trim((string) ($event['entry_description_raw'] ?? ''));
-            if ($raw !== '') {
-                return typeTxSearchIsPureRateEntryDescription($raw);
-            }
 
-            return typeTxSearchIsPureRateEntryDescription((string) ($event['description'] ?? ''));
+            return (bool) preg_match('/^EXCH RATE .+ \| (FROM|TO) .+$/i', $desc);
         default:
             return true;
     }

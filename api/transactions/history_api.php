@@ -2307,7 +2307,7 @@ try {
                 }
             } else {
                 // 如果原始 description 是自动生成的格式，需要根据视角调整
-                if (preg_match('/^(CONTRA|CLEAR|PAYMENT|RECEIVE|CLAIM|RATE) (FROM|TO) (.+)$/', $t['description'], $matches)) {
+                if (preg_match('/^(CONTRA|CLEAR|PAYMENT|RECEIVE|CLAIM|RATE) (FROM|TO) (.+)$/i', (string) $t['description'], $matches)) {
                     $type = $matches[1];
                     $direction = $matches[2];
                     $other_account = $matches[3];
@@ -2485,6 +2485,10 @@ try {
             'rate' => '-',
             'description' => $description,
             'sms' => ($isDomainShareCommission || $isDomainListFee) ? '-' : ($t['sms'] ?: '-'),
+            'raw_transaction_description' => (string) ($t['description'] ?? ''),
+            'raw_transaction_sms' => (string) ($t['sms'] ?? ''),
+            'raw_from_account_code' => (string) ($t['from_account_code'] ?? ''),
+            'is_view_to_account' => $is_to_account ? 1 : 0,
             'created_by' => $transactionCreatedBy
         ];
     }
