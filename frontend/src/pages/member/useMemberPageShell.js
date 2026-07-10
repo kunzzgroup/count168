@@ -131,6 +131,42 @@ export function useMemberPageShell({ navigate, initSession, todayDmy, lang }) {
   }, []);
 
   useEffect(() => {
+    if (loading || !me) return undefined;
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), {
+          credentials: "include",
+          cache: "no-store",
+        });
+        let json = null;
+        try {
+          json = await res.json();
+        } catch {
+          json = null;
+        }
+        if (!res.ok && !stopped && (json?.maintenance_mode === true || json?.data?.maintenance_mode === true)) {
+          if (typeof json?.message === "string" && json.message.trim() !== "") {
+            sessionStorage.setItem("ec_maintenance_notice", json.message.trim());
+          }
+          clearDashboardFilterSession();
+          clearOwnerCompaniesCache();
+          window.location.assign(new URL(spaPath("login"), window.location.origin).href);
+        }
+      } catch {
+        // silent: next tick retries
+      }
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 10000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [loading, me]);
+
+  useEffect(() => {
     const onCompanySession = () => {
       void refreshSession();
     };
