@@ -1,5 +1,0 @@
-<<<<<<<< HEAD:frontend/dist/assets/partnershipAuditReadOnly-Cv5yhjIv.js
-import{r as n}from"./index-C3_jreaJ.js";function u(r){if(!r||typeof r!="object")return!1;const t=String(r.role||"").trim().toLowerCase();if(t!=="partnership"&&t!=="audit")return!1;const e=r.read_only;return e===1||e===!0||e==="1"}function a(r){return n.useMemo(()=>u(r),[r])}function f(r,t){return u(r)?(typeof t=="function"&&t(),!0):!1}function o(r,t,e){return u(r)?t==null||e==null?!0:Number(t)===Number(e):!1}export{o as a,f as g,u as i,a as u};
-========
-import{r as n}from"./index-N77kCOPr.js";function u(r){if(!r||typeof r!="object")return!1;const t=String(r.role||"").trim().toLowerCase();if(t!=="partnership"&&t!=="audit")return!1;const e=r.read_only;return e===1||e===!0||e==="1"}function a(r){return n.useMemo(()=>u(r),[r])}function f(r,t){return u(r)?(typeof t=="function"&&t(),!0):!1}function o(r,t,e){return u(r)?t==null||e==null?!0:Number(t)===Number(e):!1}export{o as a,f as g,u as i,a as u};
->>>>>>>> d01d9eecbf4810cce54be4a457f3f03f0aba923c:frontend/dist/assets/partnershipAuditReadOnly-CKHZtxjK.js
