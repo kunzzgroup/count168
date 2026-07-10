@@ -22,6 +22,7 @@ require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/../includes/member_linked_closure.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
 require_once __DIR__ . '/../includes/transaction_approval.php';
+require_once __DIR__ . '/type_period_search_lib.php';
 
 /**
  * WIN/LOSE/ADJUSTMENT 行对 Win/Loss 的贡献：与 data_capture processed_amount 相同，
@@ -1068,6 +1069,10 @@ try {
         // Type search must list every matching account even when period balance is zero.
         $hide_zero_balance = false;
     }
+    $type_search_form_type = isset($_GET['type_search_form_type']) ? strtoupper(trim((string) $_GET['type_search_form_type'])) : '';
+    if ($type_search_form_type !== '' && !typePeriodSearchIsSupported($type_search_form_type)) {
+        $type_search_form_type = '';
+    }
     /** 诊断用：附带 Win/Loss 按来源桶汇总与非零明细（与列表Σ win_loss_full 对齐）；不传或!=1 则无此字段且不写入缓存键 */
     $debug_wl_total = isset($_GET['debug_wl_total']) && (string) $_GET['debug_wl_total'] === '1';
 
@@ -1197,6 +1202,7 @@ try {
             'target_account_ids' => array_values($target_account_ids),
             'type_search' => (int) $type_search_active,
             'type_account_ids' => array_values($type_account_ids),
+            'type_search_form_type' => $type_search_form_type,
         ];
         sort($cache_key_payload['categories']);
         sort($cache_key_payload['currencies']);
@@ -1827,6 +1833,18 @@ try {
     }
     // ====== END BULK PRE-LOAD ======
 
+    $bulk_type_period = null;
+    if ($type_search_active && $type_search_form_type === 'CONTRA' && $type_account_ids !== []) {
+        $bulk_type_period = typePeriodSearchBulkContraMetrics(
+            $pdo,
+            $search_list_scope,
+            $date_from_db,
+            $date_to_db,
+            $type_account_ids,
+            $currency_filters
+        );
+    }
+
     foreach ($accounts as $account) {
         $account_id = $account['id'];
         $account_currencies = [];
@@ -1955,6 +1973,12 @@ try {
                         );
                     }
                 }
+            }
+        }
+
+        if ($type_search_active && $type_search_form_type === 'CONTRA' && is_array($bulk_type_period)) {
+            foreach ($bulk_type_period['currencies'][$account_id] ?? [] as $cid => $code) {
+                addAccountCurrencyCombo($account_currencies, $account_currency_ids, (int) $cid, (string) $code);
             }
         }
 
@@ -2323,22 +2347,39 @@ try {
         $currency_id = $combo['currency_id'];
         $currency_code = $combo['currency_code'];
 
-        // 1. 计算 B/F (起始日期之前的所有累计余额，按 currency 过滤)
-        $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account['account_id'] ?? '', $bulk);
+        // 1–3. Metrics (Type Search × Capture Date uses type-only CONTRA accumulation)
+        if ($type_search_active && $type_search_form_type === 'CONTRA' && is_array($bulk_type_period)) {
+            $bf = typePeriodSearchMetricFor($bulk_type_period['bf'], (int) $account_id, (int) $currency_id);
+            $cr_dr = typePeriodSearchMetricFor($bulk_type_period['cr_dr'], (int) $account_id, (int) $currency_id);
+            $win_loss = '0';
+            $wlPack = [
+                'win_loss' => '0',
+                'win_loss_full' => '0',
+                'has_win_loss_transactions' => false,
+                'has_win_loss_history' => false,
+                'has_period_id_product_rows' => false,
+                'has_rate_middleman' => false,
+            ];
+            $has_win_loss_transactions = false;
+            $has_win_loss_history = false;
+            $has_period_id_product_rows = false;
+            $has_crdr_transactions = searchMoneyNonZero(trunc2($cr_dr));
+            $has_contra_clear_period = $has_crdr_transactions;
+        } else {
+            $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account['account_id'] ?? '', $bulk);
 
-        // 2. 计算 Win/Loss (日期范围内的 Data Capture + WIN/LOSE 交易，按 currency 过滤)
-        $wlPack = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '', $bulk);
-        $win_loss = $wlPack['win_loss'];
-        $has_win_loss_transactions = !empty($wlPack['has_win_loss_transactions'])
-            || !empty($wlPack['has_period_id_product_rows']);
-        $has_win_loss_history = !empty($wlPack['has_win_loss_history']);
-        $has_period_id_product_rows = !empty($wlPack['has_period_id_product_rows']);
+            $wlPack = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '', $bulk);
+            $win_loss = $wlPack['win_loss'];
+            $has_win_loss_transactions = !empty($wlPack['has_win_loss_transactions'])
+                || !empty($wlPack['has_period_id_product_rows']);
+            $has_win_loss_history = !empty($wlPack['has_win_loss_history']);
+            $has_period_id_product_rows = !empty($wlPack['has_period_id_product_rows']);
 
-        // 3. 计算 Cr/Dr (日期范围内的 PAYMENT/RECEIVE/CONTRA 交易，按 Edit Formula 的 currency 过滤)
-        $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $bulk);
-        $cr_dr = $cr_dr_result['value'];
-        $has_crdr_transactions = $cr_dr_result['has_transactions'];
-        $has_contra_clear_period = searchApiContraClearPeriodCount($bulk, (int) $account_id, (int) $currency_id) > 0;
+            $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $bulk);
+            $cr_dr = $cr_dr_result['value'];
+            $has_crdr_transactions = $cr_dr_result['has_transactions'];
+            $has_contra_clear_period = searchApiContraClearPeriodCount($bulk, (int) $account_id, (int) $currency_id) > 0;
+        }
 
         // Layer 2：(账户+币种) 级筛选。
         // 勿仅因「本期无 Win/Loss 动账」就整行丢弃——否则仅剩 B/F 或 Cr/Dr 轧差的户被藏起来，

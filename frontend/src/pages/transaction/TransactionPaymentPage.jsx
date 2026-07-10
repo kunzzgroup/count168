@@ -397,8 +397,8 @@ function TransactionPaymentPageMain() {
           openHistory={(row) =>
             ui.onViewHistory(
               row,
-              search.typeSearchActive ? "01/01/2000" : search.effectiveDateFrom,
-              search.typeSearchActive ? todayDmy : search.effectiveDateTo,
+              search.effectiveDateFrom,
+              search.effectiveDateTo,
               scopeApi,
               {
                 selectedCurrencies: search.selectedCurrencies,

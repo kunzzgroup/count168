@@ -19,6 +19,7 @@ import {
 } from "../lib/transactionPaymentLogic.js";
 import {
   searchTransactions as searchTransactionsApi,
+  fetchTypeAccountSearch,
   fetchTypeTransactionSearch,
   saveUserCurrencyOrder,
   transactionQueryKeys,
@@ -32,6 +33,9 @@ import {
   buildDashboardCurrencyScopeKey,
   notifyDashboardCurrencyFilterChanged,
 } from "../../../utils/company/sharedCompanyFilter.js";
+
+/** Type Search uses Capture Date + search_api period metrics (not all-time grid API). */
+const PERIOD_TYPE_SEARCH_TYPES = new Set(["CONTRA"]);
 import { persistCurrencyDisplayOrder } from "../../../utils/company/currencyDisplayOrder.js";
 import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
 import {
@@ -556,6 +560,7 @@ export function useTransactionSearch({
         selectedCurrencies,
         typeSearch: activeTypeSearch,
         typeAccountIds: accountIdsForType,
+        typeSearchFormType: activeTypeSearch ? presentationFormType : "",
       });
 
       if (!isInitialLoad && !forceRefresh && lastCompletedSearchKeyRef.current === requestKey && Date.now() - lastCompletedSearchTsRef.current < 1200) {
@@ -635,6 +640,7 @@ export function useTransactionSearch({
         currencyCodes: !showAllCurrencies && selectedCurrencies.length > 0 ? selectedCurrencies : undefined,
         typeSearch: activeTypeSearch,
         typeAccountIds: activeTypeSearch ? accountIdsForType : undefined,
+        typeSearchFormType: activeTypeSearch ? presentationFormType : undefined,
       };
 
       const fetchSearch = (params) =>
@@ -789,6 +795,10 @@ export function useTransactionSearch({
       setSearchState((prev) => ({ ...prev, ...clearedState }));
 
       if (!scopeReady || !scopeCacheCompanyKey) return;
+      if (!effectiveDateFrom || !effectiveDateTo) {
+        pushToast(m.pleaseSelectDateRange, "error");
+        return;
+      }
       if (!showAllCurrencies && selectedCurrencies.length === 0) {
         pushToast(m.pleaseSelectAtLeastOneCurrency, "info");
         return;
@@ -803,26 +813,71 @@ export function useTransactionSearch({
           !showAllCurrencies && selectedCurrencies.length > 0
             ? selectedCurrencies.map((c) => String(c || "").toUpperCase().trim()).filter(Boolean)
             : undefined;
-
-        const payload = await fetchTypeTransactionSearch({
+        const scopeParams = {
           ...scopeApi,
           viewGroup: subsidiarySearch ? undefined : scopeApi.viewGroup,
           groupId: subsidiarySearch ? undefined : scopeApi.groupId,
           groupAggregate: subsidiarySearch ? undefined : scopeApi.groupAggregate,
           subsidiaryAccountsOnly: subsidiarySearch ? true : scopeApi.subsidiaryAccountsOnly,
-          transactionType: normalizedType,
-          currencyCodes,
-        });
+        };
 
-        if (!payload) {
-          pushToast(m.searchFailed, "error");
-          return;
+        let payload = null;
+        let typeAccountIds = [];
+
+        if (PERIOD_TYPE_SEARCH_TYPES.has(normalizedType)) {
+          typeAccountIds = await fetchTypeAccountSearch({
+            ...scopeParams,
+            transactionType: normalizedType,
+          });
+          if (typeAccountIds.length === 0) {
+            setTypeSearchActive(true);
+            setTypeSearchFormType(normalizedType);
+            setTypeSearchAccountIds([]);
+            setRawSearchData({ left_table: [], right_table: [], totals: null });
+            setTablesVisible(false);
+            clearTxSearchCache();
+            pushToast(m.searchCompletedNoData, "info");
+            return;
+          }
+
+          const categoryParam =
+            selectedCategories.length > 0 && !selectedCategories.includes("")
+              ? [...selectedCategories].sort().join(",")
+              : undefined;
+          const result = await searchTransactionsApi({
+            ...scopeParams,
+            dateFrom: effectiveDateFrom,
+            dateTo: effectiveDateTo,
+            showInactive: false,
+            showCaptureOnly: false,
+            hideZeroBalance: false,
+            categories: categoryParam ? categoryParam.split(",") : undefined,
+            currencyCodes,
+            typeSearch: true,
+            typeAccountIds,
+            typeSearchFormType: normalizedType,
+          });
+          if (!result?.success || !result?.data) {
+            pushToast(result?.message || result?.error || m.searchFailed, "error");
+            return;
+          }
+          payload = result.data;
+        } else {
+          payload = await fetchTypeTransactionSearch({
+            ...scopeParams,
+            transactionType: normalizedType,
+            currencyCodes,
+          });
+          if (!payload) {
+            pushToast(m.searchFailed, "error");
+            return;
+          }
         }
 
         const cleaned = sanitizeSearchApiData(payload);
         setTypeSearchActive(true);
         setTypeSearchFormType(normalizedType);
-        setTypeSearchAccountIds([]);
+        setTypeSearchAccountIds(typeAccountIds);
         setRawSearchData(cleaned);
         clearTxSearchCache();
 
@@ -846,8 +901,11 @@ export function useTransactionSearch({
       scopeReady,
       scopeCacheCompanyKey,
       scopeApi,
+      effectiveDateFrom,
+      effectiveDateTo,
       showAllCurrencies,
       selectedCurrencies,
+      selectedCategories,
       pushToast,
       m,
       t,
@@ -1231,6 +1289,10 @@ export function useTransactionSearch({
     }
     if (prevCaptureDateRangeKeyRef.current === key) return;
     prevCaptureDateRangeKeyRef.current = key;
+    if (typeSearchActive && typeSearchFormType) {
+      void runTypeSearch(typeSearchFormType);
+      return;
+    }
     scheduleAutoSearch({
       delayMs: 120,
       forceRefresh: searchState.showZeroBalance,
@@ -1243,6 +1305,9 @@ export function useTransactionSearch({
     selectedCurrenciesKey,
     searchState.showZeroBalance,
     scheduleAutoSearch,
+    typeSearchActive,
+    typeSearchFormType,
+    runTypeSearch,
   ]);
 
   return {

@@ -15,6 +15,7 @@ require_once __DIR__ . '/../api_response.php';
 require_once __DIR__ . '/../c168/c168_domain_access.php';
 require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
 require_once __DIR__ . '/type_account_search_lib.php';
+require_once __DIR__ . '/type_period_search_lib.php';
 
 try {
     if (!isset($_SESSION['user_id'])) {
@@ -44,7 +45,7 @@ try {
         throw new InvalidArgumentException('transaction_type 为必填项');
     }
 
-    $accountIds = typeAccountSearchFetchAccountIds($pdo, $listScope, $formType);
+    $accountIds = typePeriodSearchFetchEligibleAccountIds($pdo, $listScope, $formType);
     sort($accountIds, SORT_NUMERIC);
 
     api_success([

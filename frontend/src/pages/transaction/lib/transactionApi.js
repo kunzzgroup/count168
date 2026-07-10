@@ -304,6 +304,7 @@ export async function searchTransactions({
   categories,
   typeSearch,
   typeAccountIds,
+  typeSearchFormType,
   signal,
 } = {}) {
   const params = new URLSearchParams();
@@ -327,6 +328,10 @@ export async function searchTransactions({
     if (ids.length > 0) {
       params.set("type_account_ids", ids.join(","));
     }
+  }
+  const formType = String(typeSearchFormType || "").toUpperCase().trim();
+  if (formType) {
+    params.set("type_search_form_type", formType);
   }
   if (Array.isArray(currencyCodes) && currencyCodes.length > 0) params.set("currency", currencyCodes.join(","));
   if (Array.isArray(categories) && categories.length > 0) params.set("category", categories.join(","));
