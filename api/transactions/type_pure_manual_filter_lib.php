@@ -31,6 +31,15 @@ function typeTxSearchSupportsPureManualFilter(string $formType): bool
 }
 
 /**
+ * Payment History from Type Search: show full account ledger (no pure-type row filter).
+ * Phase 1: PAYMENT only; CONTRA / CLAIM / CLEAR may follow later.
+ */
+function typeTxSearchHistoryUsesFullAccountLedger(string $formType): bool
+{
+    return strtoupper(trim($formType)) === 'PAYMENT';
+}
+
+/**
  * Manual PROFIT (WIN/LOSE): exclude Bank Process, Process:/Auto: descriptions, compensation rows.
  *
  * @param array<string, mixed> $row

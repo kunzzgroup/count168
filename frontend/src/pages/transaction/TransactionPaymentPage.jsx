@@ -403,7 +403,10 @@ function TransactionPaymentPageMain() {
               {
                 selectedCurrencies: search.selectedCurrencies,
                 showAllCurrencies: search.showAllCurrencies,
-                pureTypeSearch: search.typeSearchActive ? search.typeSearchFormType : null,
+                pureTypeSearch:
+                  search.typeSearchActive && search.typeSearchFormType !== "PAYMENT"
+                    ? search.typeSearchFormType
+                    : null,
               },
             )
           }

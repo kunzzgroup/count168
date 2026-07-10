@@ -1329,6 +1329,8 @@ try {
     if ($pure_type_search !== '' && !typeTxSearchSupportsPureManualFilter($pure_type_search)) {
         $pure_type_search = '';
     }
+    $apply_pure_history_filter = $pure_type_search !== ''
+        && !typeTxSearchHistoryUsesFullAccountLedger($pure_type_search);
 
     // 验证必填参数
     if ($account_id <= 0 && $virtual_company_code === '') {
@@ -1832,7 +1834,7 @@ try {
     $eventIndex = 0;
 
     foreach ($captureRows as $capture) {
-        if ($pure_type_search !== '') {
+        if ($apply_pure_history_filter) {
             continue;
         }
         $captureTimestamp = historyDataCaptureOrderTimestamp($capture);
@@ -2494,7 +2496,7 @@ try {
     }
 
     // Share% Profit 池：List Fee 入账 + 同源 Sales/CS/IT 佣金划出 → 一条净 Profit（与主表余额一致）
-    if ($pure_type_search === '') {
+    if (!$apply_pure_history_filter) {
     foreach ($domainHubRollup['rollups'] as $rb) {
         $ft = $rb['fee_tx'];
         $netShow = $rb['net'];
@@ -2734,7 +2736,7 @@ try {
         return ($a['order_index'] ?? 0) <=> ($b['order_index'] ?? 0);
     });
 
-    if ($pure_type_search !== '') {
+    if ($apply_pure_history_filter) {
         $events = array_values(array_filter(
             $events,
             static fn(array $event): bool => typeTxSearchPassesPureHistoryEvent($pure_type_search, $event)
@@ -2763,7 +2765,7 @@ try {
         $balance_by_currency[$bfCurrency] = money_normalize($bf, 6);
     }
 
-    if ($pure_type_search !== '') {
+    if ($apply_pure_history_filter) {
         foreach (array_keys($balance_by_currency) as $curKey) {
             $balance_by_currency[$curKey] = money_normalize('0', 6);
         }
