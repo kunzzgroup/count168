@@ -9465,13 +9465,14 @@ function isFullIdProduct(value) {
 
 // 判断是否为截断的 id_product（仅对明确短格式解析，如 "(T07)"、"(T07):AF"、极短缩写）
 // 整组 Id_product：ALLBET95MS(KM)MYR / ALLBET95MS (KM) MYR / (SV)/ (SEXY) 等均为完整 id，不解析
-// 含 " - " 或长度≥25 视为完整；仅长度<15 或含 ":" 或以 "(" 开头的才当截断
+// 含 " - " 或长度≥25 视为完整；仅长度<10 或含 ":" 或以 "(" 开头的才当截断
 function isTruncatedIdProduct(value) {
     if (!value || typeof value !== 'string') return false;
     const t = value.trim();
+    if (isFullIdProduct(t)) return false;
     if (t.indexOf(' - ') >= 0) return false;
     if (t.length >= 25) return false;
-    return t.length < 15 || t.indexOf(':') >= 0 || /^\s*\([^)]*\)/.test(t);
+    return t.length < 10 || t.indexOf(':') >= 0 || /^\s*\([^)]*\)/.test(t);
 }
 
 // 将 Excel 风格行标签转为 0-based 行索引：A=0, B=1, ..., Z=25, AA=26, ..., AF=31
