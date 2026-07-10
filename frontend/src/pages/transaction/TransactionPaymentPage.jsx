@@ -267,7 +267,10 @@ function TransactionPaymentPageMain() {
         if (opt?.id) accountIds.push(Number(opt.id));
       }
       if (accountIds.length > 0) {
-        await search.applySubmitFocusAndRefresh({ accountIds });
+        await search.applySubmitFocusAndRefresh({
+          accountIds,
+          submitCurrency: opts.currency,
+        });
       }
     },
     [ui.onApproveContra, scopeApi, search.applySubmitFocusAndRefresh, data.accountOptions],

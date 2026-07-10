@@ -231,6 +231,7 @@ export default function TransactionHeader({
                                 scopeApi,
                                 toAccountCode: it.to_account_code,
                                 fromAccountCode: it.from_account_code,
+                                currency: it.currency,
                               });
                             }}
                           >

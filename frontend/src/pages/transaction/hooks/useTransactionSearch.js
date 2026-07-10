@@ -963,13 +963,33 @@ export function useTransactionSearch({
 
   /** After successful submit/approval: keep capture date; show union of submitted account rows. */
   const applySubmitFocusAndRefresh = useCallback(
-    async ({ accountIds } = {}) => {
+    async ({ accountIds, submitCurrency } = {}) => {
       const ids = [...new Set((accountIds || []).map((id) => Number(id)).filter((id) => id > 0))];
       if (ids.length === 0) return;
       if (!scopeReady || !scopeCacheCompanyKey) return;
       if (!effectiveDateFrom || !effectiveDateTo) return;
 
       const rangeKey = `${effectiveDateFrom}|${effectiveDateTo}`;
+      const currencyCode = String(submitCurrency || "").toUpperCase().trim();
+
+      let currencyOverrides = {};
+      const keepMultiCurrency = showAllCurrencies || selectedCurrencies.length > 1;
+      const sameSingleCurrency =
+        !keepMultiCurrency &&
+        selectedCurrencies.length === 1 &&
+        String(selectedCurrencies[0] || "").toUpperCase().trim() === currencyCode;
+
+      if (currencyCode && !keepMultiCurrency && !sameSingleCurrency) {
+        suppressCrossPageCurrencyRef.current = false;
+        setShowAllCurrencies(false);
+        setSelectedCurrencies([currencyCode]);
+        persistCurrencyFilter(scopeCacheCompanyKey, false, [currencyCode], transactionScope?.selectedGroup);
+        notifySingleCurrencyIfNeeded([currencyCode]);
+        currencyOverrides = {
+          showAllCurrenciesOverride: false,
+          selectedCurrenciesOverride: [currencyCode],
+        };
+      }
 
       setSearchLoading(true);
       try {
@@ -986,7 +1006,12 @@ export function useTransactionSearch({
 
         clearTxSearchCache();
         await queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
-        await runSearch({ forceRefresh: true, silent: true, typeSearchOverride: false });
+        await runSearch({
+          forceRefresh: true,
+          silent: true,
+          typeSearchOverride: false,
+          ...currencyOverrides,
+        });
       } finally {
         setSearchLoading(false);
       }
@@ -997,6 +1022,11 @@ export function useTransactionSearch({
       effectiveDateFrom,
       effectiveDateTo,
       submitFocusRangeKey,
+      showAllCurrencies,
+      selectedCurrencies,
+      persistCurrencyFilter,
+      transactionScope?.selectedGroup,
+      notifySingleCurrencyIfNeeded,
       queryClient,
       runSearch,
     ],

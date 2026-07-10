@@ -452,6 +452,7 @@ export function useTransactionForm({
                 rateTransferFromAccountId: rateTransferFromAccount?.id,
                 rateMiddlemanAccountId: rateMiddlemanAccount?.id,
               }),
+              submitCurrency: rateCurrencyFrom,
             });
           }
           return;
@@ -570,6 +571,7 @@ export function useTransactionForm({
               fromAccountId: fromId,
               isAdjustment,
             }),
+            submitCurrency: txCurrency,
           });
         }
         return;
