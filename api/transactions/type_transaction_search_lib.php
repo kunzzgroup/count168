@@ -91,8 +91,11 @@ function typeTxSearchSignedWinLoss(string $type, string $amount): string
     if ($type === 'WIN') {
         return $amt;
     }
-    if ($type === 'LOSE' || $type === 'ADJUSTMENT') {
+    if ($type === 'LOSE') {
         return searchMoneyNeg($amt);
+    }
+    if ($type === 'ADJUSTMENT') {
+        return $amt;
     }
 
     return '0.00';
@@ -274,8 +277,11 @@ function typeTxSearchFetchRateTransactions(PDO $pdo, array $listScope, array $cu
             continue;
         }
         $grid = typeTxSearchRowToGrid($r);
-        $grid['cr_dr'] = searchMoneyHalfUp2(money_out($r['amount'] ?? '0'));
+        // Align with history_api / search_api: RATE_FIRST_* and RATE_TRANSFER_* rows use -amount.
+        $signedAmount = searchMoneyNeg(money_out($r['amount'] ?? '0'));
+        $grid['cr_dr'] = searchMoneyHalfUp2($signedAmount);
         $grid['balance'] = $grid['cr_dr'];
+        $grid['balance_full'] = searchMoney2($signedAmount);
         $grid['has_crdr_transactions'] = searchMoneyNonZero($grid['cr_dr']) ? 1 : 0;
         $rows[] = $grid;
     }
