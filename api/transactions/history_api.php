@@ -23,7 +23,7 @@ require_once __DIR__ . '/../includes/member_linked_closure.php';
 require_once __DIR__ . '/bank_process_bill_display.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
 require_once __DIR__ . '/../includes/transaction_approval.php';
-require_once __DIR__ . '/type_transaction_search_lib.php';
+require_once __DIR__ . '/type_pure_manual_filter_lib.php';
 
 /**
  * 审批过滤：过滤未批准的审批交易（向后兼容：若无字段则不过滤）
