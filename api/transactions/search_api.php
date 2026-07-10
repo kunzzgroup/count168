@@ -1834,10 +1834,15 @@ try {
     // ====== END BULK PRE-LOAD ======
 
     $bulk_type_period = null;
-    if ($type_search_active && $type_search_form_type === 'CONTRA' && $type_account_ids !== []) {
-        $bulk_type_period = typePeriodSearchBulkContraMetrics(
+    if (
+        $type_search_active
+        && typePeriodSearchIsDualSideManualType($type_search_form_type)
+        && $type_account_ids !== []
+    ) {
+        $bulk_type_period = typePeriodSearchBulkManualTypeMetrics(
             $pdo,
             $search_list_scope,
+            $type_search_form_type,
             $date_from_db,
             $date_to_db,
             $type_account_ids,
@@ -1976,7 +1981,11 @@ try {
             }
         }
 
-        if ($type_search_active && $type_search_form_type === 'CONTRA' && is_array($bulk_type_period)) {
+        if (
+            $type_search_active
+            && typePeriodSearchIsDualSideManualType($type_search_form_type)
+            && is_array($bulk_type_period)
+        ) {
             foreach ($bulk_type_period['currencies'][$account_id] ?? [] as $cid => $code) {
                 addAccountCurrencyCombo($account_currencies, $account_currency_ids, (int) $cid, (string) $code);
             }
@@ -2347,8 +2356,12 @@ try {
         $currency_id = $combo['currency_id'];
         $currency_code = $combo['currency_code'];
 
-        // 1–3. Metrics (Type Search × Capture Date uses type-only CONTRA accumulation)
-        if ($type_search_active && $type_search_form_type === 'CONTRA' && is_array($bulk_type_period)) {
+        // 1–3. Metrics (Type Search × Capture Date uses type-only CONTRA/PAYMENT accumulation)
+        if (
+            $type_search_active
+            && typePeriodSearchIsDualSideManualType($type_search_form_type)
+            && is_array($bulk_type_period)
+        ) {
             $bf = typePeriodSearchMetricForCombo($bulk_type_period, 'bf', (int) $account_id, (int) $currency_id, (string) $currency_code);
             $cr_dr = typePeriodSearchMetricForCombo($bulk_type_period, 'cr_dr', (int) $account_id, (int) $currency_id, (string) $currency_code);
             $win_loss = '0';

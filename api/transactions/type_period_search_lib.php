@@ -1,7 +1,7 @@
 <?php
 /**
  * Type Search × Capture Date: period-scoped metrics with all-time account eligibility.
- * Phase 1: CONTRA (pure manual, To + From account perspectives).
+ * Phase 1: CONTRA / PAYMENT (pure manual, To + From account perspectives).
  */
 
 require_once __DIR__ . '/transaction_scope.php';
@@ -62,7 +62,12 @@ function typePeriodSearchCurrencyJoin(PDO $pdo, array $listScope): array
  */
 function typePeriodSearchSupportedFormTypes(): array
 {
-    return ['CONTRA'];
+    return ['CONTRA', 'PAYMENT'];
+}
+
+function typePeriodSearchIsDualSideManualType(string $formType): bool
+{
+    return in_array(strtoupper(trim($formType)), ['CONTRA', 'PAYMENT'], true);
 }
 
 function typePeriodSearchIsSupported(string $formType): bool
@@ -71,14 +76,14 @@ function typePeriodSearchIsSupported(string $formType): bool
 }
 
 /**
- * Accounts that ever had pure manual CONTRA (To or From side).
+ * Accounts that ever had pure manual CONTRA or PAYMENT (To or From side).
  *
  * @return int[]
  */
 function typePeriodSearchFetchEligibleAccountIds(PDO $pdo, array $listScope, string $formType): array
 {
     $formType = strtoupper(trim($formType));
-    if ($formType !== 'CONTRA') {
+    if (!typePeriodSearchIsDualSideManualType($formType)) {
         return typeAccountSearchFetchAccountIds($pdo, $listScope, $formType);
     }
 
@@ -88,7 +93,8 @@ function typePeriodSearchFetchEligibleAccountIds(PDO $pdo, array $listScope, str
     $bankSrcSql = typeAccountSearchHasSourceBankProcessColumn($pdo)
         ? typeAccountSearchSourceBankProcessExcludeSql('t')
         : '';
-    $pureManualSql = typeTxSearchPureManualSqlFragment('CONTRA', 't');
+    $pureManualSql = typeTxSearchPureManualSqlFragment($formType, 't');
+    $txnType = $pdo->quote($formType);
 
     $queries = [
         "SELECT DISTINCT t.account_id AS account_id
@@ -96,7 +102,7 @@ function typePeriodSearchFetchEligibleAccountIds(PDO $pdo, array $listScope, str
          WHERE {$txnFilter['sql']}
            AND t.account_id IS NOT NULL
            AND t.account_id > 0
-           AND t.transaction_type = 'CONTRA'
+           AND t.transaction_type = {$txnType}
            {$approvalSql}
            {$bankDescSql}
            {$bankSrcSql}
@@ -106,7 +112,7 @@ function typePeriodSearchFetchEligibleAccountIds(PDO $pdo, array $listScope, str
          WHERE {$txnFilter['sql']}
            AND t.from_account_id IS NOT NULL
            AND t.from_account_id > 0
-           AND t.transaction_type = 'CONTRA'
+           AND t.transaction_type = {$txnType}
            {$approvalSql}
            {$bankDescSql}
            {$bankSrcSql}
@@ -145,18 +151,20 @@ function typePeriodSearchAccumulateBucketRow(array &$bucket, int $accountId, int
  * @param string[] $currencyCodes
  * @return array{bf: array<int, array<int, string>>, cr_dr: array<int, array<int, string>>, currencies: array<int, array<int, string>>}
  */
-function typePeriodSearchFetchContraSideMetrics(
+function typePeriodSearchFetchManualSideMetrics(
     PDO $pdo,
     array $listScope,
+    string $formType,
     string $dateFromDb,
     string $dateToDb,
     array $accountIds,
     array $currencyCodes,
     string $side
 ): array {
+    $formType = strtoupper(trim($formType));
     $empty = ['bf' => [], 'cr_dr' => [], 'currencies' => []];
     $accountIds = array_values(array_unique(array_filter(array_map('intval', $accountIds), static fn (int $id): bool => $id > 0)));
-    if ($accountIds === [] || !in_array($side, ['to', 'from'], true)) {
+    if ($accountIds === [] || !in_array($side, ['to', 'from'], true) || !typePeriodSearchIsDualSideManualType($formType)) {
         return $empty;
     }
 
@@ -166,12 +174,13 @@ function typePeriodSearchFetchContraSideMetrics(
     $bankSrcSql = typeAccountSearchHasSourceBankProcessColumn($pdo)
         ? typeAccountSearchSourceBankProcessExcludeSql('t')
         : '';
-    $pureManualSql = typeTxSearchPureManualSqlFragment('CONTRA', 't');
+    $pureManualSql = typeTxSearchPureManualSqlFragment($formType, 't');
     $signedAmt = $side === 'to'
         ? dcd_processed_amount_sql_quant2('(-t.amount)')
         : dcd_processed_amount_sql_quant2('t.amount');
     $dateExpr = 'DATE(t.transaction_date)';
     $accountCol = $side === 'to' ? 't.account_id' : 't.from_account_id';
+    $txnType = $pdo->quote($formType);
 
     $accPh = implode(',', array_fill(0, count($accountIds), '?'));
     $sql = "SELECT
@@ -188,7 +197,7 @@ function typePeriodSearchFetchContraSideMetrics(
             FROM transactions t
             WHERE {$txnFilter['sql']}
               AND {$accountCol} IN ({$accPh})
-              AND t.transaction_type = 'CONTRA'
+              AND t.transaction_type = {$txnType}
               AND t.currency_id IS NOT NULL
               {$approvalSql}
               {$bankDescSql}
@@ -241,7 +250,7 @@ function typePeriodSearchFetchContraSideMetrics(
 }
 
 /**
- * Bulk pure CONTRA metrics per account + currency (To: -amount, From: +amount).
+ * Bulk pure manual CONTRA/PAYMENT metrics (To: -amount, From: +amount).
  *
  * @param int[] $accountIds
  * @param string[] $currencyCodes upper codes; empty = all
@@ -251,17 +260,19 @@ function typePeriodSearchFetchContraSideMetrics(
  *   currencies: array<int, array<int, string>>
  * }
  */
-function typePeriodSearchBulkContraMetrics(
+function typePeriodSearchBulkManualTypeMetrics(
     PDO $pdo,
     array $listScope,
+    string $formType,
     string $dateFromDb,
     string $dateToDb,
     array $accountIds,
     array $currencyCodes = []
 ): array {
+    $formType = strtoupper(trim($formType));
     $empty = ['bf' => [], 'cr_dr' => [], 'currencies' => []];
     $accountIds = array_values(array_unique(array_filter(array_map('intval', $accountIds), static fn (int $id): bool => $id > 0)));
-    if ($accountIds === []) {
+    if ($accountIds === [] || !typePeriodSearchIsDualSideManualType($formType)) {
         return $empty;
     }
 
@@ -274,18 +285,20 @@ function typePeriodSearchBulkContraMetrics(
         $currencyCodes
     ), static fn (string $c): bool => $c !== '')));
 
-    $toSide = typePeriodSearchFetchContraSideMetrics(
+    $toSide = typePeriodSearchFetchManualSideMetrics(
         $pdo,
         $listScope,
+        $formType,
         $dateFromDb,
         $dateToDb,
         $accountIds,
         $currencyCodes,
         'to'
     );
-    $fromSide = typePeriodSearchFetchContraSideMetrics(
+    $fromSide = typePeriodSearchFetchManualSideMetrics(
         $pdo,
         $listScope,
+        $formType,
         $dateFromDb,
         $dateToDb,
         $accountIds,
@@ -319,6 +332,48 @@ function typePeriodSearchBulkContraMetrics(
         'cr_dr' => $crDr,
         'currencies' => $currencies,
     ];
+}
+
+/** @deprecated use typePeriodSearchBulkManualTypeMetrics */
+function typePeriodSearchBulkContraMetrics(
+    PDO $pdo,
+    array $listScope,
+    string $dateFromDb,
+    string $dateToDb,
+    array $accountIds,
+    array $currencyCodes = []
+): array {
+    return typePeriodSearchBulkManualTypeMetrics(
+        $pdo,
+        $listScope,
+        'CONTRA',
+        $dateFromDb,
+        $dateToDb,
+        $accountIds,
+        $currencyCodes
+    );
+}
+
+/** @deprecated use typePeriodSearchFetchManualSideMetrics */
+function typePeriodSearchFetchContraSideMetrics(
+    PDO $pdo,
+    array $listScope,
+    string $dateFromDb,
+    string $dateToDb,
+    array $accountIds,
+    array $currencyCodes,
+    string $side
+): array {
+    return typePeriodSearchFetchManualSideMetrics(
+        $pdo,
+        $listScope,
+        'CONTRA',
+        $dateFromDb,
+        $dateToDb,
+        $accountIds,
+        $currencyCodes,
+        $side
+    );
 }
 
 /**

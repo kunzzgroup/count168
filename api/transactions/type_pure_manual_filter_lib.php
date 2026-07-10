@@ -190,14 +190,15 @@ function typeTxSearchPassesPureHistoryEvent(string $formType, array $event): boo
             if ($txType !== 'PAYMENT') {
                 return false;
             }
-            if (empty($event['is_view_to_account'])) {
-                return false;
-            }
             if (typeTxSearchPassesPureManualFilter('PAYMENT', typeTxSearchPureHistoryRowFromEvent($event))) {
                 return true;
             }
+            if (!empty($event['is_view_to_account'])) {
+                return strpos($desc, 'PAYMENT FROM ') === 0
+                    && !typeTxSearchIsExcludedNonManualPayment($sms, $desc);
+            }
 
-            return strpos($desc, 'PAYMENT FROM ') === 0
+            return strpos($desc, 'PAYMENT TO ') === 0
                 && !typeTxSearchIsExcludedNonManualPayment($sms, $desc);
         case 'CONTRA':
             if ($txType !== 'CONTRA') {
