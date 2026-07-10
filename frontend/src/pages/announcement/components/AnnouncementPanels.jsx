@@ -176,11 +176,6 @@ export function MaintenancePanel({
           <h2 style={{ marginTop: 0, color: "#002C49", fontFamily: "var(--font-heading-page)", fontSize: "clamp(16px, 1.25vw, 24px)", marginBottom: "clamp(8px, 0.73vw, 14px)" }}>
             {t("createNewMaintenanceContent")}
           </h2>
-          {!canCreate && (
-            <div className="maintenance-singleton-hint">
-              <strong>⚠️ {t("noticeLabel")}:</strong> {t("maintenanceNotice")}
-            </div>
-          )}
           <form id="maintenanceForm" onSubmit={handleSubmit}>
             <div className="form-group">
               <label htmlFor="maintenancePrefix">{t("prefixRequired")}</label>
@@ -208,6 +203,11 @@ export function MaintenancePanel({
             <button type="submit" className="submit-btn" disabled={!canCreate || submitting}>
               {submitting ? t("publishing") : t("publishMaintenanceContent")}
             </button>
+            {!canCreate && (
+              <div className="maintenance-singleton-hint">
+                <strong>⚠️ {t("noticeLabel")}:</strong> {t("maintenanceNotice")}
+              </div>
+            )}
           </form>
         </div>
 

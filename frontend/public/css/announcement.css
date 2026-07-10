@@ -657,7 +657,8 @@ body.announcement-page .sidebar-scroll {
     border: 1px solid #fbbf24;
     border-radius: 8px;
     padding: 12px;
-    margin-bottom: 16px;
+    margin-top: 12px;
+    margin-bottom: 0;
     color: #92400e;
     font-size: clamp(11px, 0.73vw, 14px);
 }
