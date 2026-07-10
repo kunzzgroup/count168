@@ -2406,34 +2406,55 @@ try {
             }
 
             if (typePeriodSearchUsesProfitWinLossColumn($type_search_form_type)) {
-                $profit_wl = typePeriodSearchMetricForCombo(
-                    $bulk_type_period,
-                    'win_loss',
-                    (int) $account_id,
-                    (int) $currency_id,
-                    (string) $currency_code
+                $wlPackLedger = calculateWinLossByCurrency(
+                    $pdo,
+                    $account_id,
+                    $currency_id,
+                    $date_from_db,
+                    $date_to_db,
+                    $company_id,
+                    $account['account_id'] ?? '',
+                    $bulk
                 );
-                $profit_wl_stat = trunc2($profit_wl);
-                if (!searchMoneyNonZero($profit_wl_stat)) {
-                    $profit_wl_stat = '0';
-                }
-                $win_loss = searchMoneyHalfUp2($profit_wl_stat);
-                $cr_dr = '0';
+                $cr_dr_result = calculateCrDrByCurrency(
+                    $pdo,
+                    $account_id,
+                    $currency_id,
+                    $date_from_db,
+                    $date_to_db,
+                    $company_id,
+                    $bulk
+                );
+                $aligned = searchApiProfitTypeSearchAlignMetrics(
+                    (string) $bf,
+                    typePeriodSearchMetricForCombo(
+                        $bulk_type_period,
+                        'win_loss',
+                        (int) $account_id,
+                        (int) $currency_id,
+                        (string) $currency_code
+                    ),
+                    (string) ($wlPackLedger['win_loss_full'] ?? '0'),
+                    (string) ($cr_dr_result['value'] ?? '0')
+                );
+                $win_loss = $aligned['win_loss'];
+                $cr_dr = $aligned['cr_dr'];
                 $wlPack = [
-                    'win_loss' => $win_loss,
-                    'win_loss_full' => money_normalize($profit_wl_stat, 8),
+                    'win_loss' => $aligned['win_loss'],
+                    'win_loss_full' => $aligned['win_loss_full'],
                     'has_win_loss_transactions' => $period_type_txn_count > 0
-                        || searchMoneyNonZero($profit_wl_stat),
-                    'has_win_loss_history' => false,
-                    'has_period_id_product_rows' => false,
-                    'has_rate_middleman' => false,
+                        || searchMoneyNonZero(trunc2($aligned['win_loss_full'])),
+                    'has_win_loss_history' => !empty($wlPackLedger['has_win_loss_history']),
+                    'has_period_id_product_rows' => !empty($wlPackLedger['has_period_id_product_rows']),
+                    'has_rate_middleman' => !empty($wlPackLedger['has_rate_middleman']),
                 ];
                 $has_win_loss_transactions = $period_type_txn_count > 0
-                    || searchMoneyNonZero($profit_wl_stat);
-                $has_win_loss_history = false;
-                $has_period_id_product_rows = false;
-                $has_crdr_transactions = false;
-                $has_contra_clear_period = false;
+                    || searchMoneyNonZero(trunc2($aligned['win_loss_full']));
+                $has_win_loss_history = !empty($wlPackLedger['has_win_loss_history']);
+                $has_period_id_product_rows = !empty($wlPackLedger['has_period_id_product_rows']);
+                $has_crdr_transactions = $aligned['has_crdr_transactions']
+                    || !empty($cr_dr_result['has_transactions']);
+                $has_contra_clear_period = searchApiContraClearPeriodCount($bulk, (int) $account_id, (int) $currency_id) > 0;
             } elseif (typePeriodSearchUsesAccountNativeBf($type_search_form_type)) {
                 $wlPack = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '', $bulk);
                 $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $bulk);
@@ -3481,6 +3502,37 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     $bf = money_add($bf, $rateStmt->fetchColumn() ?: '0', 8);
 
     return trunc2($bf);
+}
+
+/**
+ * PROFIT Type Search: Win/Loss = pure PROFIT period total; Balance = History closing (full ledger);
+ * Cr/Dr = Balance − B/F − Win/Loss (zero → 0.00).
+ *
+ * @return array{win_loss: string, win_loss_full: string, cr_dr: string, has_crdr_transactions: bool}
+ */
+function searchApiProfitTypeSearchAlignMetrics(
+    string $bf,
+    string $profit_win_loss,
+    string $win_loss_ledger_full,
+    string $cr_dr_ledger
+): array {
+    $bf_stat = trunc2($bf);
+    $profit_wl_stat = trunc2($profit_win_loss);
+    if (!searchMoneyNonZero($profit_wl_stat)) {
+        $profit_wl_stat = '0';
+    }
+    $closing = trunc2(money_add(money_add($bf_stat, trunc2($win_loss_ledger_full), 8), trunc2($cr_dr_ledger), 8));
+    $cr_stat = trunc2(money_sub(money_sub($closing, $bf_stat, 8), $profit_wl_stat, 8));
+    if (!searchMoneyNonZero($cr_stat)) {
+        $cr_stat = '0';
+    }
+
+    return [
+        'win_loss' => searchMoneyHalfUp2($profit_wl_stat),
+        'win_loss_full' => money_normalize($profit_wl_stat, 8),
+        'cr_dr' => searchMoneyHalfUp2($cr_stat),
+        'has_crdr_transactions' => searchMoneyNonZero($cr_stat),
+    ];
 }
 
 /**

@@ -114,7 +114,7 @@ function typePeriodSearchUsesAccountNativeBf(string $formType): bool
 }
 
 /**
- * PROFIT Type Search: Win/Loss = pure manual PROFIT period total; Cr/Dr 0; Balance = B/F + Win/Loss.
+ * PROFIT Type Search: Win/Loss = pure PROFIT period total; Cr/Dr = Balance − B/F − Win/Loss; Balance = History closing.
  */
 function typePeriodSearchUsesProfitWinLossColumn(string $formType): bool
 {
