@@ -600,6 +600,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
     window.SIDEBAR_COMPANY_HAS_BANK = <?php echo $companyHasBank ? 'true' : 'false'; ?>;
     window.SIDEBAR_COMPANY_CODE = <?php echo json_encode($currentCompanyCode); ?>;
     window.SIDEBAR_USER_ROLE = <?php echo json_encode(strtolower((string) $role)); ?>;
+    window.SESSION_LOGIN_ID = <?php echo json_encode((string) $login_id); ?>;
     (function () {
         if (typeof updateExpirationCountdown === 'function') {
             if (window.SIDEBAR_EXPIRATION_DATE) {

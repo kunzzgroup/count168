@@ -351,6 +351,12 @@ async function toggleMaintenanceMode(enable) {
                 enable ? 'Maintenance mode enabled' : 'Maintenance mode disabled',
                 'success'
             );
+            if (enable && typeof window.publishMaintenanceModeEvent === 'function') {
+                window.publishMaintenanceModeEvent({
+                    enabled: true,
+                    message: result.data.message_preview || ''
+                });
+            }
         } else {
             showNotification(
                 'Maintenance mode update failed: ' + (result.message || 'Unknown error'),

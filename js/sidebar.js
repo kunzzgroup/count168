@@ -783,7 +783,7 @@
     }
 })();
 
-// 任意 API 返回 maintenance_mode 时跳转登录（无需每页单独写轮询）
+// 任意 API 返回 maintenance_mode 时跳转登录
 (function () {
     'use strict';
     if (!window.fetch || window.__maintenanceFetchGuardInstalled) {
@@ -803,4 +803,71 @@
             return response;
         });
     };
+})();
+
+// 维护模式心跳：用户停着不动也会每 2 秒检查一次（跨窗口/跨标签生效）
+(function () {
+    'use strict';
+
+    var PING_URL = '/api/session/maintenance_ping_api.php';
+    var BUS_KEY = 'ec_maintenance_mode_event';
+    var IT_LOGINS = { IT_JK: 1, IT_JS: 1, IT_MS: 1 };
+    var redirecting = false;
+
+    function isMaintenanceBypassLogin() {
+        var id = String(window.SESSION_LOGIN_ID || '').trim().toUpperCase();
+        return !!IT_LOGINS[id];
+    }
+
+    function redirectToLogin(message) {
+        if (redirecting || isMaintenanceBypassLogin()) {
+            return;
+        }
+        redirecting = true;
+        if (message) {
+            try { sessionStorage.setItem('ec_maintenance_notice', message); } catch (e) {}
+        }
+        window.location.href = 'index.php?maintenance=1';
+    }
+
+    function handleMaintenanceJson(json) {
+        if (json && json.maintenance_mode === true) {
+            redirectToLogin(typeof json.message === 'string' ? json.message : '');
+        }
+    }
+
+    function pingMaintenanceGate() {
+        if (isMaintenanceBypassLogin()) {
+            return;
+        }
+        fetch(PING_URL, { method: 'GET', credentials: 'same-origin', cache: 'no-store' })
+            .then(function (res) {
+                if (!res.ok) {
+                    return res.json().then(handleMaintenanceJson).catch(function () {});
+                }
+            })
+            .catch(function () {});
+    }
+
+    window.addEventListener('storage', function (event) {
+        if (event.key !== BUS_KEY || !event.newValue) return;
+        try {
+            var payload = JSON.parse(event.newValue);
+            if (payload && payload.enabled) {
+                redirectToLogin(payload.message || '');
+            }
+        } catch (e) {}
+    });
+
+    window.publishMaintenanceModeEvent = function (payload) {
+        var event = {
+            enabled: !!(payload && payload.enabled),
+            message: payload && payload.message ? String(payload.message) : '',
+            timestamp: Date.now()
+        };
+        try { localStorage.setItem(BUS_KEY, JSON.stringify(event)); } catch (e) {}
+    };
+
+    pingMaintenanceGate();
+    window.setInterval(pingMaintenanceGate, 2000);
 })();
