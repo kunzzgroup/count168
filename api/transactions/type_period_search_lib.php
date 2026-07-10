@@ -77,11 +77,11 @@ function typePeriodSearchIsSupported(string $formType): bool
 
 /**
  * List visibility: only accounts with type activity inside Capture Date (B/F still type-only before period).
- * Phase 1: CONTRA only; PAYMENT follows after CONTRA is verified.
+ * Applies to CONTRA and PAYMENT period Type Search.
  */
 function typePeriodSearchFilterByPeriodActivityOnly(string $formType): bool
 {
-    return strtoupper(trim($formType)) === 'CONTRA';
+    return typePeriodSearchIsDualSideManualType($formType);
 }
 
 /**
