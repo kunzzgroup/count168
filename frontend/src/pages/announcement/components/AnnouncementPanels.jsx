@@ -131,6 +131,9 @@ export function MaintenancePanel({
   const [form, setForm] = useState({ prefix: "", content: "" });
   const [submitting, setSubmitting] = useState(false);
   const canCreate = maintenanceList.length === 0;
+  const modeEnabled = Boolean(maintenanceMode?.enabled);
+  const modeCanToggle = modeEnabled || maintenanceList.length > 0;
+  const modeToggleDisabled = modeSubmitting || !modeCanToggle;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -187,24 +190,30 @@ export function MaintenancePanel({
               <p className="maintenance-mode-preview">{maintenanceMode.message_preview}</p>
             ) : null}
             {canManageMaintenanceMode ? (
-              <div className="maintenance-mode-actions">
+              <div className="maintenance-mode-control-row">
                 <button
                   type="button"
-                  className={`maintenance-mode-btn maintenance-mode-btn--enable ${maintenanceMode?.enabled ? "is-dimmed" : ""}`}
-                  disabled={modeSubmitting || maintenanceMode?.enabled || maintenanceList.length === 0}
-                  onClick={onEnableMaintenanceMode}
+                  role="switch"
+                  aria-checked={modeEnabled}
+                  className={`maintenance-mode-toggle ${modeEnabled ? "is-on" : "is-off"}`}
+                  disabled={modeToggleDisabled}
+                  onClick={modeEnabled ? onDisableMaintenanceMode : onEnableMaintenanceMode}
                 >
-                  {modeSubmitting ? t("modeApplying") : t("modeEnableButton")}
-                </button>
-                <button
-                  type="button"
-                  className={`maintenance-mode-btn maintenance-mode-btn--disable ${!maintenanceMode?.enabled ? "is-dimmed" : ""}`}
-                  disabled={modeSubmitting || !maintenanceMode?.enabled}
-                  onClick={onDisableMaintenanceMode}
-                >
-                  {modeSubmitting ? t("modeApplying") : t("modeDisableButton")}
+                  <span className="maintenance-mode-switch" aria-hidden="true">
+                    <span className="maintenance-mode-switch-thumb" />
+                  </span>
+                  <span className="maintenance-mode-toggle-label">
+                    {modeSubmitting
+                      ? t("modeApplying")
+                      : modeEnabled
+                        ? t("modeDisableButton")
+                        : t("modeEnableButton")}
+                  </span>
                 </button>
               </div>
+            ) : null}
+            {canManageMaintenanceMode && !modeEnabled && maintenanceList.length === 0 ? (
+              <p className="maintenance-mode-unavailable-hint">{t("modeEnableNeedsMaintenance")}</p>
             ) : null}
           </div>
           {!canCreate && (

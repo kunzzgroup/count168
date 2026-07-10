@@ -518,54 +518,88 @@ body.announcement-page .sidebar-scroll {
     word-break: break-word;
 }
 
-.maintenance-mode-actions {
+.maintenance-mode-control-row {
     margin-top: 10px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
 }
 
-.maintenance-mode-btn {
-    border: 1px solid transparent;
-    border-radius: 8px;
-    min-height: 36px;
-    padding: 6px 10px;
+.maintenance-mode-toggle {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    min-height: 44px;
+    padding: 8px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.maintenance-mode-toggle.is-on {
+    border-color: #fda4af;
+    background: linear-gradient(180deg, #fff1f2 0%, #ffe4e6 100%);
+}
+
+.maintenance-mode-toggle:hover:not(:disabled) {
+    border-color: #93c5fd;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.12);
+}
+
+.maintenance-mode-toggle.is-on:hover:not(:disabled) {
+    border-color: #fb7185;
+    box-shadow: 0 4px 10px rgba(244, 63, 94, 0.14);
+}
+
+.maintenance-mode-toggle:disabled {
+    cursor: not-allowed;
+    opacity: 0.56;
+}
+
+.maintenance-mode-switch {
+    position: relative;
+    width: 52px;
+    height: 28px;
+    border-radius: 999px;
+    background: #cbd5e1;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.18);
+    transition: background-color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.maintenance-mode-toggle.is-on .maintenance-mode-switch {
+    background: #22c55e;
+}
+
+.maintenance-mode-switch-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+    transition: transform 0.2s ease;
+}
+
+.maintenance-mode-toggle.is-on .maintenance-mode-switch-thumb {
+    transform: translateX(24px);
+}
+
+.maintenance-mode-toggle-label {
+    color: #1e293b;
     font-size: clamp(10px, 0.72vw, 13px);
     font-weight: 700;
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
-    line-height: 1.2;
+    line-height: 1.25;
+    text-align: left;
 }
 
-.maintenance-mode-btn--enable {
-    color: #ffffff;
-    background: linear-gradient(180deg, #34d399 0%, #059669 100%);
-    box-shadow: 0 2px 6px rgba(5, 150, 105, 0.35);
-}
-
-.maintenance-mode-btn--disable {
-    color: #0f172a;
-    background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
-    border-color: #cbd5e1;
-}
-
-.maintenance-mode-btn.is-dimmed {
-    opacity: 0.62;
-}
-
-.maintenance-mode-btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-}
-
-.maintenance-mode-btn--disable:hover:not(:disabled) {
-    box-shadow: 0 2px 6px rgba(100, 116, 139, 0.2);
-}
-
-.maintenance-mode-btn:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-    transform: none;
-    box-shadow: none;
+.maintenance-mode-unavailable-hint {
+    margin: 8px 0 0 0;
+    color: #92400e;
+    font-size: clamp(10px, 0.68vw, 12px);
+    line-height: 1.35;
 }
 
 .maintenance-singleton-hint {
@@ -592,8 +626,9 @@ body.announcement-page .sidebar-scroll {
 }
 
 @media (max-width: 640px) {
-    .maintenance-mode-actions {
-        grid-template-columns: 1fr;
+    .maintenance-mode-toggle {
+        min-height: 40px;
+        padding: 6px 9px;
     }
 }
 
