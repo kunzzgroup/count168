@@ -43,7 +43,15 @@ const ROUTE_BODY_CLASSES_TO_CLEAR = [
 ];
 
 /** Type Search opens Payment History with full account ledger (not pure-type filtered). */
-const TYPE_SEARCH_FULL_ACCOUNT_LEDGER_TYPES = new Set(["PAYMENT", "CONTRA", "CLAIM", "CLEAR", "PROFIT"]);
+const TYPE_SEARCH_FULL_ACCOUNT_LEDGER_TYPES = new Set([
+  "PAYMENT",
+  "CONTRA",
+  "CLAIM",
+  "CLEAR",
+  "RATE",
+  "ADJUSTMENT",
+  "PROFIT",
+]);
 
 export default function TransactionPaymentPage() {
   const [searchParams] = useSearchParams();
