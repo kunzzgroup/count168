@@ -229,6 +229,12 @@ function TransactionPaymentPageMain() {
     search.runTypeSearch(form.txType);
   }, [search.runTypeSearch, form.txType]);
 
+  const onExitTypeSearch = useCallback(async () => {
+    await search.exitTypeSearchAndRefresh();
+    form.setTxDate(todayDmy);
+    form.setRateDate(todayDmy);
+  }, [search.exitTypeSearchAndRefresh, form.setTxDate, form.setRateDate, todayDmy]);
+
   const onSearch = useCallback(() => {
     search.runSearch({ silent: false });
   }, [search.runSearch]);
@@ -371,6 +377,8 @@ function TransactionPaymentPageMain() {
             submitting={form.submitting}
             onSubmitTx={form.onSubmitTx}
             onTypeSearch={onTypeSearch}
+            onExitTypeSearch={onExitTypeSearch}
+            typeSearchActive={search.typeSearchActive}
             searchLoading={search.searchLoading}
             accountOptions={data.accountOptions}
             currencyOptions={data.currencyOptions}
