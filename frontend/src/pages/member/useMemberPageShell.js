@@ -4,7 +4,10 @@ import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import { MAINTENANCE_I18N } from "../../translateFile/pages/maintenanceTranslate.js";
 import { formatMemberRole, getMemberText } from "../../translateFile/pages/memberTranslate.js";
 import { ensureMaintenanceDateRangePicker } from "../../utils/date/dateRangePicker.js";
-import { subscribeMaintenanceModeEvent } from "../../utils/maintenance/maintenanceRealtimeBus.js";
+import {
+  publishMaintenanceModeEvent,
+  subscribeMaintenanceModeEvent,
+} from "../../utils/maintenance/maintenanceRealtimeBus.js";
 import { useExpirationReminder } from "../../hooks/useExpirationReminder.js";
 import { clearDashboardFilterSession, clearOwnerCompaniesCache } from "../../utils/company/sharedCompanyFilter.js";
 import { spaPath } from "../../utils/routing/pageRoutes.js";
@@ -150,6 +153,11 @@ export function useMemberPageShell({ navigate, initSession, todayDmy, lang }) {
           if (typeof json?.message === "string" && json.message.trim() !== "") {
             sessionStorage.setItem("ec_maintenance_notice", json.message.trim());
           }
+          // Tell sibling tabs in the same browser profile to logout immediately.
+          publishMaintenanceModeEvent({
+            enabled: true,
+            message: typeof json?.message === "string" ? json.message : "",
+          });
           clearDashboardFilterSession();
           clearOwnerCompaniesCache();
           window.location.assign(new URL(spaPath("login"), window.location.origin).href);

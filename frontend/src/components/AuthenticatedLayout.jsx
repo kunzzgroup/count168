@@ -82,7 +82,10 @@ import { stripPrivateQueryFromBrowserUrl } from "../utils/routing/privateBrowser
 import { resetDashboardSessionCaches } from "../utils/dashboard/dashboardCache.js";
 import { resetMaintenanceCalendarPopupOnNavigation } from "../utils/date/dateRangePicker.js";
 import { toSafeRenderHtml } from "../utils/content/richTextSanitizer.js";
-import { subscribeMaintenanceModeEvent } from "../utils/maintenance/maintenanceRealtimeBus.js";
+import {
+  publishMaintenanceModeEvent,
+  subscribeMaintenanceModeEvent,
+} from "../utils/maintenance/maintenanceRealtimeBus.js";
 import "../../public/css/modal-close-unified.css";
 import "../../public/css/select-unified.css";
 
@@ -501,6 +504,11 @@ export default function AuthenticatedLayout() {
           if (typeof json?.message === "string" && json.message.trim() !== "") {
             safeSession.setItem("ec_maintenance_notice", json.message.trim());
           }
+          // Tell sibling tabs in the same browser profile to logout immediately.
+          publishMaintenanceModeEvent({
+            enabled: true,
+            message: typeof json?.message === "string" ? json.message : "",
+          });
           resetDashboardSessionCaches();
           clearDashboardFilterSession();
           clearOwnerCompaniesCache();
