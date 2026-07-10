@@ -36,6 +36,20 @@ import {
 
 /** Type Search uses Capture Date + search_api period metrics (not all-time grid API). */
 const PERIOD_TYPE_SEARCH_TYPES = new Set(["CONTRA", "PAYMENT", "CLAIM", "CLEAR", "RATE", "ADJUSTMENT", "PROFIT"]);
+
+function syncCaptureDateDom(dateDmy) {
+  const d = String(dateDmy || "").trim();
+  if (!d) return;
+  const df = document.getElementById("date_from");
+  const dt = document.getElementById("date_to");
+  if (df) df.value = d;
+  if (dt) dt.value = d;
+  window.MaintenanceDateRangePicker?.refreshInputsDisplay?.({
+    dateFromId: "date_from",
+    dateToId: "date_to",
+    displayId: "date-range-display",
+  });
+}
 import { persistCurrencyDisplayOrder } from "../../../utils/company/currencyDisplayOrder.js";
 import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
 import {
@@ -505,11 +519,15 @@ export function useTransactionSearch({
       typeAccountIdsOverride = undefined,
       typeSearchFormTypeOverride = undefined,
       typeSearchOverride = undefined,
+      dateFromOverride = undefined,
+      dateToOverride = undefined,
     } = {}) => {
       const cid = scopeCacheCompanyKey;
       const notifyErr = notifyErrorsOpt !== undefined ? notifyErrorsOpt : !silent;
+      const queryDateFrom = String(dateFromOverride ?? effectiveDateFrom ?? "").trim();
+      const queryDateTo = String(dateToOverride ?? effectiveDateTo ?? "").trim();
       if (!scopeReady || !cid) return;
-      if (!effectiveDateFrom || !effectiveDateTo) {
+      if (!queryDateFrom || !queryDateTo) {
         pushToast(m.pleaseSelectDateRange, "error");
         return;
       }
@@ -550,8 +568,8 @@ export function useTransactionSearch({
 
       const requestKey = buildTransactionSearchRequestKey({
         scopeCacheCompanyKey: cid,
-        dateFrom: effectiveDateFrom,
-        dateTo: effectiveDateTo,
+        dateFrom: queryDateFrom,
+        dateTo: queryDateTo,
         categoryParam,
         showInactive: showInactiveForQuery,
         showCaptureOnly: showCaptureOnlyForQuery,
@@ -569,8 +587,8 @@ export function useTransactionSearch({
 
       const sessionKey = buildTxListSessionKey({
         companyId: cid,
-        dateFrom: effectiveDateFrom,
-        dateTo: effectiveDateTo,
+        dateFrom: queryDateFrom,
+        dateTo: queryDateTo,
         selectedCategories,
         showInactive: showInactiveForQuery,
         showCaptureOnly: showCaptureOnlyForQuery,
@@ -631,8 +649,8 @@ export function useTransactionSearch({
         groupId: subsidiarySearch ? undefined : scopeApi.groupId,
         groupAggregate: subsidiarySearch ? undefined : scopeApi.groupAggregate,
         subsidiaryAccountsOnly: subsidiarySearch ? true : scopeApi.subsidiaryAccountsOnly,
-        dateFrom: effectiveDateFrom,
-        dateTo: effectiveDateTo,
+        dateFrom: queryDateFrom,
+        dateTo: queryDateTo,
         showInactive: showInactiveForQuery,
         showCaptureOnly: showCaptureOnlyForQuery,
         hideZeroBalance: hideZeroForApi,
@@ -775,20 +793,30 @@ export function useTransactionSearch({
   runSearchRef.current = runSearch;
 
   const runTypeSearch = useCallback(
-    async (formTxType) => {
+    async (formTxType, opts = {}) => {
+      const {
+        dateFrom: dateFromOverride,
+        dateTo: dateToOverride,
+        silent = false,
+        preserveSearchState = false,
+      } = opts;
       const normalizedType = String(formTxType || "").toUpperCase().trim();
       if (!normalizedType) return;
 
-      const clearedState = {
-        showName: false,
-        showPaymentOnly: false,
-        showCaptureOnly: false,
-        showZeroBalance: false,
-      };
-      setSearchState((prev) => ({ ...prev, ...clearedState }));
+      if (!preserveSearchState) {
+        const clearedState = {
+          showName: false,
+          showPaymentOnly: false,
+          showCaptureOnly: false,
+          showZeroBalance: false,
+        };
+        setSearchState((prev) => ({ ...prev, ...clearedState }));
+      }
 
       if (!scopeReady || !scopeCacheCompanyKey) return;
-      if (!effectiveDateFrom || !effectiveDateTo) {
+      const queryDateFrom = String(dateFromOverride ?? effectiveDateFrom ?? "").trim();
+      const queryDateTo = String(dateToOverride ?? effectiveDateTo ?? "").trim();
+      if (!queryDateFrom || !queryDateTo) {
         pushToast(m.pleaseSelectDateRange, "error");
         return;
       }
@@ -838,8 +866,8 @@ export function useTransactionSearch({
               : undefined;
           const result = await searchTransactionsApi({
             ...scopeParams,
-            dateFrom: effectiveDateFrom,
-            dateTo: effectiveDateTo,
+            dateFrom: queryDateFrom,
+            dateTo: queryDateTo,
             showInactive: false,
             showCaptureOnly: false,
             hideZeroBalance: false,
@@ -876,7 +904,7 @@ export function useTransactionSearch({
         const displayed =
           (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
         setTablesVisible(displayed > 0);
-        if (displayed > 0) {
+        if (!silent && displayed > 0) {
           pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
         }
       } catch (e) {
@@ -900,6 +928,52 @@ export function useTransactionSearch({
       m,
       t,
     ],
+  );
+
+  /** After successful submit/approval: jump Capture Date to transaction date and refresh list. */
+  const jumpToSubmitDateAndRefresh = useCallback(
+    async ({ submitDateDmy } = {}) => {
+      const d = String(submitDateDmy || "").trim();
+      if (!d) return;
+
+      prevCaptureDateRangeKeyRef.current = `${d}|${d}`;
+      setDateFrom(d);
+      setDateTo(d);
+      syncCaptureDateDom(d);
+
+      const activeType = typeSearchActive;
+      const activeFormType = typeSearchFormType;
+
+      if (activeType && activeFormType) {
+        const normalizedType = String(activeFormType).toUpperCase().trim();
+        if (PERIOD_TYPE_SEARCH_TYPES.has(normalizedType)) {
+          await runSearch({
+            forceRefresh: true,
+            silent: true,
+            dateFromOverride: d,
+            dateToOverride: d,
+            typeSearchOverride: true,
+          });
+          return;
+        }
+        await runTypeSearch(activeFormType, {
+          dateFrom: d,
+          dateTo: d,
+          silent: true,
+          preserveSearchState: true,
+        });
+        return;
+      }
+
+      await runSearch({
+        forceRefresh: true,
+        silent: true,
+        dateFromOverride: d,
+        dateToOverride: d,
+        typeSearchOverride: false,
+      });
+    },
+    [typeSearchActive, typeSearchFormType, runSearch, runTypeSearch],
   );
 
   useEffect(() => {
@@ -1324,6 +1398,7 @@ export function useTransactionSearch({
     setTablesVisible,
     runSearch,
     runTypeSearch,
+    jumpToSubmitDateAndRefresh,
     typeSearchActive,
     typeSearchFormType,
     persistCurrencyFilter,
