@@ -2,6 +2,7 @@
 // 使用统一的session检查
 require_once 'session_check.php';
 require_once __DIR__ . '/includes/c168_domain_access.php';
+require_once __DIR__ . '/includes/maintenance_gate.php';
 
 // 不缓存 HTML，部署后刷新即可拿到带最新 ?v= 的页面
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -32,6 +33,8 @@ if (!$user_id || !$hasC168Context || !userHasC168AnnouncementPageAccess($user_ro
     header("Location: dashboard.php");
     exit();
 }
+
+$canManageMaintenanceMode = maintenance_gate_is_active_user_login($pdo, (string) ($_SESSION['login_id'] ?? ''));
 ?>
 
 <!DOCTYPE html>
@@ -53,6 +56,9 @@ if (!$user_id || !$hasC168Context || !userHasC168AnnouncementPageAccess($user_ro
     <link rel="stylesheet" href="css/sidebar.css?v=<?php echo $assetVer('css/sidebar.css'); ?>">
     <script src="js/sidebar.js?v=<?php echo $assetVer('js/sidebar.js'); ?>"></script>
     <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
+    <script>
+        window.CAN_MANAGE_MAINTENANCE_MODE = <?php echo $canManageMaintenanceMode ? 'true' : 'false'; ?>;
+    </script>
 </head>
 <body class="announcement-page">
     <?php include 'sidebar.php'; ?>
@@ -134,6 +140,22 @@ if (!$user_id || !$hasC168Context || !userHasC168AnnouncementPageAccess($user_ro
             <div class="maintenance-list-section">
                 <div class="maintenance-list-header">
                     <h2>Published Maintenance Content</h2>
+                    <div id="maintenanceModeControl" class="maintenance-mode-inline" style="display: none;">
+                        <span class="maintenance-mode-inline-label">Maintenance Mode</span>
+                        <button
+                            type="button"
+                            id="maintenanceModeToggle"
+                            role="switch"
+                            aria-checked="false"
+                            aria-label="Maintenance Mode"
+                            class="maintenance-mode-toggle maintenance-mode-toggle--inline is-off"
+                            disabled
+                        >
+                            <span class="maintenance-mode-switch" aria-hidden="true">
+                                <span class="maintenance-mode-switch-thumb"></span>
+                            </span>
+                        </button>
+                    </div>
                 </div>
                 <div id="maintenanceList" style="flex: 1; overflow-y: auto;">
                     <!-- 维护内容列表将在这里动态加载 -->

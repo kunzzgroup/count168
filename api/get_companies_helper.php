@@ -4,6 +4,31 @@
  * Prevents code duplication and ensures consistent filtering.
  */
 
+require_once __DIR__ . '/../includes/maintenance_gate.php';
+
+if (!function_exists('_getSystemItScopedCompanies')) {
+    function _getSystemItScopedCompanies(PDO $pdo, bool $fetchAll): ?array
+    {
+        $sessionLoginId = (string) ($_SESSION['login_id'] ?? '');
+        if (!maintenance_gate_is_allowlisted_login($sessionLoginId)) {
+            return null;
+        }
+
+        $itGroups = maintenance_gate_it_scope_groups();
+        $placeholders = implode(',', array_fill(0, count($itGroups), '?'));
+        $stmt = $pdo->prepare("
+            SELECT id, company_id, group_id, expiration_date
+            FROM company
+            WHERE UPPER(TRIM(company_id)) = 'C168'
+               OR UPPER(TRIM(group_id)) IN ($placeholders)
+            ORDER BY CASE WHEN UPPER(TRIM(company_id)) = 'C168' THEN 0 ELSE 1 END, company_id ASC
+        ");
+        $stmt->execute($itGroups);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $rows ?: [];
+    }
+}
+
 if (!function_exists('getCompaniesByUser')) {
     /**
      * @param bool $includeGroupLinkVirtualRows
@@ -14,6 +39,11 @@ if (!function_exists('getCompaniesByUser')) {
      *   must be preserved.
      */
     function getCompaniesByUser(PDO $pdo, int $userId, bool $fetchAll = false, bool $includeGroupLinkVirtualRows = false): array {
+        $scopedSystemItCompanies = _getSystemItScopedCompanies($pdo, $fetchAll);
+        if ($scopedSystemItCompanies !== null) {
+            return $scopedSystemItCompanies;
+        }
+
         if ($fetchAll) {
             $stmt = $pdo->prepare("
                 SELECT DISTINCT c.id, c.company_id, c.group_id, c.expiration_date

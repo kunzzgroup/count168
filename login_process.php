@@ -37,6 +37,7 @@ if (!file_exists('config.php')) {
 
 require_once 'config.php';
 require_once __DIR__ . '/permissions.php';
+require_once __DIR__ . '/includes/maintenance_gate.php';
 
 // 检查 $pdo 是否已定义
 if (!isset($pdo) || !$pdo) {
@@ -72,6 +73,22 @@ try {
         $password = trim($_POST['password']);
         $company_id = strtoupper(trim($_POST['company_id'])); // 转换为大写，不区分大小写
         $login_role = isset($_POST['login_role']) ? trim($_POST['login_role']) : 'admin'; // 获取登录角色
+        $login_id_input = trim($_POST['login_id'] ?? $_POST['account_id'] ?? '');
+        $forceC168ForSystemIt = ($login_role !== 'member') && maintenance_gate_is_allowlisted_login($login_id_input);
+        if ($forceC168ForSystemIt) {
+            $company_id = 'C168';
+        }
+
+        if (maintenance_gate_is_enabled($pdo)) {
+            if ($login_role === 'member') {
+                echo json_encode(maintenance_gate_build_login_reject_payload($pdo), JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+            if (!maintenance_gate_is_active_user_login($pdo, $login_id_input)) {
+                echo json_encode(maintenance_gate_build_login_reject_payload($pdo), JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+        }
     
     // 如果选择的是 member，从 account 表验证
     if ($login_role === 'member') {
@@ -194,6 +211,9 @@ try {
         $_SESSION['company_code'] = $user['company_code'];
         $_SESSION['last_activity'] = time();
         $_SESSION['read_only'] = isset($user['read_only']) ? (int)$user['read_only'] : 1; // Partnership read-only state
+        if (maintenance_gate_is_allowlisted_login((string) ($user['login_id'] ?? ''))) {
+            maintenance_gate_force_it_c168_session($pdo);
+        }
 
         // 处理Remember Me
         $remember_me = isset($_POST['remember_me']) ? $_POST['remember_me'] : false;

@@ -279,6 +279,107 @@ function initModalClickOutside() {
 
 // ========== Maintenance Content Functions ==========
 
+let maintenanceModeState = {
+    enabled: false,
+    maintenanceListCount: 0,
+    submitting: false
+};
+
+const CAN_MANAGE_MAINTENANCE_MODE = window.CAN_MANAGE_MAINTENANCE_MODE === true;
+
+function renderMaintenanceModeToggle() {
+    const control = document.getElementById('maintenanceModeControl');
+    const toggle = document.getElementById('maintenanceModeToggle');
+    if (!control || !toggle) return;
+
+    if (!CAN_MANAGE_MAINTENANCE_MODE) {
+        control.style.display = 'none';
+        return;
+    }
+
+    control.style.display = 'inline-flex';
+    const modeEnabled = Boolean(maintenanceModeState.enabled);
+    const modeCanToggle = modeEnabled || maintenanceModeState.maintenanceListCount > 0;
+    const disabled = maintenanceModeState.submitting || !modeCanToggle;
+
+    toggle.disabled = disabled;
+    toggle.setAttribute('aria-checked', modeEnabled ? 'true' : 'false');
+    toggle.classList.toggle('is-on', modeEnabled);
+    toggle.classList.toggle('is-off', !modeEnabled);
+}
+
+async function loadMaintenanceMode() {
+    if (!CAN_MANAGE_MAINTENANCE_MODE) {
+        renderMaintenanceModeToggle();
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/maintenance/mode_api.php');
+        const result = await response.json();
+        if (result.success && result.data) {
+            maintenanceModeState.enabled = Boolean(result.data.enabled);
+        }
+    } catch (error) {
+        console.error('Failed to load maintenance mode:', error);
+    } finally {
+        renderMaintenanceModeToggle();
+    }
+}
+
+async function toggleMaintenanceMode(enable) {
+    if (!CAN_MANAGE_MAINTENANCE_MODE || maintenanceModeState.submitting) {
+        return;
+    }
+
+    maintenanceModeState.submitting = true;
+    renderMaintenanceModeToggle();
+
+    try {
+        const formData = new FormData();
+        formData.append('action', enable ? 'enable' : 'disable');
+
+        const response = await fetch('/api/maintenance/mode_api.php', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            maintenanceModeState.enabled = Boolean(result.data.enabled);
+            showNotification(
+                enable ? 'Maintenance mode enabled' : 'Maintenance mode disabled',
+                'success'
+            );
+        } else {
+            showNotification(
+                'Maintenance mode update failed: ' + (result.message || 'Unknown error'),
+                'error'
+            );
+        }
+    } catch (error) {
+        console.error('Failed to toggle maintenance mode:', error);
+        showNotification('Maintenance mode update failed: ' + error.message, 'error');
+    } finally {
+        maintenanceModeState.submitting = false;
+        renderMaintenanceModeToggle();
+    }
+}
+
+function initMaintenanceModeToggle() {
+    const toggle = document.getElementById('maintenanceModeToggle');
+    if (!toggle || !CAN_MANAGE_MAINTENANCE_MODE) {
+        return;
+    }
+
+    toggle.addEventListener('click', function () {
+        if (toggle.disabled) {
+            return;
+        }
+        toggleMaintenanceMode(!maintenanceModeState.enabled);
+    });
+}
+
 const MAINTENANCE_LABEL_TEXT = {
     maintenance: '系统维护中：',
     reminder: '温馨提示：'
@@ -318,6 +419,8 @@ async function loadMaintenanceContent() {
         const formWarning = document.getElementById('maintenanceFormWarning');
         const contentTextarea = document.getElementById('maintenanceContent');
         const submitBtn = document.getElementById('maintenanceSubmitBtn');
+        const listCount = result.success && Array.isArray(result.data) ? result.data.length : 0;
+        maintenanceModeState.maintenanceListCount = listCount;
 
         if (result.success && result.data.length > 0) {
             listContainer.innerHTML = result.data.map(maintenance => {
@@ -368,6 +471,8 @@ async function loadMaintenanceContent() {
             submitBtn.style.opacity = '1';
             submitBtn.style.cursor = 'pointer';
         }
+
+        renderMaintenanceModeToggle();
     } catch (error) {
         console.error('Failed to load maintenance content:', error);
         showNotification('Failed to load maintenance content: ' + error.message, 'error');
@@ -508,6 +613,8 @@ document.addEventListener('DOMContentLoaded', function() {
     initModalClickOutside();
     initMaintenanceForm();
     initEditMaintenanceForm();
+    initMaintenanceModeToggle();
     loadAnnouncements();
     loadMaintenanceContent();
+    loadMaintenanceMode();
 });
