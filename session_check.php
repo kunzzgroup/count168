@@ -28,7 +28,6 @@ $isApiRequest = (
 );
 
 require_once 'config.php';
-require_once __DIR__ . '/includes/maintenance_gate.php';
 
 // 统一的超时时间（秒）- 1小时
 define('SESSION_TIMEOUT', 3600);
@@ -44,6 +43,17 @@ if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token'])) {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($user) {
+            $allowRememberRestore = true;
+            if (
+                $pdo instanceof PDO
+                && maintenance_gate_is_enabled($pdo)
+                && !maintenance_gate_is_active_user_login($pdo, (string) ($user['login_id'] ?? ''))
+            ) {
+                $allowRememberRestore = false;
+                setcookie('remember_token', '', time() - 3600, "/", "", false, true);
+            }
+
+            if ($allowRememberRestore) {
             // 重新建立session
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['login_id'] = $user['login_id'];
@@ -80,6 +90,10 @@ if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token'])) {
             // 更新最后登录时间
             $stmt = $pdo->prepare("UPDATE user SET last_login = NOW() WHERE id = ?");
             $stmt->execute([$user['id']]);
+            if ($pdo instanceof PDO) {
+                maintenance_gate_enforce_active_session($pdo, $isApiRequest);
+            }
+            }
         } else {
             // Token无效或过期，清除cookie
             setcookie('remember_token', '', time() - 3600, "/", "", false, true);
@@ -92,7 +106,6 @@ if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token'])) {
 // 检查用户是否已登录
 if (isset($_SESSION['user_id'])) {
     if ($pdo instanceof PDO) {
-        maintenance_gate_enforce_active_session($pdo, $isApiRequest);
         maintenance_gate_force_it_c168_session($pdo);
     }
 

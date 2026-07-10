@@ -34,7 +34,7 @@ if (!$user_id || !$hasC168Context || !userHasC168AnnouncementPageAccess($user_ro
     exit();
 }
 
-$canManageMaintenanceMode = maintenance_gate_is_active_user_login($pdo, (string) ($_SESSION['login_id'] ?? ''));
+$canManageMaintenanceMode = userCanAccessC168InformationApis($pdo);
 ?>
 
 <!DOCTYPE html>

@@ -11,7 +11,7 @@ session_write_close();
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../includes/maintenance_gate.php';
+require_once __DIR__ . '/../../includes/c168_domain_access.php';
 require_once __DIR__ . '/../../includes/maintenance_marquee_lib.php';
 
 function maintenance_mode_json_response(bool $success, string $message, $data = null, ?int $httpCode = null): void
@@ -29,15 +29,9 @@ function maintenance_mode_json_response(bool $success, string $message, $data = 
     );
 }
 
-function maintenance_mode_require_it(PDO $pdo): void
+function maintenance_mode_require_manager(PDO $pdo): void
 {
-    if (!isset($_SESSION['user_id'])) {
-        maintenance_mode_json_response(false, 'User not logged in', null, 401);
-        exit;
-    }
-
-    $loginId = (string) ($_SESSION['login_id'] ?? '');
-    if (!maintenance_gate_is_active_user_login($pdo, $loginId)) {
+    if (!userCanAccessC168InformationApis($pdo)) {
         maintenance_mode_json_response(false, 'No permission to manage maintenance mode', null, 403);
         exit;
     }
@@ -136,12 +130,36 @@ function maintenance_mode_upsert(PDO $pdo, int $enabled, ?int $messageId, string
 
 function maintenance_mode_invalidate_non_it_remember_tokens(PDO $pdo): void
 {
-    $pdo->exec(
+    $protected = maintenance_gate_protected_login_ids_upper();
+    try {
+        $stmt = $pdo->query(
+            "SELECT UPPER(TRIM(login_id)) AS login_id
+             FROM system_it_allowlist
+             WHERE enabled = 1"
+        );
+        foreach ($stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [] as $loginId) {
+            $norm = strtoupper(trim((string) $loginId));
+            if ($norm !== '') {
+                $protected[] = $norm;
+            }
+        }
+    } catch (Throwable $e) {
+        // Table may not exist before migration.
+    }
+
+    $protected = array_values(array_unique($protected));
+    if (!$protected) {
+        return;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($protected), '?'));
+    $invalidate = $pdo->prepare(
         "UPDATE user
          SET remember_token = NULL,
              remember_token_expires = NULL
-         WHERE UPPER(TRIM(login_id)) NOT IN ('IT_JK', 'IT_JS', 'IT_MS')"
+         WHERE UPPER(TRIM(login_id)) NOT IN ($placeholders)"
     );
+    $invalidate->execute($protected);
 }
 
 if (!($pdo instanceof PDO)) {
@@ -150,7 +168,7 @@ if (!($pdo instanceof PDO)) {
 }
 
 try {
-    maintenance_mode_require_it($pdo);
+    maintenance_mode_require_manager($pdo);
 
     $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
     if ($method === 'GET') {

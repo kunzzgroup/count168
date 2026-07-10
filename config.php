@@ -31,4 +31,18 @@ $smtp_user = 'maxjk77777@gmail.com';           // 你的 Gmail，如 yourname@gm
 $smtp_pass = 'icwe kjwy otmg pjkw';           // 上一步生成的应用专用密码（16 位）
 $smtp_from_email = '';     // 留空则用 smtp_user
 $smtp_from_name = 'EazyCount';
+
+// 全局维护模式检查：凡已登录且加载 config 的请求（页面 + API）统一在此拦截
+require_once __DIR__ . '/includes/maintenance_gate.php';
+if (
+    session_status() === PHP_SESSION_ACTIVE
+    && isset($_SESSION['user_id'])
+    && isset($pdo)
+    && $pdo instanceof PDO
+    && !maintenance_gate_should_skip_enforcement()
+) {
+    $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+    $isApiRequest = str_contains($scriptName, '/api/');
+    maintenance_gate_enforce_active_session($pdo, $isApiRequest);
+}
 ?>

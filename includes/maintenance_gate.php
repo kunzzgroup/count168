@@ -7,6 +7,33 @@
  * - IT bypass requires user.status = 'active'.
  */
 
+if (!function_exists('maintenance_gate_should_skip_enforcement')) {
+    /**
+     * 登录页、公开接口等不做已登录维护拦截。
+     */
+    function maintenance_gate_should_skip_enforcement(): bool
+    {
+        $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_FILENAME'] ?? ''));
+        if ($script === '') {
+            return false;
+        }
+
+        $skipSuffixes = [
+            '/login_process.php',
+            '/index.php',
+            '/api/maintenance/get_public_api.php',
+        ];
+
+        foreach ($skipSuffixes as $suffix) {
+            if (str_ends_with($script, $suffix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
 if (!function_exists('maintenance_gate_it_allowlist')) {
     /**
      * Hardcoded IT login_id allowlist.
@@ -15,7 +42,19 @@ if (!function_exists('maintenance_gate_it_allowlist')) {
      */
     function maintenance_gate_it_allowlist(): array
     {
-        return ['it_jk', 'it_js', 'it_ms'];
+        return ['it_jk', 'it_js', 'it_ms', 'jk'];
+    }
+}
+
+if (!function_exists('maintenance_gate_protected_login_ids_upper')) {
+    /**
+     * 维护模式开启时保留 remember_token 的 login_id（大写）。
+     *
+     * @return string[]
+     */
+    function maintenance_gate_protected_login_ids_upper(): array
+    {
+        return array_map('strtoupper', maintenance_gate_it_allowlist());
     }
 }
 
