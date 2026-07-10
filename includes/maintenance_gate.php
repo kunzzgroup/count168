@@ -19,6 +19,16 @@ if (!function_exists('maintenance_gate_it_allowlist')) {
     }
 }
 
+if (!function_exists('maintenance_gate_it_scope_groups')) {
+    /**
+     * @return string[]
+     */
+    function maintenance_gate_it_scope_groups(): array
+    {
+        return ['AP', 'IG'];
+    }
+}
+
 if (!function_exists('maintenance_gate_norm_login_id')) {
     function maintenance_gate_norm_login_id(?string $loginId): string
     {
@@ -266,24 +276,40 @@ if (!function_exists('maintenance_gate_build_login_reject_payload')) {
 
 if (!function_exists('maintenance_gate_get_c168_company_row')) {
     /**
-     * @return array{id:int, company_id:string}|null
+     * @return array{id:int, company_id:string, group_id:?string}|null
      */
     function maintenance_gate_get_c168_company_row(PDO $pdo): ?array
     {
         try {
             $stmt = $pdo->query(
-                "SELECT id, company_id
+                "SELECT id, company_id, group_id
                  FROM company
                  WHERE UPPER(TRIM(company_id)) = 'C168'
                  LIMIT 1"
             );
             $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
             if (!$row || !isset($row['id'])) {
+                $groups = maintenance_gate_it_scope_groups();
+                $placeholders = implode(',', array_fill(0, count($groups), '?'));
+                $fallback = $pdo->prepare(
+                    "SELECT id, company_id, group_id
+                     FROM company
+                     WHERE UPPER(TRIM(group_id)) IN ($placeholders)
+                     ORDER BY company_id ASC
+                     LIMIT 1"
+                );
+                $fallback->execute($groups);
+                $row = $fallback->fetch(PDO::FETCH_ASSOC) ?: null;
+            }
+            if (!$row || !isset($row['id'])) {
                 return null;
             }
             return [
                 'id' => (int) $row['id'],
                 'company_id' => (string) ($row['company_id'] ?? 'C168'),
+                'group_id' => isset($row['group_id']) && trim((string) $row['group_id']) !== ''
+                    ? strtoupper(trim((string) $row['group_id']))
+                    : null,
             ];
         } catch (Throwable $e) {
             error_log('maintenance_gate_get_c168_company_row failed: ' . $e->getMessage());
@@ -309,7 +335,7 @@ if (!function_exists('maintenance_gate_force_it_c168_session')) {
         $_SESSION['company_code'] = (string) $company['company_id'];
         $_SESSION['login_scope'] = 'company';
         $_SESSION['login_identifier'] = (string) $company['company_id'];
-        $_SESSION['login_group_id'] = null;
+        $_SESSION['login_group_id'] = $company['group_id'] ?? null;
         $_SESSION['login_group_scope_id'] = null;
     }
 }
