@@ -173,49 +173,39 @@ export function MaintenancePanel({
           <h2 style={{ marginTop: 0, color: "#002C49", fontFamily: "var(--font-heading-page)", fontSize: "clamp(16px, 1.25vw, 24px)", marginBottom: "clamp(8px, 0.73vw, 14px)" }}>
             {t("createNewMaintenanceContent")}
           </h2>
-          <div
-            style={{
-              background: maintenanceMode?.enabled ? "#fee2e2" : "#ecfdf5",
-              border: maintenanceMode?.enabled ? "1px solid #ef4444" : "1px solid #10b981",
-              borderRadius: 8,
-              padding: 12,
-              marginBottom: 16,
-              color: maintenanceMode?.enabled ? "#991b1b" : "#065f46",
-              fontSize: "clamp(11px, 0.73vw, 14px)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-              <div>
-                <strong>{t("modeStatusLabel")}:</strong>{" "}
+          <div className={`maintenance-mode-card ${maintenanceMode?.enabled ? "is-enabled" : "is-disabled"}`}>
+            <div className="maintenance-mode-header">
+              <span className="maintenance-mode-label">{t("modeStatusLabel")}</span>
+              <span className={`maintenance-mode-pill ${maintenanceMode?.enabled ? "is-enabled" : "is-disabled"}`}>
                 {maintenanceMode?.enabled ? t("modeOn") : t("modeOff")}
-                {maintenanceMode?.message_preview ? (
-                  <div style={{ marginTop: 6, opacity: 0.9 }}>{maintenanceMode.message_preview}</div>
-                ) : null}
-              </div>
-              {canManageMaintenanceMode ? (
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    type="button"
-                    className="btn btn-save"
-                    disabled={modeSubmitting || maintenanceMode?.enabled || maintenanceList.length === 0}
-                    onClick={onEnableMaintenanceMode}
-                  >
-                    {modeSubmitting && !maintenanceMode?.enabled ? t("modeApplying") : t("modeEnableButton")}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-delete"
-                    disabled={modeSubmitting || !maintenanceMode?.enabled}
-                    onClick={onDisableMaintenanceMode}
-                  >
-                    {modeSubmitting && maintenanceMode?.enabled ? t("modeApplying") : t("modeDisableButton")}
-                  </button>
-                </div>
-              ) : null}
+              </span>
             </div>
+            {maintenanceMode?.message_preview ? (
+              <p className="maintenance-mode-preview">{maintenanceMode.message_preview}</p>
+            ) : null}
+            {canManageMaintenanceMode ? (
+              <div className="maintenance-mode-actions">
+                <button
+                  type="button"
+                  className="maintenance-mode-btn maintenance-mode-btn--enable"
+                  disabled={modeSubmitting || maintenanceMode?.enabled || maintenanceList.length === 0}
+                  onClick={onEnableMaintenanceMode}
+                >
+                  {modeSubmitting ? t("modeApplying") : t("modeEnableButton")}
+                </button>
+                <button
+                  type="button"
+                  className="maintenance-mode-btn maintenance-mode-btn--disable"
+                  disabled={modeSubmitting || !maintenanceMode?.enabled}
+                  onClick={onDisableMaintenanceMode}
+                >
+                  {modeSubmitting ? t("modeApplying") : t("modeDisableButton")}
+                </button>
+              </div>
+            ) : null}
           </div>
           {!canCreate && (
-            <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 8, padding: 12, marginBottom: 16, color: "#92400e", fontSize: "clamp(11px, 0.73vw, 14px)" }}>
+            <div className="maintenance-singleton-hint">
               <strong>⚠️ {t("noticeLabel")}:</strong> {t("maintenanceNotice")}
             </div>
           )}
