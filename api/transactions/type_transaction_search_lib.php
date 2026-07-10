@@ -77,6 +77,126 @@ function typeTxSearchBuildDescription(array $row): string
     return strtoupper(trim($description));
 }
 
+/**
+ * Type Search Phase 1: only manual settlement rows per form type (account To-side canonical description).
+ */
+function typeTxSearchSupportsPureManualFilter(string $formType): bool
+{
+    return in_array(strtoupper(trim($formType)), ['PAYMENT', 'CONTRA', 'ADJUSTMENT', 'RATE'], true);
+}
+
+function typeTxSearchIsExcludedNonManualPayment(string $sms, string $canonicalUpper): bool
+{
+    $sms = (string) $sms;
+    $desc = strtoupper(trim($canonicalUpper));
+    if (stripos($sms, '[DOMAIN_SHARE_COMMISSION|') === 0 || stripos($sms, '[AUTO_RENEW|COMMISSION|') === 0) {
+        return true;
+    }
+    if (stripos($sms, '[DOMAIN_NET_PROFIT|') === 0 || stripos($sms, '[AUTO_RENEW|NET_PROFIT|') === 0) {
+        return true;
+    }
+    if (
+        stripos($sms, '[DOMAIN_LIST_FEE|') === 0
+        || strpos($desc, 'DOMAIN LIST FEE FROM ') === 0
+        || strpos($desc, 'PAY DOMAIN FEE') === 0
+        || (stripos($sms, '[AUTO_RENEW|') === 0
+            && stripos($sms, '[AUTO_RENEW|COMMISSION|') !== 0
+            && stripos($sms, '[AUTO_RENEW|NET_PROFIT|') !== 0)
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+function typeTxSearchPassesPureManualFilter(string $formType, array $row): bool
+{
+    $formType = strtoupper(trim($formType));
+    if (!typeTxSearchSupportsPureManualFilter($formType)) {
+        return true;
+    }
+    if ($formType === 'RATE') {
+        return typeTxSearchIsPureRateEntryDescription((string) ($row['description'] ?? ''));
+    }
+
+    $canonical = typeTxSearchBuildDescription($row);
+    switch ($formType) {
+        case 'PAYMENT':
+            if (strpos($canonical, 'PAYMENT FROM ') !== 0) {
+                return false;
+            }
+
+            return !typeTxSearchIsExcludedNonManualPayment((string) ($row['sms'] ?? ''), $canonical);
+        case 'CONTRA':
+            return strpos($canonical, 'CONTRA FROM ') === 0;
+        case 'ADJUSTMENT':
+            return strpos($canonical, 'ADJUSTMENT - WIN/LOSS') === 0;
+        default:
+            return true;
+    }
+}
+
+/**
+ * Manual RATE entry descriptions stored as "Transaction from|to X (Rate: n)" per account perspective.
+ */
+function typeTxSearchIsPureRateEntryDescription(string $description): bool
+{
+    $description = trim($description);
+    if ($description === '' || strtoupper($description) === 'RATE') {
+        return false;
+    }
+
+    return (bool) preg_match(
+        '/^Transaction\s+(?:from|to)\s+.+\s*\((?:Rate|RATE):\s*[^)]+\)\s*$/i',
+        $description
+    );
+}
+
+function typeTxSearchPureManualSqlFragment(string $formType, string $alias = 't'): string
+{
+    $formType = strtoupper(trim($formType));
+    if (!in_array($formType, ['PAYMENT', 'CONTRA', 'ADJUSTMENT'], true)) {
+        return '';
+    }
+
+    $desc = "UPPER(TRIM(COALESCE({$alias}.description, '')))";
+    $sms = "COALESCE({$alias}.sms, '')";
+    $emptyDesc = "TRIM(COALESCE({$alias}.description, '')) = ''";
+    $hasFrom = "{$alias}.from_account_id IS NOT NULL AND {$alias}.from_account_id > 0";
+
+    switch ($formType) {
+        case 'PAYMENT':
+            return " AND (
+                    ({$emptyDesc} AND {$hasFrom})
+                    OR {$desc} LIKE 'PAYMENT FROM %'
+                )
+                AND {$sms} NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
+                AND {$sms} NOT LIKE '[AUTO_RENEW|COMMISSION|%'
+                AND {$sms} NOT LIKE '[DOMAIN_NET_PROFIT|%'
+                AND {$sms} NOT LIKE '[AUTO_RENEW|NET_PROFIT|%'
+                AND {$sms} NOT LIKE '[DOMAIN_LIST_FEE|%'
+                AND {$desc} NOT LIKE 'DOMAIN LIST FEE FROM %'
+                AND {$desc} NOT LIKE 'PAY DOMAIN FEE%'
+                AND NOT (
+                    {$sms} LIKE '[AUTO_RENEW|%'
+                    AND {$sms} NOT LIKE '[AUTO_RENEW|COMMISSION|%'
+                    AND {$sms} NOT LIKE '[AUTO_RENEW|NET_PROFIT|%'
+                )";
+        case 'CONTRA':
+            return " AND (
+                    ({$emptyDesc} AND {$hasFrom})
+                    OR {$desc} LIKE 'CONTRA FROM %'
+                )";
+        case 'ADJUSTMENT':
+            return " AND (
+                    {$emptyDesc}
+                    OR {$desc} LIKE 'ADJUSTMENT - WIN/LOSS%'
+                )";
+        default:
+            return '';
+    }
+}
+
 function typeTxSearchSignedCrDrToAccount(string $type, string $amount, string $sms = '', string $description = ''): string
 {
     $amt = money_out($amount ?? '0');
@@ -88,20 +208,10 @@ function typeTxSearchSignedCrDrToAccount(string $type, string $amount, string $s
         return searchMoneyNeg($amt);
     }
     if ($type === 'PAYMENT') {
-        if (stripos($sms, '[DOMAIN_SHARE_COMMISSION|') === 0 || stripos($sms, '[AUTO_RENEW|COMMISSION|') === 0) {
-            return $amt;
-        }
-        if (stripos($sms, '[DOMAIN_NET_PROFIT|') === 0 || stripos($sms, '[AUTO_RENEW|NET_PROFIT|') === 0) {
-            return '0.00';
-        }
-        if (
-            stripos($sms, '[DOMAIN_LIST_FEE|') === 0
-            || stripos($desc, 'DOMAIN LIST FEE FROM ') === 0
-            || (stripos($sms, '[AUTO_RENEW|') === 0
-                && stripos($sms, '[AUTO_RENEW|COMMISSION|') !== 0
-                && stripos($sms, '[AUTO_RENEW|NET_PROFIT|') !== 0)
-        ) {
-            return $amt;
+        if (typeTxSearchIsExcludedNonManualPayment($sms, $desc)) {
+            return stripos($sms, '[DOMAIN_NET_PROFIT|') === 0 || stripos($sms, '[AUTO_RENEW|NET_PROFIT|') === 0
+                ? '0.00'
+                : $amt;
         }
 
         return searchMoneyNeg($amt);
@@ -198,6 +308,7 @@ function typeTxSearchFetchTransactions(
     $bankSrcSql = typeAccountSearchHasSourceBankProcessColumn($pdo)
         ? typeAccountSearchSourceBankProcessExcludeSql('t')
         : '';
+    $pureManualSql = typeTxSearchPureManualSqlFragment($formType, 't');
 
     $sql = "SELECT
                 t.id AS transaction_id,
@@ -220,7 +331,8 @@ function typeTxSearchFetchTransactions(
               AND t.transaction_type IN ({$inTypes})
               {$approvalSql}
               {$bankDescSql}
-              {$bankSrcSql}";
+              {$bankSrcSql}
+              {$pureManualSql}";
 
     $params = [(int) $txnFilter['bind']];
     if (!empty($currencyFilters) && $schema['currency_filter_field'] !== null) {
@@ -233,7 +345,11 @@ function typeTxSearchFetchTransactions(
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $rows = [];
+    $formTypeUpper = strtoupper(trim($formType));
     while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        if (!typeTxSearchPassesPureManualFilter($formTypeUpper, $r)) {
+            continue;
+        }
         $rows[] = typeTxSearchRowToGrid($r);
     }
 
@@ -290,9 +406,8 @@ function typeTxSearchFetchRateTransactions(PDO $pdo, array $listScope, array $cu
     $stmt->execute($params);
     $rows = [];
     while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $desc = trim((string) ($r['description'] ?? ''));
-        if ($desc === '') {
-            $r['description'] = 'RATE';
+        if (!typeTxSearchPassesPureManualFilter('RATE', $r)) {
+            continue;
         }
         $grid = typeTxSearchRowToGrid($r);
         $grid['cr_dr'] = searchMoneyHalfUp2(money_out($r['amount'] ?? '0'));
