@@ -1,7 +1,7 @@
 <?php
 /**
  * Type Search × Capture Date: period-scoped metrics with all-time account eligibility.
- * Phase 1: CONTRA (pure manual, To-account perspective).
+ * Phase 1: CONTRA (pure manual, To + From account perspectives).
  */
 
 require_once __DIR__ . '/transaction_scope.php';
@@ -71,7 +71,7 @@ function typePeriodSearchIsSupported(string $formType): bool
 }
 
 /**
- * Accounts that ever had pure manual CONTRA on the To side.
+ * Accounts that ever had pure manual CONTRA (To or From side).
  *
  * @return int[]
  */
@@ -90,24 +90,38 @@ function typePeriodSearchFetchEligibleAccountIds(PDO $pdo, array $listScope, str
         : '';
     $pureManualSql = typeTxSearchPureManualSqlFragment('CONTRA', 't');
 
-    $sql = "SELECT DISTINCT t.account_id AS account_id
-            FROM transactions t
-            WHERE {$txnFilter['sql']}
-              AND t.account_id IS NOT NULL
-              AND t.account_id > 0
-              AND t.transaction_type = 'CONTRA'
-              {$approvalSql}
-              {$bankDescSql}
-              {$bankSrcSql}
-              {$pureManualSql}";
+    $queries = [
+        "SELECT DISTINCT t.account_id AS account_id
+         FROM transactions t
+         WHERE {$txnFilter['sql']}
+           AND t.account_id IS NOT NULL
+           AND t.account_id > 0
+           AND t.transaction_type = 'CONTRA'
+           {$approvalSql}
+           {$bankDescSql}
+           {$bankSrcSql}
+           {$pureManualSql}",
+        "SELECT DISTINCT t.from_account_id AS account_id
+         FROM transactions t
+         WHERE {$txnFilter['sql']}
+           AND t.from_account_id IS NOT NULL
+           AND t.from_account_id > 0
+           AND t.transaction_type = 'CONTRA'
+           {$approvalSql}
+           {$bankDescSql}
+           {$bankSrcSql}
+           {$pureManualSql}",
+    ];
 
     $ids = [];
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([(int) $txnFilter['bind']]);
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $id = (int) ($row['account_id'] ?? 0);
-        if ($id > 0) {
-            $ids[$id] = true;
+    foreach ($queries as $sql) {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([(int) $txnFilter['bind']]);
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $id = (int) ($row['account_id'] ?? 0);
+            if ($id > 0) {
+                $ids[$id] = true;
+            }
         }
     }
 
@@ -115,7 +129,119 @@ function typePeriodSearchFetchEligibleAccountIds(PDO $pdo, array $listScope, str
 }
 
 /**
- * Bulk pure CONTRA metrics per account + currency (To-account signed -amount).
+ * @param array<int, array<int, string>> $bucket
+ */
+function typePeriodSearchAccumulateBucketRow(array &$bucket, int $accountId, int $currencyId, string $amount): void
+{
+    if ($accountId <= 0 || $currencyId <= 0) {
+        return;
+    }
+    $bucket[$accountId][$currencyId] = money_add($bucket[$accountId][$currencyId] ?? '0', money_out($amount), 8);
+}
+
+/**
+ * @param 'to'|'from' $side
+ * @param int[] $accountIds
+ * @param string[] $currencyCodes
+ * @return array{bf: array<int, array<int, string>>, cr_dr: array<int, array<int, string>>, currencies: array<int, array<int, string>>}
+ */
+function typePeriodSearchFetchContraSideMetrics(
+    PDO $pdo,
+    array $listScope,
+    string $dateFromDb,
+    string $dateToDb,
+    array $accountIds,
+    array $currencyCodes,
+    string $side
+): array {
+    $empty = ['bf' => [], 'cr_dr' => [], 'currencies' => []];
+    $accountIds = array_values(array_unique(array_filter(array_map('intval', $accountIds), static fn (int $id): bool => $id > 0)));
+    if ($accountIds === [] || !in_array($side, ['to', 'from'], true)) {
+        return $empty;
+    }
+
+    $txnFilter = tx_search_transaction_filter($pdo, $listScope, 't');
+    $approvalSql = tx_sql_transaction_approval_where($pdo, 't');
+    $bankDescSql = typeAccountSearchBankProcessDescriptionExcludeSql('t');
+    $bankSrcSql = typeAccountSearchHasSourceBankProcessColumn($pdo)
+        ? typeAccountSearchSourceBankProcessExcludeSql('t')
+        : '';
+    $pureManualSql = typeTxSearchPureManualSqlFragment('CONTRA', 't');
+    $signedAmt = $side === 'to'
+        ? dcd_processed_amount_sql_quant2('(-t.amount)')
+        : dcd_processed_amount_sql_quant2('t.amount');
+    $dateExpr = 'DATE(t.transaction_date)';
+    $accountCol = $side === 'to' ? 't.account_id' : 't.from_account_id';
+
+    $accPh = implode(',', array_fill(0, count($accountIds), '?'));
+    $sql = "SELECT
+                {$accountCol} AS account_id,
+                t.currency_id,
+                COALESCE((
+                    SELECT UPPER(TRIM(c2.code))
+                    FROM currency c2
+                    WHERE c2.id = t.currency_id
+                    LIMIT 1
+                ), '') AS currency_code,
+                COALESCE(SUM(CASE WHEN {$dateExpr} < ? THEN {$signedAmt} ELSE 0 END), 0) AS bf_total,
+                COALESCE(SUM(CASE WHEN {$dateExpr} BETWEEN ? AND ? THEN {$signedAmt} ELSE 0 END), 0) AS cr_dr_total
+            FROM transactions t
+            WHERE {$txnFilter['sql']}
+              AND {$accountCol} IN ({$accPh})
+              AND t.transaction_type = 'CONTRA'
+              AND t.currency_id IS NOT NULL
+              {$approvalSql}
+              {$bankDescSql}
+              {$bankSrcSql}
+              {$pureManualSql}";
+
+    $params = [
+        $dateFromDb,
+        $dateFromDb,
+        $dateToDb,
+        (int) $txnFilter['bind'],
+    ];
+    $params = array_merge($params, $accountIds);
+
+    if ($currencyCodes !== []) {
+        $curPh = implode(',', array_fill(0, count($currencyCodes), '?'));
+        $sql .= " AND EXISTS (
+            SELECT 1
+            FROM currency c
+            WHERE c.id = t.currency_id
+              AND UPPER(TRIM(c.code)) IN ({$curPh})
+        )";
+        $params = array_merge($params, $currencyCodes);
+    }
+
+    $sql .= " GROUP BY {$accountCol}, t.currency_id";
+
+    $bf = [];
+    $crDr = [];
+    $currencies = [];
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $aid = (int) ($row['account_id'] ?? 0);
+        $cid = (int) ($row['currency_id'] ?? 0);
+        $code = strtoupper(trim((string) ($row['currency_code'] ?? '')));
+        if ($aid <= 0 || $cid <= 0 || $code === '') {
+            continue;
+        }
+        $bf[$aid][$cid] = money_out($row['bf_total'] ?? '0');
+        $crDr[$aid][$cid] = money_out($row['cr_dr_total'] ?? '0');
+        $currencies[$aid][$cid] = $code;
+    }
+
+    return [
+        'bf' => $bf,
+        'cr_dr' => $crDr,
+        'currencies' => $currencies,
+    ];
+}
+
+/**
+ * Bulk pure CONTRA metrics per account + currency (To: -amount, From: +amount).
  *
  * @param int[] $accountIds
  * @param string[] $currencyCodes upper codes; empty = all
@@ -143,78 +269,49 @@ function typePeriodSearchBulkContraMetrics(
         return $empty;
     }
 
-    $txnFilter = tx_search_transaction_filter($pdo, $listScope, 't');
-    $approvalSql = tx_sql_transaction_approval_where($pdo, 't');
-    $bankDescSql = typeAccountSearchBankProcessDescriptionExcludeSql('t');
-    $bankSrcSql = typeAccountSearchHasSourceBankProcessColumn($pdo)
-        ? typeAccountSearchSourceBankProcessExcludeSql('t')
-        : '';
-    $pureManualSql = typeTxSearchPureManualSqlFragment('CONTRA', 't');
-    $signedAmt = dcd_processed_amount_sql_quant2('(-t.amount)');
-    $dateExpr = 'DATE(t.transaction_date)';
-
-    $accPh = implode(',', array_fill(0, count($accountIds), '?'));
-    $sql = "SELECT
-                t.account_id,
-                t.currency_id,
-                COALESCE((
-                    SELECT UPPER(TRIM(c2.code))
-                    FROM currency c2
-                    WHERE c2.id = t.currency_id
-                    LIMIT 1
-                ), '') AS currency_code,
-                COALESCE(SUM(CASE WHEN {$dateExpr} < ? THEN {$signedAmt} ELSE 0 END), 0) AS bf_total,
-                COALESCE(SUM(CASE WHEN {$dateExpr} BETWEEN ? AND ? THEN {$signedAmt} ELSE 0 END), 0) AS cr_dr_total
-            FROM transactions t
-            WHERE {$txnFilter['sql']}
-              AND t.account_id IN ({$accPh})
-              AND t.transaction_type = 'CONTRA'
-              AND t.currency_id IS NOT NULL
-              {$approvalSql}
-              {$bankDescSql}
-              {$bankSrcSql}
-              {$pureManualSql}";
-
-    $params = [
-        $dateFromDb,
-        $dateFromDb,
-        $dateToDb,
-        (int) $txnFilter['bind'],
-    ];
-    $params = array_merge($params, $accountIds);
-
     $currencyCodes = array_values(array_unique(array_filter(array_map(
         static fn ($c) => strtoupper(trim((string) $c)),
         $currencyCodes
     ), static fn (string $c): bool => $c !== '')));
-    if ($currencyCodes !== []) {
-        $curPh = implode(',', array_fill(0, count($currencyCodes), '?'));
-        $sql .= " AND EXISTS (
-            SELECT 1
-            FROM currency c
-            WHERE c.id = t.currency_id
-              AND UPPER(TRIM(c.code)) IN ({$curPh})
-        )";
-        $params = array_merge($params, $currencyCodes);
-    }
 
-    $sql .= ' GROUP BY t.account_id, t.currency_id';
+    $toSide = typePeriodSearchFetchContraSideMetrics(
+        $pdo,
+        $listScope,
+        $dateFromDb,
+        $dateToDb,
+        $accountIds,
+        $currencyCodes,
+        'to'
+    );
+    $fromSide = typePeriodSearchFetchContraSideMetrics(
+        $pdo,
+        $listScope,
+        $dateFromDb,
+        $dateToDb,
+        $accountIds,
+        $currencyCodes,
+        'from'
+    );
 
     $bf = [];
     $crDr = [];
     $currencies = [];
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $aid = (int) ($row['account_id'] ?? 0);
-        $cid = (int) ($row['currency_id'] ?? 0);
-        $code = strtoupper(trim((string) ($row['currency_code'] ?? '')));
-        if ($aid <= 0 || $cid <= 0 || $code === '') {
-            continue;
+    foreach ([$toSide, $fromSide] as $sidePack) {
+        foreach ($sidePack['bf'] ?? [] as $aid => $byCur) {
+            foreach ($byCur as $cid => $amt) {
+                typePeriodSearchAccumulateBucketRow($bf, (int) $aid, (int) $cid, $amt);
+            }
         }
-        $bf[$aid][$cid] = money_out($row['bf_total'] ?? '0');
-        $crDr[$aid][$cid] = money_out($row['cr_dr_total'] ?? '0');
-        $currencies[$aid][$cid] = $code;
+        foreach ($sidePack['cr_dr'] ?? [] as $aid => $byCur) {
+            foreach ($byCur as $cid => $amt) {
+                typePeriodSearchAccumulateBucketRow($crDr, (int) $aid, (int) $cid, $amt);
+            }
+        }
+        foreach ($sidePack['currencies'] ?? [] as $aid => $byCur) {
+            foreach ($byCur as $cid => $code) {
+                $currencies[(int) $aid][(int) $cid] = (string) $code;
+            }
+        }
     }
 
     return [

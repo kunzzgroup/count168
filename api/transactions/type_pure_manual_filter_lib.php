@@ -200,14 +200,17 @@ function typeTxSearchPassesPureHistoryEvent(string $formType, array $event): boo
             return strpos($desc, 'PAYMENT FROM ') === 0
                 && !typeTxSearchIsExcludedNonManualPayment($sms, $desc);
         case 'CONTRA':
-            if ($txType !== 'CONTRA' || empty($event['is_view_to_account'])) {
+            if ($txType !== 'CONTRA') {
                 return false;
             }
             if (typeTxSearchPassesPureManualFilter('CONTRA', typeTxSearchPureHistoryRowFromEvent($event))) {
                 return true;
             }
+            if (!empty($event['is_view_to_account'])) {
+                return strpos($desc, 'CONTRA FROM ') === 0;
+            }
 
-            return strpos($desc, 'CONTRA FROM ') === 0;
+            return strpos($desc, 'CONTRA TO ') === 0;
         case 'ADJUSTMENT':
             if (typeTxSearchPassesPureManualFilter('ADJUSTMENT', typeTxSearchPureHistoryRowFromEvent($event))) {
                 return true;
