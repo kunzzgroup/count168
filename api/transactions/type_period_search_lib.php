@@ -1,7 +1,7 @@
 <?php
 /**
  * Type Search × Capture Date: period-scoped metrics with all-time account eligibility.
- * Phase 1: CONTRA / PAYMENT / CLAIM / RATE / ADJUSTMENT (Cr/Dr) + PROFIT (Win/Loss).
+ * Phase 1: CONTRA / PAYMENT / CLAIM / CLEAR (Cr/Dr) + RATE / ADJUSTMENT + PROFIT (Win/Loss).
  */
 
 require_once __DIR__ . '/transaction_scope.php';
@@ -62,12 +62,12 @@ function typePeriodSearchCurrencyJoin(PDO $pdo, array $listScope): array
  */
 function typePeriodSearchSupportedFormTypes(): array
 {
-    return ['CONTRA', 'PAYMENT', 'CLAIM', 'RATE', 'ADJUSTMENT', 'PROFIT'];
+    return ['CONTRA', 'PAYMENT', 'CLAIM', 'CLEAR', 'RATE', 'ADJUSTMENT', 'PROFIT'];
 }
 
 function typePeriodSearchIsDualSideManualType(string $formType): bool
 {
-    return in_array(strtoupper(trim($formType)), ['CONTRA', 'PAYMENT', 'CLAIM'], true);
+    return in_array(strtoupper(trim($formType)), ['CONTRA', 'PAYMENT', 'CLAIM', 'CLEAR'], true);
 }
 
 function typePeriodSearchIsAdjustmentType(string $formType): bool
