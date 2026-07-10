@@ -810,6 +810,7 @@ export function useTransactionSearch({
         dateTo: dateToOverride,
         silent = false,
         preserveSearchState = false,
+        forceRefresh = false,
       } = opts;
       const normalizedType = String(formTxType || "").toUpperCase().trim();
       if (!normalizedType) return;
@@ -838,6 +839,11 @@ export function useTransactionSearch({
 
       setSearchLoading(true);
       try {
+        if (forceRefresh) {
+          clearTxSearchCache();
+          await queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
+        }
+
         const subsidiarySearch =
           scopeApi.subsidiaryAccountsOnly ||
           (scopeApi.companyId != null && Number(scopeApi.companyId) > 0);
@@ -938,53 +944,31 @@ export function useTransactionSearch({
       pushToast,
       m,
       t,
+      queryClient,
     ],
   );
 
-  /** After successful submit/approval: jump Capture Date to transaction date and refresh list. */
+  /** After successful submit/approval: jump to submit date and show that type's Type Search list. */
   const jumpToSubmitDateAndRefresh = useCallback(
-    async ({ submitDateDmy } = {}) => {
+    async ({ submitDateDmy, submitType } = {}) => {
       const d = String(submitDateDmy || "").trim();
-      if (!d) return;
+      const normalizedType = String(submitType || txType || "").toUpperCase().trim();
+      if (!d || !normalizedType) return;
 
       prevCaptureDateRangeKeyRef.current = `${d}|${d}`;
       setDateFrom(d);
       setDateTo(d);
       syncCaptureDateDom(d);
 
-      const activeType = typeSearchActive;
-      const activeFormType = typeSearchFormType;
-
-      if (activeType && activeFormType) {
-        const normalizedType = String(activeFormType).toUpperCase().trim();
-        if (PERIOD_TYPE_SEARCH_TYPES.has(normalizedType)) {
-          await runSearch({
-            forceRefresh: true,
-            silent: true,
-            dateFromOverride: d,
-            dateToOverride: d,
-            typeSearchOverride: true,
-          });
-          return;
-        }
-        await runTypeSearch(activeFormType, {
-          dateFrom: d,
-          dateTo: d,
-          silent: true,
-          preserveSearchState: true,
-        });
-        return;
-      }
-
-      await runSearch({
-        forceRefresh: true,
+      await runTypeSearch(normalizedType, {
+        dateFrom: d,
+        dateTo: d,
         silent: true,
-        dateFromOverride: d,
-        dateToOverride: d,
-        typeSearchOverride: false,
+        preserveSearchState: true,
+        forceRefresh: true,
       });
     },
-    [typeSearchActive, typeSearchFormType, runSearch, runTypeSearch],
+    [txType, runTypeSearch],
   );
 
   /** Exit Type Search and restore the default transaction page view (today + default filters). */

@@ -443,7 +443,7 @@ export function useTransactionForm({
           setRateTransferFromAccount(null);
           setRateMiddlemanAccount(null);
           if (approvalStatus !== "PENDING") {
-            await onAfterSuccessfulSubmit?.({ submitDateDmy: rateDate });
+            await onAfterSuccessfulSubmit?.({ submitDateDmy: rateDate, submitType: "RATE" });
           }
           return;
         }
@@ -554,7 +554,7 @@ export function useTransactionForm({
         setTxFullAmount("");
         setTxConfirm(false);
         if (approvalStatus !== "PENDING") {
-          await onAfterSuccessfulSubmit?.({ submitDateDmy: txDate });
+          await onAfterSuccessfulSubmit?.({ submitDateDmy: txDate, submitType: txType });
         }
         return;
       }

@@ -256,7 +256,7 @@ function TransactionPaymentPageMain() {
       const res = await ui.onApproveContra(opts.transactionId, scopeApi);
       const submitDate = String(opts.transactionDate || "").trim();
       if (res?.success && submitDate && submitDate !== "-") {
-        await search.jumpToSubmitDateAndRefresh({ submitDateDmy: submitDate });
+        await search.jumpToSubmitDateAndRefresh({ submitDateDmy: submitDate, submitType: "CONTRA" });
       }
     },
     [ui.onApproveContra, scopeApi, search.jumpToSubmitDateAndRefresh],
