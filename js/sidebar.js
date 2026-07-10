@@ -796,6 +796,9 @@
             if (response && !response.ok) {
                 response.clone().json().then(function (json) {
                     if (json && json.maintenance_mode === true) {
+                        try {
+                            sessionStorage.setItem('ec_maintenance_notice', json.message || '');
+                        } catch (e) { /* ignore */ }
                         window.location.href = 'index.php?maintenance=1';
                     }
                 }).catch(function () {});
@@ -824,9 +827,9 @@
             return;
         }
         redirecting = true;
-        if (message) {
-            try { sessionStorage.setItem('ec_maintenance_notice', message); } catch (e) {}
-        }
+        try {
+            sessionStorage.setItem('ec_maintenance_notice', message || '');
+        } catch (e) { /* ignore */ }
         window.location.href = 'index.php?maintenance=1';
     }
 

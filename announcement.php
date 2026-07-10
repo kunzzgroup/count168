@@ -34,7 +34,8 @@ if (!$user_id || !$hasC168Context || !userHasC168AnnouncementPageAccess($user_ro
     exit();
 }
 
-$canManageMaintenanceMode = userCanAccessC168InformationApis($pdo);
+// 仅 IT 白名单（IT_JK / IT_JS / IT_MS）可看到并操作 Maintenance Mode 开关
+$canManageMaintenanceMode = maintenance_gate_is_active_user_login($pdo, (string) ($_SESSION['login_id'] ?? ''));
 ?>
 
 <!DOCTYPE html>

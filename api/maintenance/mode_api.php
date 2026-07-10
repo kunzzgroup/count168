@@ -11,7 +11,6 @@ session_write_close();
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../includes/c168_domain_access.php';
 require_once __DIR__ . '/../../includes/maintenance_marquee_lib.php';
 
 function maintenance_mode_json_response(bool $success, string $message, $data = null, ?int $httpCode = null): void
@@ -29,9 +28,15 @@ function maintenance_mode_json_response(bool $success, string $message, $data = 
     );
 }
 
-function maintenance_mode_require_manager(PDO $pdo): void
+function maintenance_mode_require_it(PDO $pdo): void
 {
-    if (!userCanAccessC168InformationApis($pdo)) {
+    if (!isset($_SESSION['user_id'])) {
+        maintenance_mode_json_response(false, 'User not logged in', null, 401);
+        exit;
+    }
+
+    $loginId = (string) ($_SESSION['login_id'] ?? '');
+    if (!maintenance_gate_is_active_user_login($pdo, $loginId)) {
         maintenance_mode_json_response(false, 'No permission to manage maintenance mode', null, 403);
         exit;
     }
@@ -168,7 +173,7 @@ if (!($pdo instanceof PDO)) {
 }
 
 try {
-    maintenance_mode_require_manager($pdo);
+    maintenance_mode_require_it($pdo);
 
     $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
     if ($method === 'GET') {

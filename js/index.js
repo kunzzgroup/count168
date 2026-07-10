@@ -149,7 +149,7 @@
                 sessionStorage.removeItem(loginRetryKey);
                 window.location.href = data.redirect;
             } else {
-                showAlertModal('Notice', data.message);
+                showAlertModal('Notice', data.message || 'Login failed');
             }
         })
         .catch(error => {
@@ -242,7 +242,24 @@
         }
     }
 
+    function showMaintenanceLoginNotice() {
+        var notice = '';
+        try {
+            notice = sessionStorage.getItem('ec_maintenance_notice') || '';
+            if (notice) {
+                sessionStorage.removeItem('ec_maintenance_notice');
+            }
+        } catch (e) { /* ignore */ }
+        if (!notice && window.MAINTENANCE_LOGIN_NOTICE) {
+            notice = String(window.MAINTENANCE_LOGIN_NOTICE);
+        }
+        if (notice) {
+            showAlertModal('Notice', notice);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         loadMaintenanceContent();
+        showMaintenanceLoginNotice();
     });
 })();
