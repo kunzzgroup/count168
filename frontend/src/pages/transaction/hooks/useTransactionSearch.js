@@ -660,17 +660,10 @@ export function useTransactionSearch({
         saveTxListToSession(cleaned);
         lastCompletedSearchKeyRef.current = requestKey;
         lastCompletedSearchTsRef.current = Date.now();
-        const totalAccounts = (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
         const displayed = countDisplayedRows(cleaned, effectiveSearchState, presentationFormType, activeTypeSearch);
         setTablesVisible(displayed > 0);
-        if (!silent) {
-          if (totalAccounts === 0) {
-            pushToast(m.searchCompletedNoData, "info");
-          } else if (displayed === 0 && totalAccounts > 0) {
-            pushToast(t("searchReturnedRowsNoneMatch", { totalAccounts }), "info");
-          } else {
-            pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
-          }
+        if (!silent && displayed > 0) {
+          pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
         }
       };
 
@@ -836,7 +829,6 @@ export function useTransactionSearch({
             setRawSearchData({ left_table: [], right_table: [], totals: null });
             setTablesVisible(false);
             clearTxSearchCache();
-            pushToast(m.searchCompletedNoData, "info");
             return;
           }
 
@@ -884,9 +876,7 @@ export function useTransactionSearch({
         const displayed =
           (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
         setTablesVisible(displayed > 0);
-        if (displayed === 0) {
-          pushToast(m.searchCompletedNoData, "info");
-        } else {
+        if (displayed > 0) {
           pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
         }
       } catch (e) {
