@@ -1,7 +1,7 @@
 <?php
 /**
  * Type Search × Capture Date: period-scoped metrics with all-time account eligibility.
- * Phase 1: CONTRA / PAYMENT / CLAIM (Cr/Dr) + PROFIT (Win/Loss), pure manual, To + From perspectives.
+ * Phase 1: CONTRA / PAYMENT / CLAIM / RATE / ADJUSTMENT (Cr/Dr) + PROFIT (Win/Loss).
  */
 
 require_once __DIR__ . '/transaction_scope.php';
@@ -62,12 +62,22 @@ function typePeriodSearchCurrencyJoin(PDO $pdo, array $listScope): array
  */
 function typePeriodSearchSupportedFormTypes(): array
 {
-    return ['CONTRA', 'PAYMENT', 'CLAIM', 'PROFIT'];
+    return ['CONTRA', 'PAYMENT', 'CLAIM', 'RATE', 'ADJUSTMENT', 'PROFIT'];
 }
 
 function typePeriodSearchIsDualSideManualType(string $formType): bool
 {
     return in_array(strtoupper(trim($formType)), ['CONTRA', 'PAYMENT', 'CLAIM'], true);
+}
+
+function typePeriodSearchIsAdjustmentType(string $formType): bool
+{
+    return strtoupper(trim($formType)) === 'ADJUSTMENT';
+}
+
+function typePeriodSearchIsRateType(string $formType): bool
+{
+    return strtoupper(trim($formType)) === 'RATE';
 }
 
 function typePeriodSearchIsProfitType(string $formType): bool
@@ -77,7 +87,7 @@ function typePeriodSearchIsProfitType(string $formType): bool
 
 function typePeriodSearchIsPeriodTypeSearch(string $formType): bool
 {
-    return typePeriodSearchIsDualSideManualType($formType) || typePeriodSearchIsProfitType($formType);
+    return typePeriodSearchIsSupported($formType);
 }
 
 function typePeriodSearchIsSupported(string $formType): bool
@@ -101,8 +111,11 @@ function typePeriodSearchFilterByPeriodActivityOnly(string $formType): bool
 function typePeriodSearchFetchEligibleAccountIds(PDO $pdo, array $listScope, string $formType): array
 {
     $formType = strtoupper(trim($formType));
-    if (!typePeriodSearchIsPeriodTypeSearch($formType)) {
+    if (!typePeriodSearchIsSupported($formType)) {
         return typeAccountSearchFetchAccountIds($pdo, $listScope, $formType);
+    }
+    if (typePeriodSearchIsRateType($formType)) {
+        return typePeriodSearchFetchRateEligibleAccountIds($pdo, $listScope);
     }
 
     $txnFilter = tx_search_transaction_filter($pdo, $listScope, 't');
@@ -127,7 +140,9 @@ function typePeriodSearchFetchEligibleAccountIds(PDO $pdo, array $listScope, str
            {$bankDescSql}
            {$bankSrcSql}
            {$pureManualSql}",
-        "SELECT DISTINCT t.from_account_id AS account_id
+    ];
+    if (!typePeriodSearchIsAdjustmentType($formType)) {
+        $queries[] = "SELECT DISTINCT t.from_account_id AS account_id
          FROM transactions t
          WHERE {$txnFilter['sql']}
            AND t.from_account_id IS NOT NULL
@@ -136,8 +151,8 @@ function typePeriodSearchFetchEligibleAccountIds(PDO $pdo, array $listScope, str
            {$approvalSql}
            {$bankDescSql}
            {$bankSrcSql}
-           {$pureManualSql}",
-    ];
+           {$pureManualSql}";
+    }
 
     $ids = [];
     foreach ($queries as $sql) {
@@ -496,7 +511,282 @@ function typePeriodSearchBulkProfitMetrics(
 }
 
 /**
- * Period Type Search bulk metrics dispatcher (CONTRA/PAYMENT → Cr/Dr; PROFIT → Win/Loss).
+ * @return int[]
+ */
+function typePeriodSearchFetchRateEligibleAccountIds(PDO $pdo, array $listScope): array
+{
+    $hFilter = tx_search_transaction_filter($pdo, $listScope, 'h');
+    $permCompanyId = tx_permission_company_id_for_scope($pdo, $listScope);
+    $isGroup = (($listScope['mode'] ?? '') === 'group');
+    $companyJoin = $isGroup
+        ? ''
+        : ' INNER JOIN account_company ac ON ac.account_id = e.account_id AND ac.company_id = ?';
+    $pureRateSql = typeTxSearchPureRateEntrySqlFragment('e');
+
+    $sql = "SELECT DISTINCT e.account_id AS account_id
+            FROM transaction_entry e
+            JOIN transactions h ON e.header_id = h.id
+            JOIN account acc ON e.account_id = acc.id
+            {$companyJoin}
+            WHERE {$hFilter['sql']}
+              AND h.transaction_type = 'RATE'
+              AND e.entry_type IN ('RATE_FIRST_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_FROM', 'RATE_TRANSFER_TO')
+              AND e.account_id IS NOT NULL
+              AND e.account_id > 0
+              {$pureRateSql}";
+
+    $params = [(int) $hFilter['bind']];
+    if (!$isGroup) {
+        $params[] = $permCompanyId > 0 ? $permCompanyId : (int) ($listScope['company_id'] ?? 0);
+    }
+
+    $ids = [];
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $id = (int) ($row['account_id'] ?? 0);
+        if ($id > 0) {
+            $ids[$id] = true;
+        }
+    }
+
+    return array_map('intval', array_keys($ids));
+}
+
+/**
+ * Pure ADJUSTMENT - WIN/LOSS on To account; +amount in Cr/Dr (not Win/Loss negation).
+ *
+ * @param int[] $accountIds
+ * @param string[] $currencyCodes
+ * @return array{
+ *   bf: array<int, array<int, string>>,
+ *   cr_dr: array<int, array<int, string>>,
+ *   currencies: array<int, array<int, string>>,
+ *   period_txn_count: array<int, array<int, int>>
+ * }
+ */
+function typePeriodSearchBulkAdjustmentMetrics(
+    PDO $pdo,
+    array $listScope,
+    string $dateFromDb,
+    string $dateToDb,
+    array $accountIds,
+    array $currencyCodes = []
+): array {
+    $empty = ['bf' => [], 'cr_dr' => [], 'currencies' => [], 'period_txn_count' => []];
+    $accountIds = array_values(array_unique(array_filter(array_map('intval', $accountIds), static fn (int $id): bool => $id > 0)));
+    if ($accountIds === [] || !typePeriodSearchTxnHasCurrencyId($pdo)) {
+        return $empty;
+    }
+
+    $currencyCodes = array_values(array_unique(array_filter(array_map(
+        static fn ($c) => strtoupper(trim((string) $c)),
+        $currencyCodes
+    ), static fn (string $c): bool => $c !== '')));
+
+    $txnFilter = tx_search_transaction_filter($pdo, $listScope, 't');
+    $approvalSql = tx_sql_transaction_approval_where($pdo, 't');
+    $bankDescSql = typeAccountSearchBankProcessDescriptionExcludeSql('t');
+    $bankSrcSql = typeAccountSearchHasSourceBankProcessColumn($pdo)
+        ? typeAccountSearchSourceBankProcessExcludeSql('t')
+        : '';
+    $pureManualSql = typeTxSearchPureManualSqlFragment('ADJUSTMENT', 't');
+    $signedAmt = dcd_processed_amount_sql_quant2('t.amount');
+    $dateExpr = 'DATE(t.transaction_date)';
+    $accPh = implode(',', array_fill(0, count($accountIds), '?'));
+
+    $sql = "SELECT
+                t.account_id AS account_id,
+                t.currency_id,
+                COALESCE((
+                    SELECT UPPER(TRIM(c2.code))
+                    FROM currency c2
+                    WHERE c2.id = t.currency_id
+                    LIMIT 1
+                ), '') AS currency_code,
+                COALESCE(SUM(CASE WHEN {$dateExpr} < ? THEN {$signedAmt} ELSE 0 END), 0) AS bf_total,
+                COALESCE(SUM(CASE WHEN {$dateExpr} BETWEEN ? AND ? THEN {$signedAmt} ELSE 0 END), 0) AS cr_dr_total,
+                COUNT(CASE WHEN {$dateExpr} BETWEEN ? AND ? THEN 1 END) AS period_txn_count
+            FROM transactions t
+            WHERE {$txnFilter['sql']}
+              AND t.account_id IN ({$accPh})
+              AND t.transaction_type = 'ADJUSTMENT'
+              AND t.currency_id IS NOT NULL
+              {$approvalSql}
+              {$bankDescSql}
+              {$bankSrcSql}
+              {$pureManualSql}";
+
+    $params = [
+        $dateFromDb,
+        $dateFromDb,
+        $dateToDb,
+        $dateFromDb,
+        $dateToDb,
+        (int) $txnFilter['bind'],
+    ];
+    $params = array_merge($params, $accountIds);
+
+    if ($currencyCodes !== []) {
+        $curPh = implode(',', array_fill(0, count($currencyCodes), '?'));
+        $sql .= " AND EXISTS (
+            SELECT 1
+            FROM currency c
+            WHERE c.id = t.currency_id
+              AND UPPER(TRIM(c.code)) IN ({$curPh})
+        )";
+        $params = array_merge($params, $currencyCodes);
+    }
+
+    $sql .= ' GROUP BY t.account_id, t.currency_id';
+
+    $bf = [];
+    $crDr = [];
+    $currencies = [];
+    $periodTxnCount = [];
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $aid = (int) ($row['account_id'] ?? 0);
+        $cid = (int) ($row['currency_id'] ?? 0);
+        $code = strtoupper(trim((string) ($row['currency_code'] ?? '')));
+        if ($aid <= 0 || $cid <= 0 || $code === '') {
+            continue;
+        }
+        $bf[$aid][$cid] = money_out($row['bf_total'] ?? '0');
+        $crDr[$aid][$cid] = money_out($row['cr_dr_total'] ?? '0');
+        $currencies[$aid][$cid] = $code;
+        $periodTxnCount[$aid][$cid] = (int) ($row['period_txn_count'] ?? 0);
+    }
+
+    return [
+        'bf' => $bf,
+        'cr_dr' => $crDr,
+        'currencies' => $currencies,
+        'period_txn_count' => $periodTxnCount,
+    ];
+}
+
+/**
+ * Pure manual RATE entries; -amount sign aligned with history_api / type_transaction_search_lib.
+ *
+ * @param int[] $accountIds
+ * @param string[] $currencyCodes
+ * @return array{
+ *   bf: array<int, array<int, string>>,
+ *   cr_dr: array<int, array<int, string>>,
+ *   currencies: array<int, array<int, string>>,
+ *   period_txn_count: array<int, array<int, int>>
+ * }
+ */
+function typePeriodSearchBulkRateMetrics(
+    PDO $pdo,
+    array $listScope,
+    string $dateFromDb,
+    string $dateToDb,
+    array $accountIds,
+    array $currencyCodes = []
+): array {
+    $empty = ['bf' => [], 'cr_dr' => [], 'currencies' => [], 'period_txn_count' => []];
+    $accountIds = array_values(array_unique(array_filter(array_map('intval', $accountIds), static fn (int $id): bool => $id > 0)));
+    if ($accountIds === []) {
+        return $empty;
+    }
+
+    $currencyCodes = array_values(array_unique(array_filter(array_map(
+        static fn ($c) => strtoupper(trim((string) $c)),
+        $currencyCodes
+    ), static fn (string $c): bool => $c !== '')));
+
+    $hFilter = tx_search_transaction_filter($pdo, $listScope, 'h');
+    $permCompanyId = tx_permission_company_id_for_scope($pdo, $listScope);
+    $isGroup = (($listScope['mode'] ?? '') === 'group');
+    $companyJoin = $isGroup
+        ? ''
+        : ' INNER JOIN account_company ac ON ac.account_id = e.account_id AND ac.company_id = ?';
+    $pureRateSql = typeTxSearchPureRateEntrySqlFragment('e');
+    $signedAmt = dcd_processed_amount_sql_quant2('(-e.amount)');
+    $dateExpr = 'DATE(h.transaction_date)';
+    $accPh = implode(',', array_fill(0, count($accountIds), '?'));
+
+    $sql = "SELECT
+                e.account_id AS account_id,
+                e.currency_id,
+                COALESCE((
+                    SELECT UPPER(TRIM(c2.code))
+                    FROM currency c2
+                    WHERE c2.id = e.currency_id
+                    LIMIT 1
+                ), '') AS currency_code,
+                COALESCE(SUM(CASE WHEN {$dateExpr} < ? THEN {$signedAmt} ELSE 0 END), 0) AS bf_total,
+                COALESCE(SUM(CASE WHEN {$dateExpr} BETWEEN ? AND ? THEN {$signedAmt} ELSE 0 END), 0) AS cr_dr_total,
+                COUNT(CASE WHEN {$dateExpr} BETWEEN ? AND ? THEN 1 END) AS period_txn_count
+            FROM transaction_entry e
+            JOIN transactions h ON e.header_id = h.id
+            JOIN account acc ON e.account_id = acc.id
+            {$companyJoin}
+            WHERE {$hFilter['sql']}
+              AND e.account_id IN ({$accPh})
+              AND h.transaction_type = 'RATE'
+              AND e.entry_type IN ('RATE_FIRST_FROM', 'RATE_FIRST_TO', 'RATE_TRANSFER_FROM', 'RATE_TRANSFER_TO')
+              AND e.currency_id IS NOT NULL
+              {$pureRateSql}";
+
+    $params = [
+        $dateFromDb,
+        $dateFromDb,
+        $dateToDb,
+        $dateFromDb,
+        $dateToDb,
+        (int) $hFilter['bind'],
+    ];
+    if (!$isGroup) {
+        $params[] = $permCompanyId > 0 ? $permCompanyId : (int) ($listScope['company_id'] ?? 0);
+    }
+    $params = array_merge($params, $accountIds);
+
+    if ($currencyCodes !== []) {
+        $curPh = implode(',', array_fill(0, count($currencyCodes), '?'));
+        $sql .= " AND EXISTS (
+            SELECT 1
+            FROM currency c
+            WHERE c.id = e.currency_id
+              AND UPPER(TRIM(c.code)) IN ({$curPh})
+        )";
+        $params = array_merge($params, $currencyCodes);
+    }
+
+    $sql .= ' GROUP BY e.account_id, e.currency_id';
+
+    $bf = [];
+    $crDr = [];
+    $currencies = [];
+    $periodTxnCount = [];
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $aid = (int) ($row['account_id'] ?? 0);
+        $cid = (int) ($row['currency_id'] ?? 0);
+        $code = strtoupper(trim((string) ($row['currency_code'] ?? '')));
+        if ($aid <= 0 || $cid <= 0 || $code === '') {
+            continue;
+        }
+        $bf[$aid][$cid] = money_out($row['bf_total'] ?? '0');
+        $crDr[$aid][$cid] = money_out($row['cr_dr_total'] ?? '0');
+        $currencies[$aid][$cid] = $code;
+        $periodTxnCount[$aid][$cid] = (int) ($row['period_txn_count'] ?? 0);
+    }
+
+    return [
+        'bf' => $bf,
+        'cr_dr' => $crDr,
+        'currencies' => $currencies,
+        'period_txn_count' => $periodTxnCount,
+    ];
+}
+
+/**
+ * Period Type Search bulk metrics dispatcher (Cr/Dr types + PROFIT Win/Loss).
  *
  * @param int[] $accountIds
  * @param string[] $currencyCodes
@@ -514,6 +804,26 @@ function typePeriodSearchBulkTypeMetrics(
     $formType = strtoupper(trim($formType));
     if (typePeriodSearchIsProfitType($formType)) {
         return typePeriodSearchBulkProfitMetrics(
+            $pdo,
+            $listScope,
+            $dateFromDb,
+            $dateToDb,
+            $accountIds,
+            $currencyCodes
+        );
+    }
+    if (typePeriodSearchIsAdjustmentType($formType)) {
+        return typePeriodSearchBulkAdjustmentMetrics(
+            $pdo,
+            $listScope,
+            $dateFromDb,
+            $dateToDb,
+            $accountIds,
+            $currencyCodes
+        );
+    }
+    if (typePeriodSearchIsRateType($formType)) {
+        return typePeriodSearchBulkRateMetrics(
             $pdo,
             $listScope,
             $dateFromDb,

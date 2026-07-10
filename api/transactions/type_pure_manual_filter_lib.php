@@ -130,6 +130,22 @@ function typeTxSearchIsPureRateEntryDescription(string $description): bool
     );
 }
 
+function typeTxSearchPureRateEntrySqlFragment(string $alias = 'e'): string
+{
+    $desc = "TRIM(COALESCE({$alias}.description, ''))";
+
+    return " AND {$desc} <> ''
+              AND UPPER({$desc}) <> 'RATE'
+              AND (
+                    {$desc} LIKE 'Transaction from %'
+                    OR {$desc} LIKE 'Transaction to %'
+              )
+              AND (
+                    {$desc} LIKE '%(Rate:%'
+                    OR {$desc} LIKE '%(RATE:%'
+              )";
+}
+
 function typeTxSearchPureManualSqlFragment(string $formType, string $alias = 't'): string
 {
     $formType = strtoupper(trim($formType));
