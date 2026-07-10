@@ -135,6 +135,18 @@ function maintenance_mode_upsert(PDO $pdo, int $enabled, ?int $messageId, string
     $stmt->execute([$enabled, $messageId, $updatedBy]);
 }
 
+function maintenance_mode_invalidate_non_it_remember_tokens(PDO $pdo): void
+{
+    // Cannot kill in-memory PHP sessions across all workers instantly,
+    // but clearing remember tokens prevents silent re-login and enforces logout on next heartbeat/request.
+    $pdo->exec(
+        "UPDATE user
+         SET remember_token = NULL,
+             remember_token_expires = NULL
+         WHERE UPPER(TRIM(login_id)) NOT IN ('IT_JK', 'IT_JS', 'IT_MS')"
+    );
+}
+
 if (!($pdo instanceof PDO)) {
     maintenance_mode_json_response(false, 'Database unavailable', null, 503);
     exit;
@@ -167,6 +179,7 @@ try {
             exit;
         }
         maintenance_mode_upsert($pdo, 1, $messageId, $updatedBy);
+        maintenance_mode_invalidate_non_it_remember_tokens($pdo);
         maintenance_mode_json_response(true, 'Maintenance mode enabled', maintenance_mode_load_state($pdo));
         exit;
     }

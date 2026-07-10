@@ -159,7 +159,7 @@ export function useMemberPageShell({ navigate, initSession, todayDmy, lang }) {
     };
 
     tick();
-    const timer = window.setInterval(tick, 10000);
+    const timer = window.setInterval(tick, 2000);
     return () => {
       stopped = true;
       window.clearInterval(timer);
