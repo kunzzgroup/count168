@@ -1836,10 +1836,10 @@ try {
     $bulk_type_period = null;
     if (
         $type_search_active
-        && typePeriodSearchIsDualSideManualType($type_search_form_type)
+        && typePeriodSearchIsSupported($type_search_form_type)
         && $type_account_ids !== []
     ) {
-        $bulk_type_period = typePeriodSearchBulkManualTypeMetrics(
+        $bulk_type_period = typePeriodSearchBulkTypeMetrics(
             $pdo,
             $search_list_scope,
             $type_search_form_type,
@@ -2008,7 +2008,7 @@ try {
         if (
             !$type_search_period_activity_only
             && $type_search_active
-            && typePeriodSearchIsDualSideManualType($type_search_form_type)
+            && typePeriodSearchIsPeriodTypeSearch($type_search_form_type)
             && is_array($bulk_type_period)
         ) {
             foreach ($bulk_type_period['currencies'][$account_id] ?? [] as $cid => $code) {
@@ -2384,11 +2384,10 @@ try {
         // 1–3. Metrics (Type Search × Capture Date uses type-only CONTRA/PAYMENT accumulation)
         if (
             $type_search_active
-            && typePeriodSearchIsDualSideManualType($type_search_form_type)
+            && typePeriodSearchIsSupported($type_search_form_type)
             && is_array($bulk_type_period)
         ) {
             $bf = typePeriodSearchMetricForCombo($bulk_type_period, 'bf', (int) $account_id, (int) $currency_id, (string) $currency_code);
-            $cr_dr = typePeriodSearchMetricForCombo($bulk_type_period, 'cr_dr', (int) $account_id, (int) $currency_id, (string) $currency_code);
             $period_type_txn_count = typePeriodSearchPeriodTxnCountForCombo(
                 $bulk_type_period,
                 (int) $account_id,
@@ -2401,24 +2400,46 @@ try {
             ) {
                 continue;
             }
-            $win_loss = '0';
-            $wlPack = [
-                'win_loss' => '0',
-                'win_loss_full' => '0',
-                'has_win_loss_transactions' => false,
-                'has_win_loss_history' => false,
-                'has_period_id_product_rows' => false,
-                'has_rate_middleman' => false,
-            ];
-            $has_win_loss_transactions = false;
-            $has_win_loss_history = false;
-            $has_period_id_product_rows = false;
-            if (typePeriodSearchFilterByPeriodActivityOnly($type_search_form_type)) {
-                $has_crdr_transactions = $period_type_txn_count > 0;
+
+            if (typePeriodSearchIsProfitType($type_search_form_type)) {
+                $win_loss = typePeriodSearchMetricForCombo(
+                    $bulk_type_period,
+                    'win_loss',
+                    (int) $account_id,
+                    (int) $currency_id,
+                    (string) $currency_code
+                );
+                $cr_dr = '0';
+                $wlPack = [
+                    'win_loss' => $win_loss,
+                    'win_loss_full' => $win_loss,
+                    'has_win_loss_transactions' => $period_type_txn_count > 0,
+                    'has_win_loss_history' => false,
+                    'has_period_id_product_rows' => false,
+                    'has_rate_middleman' => false,
+                ];
+                $has_win_loss_transactions = $period_type_txn_count > 0;
+                $has_win_loss_history = false;
+                $has_period_id_product_rows = false;
+                $has_crdr_transactions = false;
+                $has_contra_clear_period = false;
             } else {
-                $has_crdr_transactions = searchMoneyNonZero(trunc2($cr_dr)) || searchMoneyNonZero(trunc2($bf));
+                $cr_dr = typePeriodSearchMetricForCombo($bulk_type_period, 'cr_dr', (int) $account_id, (int) $currency_id, (string) $currency_code);
+                $win_loss = '0';
+                $wlPack = [
+                    'win_loss' => '0',
+                    'win_loss_full' => '0',
+                    'has_win_loss_transactions' => false,
+                    'has_win_loss_history' => false,
+                    'has_period_id_product_rows' => false,
+                    'has_rate_middleman' => false,
+                ];
+                $has_win_loss_transactions = false;
+                $has_win_loss_history = false;
+                $has_period_id_product_rows = false;
+                $has_crdr_transactions = $period_type_txn_count > 0;
+                $has_contra_clear_period = $has_crdr_transactions;
             }
-            $has_contra_clear_period = $has_crdr_transactions;
         } else {
             $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account['account_id'] ?? '', $bulk);
 

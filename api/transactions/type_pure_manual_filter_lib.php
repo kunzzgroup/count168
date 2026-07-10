@@ -27,7 +27,36 @@ function typeTxSearchBuildDescription(array $row): string
  */
 function typeTxSearchSupportsPureManualFilter(string $formType): bool
 {
-    return in_array(strtoupper(trim($formType)), ['PAYMENT', 'CONTRA', 'ADJUSTMENT', 'RATE'], true);
+    return in_array(strtoupper(trim($formType)), ['PAYMENT', 'CONTRA', 'ADJUSTMENT', 'RATE', 'PROFIT'], true);
+}
+
+/**
+ * Manual PROFIT (WIN/LOSE): exclude Bank Process, Process:/Auto: descriptions, compensation rows.
+ *
+ * @param array<string, mixed> $row
+ */
+function typeTxSearchIsManualProfitTransaction(array $row): bool
+{
+    $type = strtoupper(trim((string) ($row['transaction_type'] ?? '')));
+    if (!in_array($type, ['WIN', 'LOSE'], true)) {
+        return false;
+    }
+    $desc = trim((string) ($row['description'] ?? ''));
+    if (stripos($desc, 'Process: ') === 0 || stripos($desc, 'Auto: ') === 0) {
+        return false;
+    }
+
+    return preg_match('/^(Inactive\s+Compensation|Compensation)\s*/i', $desc) !== 1;
+}
+
+function typeTxSearchManualProfitDescriptionExcludeSql(string $alias = 't'): string
+{
+    $desc = "UPPER(TRIM(COALESCE({$alias}.description, '')))";
+
+    return " AND {$desc} NOT LIKE 'PROCESS:%'
+              AND {$desc} NOT LIKE 'AUTO:%'
+              AND {$desc} NOT LIKE 'INACTIVE COMPENSATION%'
+              AND {$desc} NOT LIKE 'COMPENSATION%'";
 }
 
 function typeTxSearchIsExcludedNonManualPayment(string $sms, string $canonicalUpper): bool
@@ -76,6 +105,8 @@ function typeTxSearchPassesPureManualFilter(string $formType, array $row): bool
             return strpos($canonical, 'CONTRA FROM ') === 0;
         case 'ADJUSTMENT':
             return strpos($canonical, 'ADJUSTMENT - WIN/LOSS') === 0;
+        case 'PROFIT':
+            return typeTxSearchIsManualProfitTransaction($row);
         default:
             return true;
     }
@@ -100,7 +131,7 @@ function typeTxSearchIsPureRateEntryDescription(string $description): bool
 function typeTxSearchPureManualSqlFragment(string $formType, string $alias = 't'): string
 {
     $formType = strtoupper(trim($formType));
-    if (!in_array($formType, ['PAYMENT', 'CONTRA', 'ADJUSTMENT'], true)) {
+    if (!in_array($formType, ['PAYMENT', 'CONTRA', 'ADJUSTMENT', 'PROFIT'], true)) {
         return '';
     }
 
@@ -137,6 +168,9 @@ function typeTxSearchPureManualSqlFragment(string $formType, string $alias = 't'
                     {$emptyDesc}
                     OR {$desc} LIKE 'ADJUSTMENT - WIN/LOSS%'
                 )";
+        case 'PROFIT':
+            return " AND {$alias}.transaction_type IN ('WIN', 'LOSE')"
+                . typeTxSearchManualProfitDescriptionExcludeSql($alias);
         default:
             return '';
     }
@@ -218,6 +252,18 @@ function typeTxSearchPassesPureHistoryEvent(string $formType, array $event): boo
             }
 
             return $txType === 'ADJUSTMENT' && strpos($desc, 'ADJUSTMENT - WIN/LOSS') === 0;
+        case 'PROFIT':
+            if (!in_array($txType, ['WIN', 'LOSE'], true)) {
+                return false;
+            }
+            if (typeTxSearchPassesPureManualFilter('PROFIT', typeTxSearchPureHistoryRowFromEvent($event))) {
+                return true;
+            }
+            if (!empty($event['is_view_to_account'])) {
+                return strpos($desc, 'PROFIT FROM ') === 0;
+            }
+
+            return strpos($desc, 'PROFIT TO ') === 0;
         case 'RATE':
             if ($txType !== 'RATE' && strtoupper(trim((string) ($event['source'] ?? ''))) !== 'RATE') {
                 return false;

@@ -1,7 +1,7 @@
 <?php
 /**
  * Type Search × Capture Date: period-scoped metrics with all-time account eligibility.
- * Phase 1: CONTRA / PAYMENT (pure manual, To + From account perspectives).
+ * Phase 1: CONTRA / PAYMENT (Cr/Dr) + PROFIT (Win/Loss), pure manual, To + From perspectives.
  */
 
 require_once __DIR__ . '/transaction_scope.php';
@@ -62,12 +62,22 @@ function typePeriodSearchCurrencyJoin(PDO $pdo, array $listScope): array
  */
 function typePeriodSearchSupportedFormTypes(): array
 {
-    return ['CONTRA', 'PAYMENT'];
+    return ['CONTRA', 'PAYMENT', 'PROFIT'];
 }
 
 function typePeriodSearchIsDualSideManualType(string $formType): bool
 {
     return in_array(strtoupper(trim($formType)), ['CONTRA', 'PAYMENT'], true);
+}
+
+function typePeriodSearchIsProfitType(string $formType): bool
+{
+    return strtoupper(trim($formType)) === 'PROFIT';
+}
+
+function typePeriodSearchIsPeriodTypeSearch(string $formType): bool
+{
+    return typePeriodSearchIsDualSideManualType($formType) || typePeriodSearchIsProfitType($formType);
 }
 
 function typePeriodSearchIsSupported(string $formType): bool
@@ -77,11 +87,10 @@ function typePeriodSearchIsSupported(string $formType): bool
 
 /**
  * List visibility: only accounts with type activity inside Capture Date (B/F still type-only before period).
- * Applies to CONTRA and PAYMENT period Type Search.
  */
 function typePeriodSearchFilterByPeriodActivityOnly(string $formType): bool
 {
-    return typePeriodSearchIsDualSideManualType($formType);
+    return typePeriodSearchIsPeriodTypeSearch($formType);
 }
 
 /**
@@ -92,7 +101,7 @@ function typePeriodSearchFilterByPeriodActivityOnly(string $formType): bool
 function typePeriodSearchFetchEligibleAccountIds(PDO $pdo, array $listScope, string $formType): array
 {
     $formType = strtoupper(trim($formType));
-    if (!typePeriodSearchIsDualSideManualType($formType)) {
+    if (!typePeriodSearchIsPeriodTypeSearch($formType)) {
         return typeAccountSearchFetchAccountIds($pdo, $listScope, $formType);
     }
 
@@ -103,7 +112,9 @@ function typePeriodSearchFetchEligibleAccountIds(PDO $pdo, array $listScope, str
         ? typeAccountSearchSourceBankProcessExcludeSql('t')
         : '';
     $pureManualSql = typeTxSearchPureManualSqlFragment($formType, 't');
-    $txnType = $pdo->quote($formType);
+    $txnTypeSql = typePeriodSearchIsProfitType($formType)
+        ? "t.transaction_type IN ('WIN', 'LOSE')"
+        : 't.transaction_type = ' . $pdo->quote($formType);
 
     $queries = [
         "SELECT DISTINCT t.account_id AS account_id
@@ -111,7 +122,7 @@ function typePeriodSearchFetchEligibleAccountIds(PDO $pdo, array $listScope, str
          WHERE {$txnFilter['sql']}
            AND t.account_id IS NOT NULL
            AND t.account_id > 0
-           AND t.transaction_type = {$txnType}
+           AND {$txnTypeSql}
            {$approvalSql}
            {$bankDescSql}
            {$bankSrcSql}
@@ -121,7 +132,7 @@ function typePeriodSearchFetchEligibleAccountIds(PDO $pdo, array $listScope, str
          WHERE {$txnFilter['sql']}
            AND t.from_account_id IS NOT NULL
            AND t.from_account_id > 0
-           AND t.transaction_type = {$txnType}
+           AND {$txnTypeSql}
            {$approvalSql}
            {$bankDescSql}
            {$bankSrcSql}
@@ -267,6 +278,260 @@ function typePeriodSearchFetchManualSideMetrics(
         'currencies' => $currencies,
         'period_txn_count' => $periodTxnCount,
     ];
+}
+
+/**
+ * Manual PROFIT (WIN/LOSE) period metrics — amounts in win_loss bucket (not cr_dr).
+ *
+ * @param 'to'|'from' $side
+ * @param int[] $accountIds
+ * @param string[] $currencyCodes
+ * @return array{
+ *   bf: array<int, array<int, string>>,
+ *   win_loss: array<int, array<int, string>>,
+ *   currencies: array<int, array<int, string>>,
+ *   period_txn_count: array<int, array<int, int>>
+ * }
+ */
+function typePeriodSearchFetchProfitSideMetrics(
+    PDO $pdo,
+    array $listScope,
+    string $dateFromDb,
+    string $dateToDb,
+    array $accountIds,
+    array $currencyCodes,
+    string $side
+): array {
+    $empty = ['bf' => [], 'win_loss' => [], 'currencies' => [], 'period_txn_count' => []];
+    $accountIds = array_values(array_unique(array_filter(array_map('intval', $accountIds), static fn (int $id): bool => $id > 0)));
+    if ($accountIds === [] || !in_array($side, ['to', 'from'], true)) {
+        return $empty;
+    }
+
+    $txnFilter = tx_search_transaction_filter($pdo, $listScope, 't');
+    $approvalSql = tx_sql_transaction_approval_where($pdo, 't');
+    $bankDescSql = typeAccountSearchBankProcessDescriptionExcludeSql('t');
+    $bankSrcSql = typeAccountSearchHasSourceBankProcessColumn($pdo)
+        ? typeAccountSearchSourceBankProcessExcludeSql('t')
+        : '';
+    $pureManualSql = typeTxSearchPureManualSqlFragment('PROFIT', 't');
+    $signedAmt = $side === 'to'
+        ? "CASE
+                WHEN t.transaction_type = 'WIN' THEN " . dcd_processed_amount_sql_quant2('(-t.amount)') . "
+                WHEN t.transaction_type = 'LOSE' THEN " . dcd_processed_amount_sql_quant2('t.amount') . "
+                ELSE 0
+            END"
+        : "CASE
+                WHEN t.transaction_type = 'WIN' THEN " . dcd_processed_amount_sql_quant2('t.amount') . "
+                WHEN t.transaction_type = 'LOSE' THEN " . dcd_processed_amount_sql_quant2('(-t.amount)') . "
+                ELSE 0
+            END";
+    $dateExpr = 'DATE(t.transaction_date)';
+    $accountCol = $side === 'to' ? 't.account_id' : 't.from_account_id';
+
+    $accPh = implode(',', array_fill(0, count($accountIds), '?'));
+    $sql = "SELECT
+                {$accountCol} AS account_id,
+                t.currency_id,
+                COALESCE((
+                    SELECT UPPER(TRIM(c2.code))
+                    FROM currency c2
+                    WHERE c2.id = t.currency_id
+                    LIMIT 1
+                ), '') AS currency_code,
+                COALESCE(SUM(CASE WHEN {$dateExpr} < ? THEN {$signedAmt} ELSE 0 END), 0) AS bf_total,
+                COALESCE(SUM(CASE WHEN {$dateExpr} BETWEEN ? AND ? THEN {$signedAmt} ELSE 0 END), 0) AS win_loss_total,
+                COUNT(CASE WHEN {$dateExpr} BETWEEN ? AND ? THEN 1 END) AS period_txn_count
+            FROM transactions t
+            WHERE {$txnFilter['sql']}
+              AND {$accountCol} IN ({$accPh})
+              AND t.transaction_type IN ('WIN', 'LOSE')
+              AND t.currency_id IS NOT NULL
+              {$approvalSql}
+              {$bankDescSql}
+              {$bankSrcSql}
+              {$pureManualSql}";
+
+    $params = [
+        $dateFromDb,
+        $dateFromDb,
+        $dateToDb,
+        $dateFromDb,
+        $dateToDb,
+        (int) $txnFilter['bind'],
+    ];
+    $params = array_merge($params, $accountIds);
+
+    if ($currencyCodes !== []) {
+        $curPh = implode(',', array_fill(0, count($currencyCodes), '?'));
+        $sql .= " AND EXISTS (
+            SELECT 1
+            FROM currency c
+            WHERE c.id = t.currency_id
+              AND UPPER(TRIM(c.code)) IN ({$curPh})
+        )";
+        $params = array_merge($params, $currencyCodes);
+    }
+
+    $sql .= " GROUP BY {$accountCol}, t.currency_id";
+
+    $bf = [];
+    $winLoss = [];
+    $currencies = [];
+    $periodTxnCount = [];
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $aid = (int) ($row['account_id'] ?? 0);
+        $cid = (int) ($row['currency_id'] ?? 0);
+        $code = strtoupper(trim((string) ($row['currency_code'] ?? '')));
+        if ($aid <= 0 || $cid <= 0 || $code === '') {
+            continue;
+        }
+        $bf[$aid][$cid] = money_out($row['bf_total'] ?? '0');
+        $winLoss[$aid][$cid] = money_out($row['win_loss_total'] ?? '0');
+        $currencies[$aid][$cid] = $code;
+        $periodTxnCount[$aid][$cid] = (int) ($row['period_txn_count'] ?? 0);
+    }
+
+    return [
+        'bf' => $bf,
+        'win_loss' => $winLoss,
+        'currencies' => $currencies,
+        'period_txn_count' => $periodTxnCount,
+    ];
+}
+
+/**
+ * Bulk pure manual PROFIT metrics (Win/Loss column; To/From WIN/LOSE signs per history).
+ *
+ * @param int[] $accountIds
+ * @param string[] $currencyCodes upper codes; empty = all
+ * @return array{
+ *   bf: array<int, array<int, string>>,
+ *   win_loss: array<int, array<int, string>>,
+ *   cr_dr: array<int, array<int, string>>,
+ *   currencies: array<int, array<int, string>>,
+ *   period_txn_count: array<int, array<int, int>>
+ * }
+ */
+function typePeriodSearchBulkProfitMetrics(
+    PDO $pdo,
+    array $listScope,
+    string $dateFromDb,
+    string $dateToDb,
+    array $accountIds,
+    array $currencyCodes = []
+): array {
+    $empty = ['bf' => [], 'win_loss' => [], 'cr_dr' => [], 'currencies' => [], 'period_txn_count' => []];
+    $accountIds = array_values(array_unique(array_filter(array_map('intval', $accountIds), static fn (int $id): bool => $id > 0)));
+    if ($accountIds === []) {
+        return $empty;
+    }
+
+    if (!typePeriodSearchTxnHasCurrencyId($pdo)) {
+        return $empty;
+    }
+
+    $currencyCodes = array_values(array_unique(array_filter(array_map(
+        static fn ($c) => strtoupper(trim((string) $c)),
+        $currencyCodes
+    ), static fn (string $c): bool => $c !== '')));
+
+    $toSide = typePeriodSearchFetchProfitSideMetrics(
+        $pdo,
+        $listScope,
+        $dateFromDb,
+        $dateToDb,
+        $accountIds,
+        $currencyCodes,
+        'to'
+    );
+    $fromSide = typePeriodSearchFetchProfitSideMetrics(
+        $pdo,
+        $listScope,
+        $dateFromDb,
+        $dateToDb,
+        $accountIds,
+        $currencyCodes,
+        'from'
+    );
+
+    $bf = [];
+    $winLoss = [];
+    $currencies = [];
+    $periodTxnCount = [];
+    foreach ([$toSide, $fromSide] as $sidePack) {
+        foreach ($sidePack['bf'] ?? [] as $aid => $byCur) {
+            foreach ($byCur as $cid => $amt) {
+                typePeriodSearchAccumulateBucketRow($bf, (int) $aid, (int) $cid, $amt);
+            }
+        }
+        foreach ($sidePack['win_loss'] ?? [] as $aid => $byCur) {
+            foreach ($byCur as $cid => $amt) {
+                typePeriodSearchAccumulateBucketRow($winLoss, (int) $aid, (int) $cid, $amt);
+            }
+        }
+        foreach ($sidePack['currencies'] ?? [] as $aid => $byCur) {
+            foreach ($byCur as $cid => $code) {
+                $currencies[(int) $aid][(int) $cid] = (string) $code;
+            }
+        }
+        foreach ($sidePack['period_txn_count'] ?? [] as $aid => $byCur) {
+            foreach ($byCur as $cid => $cnt) {
+                $aidInt = (int) $aid;
+                $cidInt = (int) $cid;
+                $periodTxnCount[$aidInt][$cidInt] = ($periodTxnCount[$aidInt][$cidInt] ?? 0) + (int) $cnt;
+            }
+        }
+    }
+
+    return [
+        'bf' => $bf,
+        'win_loss' => $winLoss,
+        'cr_dr' => [],
+        'currencies' => $currencies,
+        'period_txn_count' => $periodTxnCount,
+    ];
+}
+
+/**
+ * Period Type Search bulk metrics dispatcher (CONTRA/PAYMENT → Cr/Dr; PROFIT → Win/Loss).
+ *
+ * @param int[] $accountIds
+ * @param string[] $currencyCodes
+ * @return array<string, mixed>
+ */
+function typePeriodSearchBulkTypeMetrics(
+    PDO $pdo,
+    array $listScope,
+    string $formType,
+    string $dateFromDb,
+    string $dateToDb,
+    array $accountIds,
+    array $currencyCodes = []
+): array {
+    $formType = strtoupper(trim($formType));
+    if (typePeriodSearchIsProfitType($formType)) {
+        return typePeriodSearchBulkProfitMetrics(
+            $pdo,
+            $listScope,
+            $dateFromDb,
+            $dateToDb,
+            $accountIds,
+            $currencyCodes
+        );
+    }
+
+    return typePeriodSearchBulkManualTypeMetrics(
+        $pdo,
+        $listScope,
+        $formType,
+        $dateFromDb,
+        $dateToDb,
+        $accountIds,
+        $currencyCodes
+    );
 }
 
 /**

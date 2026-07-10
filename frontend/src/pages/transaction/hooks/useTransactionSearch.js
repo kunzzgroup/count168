@@ -35,7 +35,7 @@ import {
 } from "../../../utils/company/sharedCompanyFilter.js";
 
 /** Type Search uses Capture Date + search_api period metrics (not all-time grid API). */
-const PERIOD_TYPE_SEARCH_TYPES = new Set(["CONTRA", "PAYMENT"]);
+const PERIOD_TYPE_SEARCH_TYPES = new Set(["CONTRA", "PAYMENT", "PROFIT"]);
 import { persistCurrencyDisplayOrder } from "../../../utils/company/currencyDisplayOrder.js";
 import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
 import {
