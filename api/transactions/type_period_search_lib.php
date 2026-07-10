@@ -110,7 +110,7 @@ function typePeriodSearchFilterByPeriodActivityOnly(string $formType): bool
  */
 function typePeriodSearchUsesAccountNativeBf(string $formType): bool
 {
-    return in_array(strtoupper(trim($formType)), ['PAYMENT', 'CONTRA', 'CLAIM'], true);
+    return in_array(strtoupper(trim($formType)), ['PAYMENT', 'CONTRA', 'CLAIM', 'CLEAR'], true);
 }
 
 /**
