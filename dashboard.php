@@ -82,6 +82,11 @@ if (isset($_SESSION['user_id'])) {
         exit();
     }
 
+    // dashboard 自带 session 流程，在 remember me 恢复后再做一次维护拦截
+    if ($pdo instanceof PDO) {
+        maintenance_gate_enforce_active_session($pdo, false);
+    }
+
     // 更新活动时间戳
     $_SESSION['last_activity'] = time();
 

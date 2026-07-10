@@ -42,7 +42,7 @@ if (!function_exists('maintenance_gate_it_allowlist')) {
      */
     function maintenance_gate_it_allowlist(): array
     {
-        return ['it_jk', 'it_js', 'it_ms', 'jk'];
+        return ['it_jk', 'it_js', 'it_ms'];
     }
 }
 

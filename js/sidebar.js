@@ -782,3 +782,25 @@
         init();
     }
 })();
+
+// 任意 API 返回 maintenance_mode 时跳转登录（无需每页单独写轮询）
+(function () {
+    'use strict';
+    if (!window.fetch || window.__maintenanceFetchGuardInstalled) {
+        return;
+    }
+    window.__maintenanceFetchGuardInstalled = true;
+    var nativeFetch = window.fetch.bind(window);
+    window.fetch = function () {
+        return nativeFetch.apply(window, arguments).then(function (response) {
+            if (response && !response.ok) {
+                response.clone().json().then(function (json) {
+                    if (json && json.maintenance_mode === true) {
+                        window.location.href = 'index.php?maintenance=1';
+                    }
+                }).catch(function () {});
+            }
+            return response;
+        });
+    };
+})();
