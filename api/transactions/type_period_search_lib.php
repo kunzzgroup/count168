@@ -104,7 +104,9 @@ function typePeriodSearchFilterByPeriodActivityOnly(string $formType): bool
 }
 
 /**
- * Type Search B/F from full account calculateBFByCurrency (not type-only accumulation).
+ * Type Search grid metrics from full account ledger (aligned with Payment History).
+ * B/F, Win/Loss, Cr/Dr use calculateBFByCurrency / calculateWinLossByCurrency / calculateCrDrByCurrency.
+ * List visibility still requires pure PAYMENT activity in Capture Date.
  * Phase 1: PAYMENT only; CONTRA / CLAIM / CLEAR may follow later.
  */
 function typePeriodSearchUsesAccountNativeBf(string $formType): bool

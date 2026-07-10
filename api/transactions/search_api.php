@@ -2381,7 +2381,7 @@ try {
         $currency_id = $combo['currency_id'];
         $currency_code = $combo['currency_code'];
 
-        // 1–3. Metrics (Type Search × Capture Date; PAYMENT B/F uses account-native calculateBFByCurrency)
+        // 1–3. Metrics (Type Search × Capture Date; PAYMENT uses full account ledger = Payment History)
         if (
             $type_search_active
             && typePeriodSearchIsSupported($type_search_form_type)
@@ -2405,7 +2405,19 @@ try {
                 continue;
             }
 
-            if (typePeriodSearchIsProfitType($type_search_form_type)) {
+            if (typePeriodSearchUsesAccountNativeBf($type_search_form_type)) {
+                $wlPack = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '', $bulk);
+                $win_loss = $wlPack['win_loss'];
+                $has_win_loss_transactions = !empty($wlPack['has_win_loss_transactions'])
+                    || !empty($wlPack['has_period_id_product_rows']);
+                $has_win_loss_history = !empty($wlPack['has_win_loss_history']);
+                $has_period_id_product_rows = !empty($wlPack['has_period_id_product_rows']);
+
+                $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $bulk);
+                $cr_dr = $cr_dr_result['value'];
+                $has_crdr_transactions = $cr_dr_result['has_transactions'];
+                $has_contra_clear_period = searchApiContraClearPeriodCount($bulk, (int) $account_id, (int) $currency_id) > 0;
+            } elseif (typePeriodSearchIsProfitType($type_search_form_type)) {
                 $win_loss = typePeriodSearchMetricForCombo(
                     $bulk_type_period,
                     'win_loss',
