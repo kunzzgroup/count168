@@ -76,6 +76,15 @@ function typePeriodSearchIsSupported(string $formType): bool
 }
 
 /**
+ * List visibility: only accounts with type activity inside Capture Date (B/F still type-only before period).
+ * Phase 1: CONTRA only; PAYMENT follows after CONTRA is verified.
+ */
+function typePeriodSearchFilterByPeriodActivityOnly(string $formType): bool
+{
+    return strtoupper(trim($formType)) === 'CONTRA';
+}
+
+/**
  * Accounts that ever had pure manual CONTRA or PAYMENT (To or From side).
  *
  * @return int[]
@@ -149,7 +158,12 @@ function typePeriodSearchAccumulateBucketRow(array &$bucket, int $accountId, int
  * @param 'to'|'from' $side
  * @param int[] $accountIds
  * @param string[] $currencyCodes
- * @return array{bf: array<int, array<int, string>>, cr_dr: array<int, array<int, string>>, currencies: array<int, array<int, string>>}
+ * @return array{
+ *   bf: array<int, array<int, string>>,
+ *   cr_dr: array<int, array<int, string>>,
+ *   currencies: array<int, array<int, string>>,
+ *   period_txn_count: array<int, array<int, int>>
+ * }
  */
 function typePeriodSearchFetchManualSideMetrics(
     PDO $pdo,
@@ -162,7 +176,7 @@ function typePeriodSearchFetchManualSideMetrics(
     string $side
 ): array {
     $formType = strtoupper(trim($formType));
-    $empty = ['bf' => [], 'cr_dr' => [], 'currencies' => []];
+    $empty = ['bf' => [], 'cr_dr' => [], 'currencies' => [], 'period_txn_count' => []];
     $accountIds = array_values(array_unique(array_filter(array_map('intval', $accountIds), static fn (int $id): bool => $id > 0)));
     if ($accountIds === [] || !in_array($side, ['to', 'from'], true) || !typePeriodSearchIsDualSideManualType($formType)) {
         return $empty;
@@ -193,7 +207,8 @@ function typePeriodSearchFetchManualSideMetrics(
                     LIMIT 1
                 ), '') AS currency_code,
                 COALESCE(SUM(CASE WHEN {$dateExpr} < ? THEN {$signedAmt} ELSE 0 END), 0) AS bf_total,
-                COALESCE(SUM(CASE WHEN {$dateExpr} BETWEEN ? AND ? THEN {$signedAmt} ELSE 0 END), 0) AS cr_dr_total
+                COALESCE(SUM(CASE WHEN {$dateExpr} BETWEEN ? AND ? THEN {$signedAmt} ELSE 0 END), 0) AS cr_dr_total,
+                COUNT(CASE WHEN {$dateExpr} BETWEEN ? AND ? THEN 1 END) AS period_txn_count
             FROM transactions t
             WHERE {$txnFilter['sql']}
               AND {$accountCol} IN ({$accPh})
@@ -206,6 +221,8 @@ function typePeriodSearchFetchManualSideMetrics(
 
     $params = [
         $dateFromDb,
+        $dateFromDb,
+        $dateToDb,
         $dateFromDb,
         $dateToDb,
         (int) $txnFilter['bind'],
@@ -228,6 +245,7 @@ function typePeriodSearchFetchManualSideMetrics(
     $bf = [];
     $crDr = [];
     $currencies = [];
+    $periodTxnCount = [];
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -240,12 +258,14 @@ function typePeriodSearchFetchManualSideMetrics(
         $bf[$aid][$cid] = money_out($row['bf_total'] ?? '0');
         $crDr[$aid][$cid] = money_out($row['cr_dr_total'] ?? '0');
         $currencies[$aid][$cid] = $code;
+        $periodTxnCount[$aid][$cid] = (int) ($row['period_txn_count'] ?? 0);
     }
 
     return [
         'bf' => $bf,
         'cr_dr' => $crDr,
         'currencies' => $currencies,
+        'period_txn_count' => $periodTxnCount,
     ];
 }
 
@@ -257,7 +277,8 @@ function typePeriodSearchFetchManualSideMetrics(
  * @return array{
  *   bf: array<int, array<int, string>>,
  *   cr_dr: array<int, array<int, string>>,
- *   currencies: array<int, array<int, string>>
+ *   currencies: array<int, array<int, string>>,
+ *   period_txn_count: array<int, array<int, int>>
  * }
  */
 function typePeriodSearchBulkManualTypeMetrics(
@@ -270,7 +291,7 @@ function typePeriodSearchBulkManualTypeMetrics(
     array $currencyCodes = []
 ): array {
     $formType = strtoupper(trim($formType));
-    $empty = ['bf' => [], 'cr_dr' => [], 'currencies' => []];
+    $empty = ['bf' => [], 'cr_dr' => [], 'currencies' => [], 'period_txn_count' => []];
     $accountIds = array_values(array_unique(array_filter(array_map('intval', $accountIds), static fn (int $id): bool => $id > 0)));
     if ($accountIds === [] || !typePeriodSearchIsDualSideManualType($formType)) {
         return $empty;
@@ -309,6 +330,7 @@ function typePeriodSearchBulkManualTypeMetrics(
     $bf = [];
     $crDr = [];
     $currencies = [];
+    $periodTxnCount = [];
     foreach ([$toSide, $fromSide] as $sidePack) {
         foreach ($sidePack['bf'] ?? [] as $aid => $byCur) {
             foreach ($byCur as $cid => $amt) {
@@ -325,12 +347,20 @@ function typePeriodSearchBulkManualTypeMetrics(
                 $currencies[(int) $aid][(int) $cid] = (string) $code;
             }
         }
+        foreach ($sidePack['period_txn_count'] ?? [] as $aid => $byCur) {
+            foreach ($byCur as $cid => $cnt) {
+                $aidInt = (int) $aid;
+                $cidInt = (int) $cid;
+                $periodTxnCount[$aidInt][$cidInt] = ($periodTxnCount[$aidInt][$cidInt] ?? 0) + (int) $cnt;
+            }
+        }
     }
 
     return [
         'bf' => $bf,
         'cr_dr' => $crDr,
         'currencies' => $currencies,
+        'period_txn_count' => $periodTxnCount,
     ];
 }
 
@@ -380,7 +410,45 @@ function typePeriodSearchFetchContraSideMetrics(
  * @param array{
  *   bf?: array<int, array<int, string>>,
  *   cr_dr?: array<int, array<int, string>>,
- *   currencies?: array<int, array<int, string>>
+ *   currencies?: array<int, array<int, string>>,
+ *   period_txn_count?: array<int, array<int, int>>
+ * } $bulk
+ */
+function typePeriodSearchPeriodTxnCountForCombo(
+    array $bulk,
+    int $accountId,
+    int $currencyId,
+    string $currencyCode = ''
+): int {
+    $bucket = $bulk['period_txn_count'] ?? [];
+    if (isset($bucket[$accountId][$currencyId])) {
+        return (int) $bucket[$accountId][$currencyId];
+    }
+
+    $wantCode = strtoupper(trim($currencyCode));
+    if ($wantCode === '' || empty($bulk['currencies'][$accountId])) {
+        return 0;
+    }
+
+    $total = 0;
+    foreach ($bulk['currencies'][$accountId] as $cid => $code) {
+        if (strtoupper(trim((string) $code)) !== $wantCode) {
+            continue;
+        }
+        if (isset($bucket[$accountId][(int) $cid])) {
+            $total += (int) $bucket[$accountId][(int) $cid];
+        }
+    }
+
+    return $total;
+}
+
+/**
+ * @param array{
+ *   bf?: array<int, array<int, string>>,
+ *   cr_dr?: array<int, array<int, string>>,
+ *   currencies?: array<int, array<int, string>>,
+ *   period_txn_count?: array<int, array<int, int>>
  * } $bulk
  */
 function typePeriodSearchMetricForCombo(

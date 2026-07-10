@@ -1855,11 +1855,35 @@ try {
         $account_currencies = [];
         $account_currency_ids = [];
         $acc_str = trim((string) $account_id);
+        $type_search_period_activity_only = $type_search_active
+            && typePeriodSearchFilterByPeriodActivityOnly($type_search_form_type)
+            && is_array($bulk_type_period);
 
-        // 账户 × 币别组合：只要存在 account_currency 表就始终走「现代路径」枚举 active + 交易币别。
-        // 切勿在 hide_zero_balance=1 时改走 Legacy（仅从 DCD 推币别）：会漏掉大量组合行，
-        // 前端再隐藏零余额后合计永远少半边账（典型 ±0.37 级尾差）。
-        if ($has_account_currency_table) {
+        if ($type_search_period_activity_only) {
+            foreach ($bulk_type_period['currencies'][$account_id] ?? [] as $cid => $code) {
+                if (typePeriodSearchPeriodTxnCountForCombo(
+                    $bulk_type_period,
+                    (int) $account_id,
+                    (int) $cid,
+                    (string) $code
+                ) <= 0) {
+                    continue;
+                }
+                addAccountCurrencyCombo($account_currencies, $account_currency_ids, (int) $cid, (string) $code);
+            }
+            if (!empty($filter_currency_codes)) {
+                $account_currencies = array_values(array_filter($account_currencies, function ($ac) use ($filter_currency_codes) {
+                    return in_array(strtoupper($ac['currency_code'] ?? ''), $filter_currency_codes);
+                }));
+                $account_currency_ids = [];
+                foreach ($account_currencies as $ac) {
+                    $account_currency_ids[(int) $ac['currency_id']] = true;
+                }
+            }
+            if (empty($account_currencies)) {
+                continue;
+            }
+        } elseif ($has_account_currency_table) {
             // === 现代路径：从 bulk_ac 批量数据读取，无需逐账户查询 ===
             foreach ($bulk_ac[$account_id] ?? [] as $cid => $code) {
                 addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
@@ -1982,7 +2006,8 @@ try {
         }
 
         if (
-            $type_search_active
+            !$type_search_period_activity_only
+            && $type_search_active
             && typePeriodSearchIsDualSideManualType($type_search_form_type)
             && is_array($bulk_type_period)
         ) {
@@ -2364,6 +2389,18 @@ try {
         ) {
             $bf = typePeriodSearchMetricForCombo($bulk_type_period, 'bf', (int) $account_id, (int) $currency_id, (string) $currency_code);
             $cr_dr = typePeriodSearchMetricForCombo($bulk_type_period, 'cr_dr', (int) $account_id, (int) $currency_id, (string) $currency_code);
+            $period_type_txn_count = typePeriodSearchPeriodTxnCountForCombo(
+                $bulk_type_period,
+                (int) $account_id,
+                (int) $currency_id,
+                (string) $currency_code
+            );
+            if (
+                typePeriodSearchFilterByPeriodActivityOnly($type_search_form_type)
+                && $period_type_txn_count <= 0
+            ) {
+                continue;
+            }
             $win_loss = '0';
             $wlPack = [
                 'win_loss' => '0',
@@ -2376,7 +2413,11 @@ try {
             $has_win_loss_transactions = false;
             $has_win_loss_history = false;
             $has_period_id_product_rows = false;
-            $has_crdr_transactions = searchMoneyNonZero(trunc2($cr_dr)) || searchMoneyNonZero(trunc2($bf));
+            if (typePeriodSearchFilterByPeriodActivityOnly($type_search_form_type)) {
+                $has_crdr_transactions = $period_type_txn_count > 0;
+            } else {
+                $has_crdr_transactions = searchMoneyNonZero(trunc2($cr_dr)) || searchMoneyNonZero(trunc2($bf));
+            }
             $has_contra_clear_period = $has_crdr_transactions;
         } else {
             $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account['account_id'] ?? '', $bulk);
