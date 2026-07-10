@@ -318,7 +318,88 @@ if (!function_exists('maintenance_gate_get_c168_company_row')) {
     }
 }
 
+if (!function_exists('maintenance_gate_get_company_row_by_id')) {
+    /**
+     * @return array{id:int, company_id:string, group_id:?string}|null
+     */
+    function maintenance_gate_get_company_row_by_id(PDO $pdo, int $companyId): ?array
+    {
+        if ($companyId <= 0) {
+            return null;
+        }
+
+        try {
+            $stmt = $pdo->prepare(
+                "SELECT id, company_id, group_id
+                 FROM company
+                 WHERE id = ?
+                 LIMIT 1"
+            );
+            $stmt->execute([$companyId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row || !isset($row['id'])) {
+                return null;
+            }
+
+            return [
+                'id' => (int) $row['id'],
+                'company_id' => (string) ($row['company_id'] ?? ''),
+                'group_id' => isset($row['group_id']) && trim((string) $row['group_id']) !== ''
+                    ? strtoupper(trim((string) $row['group_id']))
+                    : null,
+            ];
+        } catch (Throwable $e) {
+            error_log('maintenance_gate_get_company_row_by_id failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+}
+
+if (!function_exists('maintenance_gate_is_it_allowed_company_id')) {
+    function maintenance_gate_is_it_allowed_company_id(PDO $pdo, int $companyId): bool
+    {
+        if ($companyId <= 0) {
+            return false;
+        }
+
+        $row = maintenance_gate_get_company_row_by_id($pdo, $companyId);
+        if (!$row) {
+            return false;
+        }
+
+        $companyCode = strtoupper(trim((string) $row['company_id']));
+        if ($companyCode === 'C168') {
+            return true;
+        }
+
+        $groupId = $row['group_id'] ?? null;
+        if ($groupId === null) {
+            return false;
+        }
+
+        return in_array($groupId, maintenance_gate_it_scope_groups(), true);
+    }
+}
+
+if (!function_exists('maintenance_gate_apply_it_company_session')) {
+    /**
+     * @param array{id:int, company_id:string, group_id:?string} $company
+     */
+    function maintenance_gate_apply_it_company_session(array $company): void
+    {
+        $_SESSION['company_id'] = (int) $company['id'];
+        $_SESSION['company_code'] = (string) $company['company_id'];
+        $_SESSION['login_scope'] = 'company';
+        $_SESSION['login_identifier'] = (string) $company['company_id'];
+        $_SESSION['login_group_id'] = $company['group_id'] ?? null;
+        $_SESSION['login_group_scope_id'] = null;
+    }
+}
+
 if (!function_exists('maintenance_gate_force_it_c168_session')) {
+    /**
+     * IT 账号：登录或 session 公司不在 AP/IG 范围时锚到 C168；否则保留用户已选公司。
+     */
     function maintenance_gate_force_it_c168_session(PDO $pdo): void
     {
         $loginId = (string) ($_SESSION['login_id'] ?? '');
@@ -326,16 +407,20 @@ if (!function_exists('maintenance_gate_force_it_c168_session')) {
             return;
         }
 
+        $currentCompanyId = isset($_SESSION['company_id']) ? (int) $_SESSION['company_id'] : 0;
+        if ($currentCompanyId > 0 && maintenance_gate_is_it_allowed_company_id($pdo, $currentCompanyId)) {
+            $company = maintenance_gate_get_company_row_by_id($pdo, $currentCompanyId);
+            if ($company) {
+                maintenance_gate_apply_it_company_session($company);
+                return;
+            }
+        }
+
         $company = maintenance_gate_get_c168_company_row($pdo);
         if (!$company) {
             return;
         }
 
-        $_SESSION['company_id'] = (int) $company['id'];
-        $_SESSION['company_code'] = (string) $company['company_id'];
-        $_SESSION['login_scope'] = 'company';
-        $_SESSION['login_identifier'] = (string) $company['company_id'];
-        $_SESSION['login_group_id'] = $company['group_id'] ?? null;
-        $_SESSION['login_group_scope_id'] = null;
+        maintenance_gate_apply_it_company_session($company);
     }
 }
