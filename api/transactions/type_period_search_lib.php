@@ -110,7 +110,15 @@ function typePeriodSearchFilterByPeriodActivityOnly(string $formType): bool
  */
 function typePeriodSearchUsesAccountNativeBf(string $formType): bool
 {
-    return in_array(strtoupper(trim($formType)), ['PAYMENT', 'CONTRA', 'CLAIM', 'CLEAR'], true);
+    return in_array(strtoupper(trim($formType)), ['PAYMENT', 'CONTRA', 'CLAIM', 'CLEAR', 'PROFIT'], true);
+}
+
+/**
+ * PROFIT Type Search: period movement in Win/Loss column; Cr/Dr stays 0.00.
+ */
+function typePeriodSearchUsesProfitWinLossColumn(string $formType): bool
+{
+    return typePeriodSearchIsProfitType($formType);
 }
 
 /**
