@@ -2381,13 +2381,17 @@ try {
         $currency_id = $combo['currency_id'];
         $currency_code = $combo['currency_code'];
 
-        // 1–3. Metrics (Type Search × Capture Date uses type-only CONTRA/PAYMENT accumulation)
+        // 1–3. Metrics (Type Search × Capture Date; PAYMENT B/F uses account-native calculateBFByCurrency)
         if (
             $type_search_active
             && typePeriodSearchIsSupported($type_search_form_type)
             && is_array($bulk_type_period)
         ) {
-            $bf = typePeriodSearchMetricForCombo($bulk_type_period, 'bf', (int) $account_id, (int) $currency_id, (string) $currency_code);
+            if (typePeriodSearchUsesAccountNativeBf($type_search_form_type)) {
+                $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account['account_id'] ?? '', $bulk);
+            } else {
+                $bf = typePeriodSearchMetricForCombo($bulk_type_period, 'bf', (int) $account_id, (int) $currency_id, (string) $currency_code);
+            }
             $period_type_txn_count = typePeriodSearchPeriodTxnCountForCombo(
                 $bulk_type_period,
                 (int) $account_id,

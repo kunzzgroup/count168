@@ -104,6 +104,15 @@ function typePeriodSearchFilterByPeriodActivityOnly(string $formType): bool
 }
 
 /**
+ * Type Search B/F from full account calculateBFByCurrency (not type-only accumulation).
+ * Phase 1: PAYMENT only; CONTRA / CLAIM / CLEAR may follow later.
+ */
+function typePeriodSearchUsesAccountNativeBf(string $formType): bool
+{
+    return strtoupper(trim($formType)) === 'PAYMENT';
+}
+
+/**
  * Accounts that ever had pure manual CONTRA, PAYMENT, CLAIM, or PROFIT (To or From side).
  *
  * @return int[]
