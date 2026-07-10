@@ -176,46 +176,6 @@ export function MaintenancePanel({
           <h2 style={{ marginTop: 0, color: "#002C49", fontFamily: "var(--font-heading-page)", fontSize: "clamp(16px, 1.25vw, 24px)", marginBottom: "clamp(8px, 0.73vw, 14px)" }}>
             {t("createNewMaintenanceContent")}
           </h2>
-          <div className={`maintenance-mode-card ${maintenanceMode?.enabled ? "is-enabled" : "is-disabled"}`}>
-            <div className="maintenance-mode-header">
-              <div className="maintenance-mode-title-wrap">
-                <span className="maintenance-mode-label">{t("modeStatusLabel")}</span>
-                <span className="maintenance-mode-hint">{t("modeHint")}</span>
-              </div>
-              <span className={`maintenance-mode-pill ${maintenanceMode?.enabled ? "is-enabled" : "is-disabled"}`}>
-                {maintenanceMode?.enabled ? t("modeOn") : t("modeOff")}
-              </span>
-            </div>
-            {maintenanceMode?.message_preview ? (
-              <p className="maintenance-mode-preview">{maintenanceMode.message_preview}</p>
-            ) : null}
-            {canManageMaintenanceMode ? (
-              <div className="maintenance-mode-control-row">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={modeEnabled}
-                  className={`maintenance-mode-toggle ${modeEnabled ? "is-on" : "is-off"}`}
-                  disabled={modeToggleDisabled}
-                  onClick={modeEnabled ? onDisableMaintenanceMode : onEnableMaintenanceMode}
-                >
-                  <span className="maintenance-mode-switch" aria-hidden="true">
-                    <span className="maintenance-mode-switch-thumb" />
-                  </span>
-                  <span className="maintenance-mode-toggle-label">
-                    {modeSubmitting
-                      ? t("modeApplying")
-                      : modeEnabled
-                        ? t("modeDisableButton")
-                        : t("modeEnableButton")}
-                  </span>
-                </button>
-              </div>
-            ) : null}
-            {canManageMaintenanceMode && !modeEnabled && maintenanceList.length === 0 ? (
-              <p className="maintenance-mode-unavailable-hint">{t("modeEnableNeedsMaintenance")}</p>
-            ) : null}
-          </div>
           {!canCreate && (
             <div className="maintenance-singleton-hint">
               <strong>⚠️ {t("noticeLabel")}:</strong> {t("maintenanceNotice")}
@@ -254,6 +214,24 @@ export function MaintenancePanel({
         <div className="maintenance-list-section">
           <div className="maintenance-list-header">
             <h2>{t("publishedMaintenanceContent")}</h2>
+            {canManageMaintenanceMode ? (
+              <div className="maintenance-mode-inline">
+                <span className="maintenance-mode-inline-label">Maintenance Mode</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={modeEnabled}
+                  aria-label="Maintenance Mode"
+                  className={`maintenance-mode-toggle maintenance-mode-toggle--inline ${modeEnabled ? "is-on" : "is-off"}`}
+                  disabled={modeToggleDisabled}
+                  onClick={modeEnabled ? onDisableMaintenanceMode : onEnableMaintenanceMode}
+                >
+                  <span className="maintenance-mode-switch" aria-hidden="true">
+                    <span className="maintenance-mode-switch-thumb" />
+                  </span>
+                </button>
+              </div>
+            ) : null}
           </div>
           <div id="maintenanceList" style={{ flex: 1, overflowY: "auto" }}>
             {maintenanceList.length === 0 ? (

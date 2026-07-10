@@ -595,6 +595,56 @@ body.announcement-page .sidebar-scroll {
     text-align: left;
 }
 
+.maintenance-mode-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.maintenance-mode-inline-label {
+    color: #334155;
+    font-size: clamp(11px, 0.78vw, 15px);
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.maintenance-mode-toggle--inline {
+    width: auto;
+    min-height: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    gap: 0;
+}
+
+.maintenance-mode-toggle--inline.is-on {
+    border: 0;
+    background: transparent;
+}
+
+.maintenance-mode-toggle--inline:hover:not(:disabled),
+.maintenance-mode-toggle--inline.is-on:hover:not(:disabled) {
+    border: 0;
+    box-shadow: none;
+}
+
+.maintenance-mode-toggle--inline .maintenance-mode-switch {
+    width: 48px;
+    height: 26px;
+}
+
+.maintenance-mode-toggle--inline .maintenance-mode-switch-thumb {
+    top: 2px;
+    left: 2px;
+}
+
+.maintenance-mode-toggle--inline.is-on .maintenance-mode-switch-thumb {
+    transform: translateX(22px);
+}
+
 .maintenance-mode-unavailable-hint {
     margin: 8px 0 0 0;
     color: #92400e;
@@ -629,6 +679,11 @@ body.announcement-page .sidebar-scroll {
     .maintenance-mode-toggle {
         min-height: 40px;
         padding: 6px 9px;
+    }
+
+    .maintenance-mode-toggle--inline {
+        min-height: auto;
+        padding: 0;
     }
 }
 
