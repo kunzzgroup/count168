@@ -79,6 +79,7 @@ if ($pdo instanceof PDO && auth_session_password_stale($pdo)) {
 
 if ($pdo instanceof PDO) {
     maintenance_gate_enforce_active_session($pdo, true);
+    maintenance_gate_force_it_c168_session($pdo);
 }
 
 $cachedPayload = function_exists('session_user_payload_cache_get')

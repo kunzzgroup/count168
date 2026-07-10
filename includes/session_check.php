@@ -100,6 +100,7 @@ if (isset($_SESSION['user_id'])) {
     }
     if ($pdo instanceof PDO) {
         maintenance_gate_enforce_active_session($pdo, $isApiRequest);
+        maintenance_gate_force_it_c168_session($pdo);
     }
 
     // 检查session超时（如果没有remember me的话）

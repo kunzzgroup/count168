@@ -18,6 +18,47 @@ require_once __DIR__ . '/group_scope_resolve.php';
 
 const GC_LOGIN_SCOPE_GROUP = 'group';
 const GC_LOGIN_SCOPE_COMPANY = 'company';
+const GC_SYSTEM_IT_LOGIN_IDS = ['IT_JK', 'IT_JS', 'IT_MS'];
+
+function gc_is_system_it_login(): bool
+{
+    $loginId = strtoupper(trim((string) ($_SESSION['login_id'] ?? '')));
+    if ($loginId === '') {
+        return false;
+    }
+    return in_array($loginId, GC_SYSTEM_IT_LOGIN_IDS, true);
+}
+
+function gc_resolve_c168_company_numeric_id(PDO $pdo): int
+{
+    static $cached = null;
+    if (is_int($cached)) {
+        return $cached;
+    }
+
+    try {
+        $stmt = $pdo->query(
+            "SELECT id
+             FROM company
+             WHERE UPPER(TRIM(company_id)) = 'C168'
+             LIMIT 1"
+        );
+        $cached = (int) ($stmt ? $stmt->fetchColumn() : 0);
+    } catch (Throwable $e) {
+        $cached = 0;
+    }
+
+    return $cached;
+}
+
+function gc_is_system_it_allowed_company(PDO $pdo, int $companyId): bool
+{
+    if (!gc_is_system_it_login() || $companyId <= 0) {
+        return false;
+    }
+    $c168Id = gc_resolve_c168_company_numeric_id($pdo);
+    return $c168Id > 0 && $companyId === $c168Id;
+}
 
 function gc_normalize_scope(?string $scope): ?string
 {
@@ -131,6 +172,12 @@ function gc_company_row_matches_login_scope(array $companyRow): bool
  */
 function gc_filter_companies_for_login_scope(array $companies): array
 {
+    if (gc_is_system_it_login()) {
+        return array_values(array_filter($companies, static function (array $c): bool {
+            return strtoupper(trim((string) ($c['company_id'] ?? ''))) === 'C168';
+        }));
+    }
+
     if (gc_is_company_login() || gc_session_login_scope() === null) {
         return $companies;
     }
@@ -147,6 +194,12 @@ function gc_filter_companies_for_login_scope(array $companies): array
  */
 function gc_filter_companies_for_assigned_scope(PDO $pdo, array $companies): array
 {
+    if (gc_is_system_it_login()) {
+        return array_values(array_filter($companies, static function (array $c): bool {
+            return strtoupper(trim((string) ($c['company_id'] ?? ''))) === 'C168';
+        }));
+    }
+
     $role = strtolower(trim((string) ($_SESSION['role'] ?? '')));
     if ($role === 'owner') {
         return $companies;
@@ -375,6 +428,10 @@ function gc_session_can_access_company_id(PDO $pdo, int $companyId, ?string $vie
         return false;
     }
 
+    if (gc_is_system_it_login()) {
+        return gc_is_system_it_allowed_company($pdo, $companyId);
+    }
+
     if (!gc_is_group_login()) {
         // Owners always keep full access.
         $role = strtolower(trim((string) ($_SESSION['role'] ?? '')));
@@ -556,6 +613,13 @@ function gc_assert_api_company_access(PDO $pdo, int $companyId, ?string $viewGro
         throw new RuntimeException('无效的 company_id');
     }
 
+    if (gc_is_system_it_login()) {
+        if (gc_is_system_it_allowed_company($pdo, $companyId)) {
+            return;
+        }
+        throw new RuntimeException('无权限访问该公司');
+    }
+
     if (gc_is_group_login()) {
         gc_assert_company_id_allowed_for_login_scope($pdo, $companyId, $viewGroup);
 
@@ -605,6 +669,9 @@ function gc_assert_api_company_access(PDO $pdo, int $companyId, ?string $viewGro
 /** Block company-login callers from group-only APIs unless owner or user_group_map assignment. */
 function gc_assert_group_only_operation_allowed(): void
 {
+    if (gc_is_system_it_login()) {
+        throw new RuntimeException('Group-only operation is not allowed for system IT account');
+    }
     if (gc_is_group_login()) {
         return;
     }
@@ -620,6 +687,9 @@ function gc_assert_group_only_operation_allowed(): void
 /** Company login: owner may use group ledger without user_group_map. */
 function gc_session_company_login_has_group_ledger_privilege(): bool
 {
+    if (gc_is_system_it_login()) {
+        return false;
+    }
     if (!gc_is_company_login()) {
         return false;
     }
@@ -977,6 +1047,13 @@ function gc_session_assigned_company_ids(): array
 /** Hydrate both admin-assigned group codes and subsidiary company ids into session. */
 function gc_hydrate_session_assigned_tenants(PDO $pdo): void
 {
+    if (gc_is_system_it_login()) {
+        $c168Id = gc_resolve_c168_company_numeric_id($pdo);
+        $_SESSION['assigned_group_codes'] = [];
+        $_SESSION['assigned_company_ids'] = $c168Id > 0 ? [$c168Id] : [];
+        return;
+    }
+
     gc_hydrate_session_assigned_group_codes($pdo);
     gc_hydrate_session_assigned_company_ids($pdo);
 }
@@ -1030,6 +1107,11 @@ function gc_session_can_access_group_code(PDO $pdo, string $groupCode): bool
 
 function gc_hydrate_accessible_group_ids(PDO $pdo, array $companies): void
 {
+    if (gc_is_system_it_login()) {
+        $_SESSION['accessible_group_ids'] = [];
+        return;
+    }
+
     if (gc_session_login_scope() === null) {
         return;
     }

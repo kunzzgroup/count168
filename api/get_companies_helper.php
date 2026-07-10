@@ -5,6 +5,47 @@
  */
 
 require_once __DIR__ . '/../includes/group_scope_resolve.php';
+require_once __DIR__ . '/../includes/maintenance_gate.php';
+
+if (!function_exists('_getSystemItFixedC168Companies')) {
+    function _getSystemItFixedC168Companies(PDO $pdo, bool $fetchAll): ?array
+    {
+        $sessionLoginId = (string) ($_SESSION['login_id'] ?? '');
+        if (!maintenance_gate_is_allowlisted_login($sessionLoginId)) {
+            return null;
+        }
+
+        $stmt = $pdo->query("
+            SELECT id, company_id, group_id, expiration_date, permissions
+            FROM company
+            WHERE UPPER(TRIM(company_id)) = 'C168'
+            LIMIT 1
+        ");
+        $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+        if (!$row || !isset($row['id'])) {
+            return [];
+        }
+
+        $base = [
+            'id' => (int) $row['id'],
+            'company_id' => (string) ($row['company_id'] ?? 'C168'),
+            'group_id' => $row['group_id'] ?? null,
+            'expiration_date' => $row['expiration_date'] ?? null,
+        ];
+        if ($fetchAll) {
+            return [[
+                'id' => $base['id'],
+                'company_id' => $base['company_id'],
+                'native_group_id' => $base['group_id'],
+                'group_id' => $base['group_id'],
+                'expiration_date' => $base['expiration_date'],
+                'permissions' => $row['permissions'] ?? null,
+                'is_external' => 0,
+            ]];
+        }
+        return [$base];
+    }
+}
 
 if (!function_exists('getCompaniesByUser')) {
     /**
@@ -16,6 +57,11 @@ if (!function_exists('getCompaniesByUser')) {
      *   must be preserved.
      */
     function getCompaniesByUser(PDO $pdo, int $userId, bool $fetchAll = false, bool $includeGroupLinkVirtualRows = false): array {
+        $fixedSystemItCompanies = _getSystemItFixedC168Companies($pdo, $fetchAll);
+        if ($fixedSystemItCompanies !== null) {
+            return $fixedSystemItCompanies;
+        }
+
         if ($fetchAll) {
             $stmt = $pdo->prepare("
                 SELECT DISTINCT c.id, c.company_id, c.group_id AS native_group_id, c.group_id, c.expiration_date, c.permissions

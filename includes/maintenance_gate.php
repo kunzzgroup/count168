@@ -263,3 +263,53 @@ if (!function_exists('maintenance_gate_build_login_reject_payload')) {
         ];
     }
 }
+
+if (!function_exists('maintenance_gate_get_c168_company_row')) {
+    /**
+     * @return array{id:int, company_id:string}|null
+     */
+    function maintenance_gate_get_c168_company_row(PDO $pdo): ?array
+    {
+        try {
+            $stmt = $pdo->query(
+                "SELECT id, company_id
+                 FROM company
+                 WHERE UPPER(TRIM(company_id)) = 'C168'
+                 LIMIT 1"
+            );
+            $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+            if (!$row || !isset($row['id'])) {
+                return null;
+            }
+            return [
+                'id' => (int) $row['id'],
+                'company_id' => (string) ($row['company_id'] ?? 'C168'),
+            ];
+        } catch (Throwable $e) {
+            error_log('maintenance_gate_get_c168_company_row failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+}
+
+if (!function_exists('maintenance_gate_force_it_c168_session')) {
+    function maintenance_gate_force_it_c168_session(PDO $pdo): void
+    {
+        $loginId = (string) ($_SESSION['login_id'] ?? '');
+        if (!maintenance_gate_is_allowlisted_login($loginId)) {
+            return;
+        }
+
+        $company = maintenance_gate_get_c168_company_row($pdo);
+        if (!$company) {
+            return;
+        }
+
+        $_SESSION['company_id'] = (int) $company['id'];
+        $_SESSION['company_code'] = (string) $company['company_id'];
+        $_SESSION['login_scope'] = 'company';
+        $_SESSION['login_identifier'] = (string) $company['company_id'];
+        $_SESSION['login_group_id'] = null;
+        $_SESSION['login_group_scope_id'] = null;
+    }
+}
