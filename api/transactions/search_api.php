@@ -2349,8 +2349,8 @@ try {
 
         // 1–3. Metrics (Type Search × Capture Date uses type-only CONTRA accumulation)
         if ($type_search_active && $type_search_form_type === 'CONTRA' && is_array($bulk_type_period)) {
-            $bf = typePeriodSearchMetricFor($bulk_type_period['bf'], (int) $account_id, (int) $currency_id);
-            $cr_dr = typePeriodSearchMetricFor($bulk_type_period['cr_dr'], (int) $account_id, (int) $currency_id);
+            $bf = typePeriodSearchMetricForCombo($bulk_type_period, 'bf', (int) $account_id, (int) $currency_id, (string) $currency_code);
+            $cr_dr = typePeriodSearchMetricForCombo($bulk_type_period, 'cr_dr', (int) $account_id, (int) $currency_id, (string) $currency_code);
             $win_loss = '0';
             $wlPack = [
                 'win_loss' => '0',
@@ -2363,7 +2363,7 @@ try {
             $has_win_loss_transactions = false;
             $has_win_loss_history = false;
             $has_period_id_product_rows = false;
-            $has_crdr_transactions = searchMoneyNonZero(trunc2($cr_dr));
+            $has_crdr_transactions = searchMoneyNonZero(trunc2($cr_dr)) || searchMoneyNonZero(trunc2($bf));
             $has_contra_clear_period = $has_crdr_transactions;
         } else {
             $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account['account_id'] ?? '', $bulk);

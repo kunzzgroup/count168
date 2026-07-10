@@ -151,17 +151,21 @@ function typePeriodSearchBulkContraMetrics(
         : '';
     $pureManualSql = typeTxSearchPureManualSqlFragment('CONTRA', 't');
     $signedAmt = dcd_processed_amount_sql_quant2('(-t.amount)');
-    $currencyJoin = typePeriodSearchCurrencyJoin($pdo, $listScope);
+    $dateExpr = 'DATE(t.transaction_date)';
 
     $accPh = implode(',', array_fill(0, count($accountIds), '?'));
     $sql = "SELECT
                 t.account_id,
                 t.currency_id,
-                UPPER(COALESCE(c.code, '')) AS currency_code,
-                COALESCE(SUM(CASE WHEN t.transaction_date < ? THEN {$signedAmt} ELSE 0 END), 0) AS bf_total,
-                COALESCE(SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN {$signedAmt} ELSE 0 END), 0) AS cr_dr_total
+                COALESCE((
+                    SELECT UPPER(TRIM(c2.code))
+                    FROM currency c2
+                    WHERE c2.id = t.currency_id
+                    LIMIT 1
+                ), '') AS currency_code,
+                COALESCE(SUM(CASE WHEN {$dateExpr} < ? THEN {$signedAmt} ELSE 0 END), 0) AS bf_total,
+                COALESCE(SUM(CASE WHEN {$dateExpr} BETWEEN ? AND ? THEN {$signedAmt} ELSE 0 END), 0) AS cr_dr_total
             FROM transactions t
-            {$currencyJoin['sql']}
             WHERE {$txnFilter['sql']}
               AND t.account_id IN ({$accPh})
               AND t.transaction_type = 'CONTRA'
@@ -172,7 +176,6 @@ function typePeriodSearchBulkContraMetrics(
               {$pureManualSql}";
 
     $params = [
-        (int) $currencyJoin['bind'],
         $dateFromDb,
         $dateFromDb,
         $dateToDb,
@@ -186,11 +189,16 @@ function typePeriodSearchBulkContraMetrics(
     ), static fn (string $c): bool => $c !== '')));
     if ($currencyCodes !== []) {
         $curPh = implode(',', array_fill(0, count($currencyCodes), '?'));
-        $sql .= " AND UPPER(COALESCE(c.code, '')) IN ({$curPh})";
+        $sql .= " AND EXISTS (
+            SELECT 1
+            FROM currency c
+            WHERE c.id = t.currency_id
+              AND UPPER(TRIM(c.code)) IN ({$curPh})
+        )";
         $params = array_merge($params, $currencyCodes);
     }
 
-    $sql .= ' GROUP BY t.account_id, t.currency_id, UPPER(COALESCE(c.code, \'\'))';
+    $sql .= ' GROUP BY t.account_id, t.currency_id';
 
     $bf = [];
     $crDr = [];
@@ -214,6 +222,43 @@ function typePeriodSearchBulkContraMetrics(
         'cr_dr' => $crDr,
         'currencies' => $currencies,
     ];
+}
+
+/**
+ * @param array{
+ *   bf?: array<int, array<int, string>>,
+ *   cr_dr?: array<int, array<int, string>>,
+ *   currencies?: array<int, array<int, string>>
+ * } $bulk
+ */
+function typePeriodSearchMetricForCombo(
+    array $bulk,
+    string $bucketKey,
+    int $accountId,
+    int $currencyId,
+    string $currencyCode = ''
+): string {
+    $bucket = $bulk[$bucketKey] ?? [];
+    if (isset($bucket[$accountId][$currencyId])) {
+        return money_out($bucket[$accountId][$currencyId]);
+    }
+
+    $wantCode = strtoupper(trim($currencyCode));
+    if ($wantCode === '' || empty($bulk['currencies'][$accountId])) {
+        return '0.00';
+    }
+
+    $total = '0';
+    foreach ($bulk['currencies'][$accountId] as $cid => $code) {
+        if (strtoupper(trim((string) $code)) !== $wantCode) {
+            continue;
+        }
+        if (isset($bucket[$accountId][(int) $cid])) {
+            $total = money_add($total, $bucket[$accountId][(int) $cid], 8);
+        }
+    }
+
+    return money_out($total);
 }
 
 /**
