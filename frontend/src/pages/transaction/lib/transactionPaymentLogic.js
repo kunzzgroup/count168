@@ -63,6 +63,12 @@ export function dedupeRowsByAccountAndCurrency(rows) {
   const indexByKey = new Map();
   const norm = (v) => String(v || "").toUpperCase().trim();
   const keyOf = (row) => {
+    if (row?.type_search_row) {
+      const tid = Number(row?.transaction_id);
+      const accountDbId = norm(row?.account_db_id);
+      const currency = norm(row?.currency);
+      return `TX:${tid > 0 ? tid : "x"}_${accountDbId || "DB"}_${currency}`;
+    }
     const currency = norm(row?.currency);
     // Prefer stable UI identity (account_id). account_db_id is fallback only.
     const accountCode = norm(row?.account_id);

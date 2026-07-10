@@ -1,10 +1,7 @@
 <?php
 /**
- * Transaction Type Account Search API
- * Returns account DB ids that have ever executed a given transaction type (all dates).
- * Used by Transaction Payment page right-side Search (type-based account list).
- *
- * Path: api/transactions/type_account_search_api.php
+ * Transaction Type Search API — one grid row per approved transaction (all history).
+ * Path: api/transactions/type_transaction_search_api.php
  */
 
 session_start();
@@ -14,8 +11,7 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../api_response.php';
 require_once __DIR__ . '/../c168/c168_domain_access.php';
 require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
-require_once __DIR__ . '/type_account_search_lib.php';
-require_once __DIR__ . '/type_period_search_lib.php';
+require_once __DIR__ . '/type_transaction_search_lib.php';
 
 try {
     if (!isset($_SESSION['user_id'])) {
@@ -45,17 +41,27 @@ try {
         throw new InvalidArgumentException('transaction_type 为必填项');
     }
 
-    $accountIds = typePeriodSearchFetchEligibleAccountIds($pdo, $listScope, $formType);
-    sort($accountIds, SORT_NUMERIC);
+    $currencyFilters = [];
+    if (isset($_GET['currency']) && trim((string) $_GET['currency']) !== '') {
+        foreach (explode(',', (string) $_GET['currency']) as $code) {
+            $code = strtoupper(trim($code));
+            if ($code !== '') {
+                $currencyFilters[$code] = true;
+            }
+        }
+        $currencyFilters = array_keys($currencyFilters);
+    }
 
-    api_success([
+    $rows = typeTxSearchFetchTransactions($pdo, $listScope, $formType, $currencyFilters);
+    $payload = typeTxSearchBuildPayload($rows);
+
+    api_success(array_merge($payload, [
         'transaction_type' => $formType,
-        'account_ids' => $accountIds,
-        'account_count' => count($accountIds),
-    ]);
+        'transaction_count' => count($rows),
+    ]));
 } catch (InvalidArgumentException $e) {
     api_error($e->getMessage(), 400);
 } catch (Throwable $e) {
-    error_log('type_account_search_api: ' . $e->getMessage());
+    error_log('type_transaction_search_api: ' . $e->getMessage());
     api_error($e->getMessage() ?: '搜索失败', 500);
 }
