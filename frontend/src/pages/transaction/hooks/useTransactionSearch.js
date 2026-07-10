@@ -37,6 +37,13 @@ import {
 /** Type Search uses Capture Date + search_api period metrics (not all-time grid API). */
 const PERIOD_TYPE_SEARCH_TYPES = new Set(["CONTRA", "PAYMENT", "CLAIM", "CLEAR", "RATE", "ADJUSTMENT", "PROFIT"]);
 
+const INITIAL_TRANSACTION_SEARCH_STATE = {
+  showName: false,
+  showCaptureOnly: false,
+  showPaymentOnly: false,
+  showZeroBalance: false,
+};
+
 function syncCaptureDateDom(dateDmy) {
   const d = String(dateDmy || "").trim();
   if (!d) return;
@@ -75,12 +82,7 @@ export function useTransactionSearch({
   const [dateFrom, setDateFrom] = useState(null);
   const [dateTo, setDateTo] = useState(null);
   const [selectedCategories, setSelectedCategories] = useState([]);
-  const [searchState, setSearchState] = useState({
-    showName: false,
-    showCaptureOnly: false,
-    showPaymentOnly: false,
-    showZeroBalance: false,
-  });
+  const [searchState, setSearchState] = useState({ ...INITIAL_TRANSACTION_SEARCH_STATE });
   const [showAllCurrencies, setShowAllCurrencies] = useState(false);
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   /** Block cross-page currency sync when All or multi-select is active (empty currentCode would re-apply MYR etc.). */
@@ -521,17 +523,23 @@ export function useTransactionSearch({
       typeSearchOverride = undefined,
       dateFromOverride = undefined,
       dateToOverride = undefined,
+      selectedCategoriesOverride = undefined,
+      showAllCurrenciesOverride = undefined,
+      selectedCurrenciesOverride = undefined,
     } = {}) => {
       const cid = scopeCacheCompanyKey;
       const notifyErr = notifyErrorsOpt !== undefined ? notifyErrorsOpt : !silent;
       const queryDateFrom = String(dateFromOverride ?? effectiveDateFrom ?? "").trim();
       const queryDateTo = String(dateToOverride ?? effectiveDateTo ?? "").trim();
+      const effectiveCategories = selectedCategoriesOverride ?? selectedCategories;
+      const effectiveShowAll = showAllCurrenciesOverride ?? showAllCurrencies;
+      const effectiveSelectedCurrencies = selectedCurrenciesOverride ?? selectedCurrencies;
       if (!scopeReady || !cid) return;
       if (!queryDateFrom || !queryDateTo) {
         pushToast(m.pleaseSelectDateRange, "error");
         return;
       }
-      if (!showAllCurrencies && selectedCurrencies.length === 0) {
+      if (!effectiveShowAll && effectiveSelectedCurrencies.length === 0) {
         setRawSearchData(null);
         setTablesVisible(false);
         pushToast(m.pleaseSelectAtLeastOneCurrency, "info");
@@ -556,11 +564,13 @@ export function useTransactionSearch({
       const presentationFormType = typeSearchFormTypeOverride ?? typeSearchFormType ?? txType;
 
       const categoryParam =
-        selectedCategories.length > 0 && !selectedCategories.includes("")
-          ? [...selectedCategories].sort().join(",")
+        effectiveCategories.length > 0 && !effectiveCategories.includes("")
+          ? [...effectiveCategories].sort().join(",")
           : "";
       const singleSelectedCurrency =
-        !showAllCurrencies && selectedCurrencies.length === 1 ? String(selectedCurrencies[0] || "").toUpperCase() : "";
+        !effectiveShowAll && effectiveSelectedCurrencies.length === 1
+          ? String(effectiveSelectedCurrencies[0] || "").toUpperCase()
+          : "";
 
       const queryFilters = buildTransactionSearchQueryFilters(effectiveSearchState);
       const { showInactiveForQuery, showCaptureOnlyForQuery, hideZeroBalanceForQuery } = queryFilters;
@@ -574,8 +584,8 @@ export function useTransactionSearch({
         showInactive: showInactiveForQuery,
         showCaptureOnly: showCaptureOnlyForQuery,
         hideZeroBalance: hideZeroForApi,
-        showAllCurrencies,
-        selectedCurrencies,
+        showAllCurrencies: effectiveShowAll,
+        selectedCurrencies: effectiveSelectedCurrencies,
         typeSearch: activeTypeSearch,
         typeAccountIds: accountIdsForType,
         typeSearchFormType: activeTypeSearch ? presentationFormType : "",
@@ -589,12 +599,12 @@ export function useTransactionSearch({
         companyId: cid,
         dateFrom: queryDateFrom,
         dateTo: queryDateTo,
-        selectedCategories,
+        selectedCategories: effectiveCategories,
         showInactive: showInactiveForQuery,
         showCaptureOnly: showCaptureOnlyForQuery,
         hideZeroBalance: hideZeroForApi,
-        showAllCurrencies,
-        selectedCurrencies,
+        showAllCurrencies: effectiveShowAll,
+        selectedCurrencies: effectiveSelectedCurrencies,
       });
 
       if (forceRefresh) {
@@ -654,8 +664,9 @@ export function useTransactionSearch({
         showInactive: showInactiveForQuery,
         showCaptureOnly: showCaptureOnlyForQuery,
         hideZeroBalance: hideZeroForApi,
-        categories: selectedCategories.length > 0 ? selectedCategories : undefined,
-        currencyCodes: !showAllCurrencies && selectedCurrencies.length > 0 ? selectedCurrencies : undefined,
+        categories: effectiveCategories.length > 0 ? effectiveCategories : undefined,
+        currencyCodes:
+          !effectiveShowAll && effectiveSelectedCurrencies.length > 0 ? effectiveSelectedCurrencies : undefined,
         typeSearch: activeTypeSearch,
         typeAccountIds: activeTypeSearch ? accountIdsForType : undefined,
         typeSearchFormType: activeTypeSearch ? presentationFormType : undefined,
@@ -975,6 +986,75 @@ export function useTransactionSearch({
     },
     [typeSearchActive, typeSearchFormType, runSearch, runTypeSearch],
   );
+
+  /** Exit Type Search and restore the default transaction page view (today + default filters). */
+  const exitTypeSearchAndRefresh = useCallback(async () => {
+    if (!typeSearchActive) return;
+    if (!scopeReady || !scopeCacheCompanyKey) return;
+
+    const today = String(todayDmy || "").trim();
+    if (!today) return;
+
+    const codes = (currencyRowsOrdered || [])
+      .map((r) => String(r.code || "").toUpperCase().trim())
+      .filter(Boolean);
+    const defaultCode = pickTransactionDefaultCurrency(codes);
+    const defaultSel =
+      defaultCode && codes.includes(defaultCode) ? [defaultCode] : codes[0] ? [codes[0]] : [];
+    if (defaultSel.length === 0) return;
+
+    setSearchLoading(true);
+    try {
+      setTypeSearchActive(false);
+      setTypeSearchFormType(null);
+      setTypeSearchAccountIds([]);
+      setSearchState({ ...INITIAL_TRANSACTION_SEARCH_STATE });
+      setSelectedCategories([]);
+      categoryChangedByUserRef.current = false;
+      setDateFrom(today);
+      setDateTo(today);
+      syncCaptureDateDom(today);
+      prevCaptureDateRangeKeyRef.current = `${today}|${today}`;
+      prevServerSideFiltersRef.current = {
+        showPaymentOnly: false,
+        showCaptureOnly: false,
+        showZeroBalance: false,
+      };
+      suppressCrossPageCurrencyRef.current = false;
+      bootCurrencyDefaultRef.current = true;
+      setShowAllCurrencies(false);
+      setSelectedCurrencies(defaultSel);
+      persistCurrencyFilter(scopeCacheCompanyKey, false, defaultSel, transactionScope?.selectedGroup);
+
+      lastInitialSearchKeyRef.current = "";
+      clearTxSearchCache();
+      await queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
+
+      await runSearch({
+        forceRefresh: true,
+        silent: false,
+        typeSearchOverride: false,
+        dateFromOverride: today,
+        dateToOverride: today,
+        searchStateOverride: { ...INITIAL_TRANSACTION_SEARCH_STATE },
+        selectedCategoriesOverride: [],
+        showAllCurrenciesOverride: false,
+        selectedCurrenciesOverride: defaultSel,
+      });
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [
+    typeSearchActive,
+    scopeReady,
+    scopeCacheCompanyKey,
+    todayDmy,
+    currencyRowsOrdered,
+    persistCurrencyFilter,
+    transactionScope?.selectedGroup,
+    queryClient,
+    runSearch,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -1399,6 +1479,7 @@ export function useTransactionSearch({
     runSearch,
     runTypeSearch,
     jumpToSubmitDateAndRefresh,
+    exitTypeSearchAndRefresh,
     typeSearchActive,
     typeSearchFormType,
     persistCurrencyFilter,
