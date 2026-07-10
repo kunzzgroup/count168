@@ -11,6 +11,8 @@ import {
   countDisplayedRows,
   normalizeRateRowsByCrDr,
   applyTypeSearchAccountFilter,
+  hasSubmitFocusByCurrency,
+  getSubmitFocusAccountIdsForCurrency,
   readTransactionCurrencyFilterState,
   pickTransactionDefaultCurrency,
   readTxListFromSessionStorage,
@@ -100,8 +102,8 @@ export function useTransactionSearch({
   const [typeSearchActive, setTypeSearchActive] = useState(false);
   const [typeSearchAccountIds, setTypeSearchAccountIds] = useState([]);
   const [typeSearchFormType, setTypeSearchFormType] = useState(null);
-  /** Post-submit focused rows: union of account_db_id from submits on current capture range (cross-type). */
-  const [submitFocusAccountIds, setSubmitFocusAccountIds] = useState([]);
+  /** Post-submit focused rows per currency: { MYR: [ids], SGD: [ids] } on current capture range. */
+  const [submitFocusByCurrency, setSubmitFocusByCurrency] = useState({});
   const [submitFocusRangeKey, setSubmitFocusRangeKey] = useState(null);
   /** Capture ranges left while in submit-focus — returning runs full Type Search (scheme A). */
   const submitFocusLeftRangeKeysRef = useRef(new Set());
@@ -132,7 +134,7 @@ export function useTransactionSearch({
   const effectiveDateRangeText = `${effectiveDateFrom} - ${effectiveDateTo}`;
   const captureRangeKey = `${effectiveDateFrom}|${effectiveDateTo}`;
   const submitFocusActive =
-    submitFocusAccountIds.length > 0 && submitFocusRangeKey === captureRangeKey;
+    hasSubmitFocusByCurrency(submitFocusByCurrency) && submitFocusRangeKey === captureRangeKey;
   const listPresentationModeActive = typeSearchActive || submitFocusActive;
   const selectedCurrenciesKey = selectedCurrencies.map((c) => String(c || "").toUpperCase()).join(",");
   const scopeViewGroup = transactionScope?.viewGroup ?? null;
@@ -825,7 +827,7 @@ export function useTransactionSearch({
       const normalizedType = String(formTxType || "").toUpperCase().trim();
       if (!normalizedType) return;
 
-      setSubmitFocusAccountIds([]);
+      setSubmitFocusByCurrency({});
       setSubmitFocusRangeKey(null);
 
       if (!preserveSearchState) {
@@ -1013,10 +1015,14 @@ export function useTransactionSearch({
         setTypeSearchFormType(null);
         setTypeSearchAccountIds([]);
 
-        setSubmitFocusAccountIds((prev) => {
-          const base = submitFocusRangeKey === rangeKey ? prev : [];
-          return [...new Set([...base, ...ids])];
-        });
+        if (currencyCode) {
+          setSubmitFocusByCurrency((prev) => {
+            const base = submitFocusRangeKey === rangeKey ? { ...prev } : {};
+            const existing = Array.isArray(base[currencyCode]) ? base[currencyCode] : [];
+            base[currencyCode] = [...new Set([...existing, ...ids])];
+            return base;
+          });
+        }
         setSubmitFocusRangeKey(rangeKey);
         submitFocusLeftRangeKeysRef.current.delete(rangeKey);
 
@@ -1070,7 +1076,7 @@ export function useTransactionSearch({
       setTypeSearchActive(false);
       setTypeSearchFormType(null);
       setTypeSearchAccountIds([]);
-      setSubmitFocusAccountIds([]);
+      setSubmitFocusByCurrency({});
       setSubmitFocusRangeKey(null);
       submitFocusLeftRangeKeysRef.current.clear();
       setSearchState({ ...INITIAL_TRANSACTION_SEARCH_STATE });
@@ -1152,11 +1158,16 @@ export function useTransactionSearch({
     const rawRight = Array.isArray(rawSearchData.right_table) ? rawSearchData.right_table : [];
     let viewLeft = rawLeft;
     let viewRight = rawRight;
-    if (submitFocusActive) {
-      const focusSet = new Set(submitFocusAccountIds);
-      const focused = applyTypeSearchAccountFilter(rawLeft, rawRight, focusSet);
-      viewLeft = focused.left;
-      viewRight = focused.right;
+    const multiCurrencyView = showAllCurrencies || selectedCurrencies.length > 1;
+    if (submitFocusActive && !multiCurrencyView) {
+      const singleCode = String(selectedCurrencies[0] || "").toUpperCase().trim();
+      const focusIds = getSubmitFocusAccountIdsForCurrency(submitFocusByCurrency, singleCode);
+      if (focusIds.length > 0) {
+        const focusSet = new Set(focusIds);
+        const focused = applyTypeSearchAccountFilter(rawLeft, rawRight, focusSet);
+        viewLeft = focused.left;
+        viewRight = focused.right;
+      }
     }
     if (typeSearchActive) {
       return {
@@ -1172,7 +1183,16 @@ export function useTransactionSearch({
       baseLeft: sortByRole(norm.leftRows),
       baseRight: sortByRole(norm.rightRows),
     };
-  }, [rawSearchData, txType, typeSearchFormType, typeSearchActive, submitFocusActive, submitFocusAccountIds]);
+  }, [
+    rawSearchData,
+    txType,
+    typeSearchFormType,
+    typeSearchActive,
+    submitFocusActive,
+    submitFocusByCurrency,
+    showAllCurrencies,
+    selectedCurrencies,
+  ]);
 
   const tablePresentation = useMemo(() => {
     if (!rawSearchData) {
@@ -1245,7 +1265,17 @@ export function useTransactionSearch({
     }
 
     const grouped = orderedCurrs.map((currency) => {
-      const { left: gl, right: gr } = groupedMap[currency];
+      let gl = groupedMap[currency]?.left || [];
+      let gr = groupedMap[currency]?.right || [];
+      if (submitFocusActive) {
+        const focusIds = getSubmitFocusAccountIdsForCurrency(submitFocusByCurrency, currency);
+        if (focusIds.length > 0) {
+          const focusSet = new Set(focusIds);
+          const focused = applyTypeSearchAccountFilter(gl, gr, focusSet);
+          gl = focused.left;
+          gr = focused.right;
+        }
+      }
       const l = sortByRole(gl);
       const r = sortByRole(gr);
       const tL = calculateTotals(l);
@@ -1279,7 +1309,17 @@ export function useTransactionSearch({
       grouped,
       singleCurrencyTitle: null,
     };
-  }, [rawSearchData, baseRowsPresentation, searchState, listPresentationModeActive, showAllCurrencies, selectedCurrencies, currencyRowsOrdered]);
+  }, [
+    rawSearchData,
+    baseRowsPresentation,
+    searchState,
+    listPresentationModeActive,
+    showAllCurrencies,
+    selectedCurrencies,
+    currencyRowsOrdered,
+    submitFocusActive,
+    submitFocusByCurrency,
+  ]);
 
   useEffect(() => {
     if (!typeSearchActive) return;
@@ -1346,7 +1386,7 @@ export function useTransactionSearch({
       suppressBlockingOverlayOnceRef.current = true;
       prevCaptureDateRangeKeyRef.current = null;
       prevServerSideFiltersRef.current = null;
-      setSubmitFocusAccountIds([]);
+      setSubmitFocusByCurrency({});
       setSubmitFocusRangeKey(null);
       submitFocusLeftRangeKeysRef.current.clear();
       setSearchLoading(false);
@@ -1511,9 +1551,9 @@ export function useTransactionSearch({
     }
     if (prevKey === key) return;
 
-    if (submitFocusRangeKey === prevKey && submitFocusAccountIds.length > 0) {
+    if (submitFocusRangeKey === prevKey && hasSubmitFocusByCurrency(submitFocusByCurrency)) {
       submitFocusLeftRangeKeysRef.current.add(prevKey);
-      setSubmitFocusAccountIds([]);
+      setSubmitFocusByCurrency({});
       setSubmitFocusRangeKey(null);
       setTypeSearchActive(false);
       setTypeSearchFormType(null);
@@ -1527,7 +1567,7 @@ export function useTransactionSearch({
       return;
     }
 
-    if (submitFocusRangeKey === key && submitFocusAccountIds.length > 0) {
+    if (submitFocusRangeKey === key && hasSubmitFocusByCurrency(submitFocusByCurrency)) {
       void runSearch({ forceRefresh: true, silent: true, typeSearchOverride: false });
       return;
     }
@@ -1555,7 +1595,8 @@ export function useTransactionSearch({
     runSearch,
     txType,
     submitFocusRangeKey,
-    submitFocusAccountIds.length,
+    submitFocusByCurrency,
+    hasSubmitFocusByCurrency,
   ]);
 
   return {
