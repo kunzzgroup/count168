@@ -18,6 +18,7 @@ import {
   normalizeRichTextInput,
   sanitizeRichTextHtml,
 } from "../../utils/content/richTextSanitizer.js";
+import { publishMaintenanceModeEvent } from "../../utils/maintenance/maintenanceRealtimeBus.js";
 
 export default function AnnouncementPage() {
   const navigate = useNavigate();
@@ -175,6 +176,10 @@ export default function AnnouncementPage() {
             message_preview: json.data.message_preview || "",
             updated_by: json.data.updated_by || "",
             updated_at: json.data.updated_at || "",
+          });
+          publishMaintenanceModeEvent({
+            enabled: Boolean(json.data.enabled),
+            message: json.data.message_preview || "",
           });
           showNotice(nextEnabled ? t("modeEnabledSuccess") : t("modeDisabledSuccess"));
           await loadMaintenance();

@@ -82,6 +82,7 @@ import { stripPrivateQueryFromBrowserUrl } from "../utils/routing/privateBrowser
 import { resetDashboardSessionCaches } from "../utils/dashboard/dashboardCache.js";
 import { resetMaintenanceCalendarPopupOnNavigation } from "../utils/date/dateRangePicker.js";
 import { toSafeRenderHtml } from "../utils/content/richTextSanitizer.js";
+import { subscribeMaintenanceModeEvent } from "../utils/maintenance/maintenanceRealtimeBus.js";
 import "../../public/css/modal-close-unified.css";
 import "../../public/css/select-unified.css";
 
@@ -516,6 +517,24 @@ export default function AuthenticatedLayout() {
       stopped = true;
       window.clearInterval(timer);
     };
+  }, [loading, me]);
+
+  useEffect(() => {
+    if (loading || !me) return undefined;
+
+    const isItAllowlisted = ["IT_JK", "IT_JS", "IT_MS"].includes(String(me?.login_id || "").trim().toUpperCase());
+    if (isItAllowlisted) return undefined;
+
+    return subscribeMaintenanceModeEvent((event) => {
+      if (!event?.enabled) return;
+      if (typeof event.message === "string" && event.message.trim() !== "") {
+        safeSession.setItem("ec_maintenance_notice", event.message.trim());
+      }
+      resetDashboardSessionCaches();
+      clearDashboardFilterSession();
+      clearOwnerCompaniesCache();
+      window.location.assign(new URL(spaPath("login"), window.location.origin).href);
+    });
   }, [loading, me]);
 
   const refreshSessionDebouncedRef = useRef(null);

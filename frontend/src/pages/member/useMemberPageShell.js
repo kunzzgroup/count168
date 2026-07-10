@@ -4,6 +4,7 @@ import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import { MAINTENANCE_I18N } from "../../translateFile/pages/maintenanceTranslate.js";
 import { formatMemberRole, getMemberText } from "../../translateFile/pages/memberTranslate.js";
 import { ensureMaintenanceDateRangePicker } from "../../utils/date/dateRangePicker.js";
+import { subscribeMaintenanceModeEvent } from "../../utils/maintenance/maintenanceRealtimeBus.js";
 import { useExpirationReminder } from "../../hooks/useExpirationReminder.js";
 import { clearDashboardFilterSession, clearOwnerCompaniesCache } from "../../utils/company/sharedCompanyFilter.js";
 import { spaPath } from "../../utils/routing/pageRoutes.js";
@@ -164,6 +165,19 @@ export function useMemberPageShell({ navigate, initSession, todayDmy, lang }) {
       stopped = true;
       window.clearInterval(timer);
     };
+  }, [loading, me]);
+
+  useEffect(() => {
+    if (loading || !me) return undefined;
+    return subscribeMaintenanceModeEvent((event) => {
+      if (!event?.enabled) return;
+      if (typeof event.message === "string" && event.message.trim() !== "") {
+        sessionStorage.setItem("ec_maintenance_notice", event.message.trim());
+      }
+      clearDashboardFilterSession();
+      clearOwnerCompaniesCache();
+      window.location.assign(new URL(spaPath("login"), window.location.origin).href);
+    });
   }, [loading, me]);
 
   useEffect(() => {
