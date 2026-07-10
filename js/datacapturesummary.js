@@ -19688,6 +19688,10 @@ function normalizeIdProductText(text) {
     if (!trimmed) {
         return '';
     }
+    // 如果本身就是 Full ID，就不应该截断！
+    if (typeof isFullIdProduct === 'function' && isFullIdProduct(trimmed)) {
+        return trimmed;
+    }
     // 完整 id_product（如 VM365-21:、G8:GAMEPLAY (M)- RSLOTS）整串保留，不截掉冒号或括号内容
     if (trimmed.indexOf(' - ') >= 0) {
         return trimmed.replace(/\s+$/, '').trim();
