@@ -4,6 +4,10 @@ import {
   getClipboardHtml,
 } from "./dataCaptureClipboard.js";
 import {
+  clipboardHtmlLooksLikeGrid,
+  normalizeClipboardHtmlToTable,
+} from "./dataCaptureFormatClipboardNormalize.js";
+import {
   parseAndFillHtmlTableForText,
   parseAndFillHtmlTableForTextWithFormat,
 } from "./dataCaptureTextHtmlPaste.js";
@@ -173,7 +177,11 @@ export function handleTextHtmlPaste(html, anchorCell) {
 export function handleTextModePaste(e, pastedData, anchorCell) {
   const html = getClipboardHtml(e);
   const htmlFromDetect = html ? "" : detectHtmlTableInClipboard(e);
-  const htmlCandidate = html || htmlFromDetect;
+  const rawHtmlCandidate = html || htmlFromDetect;
+  const htmlCandidate =
+    rawHtmlCandidate && clipboardHtmlLooksLikeGrid(rawHtmlCandidate)
+      ? normalizeClipboardHtmlToTable(rawHtmlCandidate) || rawHtmlCandidate
+      : rawHtmlCandidate;
 
   // 1.Text should preserve visible report styles (e.g. amount colors) whenever
   // clipboard provides table HTML, not only when "rich" hints are detected.
@@ -193,7 +201,7 @@ export function handleTextModePaste(e, pastedData, anchorCell) {
     return false;
   }
 
-  if (handleTextHtmlPaste(html, anchorCell)) return true;
+  if (handleTextHtmlPaste(htmlCandidate, anchorCell)) return true;
   if (htmlFromDetect && handleTextHtmlPaste(htmlFromDetect, anchorCell)) return true;
 
   return handleTextPlainPaste(e, pastedData, anchorCell);

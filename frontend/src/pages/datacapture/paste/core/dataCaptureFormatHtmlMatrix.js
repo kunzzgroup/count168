@@ -158,30 +158,102 @@ function extractPlainText(sourceCell) {
   return (tempDiv.textContent || tempDiv.innerText || "").trim();
 }
 
+function parseStyleDeclarations(styleString) {
+  const out = {};
+  String(styleString || "")
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .forEach((decl) => {
+      const idx = decl.indexOf(":");
+      if (idx < 0) return;
+      const prop = decl.slice(0, idx).trim().toLowerCase();
+      const value = decl.slice(idx + 1).trim();
+      if (!prop || !value) return;
+      out[prop] = value;
+    });
+  return out;
+}
+
+function isDefaultColor(value) {
+  const v = String(value || "").trim().toLowerCase();
+  return !v || v === "rgb(0, 0, 0)" || v === "#000" || v === "#000000" || v === "black" || v === "inherit" || v === "initial";
+}
+
+function isTransparentBg(value) {
+  const v = String(value || "").trim().toLowerCase();
+  return !v || v === "transparent" || v === "rgba(0, 0, 0, 0)" || v === "initial" || v === "inherit";
+}
+
+/** Harvest visible text styles from cell + nested spans (common in report HTML). */
+function harvestVisualStyleMap(sourceCell) {
+  const merged = {};
+  const absorb = (styleMap) => {
+    if (!styleMap) return;
+    ["color", "background-color", "background", "font-weight", "font-style", "text-decoration", "text-align", "font-size"].forEach(
+      (key) => {
+        if (styleMap[key] == null || styleMap[key] === "") return;
+        if (key === "color" && isDefaultColor(styleMap[key]) && merged.color) return;
+        if ((key === "background-color" || key === "background") && isTransparentBg(styleMap[key])) return;
+        merged[key] = styleMap[key];
+      },
+    );
+  };
+
+  absorb(parseStyleDeclarations(sourceCell.getAttribute("style") || ""));
+  Array.from(sourceCell.querySelectorAll("*")).forEach((el) => {
+    absorb(parseStyleDeclarations(el.getAttribute("style") || ""));
+  });
+
+  try {
+    const computed = window.getComputedStyle(sourceCell);
+    absorb({
+      color: computed.color,
+      "background-color": computed.backgroundColor,
+      "font-weight": computed.fontWeight,
+      "font-style": computed.fontStyle,
+      "text-decoration": computed.textDecorationLine || computed.textDecoration,
+      "text-align": computed.textAlign,
+    });
+  } catch {
+    /* ignore detached/computed failures */
+  }
+
+  return merged;
+}
+
 export function buildFormatDataCellStyle(sourceCell) {
-  const sourceCellStyle = sourceCell.getAttribute("style");
-  const sourceCellComputedStyle = window.getComputedStyle(sourceCell);
+  const visual = harvestVisualStyleMap(sourceCell);
+  const sourceCellStyle = sanitizeCopiedStyleString(sourceCell.getAttribute("style") || "");
+  let styleString = "border: 1px solid #d0d7de !important;";
 
   if (sourceCellStyle) {
-    const sanitizedCellStyle = sanitizeCopiedStyleString(sourceCellStyle);
-    return sanitizedCellStyle && !sanitizedCellStyle.includes("border")
-      ? `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}`
-      : sanitizedCellStyle || "border: 1px solid #d0d7de !important;";
+    styleString += ` ${sourceCellStyle}`;
   }
 
-  const color = sourceCellComputedStyle.color;
-  const backgroundColor = sourceCellComputedStyle.backgroundColor;
-  const fontWeight = sourceCellComputedStyle.fontWeight;
-  const textAlign = sourceCellComputedStyle.textAlign;
-  let styleString = "border: 1px solid #d0d7de !important;";
-  if (color && color !== "rgb(0, 0, 0)") styleString += ` color: ${color} !important;`;
-  if (backgroundColor && backgroundColor !== "rgba(0, 0, 0, 0)" && backgroundColor !== "transparent") {
-    styleString += ` background-color: ${backgroundColor} !important;`;
+  if (visual.color && !isDefaultColor(visual.color) && !/\bcolor\s*:/i.test(styleString)) {
+    styleString += ` color: ${visual.color} !important;`;
   }
-  if (fontWeight && fontWeight !== "normal" && fontWeight !== "400") {
-    styleString += ` font-weight: ${fontWeight} !important;`;
+  if (visual["background-color"] && !isTransparentBg(visual["background-color"]) && !/\bbackground(?:-color)?\s*:/i.test(styleString)) {
+    styleString += ` background-color: ${visual["background-color"]} !important;`;
   }
-  if (textAlign && textAlign !== "left") styleString += ` text-align: ${textAlign} !important;`;
+  if (visual["font-weight"] && visual["font-weight"] !== "normal" && visual["font-weight"] !== "400" && !/\bfont-weight\s*:/i.test(styleString)) {
+    styleString += ` font-weight: ${visual["font-weight"]} !important;`;
+  }
+  if (visual["font-style"] && visual["font-style"] !== "normal" && !/\bfont-style\s*:/i.test(styleString)) {
+    styleString += ` font-style: ${visual["font-style"]} !important;`;
+  }
+  if (
+    visual["text-decoration"] &&
+    visual["text-decoration"] !== "none" &&
+    !/\btext-decoration\s*:/i.test(styleString)
+  ) {
+    styleString += ` text-decoration: ${visual["text-decoration"]} !important;`;
+  }
+  if (visual["text-align"] && visual["text-align"] !== "left" && visual["text-align"] !== "start" && !/\btext-align\s*:/i.test(styleString)) {
+    styleString += ` text-align: ${visual["text-align"]} !important;`;
+  }
+
   return styleString;
 }
 
@@ -190,7 +262,15 @@ export function buildFormatDataCellPatch(sourceCell, displayText) {
   const styleCssText = buildFormatDataCellStyle(sourceCell);
 
   if (displayText !== undefined) {
-    return { value: displayText, styleCssText };
+    const escaped = String(displayText)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    return {
+      value: displayText,
+      html: `<span style="${styleCssText}">${escaped}</span>`,
+      styleCssText,
+    };
   }
 
   let cellContent = sourceCell.innerHTML;
@@ -214,18 +294,15 @@ export function buildFormatDataCellPatch(sourceCell, displayText) {
   }
 
   if (cellText && cellText.trim() !== "") {
-    const sourceCellStyle = sourceCell.getAttribute("style");
-    if (sourceCellStyle) {
-      const sanitizedSpanStyle = sanitizeCopiedStyleString(sourceCellStyle);
-      if (sanitizedSpanStyle) {
-        return {
-          value: cellText,
-          html: `<span style="${sanitizedSpanStyle}">${cellText}</span>`,
-          styleCssText,
-        };
-      }
-    }
-    return { value: cellText, styleCssText };
+    const escaped = String(cellText)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    return {
+      value: cellText,
+      html: `<span style="${styleCssText}">${escaped}</span>`,
+      styleCssText,
+    };
   }
 
   return { value: "", styleCssText };
