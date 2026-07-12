@@ -159,6 +159,8 @@ export function handleCellPasteEvent(e) {
   }
 
   if (captureType === "1.Text") {
+    // Excel-format baseline: same HTML/TSV/styled fill pipeline as 2.Format.
+    if (handleFormatCellPaste(e, pastedData, { allowOutsideFormatMode: true })) return;
     if (handleTextModePaste(e, pastedData, cell)) return;
     invokeGenericPasteFallback(e, pastedData);
     return;

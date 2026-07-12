@@ -15,6 +15,7 @@ import {
   getDefaultPasteAnchorCell,
   getFormatPasteAnchorCell,
   resolveFormatPasteStartRow,
+  resolvePasteAnchor,
 } from "./dataCapturePasteApply.js";
 import { domGridHasEditableData } from "../../lib/dataCaptureTableSnapshot.js";
 import { isGridPasteBlockedTarget } from "./dataCaptureClipboard.js";
@@ -37,11 +38,15 @@ function isEditableFormField(el) {
 
 function afterFormatPasteFilled(filled, area) {
   if (!filled) return false;
-  setFormatGridReady(true);
-  syncFormatPreviewFromDom();
-  if (area) area.innerHTML = "";
-  showFormatEditableGrid();
-  toggleFormatDisplay();
+  // Format chrome (preview / paste area) only belongs to 2.Format.
+  // 1.Text reuses the same Excel-like fill pipeline into the editable grid.
+  if (isFormatMode()) {
+    setFormatGridReady(true);
+    syncFormatPreviewFromDom();
+    if (area) area.innerHTML = "";
+    showFormatEditableGrid();
+    toggleFormatDisplay();
+  }
   recomputeSubmitStateAfterPaste();
   return true;
 }
@@ -221,7 +226,8 @@ export function handleGlobalFormatPaste(e) {
 
 /** Legacy-compatible entry used by handleFormatPasteFromClipboard. */
 export function handleFormatPasteFromClipboard(clipboard, fallbackHTML, options = {}) {
-  if (!isFormatMode() || !clipboard) return false;
+  if (!clipboard) return false;
+  if (!options.allowOutsideFormatMode && !isFormatMode()) return false;
 
   const { html, text } = readClipboard(clipboard);
   const htmlCandidate = html || fallbackHTML || "";
@@ -246,15 +252,30 @@ export function handleFormatPasteFromClipboard(clipboard, fallbackHTML, options 
 }
 
 /**
- * Phase 4e: 2.Format grid cell paste — route table HTML/TSV through format pipeline
- * instead of the full legacy paste body.
+ * Excel-like format paste into the editable grid.
+ * Used by 2.Format and by 1.Text (allowOutsideFormatMode) so both share one pipeline.
  */
-export function handleFormatCellPaste(e, pastedData) {
-  const anchorCell = resolvePasteCell(e.target);
-  const startRow = resolveFormatPasteStartRow(anchorCell);
+export function handleFormatCellPaste(e, pastedData, options = {}) {
+  const allowOutsideFormatMode = Boolean(options.allowOutsideFormatMode);
+  const anchorCell =
+    resolvePasteCell(e?.target) ||
+    (allowOutsideFormatMode ? getDefaultPasteAnchorCell() : null) ||
+    getFormatPasteAnchorCell();
 
-  const clipboard = e.clipboardData || window.clipboardData;
-  if (clipboard && handleFormatPasteFromClipboard(clipboard, null, { startRow, anchorCell })) {
+  // 2.Format appends after existing rows; 1.Text pastes from the active cell like Excel.
+  const startRow = allowOutsideFormatMode
+    ? resolvePasteAnchor(anchorCell).startRow
+    : resolveFormatPasteStartRow(anchorCell);
+
+  const clipboard = e?.clipboardData || window.clipboardData;
+  if (
+    clipboard &&
+    handleFormatPasteFromClipboard(clipboard, null, {
+      startRow,
+      anchorCell,
+      allowOutsideFormatMode,
+    })
+  ) {
     return true;
   }
 

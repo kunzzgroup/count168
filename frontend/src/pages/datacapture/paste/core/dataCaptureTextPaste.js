@@ -174,6 +174,11 @@ export function handleTextHtmlPaste(html, anchorCell) {
   return parseAndFillHtmlTableForText(html, anchorCell);
 }
 
+/**
+ * Secondary 1.Text path after the shared Excel-format pipeline
+ * (`handleFormatCellPaste` with allowOutsideFormatMode) fails.
+ * Keeps matrix reconstruction + light style HTML fill as a safety net.
+ */
 export function handleTextModePaste(e, pastedData, anchorCell) {
   const html = getClipboardHtml(e);
   const htmlFromDetect = html ? "" : detectHtmlTableInClipboard(e);
@@ -183,12 +188,9 @@ export function handleTextModePaste(e, pastedData, anchorCell) {
       ? normalizeClipboardHtmlToTable(rawHtmlCandidate) || rawHtmlCandidate
       : rawHtmlCandidate;
 
-  // 1.Text should preserve visible report styles (e.g. amount colors) whenever
-  // clipboard provides table HTML, not only when "rich" hints are detected.
   if (htmlCandidate && htmlCandidate.includes("<table")) {
     if (parseAndFillHtmlTableForTextWithFormat(htmlCandidate, anchorCell)) return true;
 
-    // Keep user flow unblocked: fallback to legacy 1.Text parsing.
     if (handleTextHtmlPaste(htmlCandidate, anchorCell)) {
       notifyPasteSuccess("格式保留失败，已按纯文本粘贴。", "danger");
       return true;
