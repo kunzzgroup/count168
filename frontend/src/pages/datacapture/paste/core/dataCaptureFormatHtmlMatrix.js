@@ -240,10 +240,21 @@ function harvestVisualStyleMap(sourceCell) {
   return merged;
 }
 
+function stripBorderDeclarations(styleString) {
+  if (!styleString || !String(styleString).trim()) return "";
+  return String(styleString)
+    .replace(/\s*border(?:-(?:top|right|bottom|left|color|style|width|radius))?\s*:[^;]*;?/gi, "")
+    .trim()
+    .replace(/;\s*$/, "");
+}
+
 export function buildFormatDataCellStyle(sourceCell) {
   const visual = harvestVisualStyleMap(sourceCell);
-  const sourceCellStyle = sanitizeCopiedStyleString(sourceCell.getAttribute("style") || "");
-  let styleString = "border: 1px solid #d0d7de !important;";
+  // Grid CSS already draws cell borders; do not put border on td/span (looks like a box around text).
+  const sourceCellStyle = stripBorderDeclarations(
+    sanitizeCopiedStyleString(sourceCell.getAttribute("style") || ""),
+  );
+  let styleString = "";
 
   if (sourceCellStyle) {
     styleString += ` ${sourceCellStyle}`;
