@@ -106,6 +106,28 @@ function invokeGenericPasteFallback(e, pastedData) {
 }
 
 /**
+ * Billing-statement / Material copies often land as one field per line in text/plain.
+ * 3.CITIBET works because it falls through to generic row-major grouping — reuse that
+ * for 1.Text / 2.Format instead of letting a 1-column Text paste win first.
+ */
+export function pastedTextLooksLikeRowMajorStatement(pastedData) {
+  if (!pastedData || typeof pastedData !== "string") return false;
+  if (pastedData.includes("\t")) return false;
+  const lines = pastedData
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length < 8) return false;
+  const hasSubtotal = lines.some((line) => /^SUB\s*TOTAL$/i.test(line));
+  const hasTotalAmount = lines.some((line) => /^TOTAL\s+AMOUNT$/i.test(line));
+  if (!hasSubtotal || !hasTotalAmount) return false;
+  const shortTokens = lines.filter((line) => line.length <= 48).length;
+  return shortTokens >= Math.ceil(lines.length * 0.75);
+}
+
+/**
  * Global paste for 1.Text / CITIBET / 4.RETURN etc. when focus is outside the grid.
  */
 export function handleGlobalGridPaste(e) {
@@ -144,6 +166,10 @@ export function handleCellPasteEvent(e) {
   const captureType = getActiveCaptureType();
 
   if (captureType === "2.Format") {
+    // Prefer the same plain-text row-major path that makes 3.CITIBET succeed.
+    if (pastedTextLooksLikeRowMajorStatement(pastedData)) {
+      if (invokeGenericPasteFallback(e, pastedData)) return;
+    }
     if (handleFormatCellPaste(e, pastedData)) return;
     invokeGenericPasteFallback(e, pastedData);
     return;
@@ -159,10 +185,13 @@ export function handleCellPasteEvent(e) {
   }
 
   if (captureType === "1.Text") {
-    // Excel-format baseline: same HTML/TSV/styled fill pipeline as 2.Format.
+    if (pastedTextLooksLikeRowMajorStatement(pastedData)) {
+      if (invokeGenericPasteFallback(e, pastedData)) return;
+    }
+    // Excel-format HTML pipeline (styles), then generic, then legacy text.
     if (handleFormatCellPaste(e, pastedData, { allowOutsideFormatMode: true })) return;
+    if (invokeGenericPasteFallback(e, pastedData)) return;
     if (handleTextModePaste(e, pastedData, cell)) return;
-    invokeGenericPasteFallback(e, pastedData);
     return;
   }
 
