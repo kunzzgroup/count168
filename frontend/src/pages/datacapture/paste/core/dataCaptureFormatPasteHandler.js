@@ -47,12 +47,16 @@ export function processFormatTableHtml(html, { area = null, startRow = null, anc
 
   const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(html);
   const sanitized = sanitizePastedHTML(html);
-  if (!previewFragment && !sanitized) return false;
+  const candidates = [sanitized, previewFragment, html].filter(Boolean);
+  if (!candidates.length) return false;
 
-  const filled = parseAndFillHtmlTableForFormat(sanitized || previewFragment, {
-    startRow: resolvedStartRow,
-  });
-  return afterFormatPasteFilled(filled, area);
+  for (const candidate of candidates) {
+    const filled = parseAndFillHtmlTableForFormat(candidate, {
+      startRow: resolvedStartRow,
+    });
+    if (afterFormatPasteFilled(filled, area)) return true;
+  }
+  return false;
 }
 
 export function processFormatTsv(text, { area = null, startRow = null, anchorCell = null } = {}) {
@@ -135,9 +139,6 @@ export function handleGlobalFormatPaste(e) {
   const clipboard = e.clipboardData || window.clipboardData;
   if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
 
-  e.preventDefault();
-  e.stopPropagation();
-
   const hasExistingData = domGridHasEditableData();
   const anchorCell = getFormatPasteAnchorCell();
   const appendMode = hasExistingData;
@@ -148,12 +149,17 @@ export function handleGlobalFormatPaste(e) {
   const { html, text } = readClipboard(clipboard);
 
   if (html && /<table\b/i.test(html)) {
+    e.preventDefault();
+    e.stopPropagation();
     processFormatTableHtml(html, { area: pasteAreaFormat, startRow, anchorCell });
     return;
   }
 
   if (text && text.includes("\t")) {
+    e.preventDefault();
+    e.stopPropagation();
     processFormatTsv(text, { area: pasteAreaFormat, startRow, anchorCell });
+    return;
   }
 }
 
@@ -165,13 +171,11 @@ export function handleFormatPasteFromClipboard(clipboard, fallbackHTML, options 
   const htmlToUse = html && /<table\b/i.test(html) ? html : fallbackHTML || "";
 
   if (htmlToUse && /<table\b/i.test(htmlToUse)) {
-    setTimeout(() => processFormatTableHtml(htmlToUse, options), 10);
-    return true;
+    return processFormatTableHtml(htmlToUse, options);
   }
 
   if (text && text.includes("\t")) {
-    setTimeout(() => processFormatTsv(text, options), 10);
-    return true;
+    return processFormatTsv(text, options);
   }
 
   return false;

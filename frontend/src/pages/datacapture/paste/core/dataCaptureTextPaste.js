@@ -8,6 +8,67 @@ import {
   parseAndFillHtmlTableForTextWithFormat,
 } from "./dataCaptureTextHtmlPaste.js";
 
+function isMoneyOrNumberLikeToken(text) {
+  const cleaned = String(text ?? "")
+    .trim()
+    .replace(/[,$]/g, "")
+    .replace(/^\((.*)\)$/, "-$1");
+  if (!cleaned) return false;
+  return /^-?\d+(?:\.\d+)?$/.test(cleaned);
+}
+
+function isSummaryLabelToken(text) {
+  const normalized = String(text ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+  return normalized === "SUBTOTAL" || normalized === "SUB TOTAL" || normalized === "TOTAL AMOUNT";
+}
+
+function detectFlattenedStatementColCount(tokens) {
+  const summaryIndices = [];
+  tokens.forEach((token, index) => {
+    if (isSummaryLabelToken(token)) summaryIndices.push(index);
+  });
+  if (!summaryIndices.length) return null;
+
+  const candidateDiffs = [];
+  for (let i = 1; i < summaryIndices.length; i += 1) {
+    const diff = summaryIndices[i] - summaryIndices[i - 1];
+    if (diff >= 8 && diff <= 20) candidateDiffs.push(diff);
+  }
+  if (candidateDiffs.length) return candidateDiffs[0];
+
+  const firstIdx = summaryIndices[0];
+  if (firstIdx >= 8 && firstIdx <= 20) return firstIdx;
+  return 10;
+}
+
+function parseFlattenedStatementMatrix(nonEmptyLines) {
+  if (nonEmptyLines.length < 16) return null;
+
+  const tokens = nonEmptyLines.map((line) => line.trim()).filter(Boolean);
+  const numericLikeCount = tokens.filter((token) => isMoneyOrNumberLikeToken(token)).length;
+  if (numericLikeCount < Math.ceil(tokens.length * 0.5)) return null;
+
+  const colCount = detectFlattenedStatementColCount(tokens);
+  if (!colCount || colCount < 2) return null;
+
+  const dataRows = [];
+  for (let i = 0; i < tokens.length; i += colCount) {
+    dataRows.push(tokens.slice(i, i + colCount));
+  }
+  if (dataRows.length < 2) return null;
+
+  const hasSummaryRow = dataRows.some((row) => row.length && isSummaryLabelToken(row[0]));
+  if (!hasSummaryRow) return null;
+
+  dataRows.forEach((row) => {
+    while (row.length < colCount) row.push("");
+  });
+  return dataRows;
+}
+
 function parsePlainTextMatrix(pastedData) {
   const normalized = pastedData.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   if (!normalized.trim()) return [];
@@ -76,6 +137,9 @@ function parsePlainTextMatrix(pastedData) {
       return spacingSplitRows;
     }
   }
+
+  const flattenedStatementRows = parseFlattenedStatementMatrix(nonEmptyLines);
+  if (flattenedStatementRows) return flattenedStatementRows;
 
   return nonEmptyLines.map((line) => [line]);
 }
