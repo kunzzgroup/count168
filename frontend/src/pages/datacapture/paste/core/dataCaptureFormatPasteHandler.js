@@ -1,4 +1,5 @@
 import { parseAndFillHtmlTableForFormat } from "./dataCaptureFormatHtmlPaste.js";
+import { parseAndFillHtmlTableForTextWithFormat } from "./dataCaptureTextHtmlPaste.js";
 import {
   buildFormatPreviewFragmentFromClipboardHtml,
   clipboardLooksLikeTable,
@@ -6,6 +7,7 @@ import {
   tsvToHtmlTable,
 } from "./dataCaptureFormatPreview.js";
 import {
+  getDefaultPasteAnchorCell,
   getFormatPasteAnchorCell,
   resolveFormatPasteStartRow,
 } from "./dataCapturePasteApply.js";
@@ -39,11 +41,21 @@ function afterFormatPasteFilled(filled, area) {
   return true;
 }
 
+function resolveFormatFallbackAnchorCell(startRow = 0, anchorCell = null) {
+  if (anchorCell?.closest?.("#dataTable")) return anchorCell;
+  const tableBody = document.getElementById("tableBody");
+  const targetRow = Math.max(0, Number(startRow) || 0);
+  const rowEl = tableBody?.children?.[targetRow];
+  const cell = rowEl?.querySelector?.('td[contenteditable="true"]');
+  return cell || getDefaultPasteAnchorCell();
+}
+
 /** Process HTML/TSV clipboard content into preview + editable grid. */
 export function processFormatTableHtml(html, { area = null, startRow = null, anchorCell = null } = {}) {
   if (!html) return false;
   const resolvedStartRow =
     startRow != null ? startRow : resolveFormatPasteStartRow(anchorCell || getFormatPasteAnchorCell());
+  const resolvedAnchor = resolveFormatFallbackAnchorCell(resolvedStartRow, anchorCell);
 
   const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(html);
   const sanitized = sanitizePastedHTML(html);
@@ -56,6 +68,15 @@ export function processFormatTableHtml(html, { area = null, startRow = null, anc
     });
     if (afterFormatPasteFilled(filled, area)) return true;
   }
+
+  // Compatibility fallback: some sites copy table-like HTML wrappers that
+  // 2.Format structure parser cannot classify. Reuse 1.Text format-preserving
+  // parser to keep values/styles and still unlock 2.Format submit flow.
+  for (const candidate of candidates) {
+    const filledByTextParser = parseAndFillHtmlTableForTextWithFormat(candidate, resolvedAnchor);
+    if (afterFormatPasteFilled(filledByTextParser, area)) return true;
+  }
+
   return false;
 }
 
