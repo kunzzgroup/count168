@@ -84,9 +84,10 @@ export function processFormatTableHtml(html, { area = null, startRow = null, anc
 
   const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(normalizedHtml);
   const sanitized = sanitizePastedHTML(normalizedHtml);
-  // Prefer richer sources first to preserve class/inline style presentation
-  // (e.g. badge-like "MASTER"), then fall back to heavily sanitized HTML.
-  const candidates = [previewFragment, normalizedHtml, sanitized].filter(Boolean);
+
+  // Prefer the normalized multi-column table first. Preview/sanitized fragments can
+  // still carry 1-TD-per-row Material wrappers and "succeed" with a collapsed grid.
+  const candidates = [normalizedHtml, sanitized, previewFragment].filter(Boolean);
   if (!candidates.length) return false;
 
   for (const candidate of candidates) {

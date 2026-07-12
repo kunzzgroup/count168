@@ -265,6 +265,117 @@ export function clipboardHtmlLooksLikeGrid(html) {
   return GRID_HINT_RE.test(html);
 }
 
+function replaceRowWithElements(tr, elements, asHeader) {
+  while (tr.firstChild) tr.removeChild(tr.firstChild);
+  elements.forEach((el) => {
+    const td = document.createElement(asHeader || isHeaderLikeCell(el) ? "th" : "td");
+    const cellStyle = el.getAttribute?.("style");
+    if (cellStyle) td.setAttribute("style", sanitizeStyleKeepVisual(cellStyle));
+    if (el.innerHTML != null) {
+      td.innerHTML = el.innerHTML || escapeHtml(el.textContent || "");
+    } else {
+      td.textContent = String(el.textContent || el || "");
+    }
+    tr.appendChild(td);
+  });
+}
+
+function replaceRowWithTextColumns(tr, lines, asHeader) {
+  while (tr.firstChild) tr.removeChild(tr.firstChild);
+  lines.forEach((line) => {
+    const td = document.createElement(asHeader ? "th" : "td");
+    td.textContent = line;
+    tr.appendChild(td);
+  });
+}
+
+function splitCellTextToColumnLines(cell) {
+  const html = String(cell.innerHTML || "");
+  if (/<br\s*\/?>/i.test(html)) {
+    const marked = html
+      .replace(/<br\s+[^>]*>/gi, "\n")
+      .replace(/<br\s*\/?>/gi, "\n");
+    const tmp = document.createElement("div");
+    tmp.innerHTML = marked;
+    return String(tmp.textContent || "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
+  const raw = String(cell.textContent || "").replace(/\u00a0/g, " ");
+  let lines = raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 1) {
+    const single = lines[0];
+    if (single.includes("\t")) {
+      lines = single.split("\t").map((part) => part.trim()).filter(Boolean);
+    } else {
+      const spaced = single.split(/\s{2,}/).map((part) => part.trim()).filter(Boolean);
+      if (spaced.length >= 2) lines = spaced;
+    }
+  }
+  return lines;
+}
+
+/**
+ * Expand tables where each logical row was collapsed into one TD/TH
+ * (nested mat-cells or newline-flattened column values).
+ * Mutates the table in place. Returns true when any row was expanded.
+ */
+export function expandCollapsedTableRows(table) {
+  if (!table) return false;
+  let changed = false;
+
+  Array.from(table.querySelectorAll("tr")).forEach((tr) => {
+    const cells = Array.from(tr.children || []).filter((el) => {
+      const tag = (el.tagName || "").toUpperCase();
+      return tag === "TD" || tag === "TH";
+    });
+    if (cells.length !== 1) return;
+
+    const only = cells[0];
+    const asHeader = (only.tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(only);
+
+    let nested = collectRowCells(only);
+    if (nested.length < 2) {
+      // Plain block children inside the lone cell (div/span stacks from flex copy).
+      const kids = Array.from(only.children || []).filter(
+        (child) => String(child.textContent || "").trim() !== "",
+      );
+      if (kids.length >= 2) nested = kids;
+    }
+
+    if (nested.length >= 2) {
+      replaceRowWithElements(tr, nested, asHeader);
+      changed = true;
+      return;
+    }
+
+    const lines = splitCellTextToColumnLines(only);
+    if (lines.length >= 2) {
+      replaceRowWithTextColumns(tr, lines, asHeader);
+      changed = true;
+    }
+  });
+
+  return changed;
+}
+
+function tableColumnCount(table) {
+  let maxCols = 0;
+  Array.from(table.querySelectorAll("tr")).forEach((tr) => {
+    const cells = Array.from(tr.children || []).filter((el) => {
+      const tag = (el.tagName || "").toUpperCase();
+      return tag === "TD" || tag === "TH";
+    });
+    maxCols = Math.max(maxCols, cells.length);
+  });
+  return maxCols;
+}
+
 /**
  * Convert Material/ARIA grid markup into a real HTML table.
  * Returns original HTML when already table-based or conversion is not possible.
@@ -280,11 +391,22 @@ export function normalizeClipboardHtmlToTable(html) {
     const rules = collectClipboardClassRules(root);
     applyClipboardClassRulesAsInline(root, rules);
 
+    const styleHtml = Array.from(root.querySelectorAll("style"))
+      .map((el) => el.outerHTML)
+      .join("\n");
+
     const existingTable = root.querySelector("table");
     const gridRows = collectGridRows(root);
+
+    // Clipboard already has a <table>, but rows may be 1-TD wrappers around mat-cells.
     if (existingTable && !gridRows.length) {
+      expandCollapsedTableRows(existingTable);
+      if (tableColumnCount(existingTable) >= 2) {
+        return `${styleHtml}\n${existingTable.outerHTML}`;
+      }
       return raw;
     }
+
     if (!gridRows.length) {
       return raw;
     }
@@ -327,11 +449,8 @@ export function normalizeClipboardHtmlToTable(html) {
 
     if (!tbody.children.length) return raw;
     table.appendChild(tbody);
+    expandCollapsedTableRows(table);
 
-    // Keep clipboard <style> blocks so downstream preview/style harvest can use them.
-    const styleHtml = Array.from(root.querySelectorAll("style"))
-      .map((el) => el.outerHTML)
-      .join("\n");
     return `${styleHtml}\n${table.outerHTML}`;
   } catch {
     return raw;

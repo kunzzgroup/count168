@@ -41,26 +41,55 @@ function detectFlattenedStatementColCount(tokens) {
     const diff = summaryIndices[i] - summaryIndices[i - 1];
     if (diff >= 8 && diff <= 20) candidateDiffs.push(diff);
   }
-  if (candidateDiffs.length) return candidateDiffs[0];
+  if (candidateDiffs.length) {
+    // Prefer the most common spacing between summary rows.
+    const counts = new Map();
+    candidateDiffs.forEach((diff) => counts.set(diff, (counts.get(diff) || 0) + 1));
+    let best = candidateDiffs[0];
+    let bestCount = 0;
+    counts.forEach((count, diff) => {
+      if (count > bestCount) {
+        best = diff;
+        bestCount = count;
+      }
+    });
+    return best;
+  }
 
   const firstIdx = summaryIndices[0];
-  if (firstIdx >= 8 && firstIdx <= 20) return firstIdx;
+  // Typical statement width is ~8–12 columns.
+  if (firstIdx >= 8 && firstIdx <= 12) return firstIdx;
+  // Header row + first data row before SUBTOTAL → index ≈ 2× width.
+  if (firstIdx >= 16 && firstIdx <= 24) {
+    const half = Math.round(firstIdx / 2);
+    if (half >= 8 && half <= 12) return half;
+  }
   return 10;
 }
 
 function parseFlattenedStatementMatrix(nonEmptyLines) {
-  if (nonEmptyLines.length < 16) return null;
+  if (nonEmptyLines.length < 8) return null;
 
   const tokens = nonEmptyLines.map((line) => line.trim()).filter(Boolean);
   const numericLikeCount = tokens.filter((token) => isMoneyOrNumberLikeToken(token)).length;
-  if (numericLikeCount < Math.ceil(tokens.length * 0.5)) return null;
+  if (numericLikeCount < Math.ceil(tokens.length * 0.4)) return null;
 
   const colCount = detectFlattenedStatementColCount(tokens);
   if (!colCount || colCount < 2) return null;
 
+  // Drop a leading header row when the first summary aligns to 2× width.
+  let start = 0;
+  const firstSummary = tokens.findIndex((token) => isSummaryLabelToken(token));
+  if (firstSummary > colCount && firstSummary % colCount === 0) {
+    start = firstSummary % colCount === 0 && firstSummary >= colCount * 2 ? colCount : 0;
+    // If tokens before first summary are exactly 2 rows, skip the first (headers).
+    if (firstSummary === colCount * 2) start = colCount;
+  }
+
+  const dataTokens = tokens.slice(start);
   const dataRows = [];
-  for (let i = 0; i < tokens.length; i += colCount) {
-    dataRows.push(tokens.slice(i, i + colCount));
+  for (let i = 0; i < dataTokens.length; i += colCount) {
+    dataRows.push(dataTokens.slice(i, i + colCount));
   }
   if (dataRows.length < 2) return null;
 

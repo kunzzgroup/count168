@@ -6,6 +6,12 @@ import {
   sanitizePastedCellHtml,
 } from "./dataCaptureClipboard.js";
 import { buildFormatDataCellStyle } from "./dataCaptureFormatHtmlMatrix.js";
+import { expandCollapsedTableRows } from "./dataCaptureFormatClipboardNormalize.js";
+
+function expandAllTablesInRoot(root) {
+  if (!root) return;
+  root.querySelectorAll("table").forEach((table) => expandCollapsedTableRows(table));
+}
 
 function emptyPatch() {
   return { value: "" };
@@ -250,6 +256,8 @@ export function parseAndFillHtmlTableForText(htmlString, anchorCell) {
     const table = tempDiv.querySelector("table");
     if (!table) return false;
 
+    expandAllTablesInRoot(tempDiv);
+
     // Collect rows across every top-level table: some reports split the data
     // rows and the TOTAL footer row into separate sibling tables, so reading
     // only the first table would drop the TOTAL row (matches the PHP site).
@@ -291,6 +299,8 @@ export function parseAndFillHtmlTableForTextWithFormat(htmlString, anchorCell) {
 
     const table = tempDiv.querySelector("table");
     if (!table) return false;
+
+    expandAllTablesInRoot(tempDiv);
 
     const measured = measureTopLevelTables(tempDiv);
     if (!measured) return false;

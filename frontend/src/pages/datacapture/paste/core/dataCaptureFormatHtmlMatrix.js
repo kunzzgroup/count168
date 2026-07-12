@@ -4,6 +4,7 @@ import {
   sanitizeFormatHtmlFragment,
   sanitizeCopiedStyleString,
 } from "./dataCaptureFormatStyleUtils.js";
+import { expandCollapsedTableRows } from "./dataCaptureFormatClipboardNormalize.js";
 
 /** @returns {{ headerRows: Element[], dataRows: Element[], maxCols: number, allRows: Element[] } | null} */
 export function parseFormatHtmlTableStructure(htmlString) {
@@ -12,6 +13,10 @@ export function parseFormatHtmlTableStructure(htmlString) {
 
   const table = tempDiv.querySelector("table");
   if (!table) return null;
+
+  // Chrome / Material clipboards often wrap a whole flex row inside one <td>.
+  // Expand those into real columns before header/body classification.
+  expandCollapsedTableRows(table);
 
   const allRows = Array.from(table.querySelectorAll("tr"));
   if (allRows.length === 0) return null;
