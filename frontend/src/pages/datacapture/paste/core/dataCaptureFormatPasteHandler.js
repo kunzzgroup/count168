@@ -93,7 +93,6 @@ export function processFormatTableHtml(html, { area = null, startRow = null, anc
   for (const candidate of candidates) {
     const filled = parseAndFillHtmlTableForFormat(candidate, {
       startRow: resolvedStartRow,
-      anchorCell: resolvedAnchor,
     });
     if (afterFormatPasteFilled(filled, area)) return true;
   }
