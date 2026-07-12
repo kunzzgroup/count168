@@ -151,8 +151,19 @@ export function isFormatRichHtmlTable(html) {
 }
 
 /** UI chrome copied from external sites (action buttons, icons) — not cell data. */
-const PASTED_INTERACTIVE_UI_SELECTOR =
-  "button, input, select, textarea, svg, img, [role='button']";
+const PASTED_INTERACTIVE_UI_SELECTOR = [
+  "button",
+  "input",
+  "select",
+  "textarea",
+  "svg",
+  "img",
+  "i",
+  "mat-icon",
+  "[role='button']",
+  "[aria-label]",
+  "a[href]",
+].join(", ");
 
 /**
  * Remove interactive UI elements from pasted HTML while keeping text/formatting tags.
@@ -165,7 +176,8 @@ export function stripInteractiveUiFromHtml(html) {
     div.innerHTML = html;
     div.querySelectorAll(PASTED_INTERACTIVE_UI_SELECTOR).forEach((el) => {
       const text = (el.textContent || "").trim();
-      if (text) {
+      // Keep meaningful link/button labels; drop icon-only chrome.
+      if (text && text.length > 1 && !/^[-−–—+×xX]$/.test(text)) {
         el.replaceWith(document.createTextNode(text));
       } else {
         el.remove();
