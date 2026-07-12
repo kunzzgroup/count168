@@ -2363,63 +2363,22 @@ function pasteToSelectedCells() {
         return;
     }
 
-    const runPaste = (plainText, htmlText) => {
+    // Try to get data from clipboard
+    navigator.clipboard.readText().then(text => {
+        // Create simulated paste event
         const mockEvent = {
             preventDefault: () => { },
             clipboardData: {
-                getData: (type) => {
-                    const t = (type || '').toLowerCase();
-                    if (t === 'text/html') return htmlText || '';
-                    if (t === 'text/plain' || t === 'text' || t === 'Text') return plainText || '';
-                    return plainText || '';
-                }
+                getData: () => text
             },
             target: firstCell
         };
+
         handleCellPaste(mockEvent);
-    };
-
-    // Prefer clipboard.read() so HTML table structure is available (web reports like Billing Statement)
-    const readClipboardWithHtml = async () => {
-        if (!navigator.clipboard || typeof navigator.clipboard.read !== 'function') {
-            throw new Error('clipboard.read not available');
-        }
-        const items = await navigator.clipboard.read();
-        let plainText = '';
-        let htmlText = '';
-        for (const item of items) {
-            const types = item.types || [];
-            if (!plainText && types.includes('text/plain')) {
-                try {
-                    plainText = await (await item.getType('text/plain')).text();
-                } catch (_) { /* ignore */ }
-            }
-            if (!htmlText && types.includes('text/html')) {
-                try {
-                    htmlText = await (await item.getType('text/html')).text();
-                } catch (_) { /* ignore */ }
-            }
-        }
-        return { plainText, htmlText };
-    };
-
-    readClipboardWithHtml()
-        .then(({ plainText, htmlText }) => {
-            if (!plainText && !htmlText) {
-                showNotification('Clipboard is empty', 'danger');
-                return;
-            }
-            runPaste(plainText, htmlText);
-        })
-        .catch(() => {
-            // Fallback: plain text only
-            navigator.clipboard.readText().then(text => {
-                runPaste(text || '', '');
-            }).catch(err => {
-                console.error('Failed to read from clipboard:', err);
-                showNotification('Failed to access clipboard', 'danger');
-            });
-        });
+    }).catch(err => {
+        console.error('Failed to read from clipboard:', err);
+        showNotification('Failed to access clipboard', 'danger');
+    });
 
     hideContextMenu();
 }
@@ -5063,202 +5022,6 @@ function parseAndFillHTMLTableForFormat(htmlString) {
         console.error('Format: Error parsing HTML table:', error);
         return false;
     }
-}
-
-// Agent Back-End Billing Statement：纯文本常为「一行一个单元格」，重组为横向表格
-const BILLING_STATEMENT_HEADERS = [
-    'Agent',
-    'Bet Number Counted',
-    'Promo Win',
-    'Bet Amount',
-    'Real Bet Amount',
-    'Win Score',
-    'Valid Bet Amount',
-    'Handling Fee',
-    'Net Win Loss'
-];
-
-function normalizeBillingHeaderToken(s) {
-    return String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
-}
-
-/**
- * 将 Billing Statement「一行一格」纯文本重组成 dataMatrix。
- * 保留表头、数据行、Subtotal / Total Amount（有无表头均可）。
- * @returns {{ dataMatrix: string[][], maxCols: number } | null}
- */
-function reshapeBillingStatementOneCellPerLine(pastedText) {
-    if (!pastedText || typeof pastedText !== 'string') return null;
-
-    const rawLines = pastedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-    // checkbox 列常为空行；过滤空串后按列宽切块
-    const tokens = rawLines.map(l => l.trim()).filter(l => l !== '');
-    if (tokens.length < 3) return null;
-
-    const expected = BILLING_STATEMENT_HEADERS.map(normalizeBillingHeaderToken);
-    const colCount = expected.length;
-
-    const isSubtotal = (t) => normalizeBillingHeaderToken(t) === 'subtotal';
-    const isTotalAmount = (t) => {
-        const u = normalizeBillingHeaderToken(t);
-        return u === 'total amount' || u === 'total';
-    };
-    const isAgentLike = (t) => {
-        const s = String(t || '').trim();
-        if (!s || isSubtotal(s) || isTotalAmount(s)) return false;
-        // e.g. SDSPDA95
-        return /^[A-Za-z][A-Za-z0-9_]{2,}$/.test(s) && /[A-Za-z]/.test(s) && /\d/.test(s);
-    };
-    const looksLikeMoneyOrCount = (t) => {
-        const s = String(t || '').trim();
-        return /^\$?-?[\d,]+(\.\d+)?$/.test(s) || /^\d{1,3}(,\d{3})*(\.\d+)?$/.test(s);
-    };
-
-    // 1) 优先：在 token 流中找连续表头序列
-    let headerStart = -1;
-    for (let i = 0; i <= tokens.length - colCount; i++) {
-        let match = true;
-        for (let j = 0; j < colCount; j++) {
-            if (normalizeBillingHeaderToken(tokens[i + j]) !== expected[j]) {
-                match = false;
-                break;
-            }
-        }
-        if (match) {
-            headerStart = i;
-            break;
-        }
-    }
-
-    let dataStart = -1;
-    const dataMatrix = [];
-
-    if (headerStart >= 0) {
-        dataMatrix.push(tokens.slice(headerStart, headerStart + colCount));
-        dataStart = headerStart + colCount;
-    } else {
-        // 2) 无表头：用 Subtotal / Total Amount / Agent 间距推断 9 列
-        const subIdx = tokens.findIndex(isSubtotal);
-        const totalIdx = tokens.findIndex(isTotalAmount);
-        let agentIdx = -1;
-        for (let i = 0; i < tokens.length; i++) {
-            if (isAgentLike(tokens[i])) {
-                agentIdx = i;
-                break;
-            }
-        }
-
-        // 特征：出现 Subtotal 或 Total Amount，且与 Agent 间距为 colCount
-        const hasBillingLabels = subIdx >= 0 || totalIdx >= 0;
-        if (!hasBillingLabels && agentIdx < 0) return null;
-
-        if (agentIdx >= 0 && subIdx > agentIdx && (subIdx - agentIdx) === colCount) {
-            dataStart = agentIdx;
-        } else if (agentIdx >= 0 && totalIdx > agentIdx && (totalIdx - agentIdx) % colCount === 0) {
-            dataStart = agentIdx;
-        } else if (subIdx >= 0 && totalIdx > subIdx && (totalIdx - subIdx) === colCount) {
-            // 仅有合计行：从 Subtotal 往前推一整行
-            const maybeStart = subIdx - colCount;
-            if (maybeStart >= 0 && isAgentLike(tokens[maybeStart])) {
-                dataStart = maybeStart;
-            } else if (maybeStart >= 0) {
-                dataStart = maybeStart;
-            } else {
-                dataStart = subIdx;
-            }
-        } else if (agentIdx >= 0 && tokens.length - agentIdx >= colCount) {
-            // 至少一整行金额型数值
-            const sample = tokens.slice(agentIdx + 1, agentIdx + colCount);
-            if (sample.filter(looksLikeMoneyOrCount).length >= 5) {
-                dataStart = agentIdx;
-            }
-        }
-
-        if (dataStart < 0) return null;
-    }
-
-    let idx = dataStart;
-    while (idx < tokens.length) {
-        const row = [];
-        for (let c = 0; c < colCount && idx < tokens.length; c++, idx++) {
-            row.push(tokens[idx]);
-        }
-        while (row.length < colCount) row.push('');
-        // 跳过完全空行
-        if (row.some(cell => String(cell || '').trim() !== '')) {
-            dataMatrix.push(row);
-        }
-    }
-
-    if (dataMatrix.length < 1) return null;
-    // 无表头时至少要有一行数据；有表头时至少表头+一行
-    if (headerStart >= 0 && dataMatrix.length < 2) return null;
-
-    console.log('1.Text: Reshaped Billing Statement one-cell-per-line:', dataMatrix.length, 'rows x', colCount, 'cols', headerStart >= 0 ? '(with header)' : '(no header)');
-    return { dataMatrix, maxCols: colCount };
-}
-
-/** 将 dataMatrix 写入 Data Capture 表（从第 0 列开始），返回是否成功 */
-function fillDataCaptureMatrixFromPaste(dataMatrix, maxCols, startCell, successMessage) {
-    if (!dataMatrix || !dataMatrix.length || !maxCols || !startCell) return false;
-
-    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-    const startCol = 0;
-
-    const currentRows = document.querySelectorAll('#tableBody tr').length;
-    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-    const requiredRows = startRow + dataMatrix.length;
-    const requiredCols = startCol + maxCols;
-
-    if (requiredRows > currentRows || requiredCols > currentCols) {
-        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-        const targetCols = Math.max(currentCols, requiredCols);
-        initializeTable(targetRows, targetCols);
-    }
-
-    const tableBody = document.getElementById('tableBody');
-    const currentPasteChanges = [];
-    let successCount = 0;
-
-    dataMatrix.forEach((rowData, rowIndex) => {
-        const actualRowIndex = startRow + rowIndex;
-        const tableRow = tableBody.children[actualRowIndex];
-        if (!tableRow) return;
-
-        rowData.forEach((cellData, colIndex) => {
-            const actualColIndex = startCol + colIndex;
-            const cell = tableRow.children[actualColIndex + 1];
-            if (cell && cell.contentEditable === 'true') {
-                const cellValue = cellData || '';
-                currentPasteChanges.push({
-                    row: actualRowIndex,
-                    col: actualColIndex,
-                    oldValue: cell.textContent,
-                    newValue: cellValue
-                });
-                cell.textContent = cellValue;
-                if (cellValue) successCount++;
-            }
-        });
-    });
-
-    if (currentPasteChanges.length > 0) {
-        pasteHistory.push(currentPasteChanges);
-        if (pasteHistory.length > maxHistorySize) {
-            pasteHistory.shift();
-        }
-    }
-
-    if (successCount > 0) {
-        showNotification(
-            successMessage ||
-            `成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持Excel原始格式!`,
-            'success'
-        );
-        setTimeout(updateSubmitButtonState, 0);
-        return true;
-    }
-    return false;
 }
 
 // 1.Text 和 2.Format 专用解析：完全保持Excel原始格式，不做任何转换
@@ -10571,17 +10334,66 @@ function handleCellPaste(e) {
                     }
                 });
 
+                // 填充到表格，保持原始格式。始终从第 0 列开始写，避免点击靠右单元格时 No./User 等前几列被写到后面
                 if (dataMatrix.length > 0 && maxCols > 0) {
-                    if (fillDataCaptureMatrixFromPaste(dataMatrix, maxCols, e.target)) {
-                        return;
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    const startCol = 0;
+
+                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    const requiredRows = startRow + dataMatrix.length;
+                    const requiredCols = startCol + maxCols;
+
+                    if (requiredRows > currentRows || requiredCols > currentCols) {
+                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        initializeTable(targetRows, targetCols);
                     }
-                }
-            } else {
-                // 无 Tab：网页报表常为「一行一个单元格」。Billing Statement 按 9 列重组为横向表格
-                const billingReshaped = reshapeBillingStatementOneCellPerLine(normalizedData);
-                if (billingReshaped) {
-                    const msg = `成功粘贴 Billing Statement ${billingReshaped.dataMatrix.length} 行 x ${billingReshaped.maxCols} 列（已从竖排重组）!`;
-                    if (fillDataCaptureMatrixFromPaste(billingReshaped.dataMatrix, billingReshaped.maxCols, e.target, msg)) {
+
+                    const tableBody = document.getElementById('tableBody');
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+
+                    dataMatrix.forEach((rowData, rowIndex) => {
+                        const actualRowIndex = startRow + rowIndex;
+                        const tableRow = tableBody.children[actualRowIndex];
+                        if (!tableRow) return;
+
+                        rowData.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1];
+
+                            if (cell && cell.contentEditable === 'true') {
+                                // 保持原始格式，不trim，保留所有空格和格式
+                                const cellValue = cellData || '';
+                                currentPasteChanges.push({
+                                    row: actualRowIndex,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: cellValue
+                                });
+
+                                // 1.Text 和 2.Format 模式：直接使用原始值，不做任何转换（像Excel一样）
+                                cell.textContent = cellValue;
+
+                                if (cellValue) {
+                                    successCount++;
+                                }
+                            }
+                        });
+                    });
+
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) {
+                            pasteHistory.shift();
+                        }
+                    }
+
+                    if (successCount > 0) {
+                        showNotification(`成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持Excel原始格式!`, 'success');
+                        setTimeout(updateSubmitButtonState, 0);
                         return;
                     }
                 }
