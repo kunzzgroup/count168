@@ -9,29 +9,62 @@ import {
   parseAndFillHtmlTableForTextWithFormat,
 } from "./dataCaptureTextHtmlPaste.js";
 
+function parsePlainTextMatrix(pastedData) {
+  const normalized = pastedData.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  if (!normalized.trim()) return [];
+
+  if (normalized.includes("\t")) {
+    const tabRows = normalized
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => line.split("\t"));
+    if (!tabRows.length) return [];
+
+    const maxCols = Math.max(...tabRows.map((row) => row.length));
+    tabRows.forEach((row) => {
+      while (row.length < maxCols) row.push("");
+    });
+    return tabRows;
+  }
+
+  const rawLines = normalized.split("\n");
+  const hasBlankLine = rawLines.some((line) => line.trim() === "");
+  if (hasBlankLine) {
+    const rowBlocks = [];
+    let currentRow = [];
+
+    rawLines.forEach((line) => {
+      if (line.trim() === "") {
+        if (currentRow.length) {
+          rowBlocks.push(currentRow);
+          currentRow = [];
+        }
+        return;
+      }
+      currentRow.push(line);
+    });
+    if (currentRow.length) rowBlocks.push(currentRow);
+
+    const hasMultiColBlock = rowBlocks.some((row) => row.length > 1);
+    if (rowBlocks.length >= 2 && hasMultiColBlock) {
+      const maxCols = Math.max(...rowBlocks.map((row) => row.length));
+      rowBlocks.forEach((row) => {
+        while (row.length < maxCols) row.push("");
+      });
+      return rowBlocks;
+    }
+  }
+
+  return normalized
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => [line]);
+}
+
 /** 1.Text — Excel plain text paste, preserving the clipboard matrix as-is. */
 export function handleTextPlainPaste(e, pastedData, anchorCell) {
-  const normalized = pastedData.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const lines = normalized.split("\n").filter((line) => line.trim() !== "");
-  if (!lines.length) return false;
-
-  const dataMatrix = [];
-  let maxCols = 0;
-
-  lines.forEach((line) => {
-    if (line.includes("\t")) {
-      const cells = line.split("\t");
-      dataMatrix.push(cells);
-      maxCols = Math.max(maxCols, cells.length);
-    } else {
-      dataMatrix.push([line]);
-      maxCols = Math.max(maxCols, 1);
-    }
-  });
-
-  dataMatrix.forEach((row) => {
-    while (row.length < maxCols) row.push("");
-  });
+  const dataMatrix = parsePlainTextMatrix(pastedData);
+  if (!dataMatrix.length) return false;
 
   const { successCount, maxRows, maxCols: cols } = applyDataMatrixToGrid(dataMatrix, anchorCell, {
     uppercaseValues: false,
