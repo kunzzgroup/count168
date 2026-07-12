@@ -2,7 +2,6 @@ import { applyDataMatrixToGrid, notifyPasteSuccess } from "./dataCapturePasteApp
 import {
   detectHtmlTableInClipboard,
   getClipboardHtml,
-  isFormatRichHtmlTable,
 } from "./dataCaptureClipboard.js";
 import {
   parseAndFillHtmlTableForText,
@@ -112,7 +111,9 @@ export function handleTextModePaste(e, pastedData, anchorCell) {
   const htmlFromDetect = html ? "" : detectHtmlTableInClipboard(e);
   const htmlCandidate = html || htmlFromDetect;
 
-  if (htmlCandidate && isFormatRichHtmlTable(htmlCandidate)) {
+  // 1.Text should preserve visible report styles (e.g. amount colors) whenever
+  // clipboard provides table HTML, not only when "rich" hints are detected.
+  if (htmlCandidate && htmlCandidate.includes("<table")) {
     if (parseAndFillHtmlTableForTextWithFormat(htmlCandidate, anchorCell)) return true;
 
     // Keep user flow unblocked: fallback to legacy 1.Text parsing.
