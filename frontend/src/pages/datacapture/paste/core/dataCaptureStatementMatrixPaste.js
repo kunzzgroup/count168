@@ -4,6 +4,7 @@
  * without relying on the HTML format-fill pipeline.
  */
 import { applyDataMatrixToGrid, notifyPasteSuccess } from "./dataCapturePasteApply.js";
+import { tokenizeCollapsedReportRow } from "./dataCaptureFormatClipboardNormalize.js";
 import { parsePlainTextMatrix } from "./dataCaptureTextPaste.js";
 
 export function plainTextLooksLikeBillingStatement(text) {
@@ -13,7 +14,35 @@ export function plainTextLooksLikeBillingStatement(text) {
   if (!upper.trim()) return false;
   const hasSubtotal = upper.includes("SUBTOTAL") || upper.includes("SUB TOTAL");
   const hasTotalAmount = upper.includes("TOTAL AMOUNT");
-  return hasSubtotal && hasTotalAmount;
+  // Agent + SUBTOTAL (no TOTAL AMOUNT) is a common 2-row copy from Report Center.
+  return hasSubtotal || hasTotalAmount;
+}
+
+/** When parse leaves 1-col rows (space-separated report lines), expand to columns. */
+function expandStatementRowsIfCollapsed(dataMatrix) {
+  if (!Array.isArray(dataMatrix) || !dataMatrix.length) return dataMatrix;
+
+  const maxCols = Math.max(...dataMatrix.map((row) => (Array.isArray(row) ? row.length : 0)));
+  if (maxCols >= 2) return dataMatrix;
+
+  const expanded = dataMatrix.map((row) => {
+    const text = (Array.isArray(row) ? row : [row])
+      .map((cell) => String(cell ?? "").replace(/\u00a0/g, " ").trim())
+      .filter(Boolean)
+      .join(" ");
+    const tokens = tokenizeCollapsedReportRow(text);
+    return tokens.length >= 2 ? tokens : row;
+  });
+
+  const expandedCols = Math.max(...expanded.map((row) => (Array.isArray(row) ? row.length : 0)));
+  if (expandedCols < 2) return dataMatrix;
+
+  const width = expandedCols;
+  return expanded.map((row) => {
+    const next = Array.isArray(row) ? [...row] : [row];
+    while (next.length < width) next.push("");
+    return next;
+  });
 }
 
 /**
@@ -23,8 +52,10 @@ export function plainTextLooksLikeBillingStatement(text) {
 export function tryApplyBillingStatementPlainMatrix(pastedData, anchorCell, options = {}) {
   if (!plainTextLooksLikeBillingStatement(pastedData)) return false;
 
-  const dataMatrix = parsePlainTextMatrix(pastedData);
+  let dataMatrix = parsePlainTextMatrix(pastedData);
   if (!dataMatrix.length) return false;
+
+  dataMatrix = expandStatementRowsIfCollapsed(dataMatrix);
 
   const maxCols = Math.max(...dataMatrix.map((row) => row.length));
   if (maxCols < 2) {
