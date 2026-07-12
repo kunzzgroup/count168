@@ -1,11 +1,44 @@
 /** Ported from js/datacapture.js — 2.Format grid fill (Phase 4c / PR6 batch 1). */
 
-import { applyDataMatrixToGrid, ensureGridFits } from "./dataCapturePasteApply.js";
+import {
+  applyDataMatrixToGrid,
+  ensureGridFits,
+  getDefaultPasteAnchorCell,
+} from "./dataCapturePasteApply.js";
 import { notifyPasteUser, recomputeSubmitStateAfterPaste } from "../../lib/dataCaptureBridge.js";
 import {
   parseFormatHtmlTableStructure,
   buildFormatBodyMatrix,
+  reshapeCollapsedFormatMatrix,
 } from "./dataCaptureFormatHtmlMatrix.js";
+
+function cellPlainValue(cell) {
+  if (cell == null) return "";
+  if (typeof cell === "string" || typeof cell === "number") return String(cell);
+  return String(cell.value ?? "");
+}
+
+/** Count columns that actually hold values (ignore empty padding). */
+function countFilledColumns(matrix) {
+  let maxFilled = 0;
+  matrix.forEach((row) => {
+    if (!Array.isArray(row)) return;
+    let last = -1;
+    row.forEach((cell, index) => {
+      if (cellPlainValue(cell).trim()) last = index;
+    });
+    maxFilled = Math.max(maxFilled, last + 1);
+  });
+  return maxFilled;
+}
+
+/** Citibet-style: plain string[][] only — no html patches that stack in one cell. */
+function toPlainStringMatrix(matrix) {
+  return matrix.map((row) => {
+    if (!Array.isArray(row)) return [""];
+    return row.map((cell) => cellPlainValue(cell));
+  });
+}
 
 export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
   const startRow =
@@ -25,7 +58,6 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
 
     const { headerRows, dataRows, maxCols } = structure;
 
-    // Build/reshape first — source maxCols from colspan can lie; matrix width is truth.
     let bodyMatrix;
     try {
       bodyMatrix = buildFormatBodyMatrix(dataRows, Math.max(maxCols, 1));
@@ -34,37 +66,39 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
       return false;
     }
 
-    const appliedCols = Math.max(
-      0,
-      ...bodyMatrix.map((row) => (Array.isArray(row) ? row.length : 0)),
-    );
-    if (appliedCols < 2) {
+    // Second reshape pass in case only col0 was filled with stacked tokens.
+    bodyMatrix = reshapeCollapsedFormatMatrix(bodyMatrix);
+
+    const filledCols = countFilledColumns(bodyMatrix);
+    if (filledCols < 2) {
       console.log(
-        `Format: rejecting collapsed matrix (sourceMaxCols=${maxCols}, appliedCols=${appliedCols}) — falling back`,
+        `Format: rejecting matrix with only ${filledCols} filled col(s) (padded length may still be ${bodyMatrix[0]?.length})`,
       );
       return false;
     }
 
-    const sample = (bodyMatrix[0] || [])
-      .slice(0, 10)
-      .map((cell) => String(cell?.value ?? "").slice(0, 18));
+    // Trim trailing empty columns so apply width matches real data.
+    const plainMatrix = toPlainStringMatrix(bodyMatrix).map((row) => row.slice(0, filledCols));
+    const sample = (plainMatrix[0] || []).slice(0, 10);
     console.log(
-      `Format: Applying ${bodyMatrix.length} body row(s) at row ${startRow} (${dataRows.length} source data rows x ${appliedCols} cols)`,
+      `Format: Applying ${plainMatrix.length} body row(s) at row ${startRow} (${filledCols} filled cols, Citibet-style plain matrix)`,
       sample,
     );
 
-    ensureGridFits(startRow, 0, bodyMatrix.length, appliedCols);
+    const anchor = getDefaultPasteAnchorCell();
+    ensureGridFits(startRow, 0, plainMatrix.length, filledCols);
 
-    const { successCount } = applyDataMatrixToGrid(bodyMatrix, null, {
+    const { successCount } = applyDataMatrixToGrid(plainMatrix, anchor, {
       startRowOverride: startRow,
       startColOverride: 0,
       trimValues: false,
       alignTotalRows: false,
+      uppercaseValues: false,
     });
 
     if (successCount > 0) {
       notifyPasteUser(
-        `成功粘贴表格 (${headerRows.length} 个表头行, ${bodyMatrix.length} 个数据行 x ${appliedCols} 列)，已保持完整表格结构!`,
+        `成功粘贴表格 (${headerRows.length} 个表头行, ${plainMatrix.length} 个数据行 x ${filledCols} 列)，已保持完整表格结构!`,
         "success",
       );
       recomputeSubmitStateAfterPaste();

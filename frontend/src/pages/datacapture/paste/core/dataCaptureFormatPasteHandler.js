@@ -141,35 +141,50 @@ export function handleFormatPasteAreaEvent(e) {
   const clipboard = e.clipboardData || window.clipboardData;
   const { html, text } = readClipboard(clipboard);
   const area = document.getElementById("pasteAreaFormat");
+  const anchorCell = getFormatPasteAnchorCell() || getDefaultPasteAnchorCell();
 
   const hasExistingData = domGridHasEditableData();
-  const startRow = hasExistingData ? resolveFormatPasteStartRow(getFormatPasteAnchorCell()) : 0;
+  const startRow = hasExistingData ? resolveFormatPasteStartRow(anchorCell) : 0;
+
+  // Citibet-style plain matrix first (billing statements).
+  if (
+    text &&
+    tryApplyBillingStatementPlainMatrix(text, anchorCell, {
+      startRowOverride: startRow,
+      startColOverride: 0,
+    })
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    afterFormatPasteFilled(true, area);
+    return;
+  }
 
   if (html && (/<table\b/i.test(html) || clipboardHtmlLooksLikeGrid(html))) {
     e.preventDefault();
     e.stopPropagation();
-    processFormatTableHtml(html, { area, startRow });
+    processFormatTableHtml(html, { area, startRow, anchorCell });
     return;
   }
 
   if (text && /<table\b/i.test(text)) {
     e.preventDefault();
     e.stopPropagation();
-    processFormatTableHtml(text, { area, startRow });
+    processFormatTableHtml(text, { area, startRow, anchorCell });
     return;
   }
 
   if (text && text.includes("\t")) {
     e.preventDefault();
     e.stopPropagation();
-    processFormatTsv(text, { area, startRow });
+    processFormatTsv(text, { area, startRow, anchorCell });
     return;
   }
 
   if (text && text.trim()) {
     e.preventDefault();
     e.stopPropagation();
-    if (processFormatPlainTextFallback(text, { area, startRow })) return;
+    if (processFormatPlainTextFallback(text, { area, startRow, anchorCell })) return;
   }
 
   setTimeout(() => {
@@ -201,13 +216,26 @@ export function handleGlobalFormatPaste(e) {
   if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
 
   const hasExistingData = domGridHasEditableData();
-  const anchorCell = getFormatPasteAnchorCell();
+  const anchorCell = getFormatPasteAnchorCell() || getDefaultPasteAnchorCell();
   const appendMode = hasExistingData;
   const startRow = appendMode ? resolveFormatPasteStartRow(anchorCell) : 0;
 
   const pasteAreaFormat = document.getElementById("pasteAreaFormat");
 
   const { html, text } = readClipboard(clipboard);
+
+  if (
+    text &&
+    tryApplyBillingStatementPlainMatrix(text, anchorCell, {
+      startRowOverride: startRow,
+      startColOverride: 0,
+    })
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    afterFormatPasteFilled(true, pasteAreaFormat);
+    return;
+  }
 
   if (html && (/<table\b/i.test(html) || clipboardHtmlLooksLikeGrid(html))) {
     e.preventDefault();
