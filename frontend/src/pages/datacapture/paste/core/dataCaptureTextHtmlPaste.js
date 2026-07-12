@@ -5,6 +5,7 @@ import {
   plainTextFromSanitizedHtml,
   sanitizePastedCellHtml,
 } from "./dataCaptureClipboard.js";
+import { buildFormatDataCellStyle } from "./dataCaptureFormatHtmlMatrix.js";
 
 function emptyPatch() {
   return { value: "" };
@@ -24,7 +25,8 @@ function getPlainPastedCellValue(sourceCell) {
   return text;
 }
 
-function patchFromSourceCell(sourceCell) {
+/** @param {{ includeFormatStyle?: boolean }} [options] */
+function patchFromSourceCell(sourceCell, { includeFormatStyle = false } = {}) {
   let cellContent = sourceCell.innerHTML;
   if (!cellContent || cellContent.trim() === "") {
     cellContent = sourceCell.textContent || "";
@@ -33,15 +35,18 @@ function patchFromSourceCell(sourceCell) {
   const cleanContent = sanitizePastedCellHtml(cellContent);
   const rawText = plainTextFromSanitizedHtml(cleanContent) || getPlainPastedCellValue(sourceCell);
   const cellText = isBlankPastedCellText(rawText) ? "" : rawText;
+  const styleCssText = includeFormatStyle ? buildFormatDataCellStyle(sourceCell) : "";
 
   if (cleanContent.includes("<") && cleanContent.includes(">")) {
     return {
       value: cellText,
       html: cleanContent,
+      ...(styleCssText ? { styleCssText } : {}),
     };
   }
   return {
     value: cellText,
+    ...(styleCssText ? { styleCssText } : {}),
   };
 }
 
@@ -126,10 +131,14 @@ function extractPlainTextValue(sourceCell) {
   return (sourceCell.textContent || sourceCell.innerText || "").trim();
 }
 
-function buildDisplayTextPatch(sourceCell, displayText) {
+function buildDisplayTextPatch(sourceCell, displayText, { includeFormatStyle = false } = {}) {
   const normalized = isBlankPastedCellText(displayText) ? "" : String(displayText ?? "").trim();
   if (normalized === "") return emptyPatch();
-  return { value: normalized };
+  const styleCssText = includeFormatStyle ? buildFormatDataCellStyle(sourceCell) : "";
+  return {
+    value: normalized,
+    ...(styleCssText ? { styleCssText } : {}),
+  };
 }
 
 function buildRowPatches(sourceRow, maxCols, columnOrder) {
@@ -173,7 +182,9 @@ function buildRowPatchesWithSpanOccupancy(sourceRows, maxCols) {
       const rowspan = Math.max(1, parseInt(sourceCell.getAttribute("rowspan") || "1", 10) || 1);
       const displayText = typeof lineSelector === "function" ? lineSelector(cellIndex, sourceCell) : null;
       const patch =
-        displayText != null ? buildDisplayTextPatch(sourceCell, displayText) : patchFromSourceCell(sourceCell);
+        displayText != null
+          ? buildDisplayTextPatch(sourceCell, displayText, { includeFormatStyle: true })
+          : patchFromSourceCell(sourceCell, { includeFormatStyle: true });
 
       for (let offset = 0; offset < colspan; offset += 1) {
         const targetCol = nextCol + offset;
@@ -267,7 +278,8 @@ export function parseAndFillHtmlTableForText(htmlString, anchorCell) {
 }
 
 /**
- * 1.Text format-merge mode: keep Text-like display while expanding rowspan occupancy.
+ * 1.Text format-merge mode: preserve text + style (like 2.Format) and expand rowspan occupancy.
+ * Restored styleCssText path from commit 031fce3d0 (240), later dropped in fe4c5b564 (241).
  */
 export function parseAndFillHtmlTableForTextWithFormat(htmlString, anchorCell) {
   try {
@@ -291,7 +303,7 @@ export function parseAndFillHtmlTableForTextWithFormat(htmlString, anchorCell) {
 
     if (successCount > 0) {
       notifyPasteSuccess(
-        `成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${cols} 列)，已按1.Text显示并兼容合并格占位!`,
+        `成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${cols} 列)，已在1.Text保留格式显示!`,
       );
       recomputeSubmitStateAfterPaste();
       return true;
