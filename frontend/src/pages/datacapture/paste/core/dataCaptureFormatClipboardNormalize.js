@@ -412,6 +412,26 @@ export function expandCollapsedTableRows(table) {
 
     const lines = splitCellTextToColumnLines(only);
     if (lines.length >= 2) {
+      // Each line is itself a full report row (Agent + amounts…) → one <tr> per line.
+      const denseLines = lines.filter((line) => tokenizeCollapsedReportRow(line).length >= 2);
+      if (denseLines.length >= 2 && denseLines.length === lines.length) {
+        const parent = tr.parentNode;
+        if (!parent) return;
+        denseLines.forEach((line, index) => {
+          const tokens = tokenizeCollapsedReportRow(line);
+          const newTr = document.createElement("tr");
+          tokens.forEach((token) => {
+            const td = document.createElement(asHeader ? "th" : "td");
+            td.textContent = token;
+            newTr.appendChild(td);
+          });
+          if (index === 0) parent.replaceChild(newTr, tr);
+          else parent.appendChild(newTr);
+        });
+        changed = true;
+        return;
+      }
+
       replaceRowWithTextColumns(tr, lines, asHeader);
       changed = true;
     }

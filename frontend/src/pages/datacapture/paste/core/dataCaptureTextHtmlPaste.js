@@ -187,7 +187,7 @@ function buildRowPatchesWithSpanOccupancy(sourceRows, maxCols) {
       while (nextCol < maxCols && occupiedCols[nextCol]) nextCol += 1;
       if (nextCol >= maxCols) return;
 
-      const colspan = Math.max(1, parseInt(sourceCell.getAttribute("colspan") || "1", 10) || 1);
+      const colspan = 1;
       const rowspan = Math.max(1, parseInt(sourceCell.getAttribute("rowspan") || "1", 10) || 1);
       const displayText = typeof lineSelector === "function" ? lineSelector(cellIndex, sourceCell) : null;
       const patch =

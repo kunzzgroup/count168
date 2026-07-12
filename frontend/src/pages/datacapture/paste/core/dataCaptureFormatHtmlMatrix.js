@@ -4,7 +4,11 @@ import {
   sanitizeFormatHtmlFragment,
   sanitizeCopiedStyleString,
 } from "./dataCaptureFormatStyleUtils.js";
-import { expandCollapsedTableRows, tableLooksHorizontallyCollapsed } from "./dataCaptureFormatClipboardNormalize.js";
+import {
+  expandCollapsedTableRows,
+  tableLooksHorizontallyCollapsed,
+  tokenizeCollapsedReportRow,
+} from "./dataCaptureFormatClipboardNormalize.js";
 
 /** @returns {{ headerRows: Element[], dataRows: Element[], maxCols: number, allRows: Element[], table: Element } | null} */
 export function parseFormatHtmlTableStructure(htmlString) {
@@ -330,7 +334,9 @@ function fillSourceRowPatches(targetRow, sourceCells, maxCols, lineSelector) {
   let currentCol = 0;
 
   sourceCells.forEach((sourceCell, cellIndex) => {
-    const colspan = parseInt(sourceCell.getAttribute("colspan") || "1", 10);
+    // Material / Chrome clipboards often set colspan=N on a crushed cell.
+    // For paste matrix layout we must treat each TD as one column.
+    const colspan = 1;
     const splitInfo = lineSelector(cellIndex, sourceCell);
 
     if (currentCol < maxCols) {
@@ -354,32 +360,149 @@ function fillSourceRowPatches(targetRow, sourceCells, maxCols, lineSelector) {
 }
 
 function expandSourceRowToMatrixRows(sourceRow, maxCols) {
-  const sourceCells = sourceRow.querySelectorAll("td, th");
-  const { hasVerticalSplit, cellsWithSplit, isFirstCellWithBrOrSpan } =
-    detectRowVerticalSplit(sourceCells);
+  const sourceCells = Array.from(
+    sourceRow.querySelectorAll(":scope > td, :scope > th"),
+  );
+  const cells =
+    sourceCells.length > 0
+      ? sourceCells
+      : Array.from(sourceRow.querySelectorAll("td, th"));
 
+  // One crushed cell → tokenize into columns (never vertical-split into a 1-col dump).
+  if (cells.length === 1) {
+    const only = cells[0];
+    const fromLines = extractCellLines(only);
+    const tokenSource =
+      fromLines.length >= 2 && fromLines.every((line) => tokenizeCollapsedReportRow(line).length < 2)
+        ? fromLines
+        : tokenizeCollapsedReportRow(
+            fromLines.length >= 2 ? fromLines.join(" ") : only.textContent || "",
+          );
+    if (tokenSource.length >= 2) {
+      const width = Math.max(maxCols, tokenSource.length);
+      const row = emptyRowPatch(width);
+      tokenSource.forEach((token, index) => {
+        if (index < width) row[index] = { value: token };
+      });
+      return [row];
+    }
+  }
+
+  const { hasVerticalSplit, cellsWithSplit, isFirstCellWithBrOrSpan } =
+    detectRowVerticalSplit(cells);
+
+  // Excel-style column stacks: same number of lines in each cell → one output row per line.
   if (isFirstCellWithBrOrSpan && hasVerticalSplit && cellsWithSplit.length > 0) {
+    const lineCount = Math.max(...cellsWithSplit.map((entry) => entry.allLines.length));
+    if (lineCount >= 2 && cells.length >= 2) {
+      const rows = [];
+      for (let lineIndex = 0; lineIndex < lineCount; lineIndex += 1) {
+        const row = emptyRowPatch(maxCols);
+        fillSourceRowPatches(row, cells, maxCols, (cellIndex, sourceCell) => {
+          const splitInfo = cellsWithSplit.find((entry) => entry.index === cellIndex);
+          if (splitInfo?.allLines?.[lineIndex] != null) return splitInfo.allLines[lineIndex];
+          return lineIndex === 0 ? extractPlainText(sourceCell) : "";
+        });
+        rows.push(row);
+      }
+      return rows;
+    }
+
+    // Legacy 2-line SUBTOTAL stack in a multi-col row.
     const topRow = emptyRowPatch(maxCols);
     const bottomRow = emptyRowPatch(maxCols);
 
-    fillSourceRowPatches(topRow, sourceCells, maxCols, (cellIndex) => {
+    fillSourceRowPatches(topRow, cells, maxCols, (cellIndex) => {
       const splitInfo = cellsWithSplit.find((entry) => entry.index === cellIndex);
       if (splitInfo) return splitInfo.topData;
-      return extractPlainText(sourceCells[cellIndex]);
+      return extractPlainText(cells[cellIndex]);
     });
 
-    fillSourceRowPatches(bottomRow, sourceCells, maxCols, (cellIndex) => {
+    fillSourceRowPatches(bottomRow, cells, maxCols, (cellIndex) => {
       const splitInfo = cellsWithSplit.find((entry) => entry.index === cellIndex);
       if (splitInfo) return splitInfo.bottomData;
-      return extractPlainText(sourceCells[cellIndex]);
+      return extractPlainText(cells[cellIndex]);
     });
 
     return [topRow, bottomRow];
   }
 
   const row = emptyRowPatch(maxCols);
-  fillSourceRowPatches(row, sourceCells, maxCols, () => null);
+  fillSourceRowPatches(row, cells, maxCols, () => null);
   return [row];
+}
+
+/**
+ * Last-chance reshape: rows that only filled column 0 with multi-token / multiline
+ * content get expanded into real columns (matches the user-visible failure mode).
+ */
+export function reshapeCollapsedFormatMatrix(bodyMatrix) {
+  if (!Array.isArray(bodyMatrix) || !bodyMatrix.length) return bodyMatrix;
+
+  const reshaped = [];
+  bodyMatrix.forEach((row) => {
+    if (!Array.isArray(row) || !row.length) {
+      reshaped.push(row);
+      return;
+    }
+
+    const filledIdx = [];
+    row.forEach((cell, index) => {
+      if (String(cell?.value ?? "").trim() || String(cell?.html ?? "").trim()) {
+        filledIdx.push(index);
+      }
+    });
+
+    const primary = row[0] || {};
+    const primaryText = String(primary.value ?? "")
+      .replace(/\u00a0/g, " ")
+      .trim();
+    const primaryLines = primaryText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    // Case A: only col0 filled, and it holds one report row of space-separated fields.
+    if (filledIdx.length <= 1) {
+      if (
+        primaryLines.length >= 2 &&
+        primaryLines.every((line) => tokenizeCollapsedReportRow(line).length >= 2)
+      ) {
+        primaryLines.forEach((line) => {
+          const tokens = tokenizeCollapsedReportRow(line);
+          reshaped.push(tokens.map((token) => ({ value: token })));
+        });
+        return;
+      }
+
+      if (primaryLines.length >= 3) {
+        reshaped.push(primaryLines.map((line) => ({ value: line })));
+        return;
+      }
+
+      const tokens = tokenizeCollapsedReportRow(primaryText);
+      if (tokens.length >= 3) {
+        reshaped.push(tokens.map((token) => ({ value: token })));
+        return;
+      }
+    }
+
+    // Case B: several cells, but each cell still holds a full dense report row.
+    if (
+      filledIdx.length >= 2 &&
+      filledIdx.every((index) => tokenizeCollapsedReportRow(row[index]?.value || "").length >= 3)
+    ) {
+      filledIdx.forEach((index) => {
+        const tokens = tokenizeCollapsedReportRow(row[index]?.value || "");
+        reshaped.push(tokens.map((token) => ({ value: token })));
+      });
+      return;
+    }
+
+    reshaped.push(row);
+  });
+
+  return reshaped;
 }
 
 /** @returns {Array<Array<{ value: string, html?: string, styleCssText?: string }>>} */
@@ -388,5 +511,5 @@ export function buildFormatBodyMatrix(dataRows, maxCols) {
   dataRows.forEach((sourceRow) => {
     expandSourceRowToMatrixRows(sourceRow, maxCols).forEach((row) => matrix.push(row));
   });
-  return matrix;
+  return reshapeCollapsedFormatMatrix(matrix);
 }
