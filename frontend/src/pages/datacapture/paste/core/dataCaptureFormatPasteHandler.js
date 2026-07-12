@@ -1,6 +1,7 @@
+import { handleTextPlainPaste } from "./dataCaptureTextPaste.js";
+import { tryApplyBillingStatementPlainMatrix } from "./dataCaptureStatementMatrixPaste.js";
 import { parseAndFillHtmlTableForFormat } from "./dataCaptureFormatHtmlPaste.js";
 import { parseAndFillHtmlTableForTextWithFormat } from "./dataCaptureTextHtmlPaste.js";
-import { handleTextPlainPaste } from "./dataCaptureTextPaste.js";
 import {
   buildFormatPreviewFragmentFromClipboardHtml,
   clipboardLooksLikeTable,
@@ -49,6 +50,11 @@ function afterFormatPasteFilled(filled, area) {
   }
   recomputeSubmitStateAfterPaste();
   return true;
+}
+
+/** Call after a Citibet-style plain matrix paste in 2.Format mode. */
+export function markFormatGridReadyAfterPlainMatrixPaste() {
+  return afterFormatPasteFilled(true, null);
 }
 
 function resolveFormatFallbackAnchorCell(startRow = 0, anchorCell = null) {
@@ -231,6 +237,18 @@ export function handleFormatPasteFromClipboard(clipboard, fallbackHTML, options 
   if (!options.allowOutsideFormatMode && !isFormatMode()) return false;
 
   const { html, text } = readClipboard(clipboard);
+
+  // Citibet-style plain matrix before HTML format fill (billing statements).
+  if (
+    text &&
+    tryApplyBillingStatementPlainMatrix(text, options.anchorCell || getDefaultPasteAnchorCell(), {
+      startRowOverride: options.startRow,
+      startColOverride: 0,
+    })
+  ) {
+    return afterFormatPasteFilled(true, options.area ?? null);
+  }
+
   const htmlCandidate = html || fallbackHTML || "";
   const htmlToUse =
     htmlCandidate && (/<table\b/i.test(htmlCandidate) || clipboardHtmlLooksLikeGrid(htmlCandidate))

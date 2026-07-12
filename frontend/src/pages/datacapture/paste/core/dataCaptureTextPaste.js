@@ -102,7 +102,8 @@ function parseFlattenedStatementMatrix(nonEmptyLines) {
   return dataRows;
 }
 
-function parsePlainTextMatrix(pastedData) {
+/** Exported for Citibet-style statement matrix paste (1.Text / 2.Format). */
+export function parsePlainTextMatrix(pastedData) {
   const normalized = pastedData.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   if (!normalized.trim()) return [];
 
