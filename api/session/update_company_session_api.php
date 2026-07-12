@@ -8,6 +8,7 @@
 define('SESSION_KEEP_OPEN', true);
 
 require_once __DIR__ . '/../../session_check.php';
+require_once __DIR__ . '/../get_companies_helper.php';
 
 header('Content-Type: application/json');
 
@@ -132,15 +133,17 @@ function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-    $stmt = $pdo->prepare("
-        SELECT DISTINCT c.id, c.company_id, c.expiration_date
-        FROM company c
-        INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-        WHERE ucm.user_id = ?
-        ORDER BY c.company_id ASC
-    ");
-    $stmt->execute([$user_id]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // 与 dashboard 公司列表一致：含 IT 白名单（IT_JK/IT_JS/IT_MS）对 C168 + AP/IG 的范围访问
+    $rows = getCompaniesByUser($pdo, (int) $user_id, true, true);
+    return array_map(static function ($c) {
+        return [
+            'id' => isset($c['id']) ? (int) $c['id'] : 0,
+            'company_id' => $c['company_id'] ?? '',
+            'group_id' => $c['group_id'] ?? null,
+            'expiration_date' => $c['expiration_date'] ?? null,
+            'is_external' => isset($c['is_external']) ? (int) $c['is_external'] : 0,
+        ];
+    }, $rows);
 }
 
 try {
@@ -176,14 +179,18 @@ try {
     $is_external_view = false;
     $real_owner_id = null;
     $blockedReason = null;
+    $isSystemItLogin = maintenance_gate_is_allowlisted_login((string) ($_SESSION['login_id'] ?? ''));
     foreach ($user_companies as $comp) {
         if ((int) $comp['id'] === $requested_company_id) {
             $valid = true;
-            $expState = getCompanyExpirationState($comp['expiration_date'] ?? null, $comp['company_id'] ?? null);
-            if ($expState === 'expired') {
-                $blockedReason = 'expired';
-            } elseif ($expState === 'no_set') {
-                $blockedReason = 'no_set';
+            // IT 白名单在 C168/AP/IG 范围内可切换，不因到期日未设置/过期被挡
+            if (!$isSystemItLogin || !maintenance_gate_is_it_allowed_company_id($pdo, $requested_company_id)) {
+                $expState = getCompanyExpirationState($comp['expiration_date'] ?? null, $comp['company_id'] ?? null);
+                if ($expState === 'expired') {
+                    $blockedReason = 'expired';
+                } elseif ($expState === 'no_set') {
+                    $blockedReason = 'no_set';
+                }
             }
             if (isset($comp['is_external']) && $comp['is_external'] == 1) {
                 $is_external_view = true;
