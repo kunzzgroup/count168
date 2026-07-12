@@ -74,7 +74,9 @@ export function processFormatTableHtml(html, { area = null, startRow = null, anc
 
   const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(html);
   const sanitized = sanitizePastedHTML(html);
-  const candidates = [sanitized, previewFragment, html].filter(Boolean);
+  // Prefer richer sources first to preserve class/inline style presentation
+  // (e.g. badge-like "MASTER"), then fall back to heavily sanitized HTML.
+  const candidates = [previewFragment, html, sanitized].filter(Boolean);
   if (!candidates.length) return false;
 
   for (const candidate of candidates) {

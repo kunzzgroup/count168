@@ -3,7 +3,6 @@
 import {
   sanitizeFormatHtmlFragment,
   sanitizeCopiedStyleString,
-  stripBackgroundFromStyle,
 } from "./dataCaptureFormatStyleUtils.js";
 
 /** @returns {{ headerRows: Element[], dataRows: Element[], maxCols: number, allRows: Element[] } | null} */
@@ -164,17 +163,21 @@ export function buildFormatDataCellStyle(sourceCell) {
   const sourceCellComputedStyle = window.getComputedStyle(sourceCell);
 
   if (sourceCellStyle) {
-    const sanitizedCellStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
+    const sanitizedCellStyle = sanitizeCopiedStyleString(sourceCellStyle);
     return sanitizedCellStyle && !sanitizedCellStyle.includes("border")
       ? `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}`
       : sanitizedCellStyle || "border: 1px solid #d0d7de !important;";
   }
 
   const color = sourceCellComputedStyle.color;
+  const backgroundColor = sourceCellComputedStyle.backgroundColor;
   const fontWeight = sourceCellComputedStyle.fontWeight;
   const textAlign = sourceCellComputedStyle.textAlign;
   let styleString = "border: 1px solid #d0d7de !important;";
   if (color && color !== "rgb(0, 0, 0)") styleString += ` color: ${color} !important;`;
+  if (backgroundColor && backgroundColor !== "rgba(0, 0, 0, 0)" && backgroundColor !== "transparent") {
+    styleString += ` background-color: ${backgroundColor} !important;`;
+  }
   if (fontWeight && fontWeight !== "normal" && fontWeight !== "400") {
     styleString += ` font-weight: ${fontWeight} !important;`;
   }
@@ -213,7 +216,7 @@ export function buildFormatDataCellPatch(sourceCell, displayText) {
   if (cellText && cellText.trim() !== "") {
     const sourceCellStyle = sourceCell.getAttribute("style");
     if (sourceCellStyle) {
-      const sanitizedSpanStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
+      const sanitizedSpanStyle = sanitizeCopiedStyleString(sourceCellStyle);
       if (sanitizedSpanStyle) {
         return {
           value: cellText,
