@@ -43,7 +43,7 @@ function resolveCompanyId(PDO $pdo) {
             }
             throw new Exception('无权访问该公司');
         }
-        if (!isset($_SESSION['company_id']) || $requestedCompanyId !== (int) $_SESSION['company_id']) {
+        if (!maintenance_gate_non_owner_can_use_company($pdo, $requestedCompanyId)) {
             throw new Exception('无权访问该公司');
         }
         return $requestedCompanyId;

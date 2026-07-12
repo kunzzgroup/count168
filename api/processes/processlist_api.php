@@ -244,9 +244,18 @@ function getCurrentUserId(PDO $pdo) {
     throw new Exception("无法获取有效的用户 ID。请确保已登录并且 user 表中有有效的用户记录。");
 }
 
-/** 检查当前用户是否有权访问指定公司（owner 查 company，普通用户查 user_company_map） */
+/** 检查当前用户是否有权访问指定公司（owner 查 company，普通用户查 user_company_map；IT 白名单可访问 C168/AP/IG） */
 function checkCompanyAccess(PDO $pdo, int $requestedCompanyId): bool
 {
+    if ($requestedCompanyId <= 0) {
+        return false;
+    }
+
+    require_once __DIR__ . '/../../includes/maintenance_gate.php';
+    if (maintenance_gate_allowlisted_can_access_company($pdo, $requestedCompanyId)) {
+        return true;
+    }
+
     $currentUserId = $_SESSION['user_id'] ?? null;
     $currentUserRole = $_SESSION['role'] ?? '';
     if ($currentUserRole === 'owner') {

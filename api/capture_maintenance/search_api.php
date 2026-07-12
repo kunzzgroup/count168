@@ -40,10 +40,7 @@ function getCompanyIdForRequest(PDO $pdo) {
             }
             return $requestedCompanyId;
         }
-        if (!isset($_SESSION['company_id'])) {
-            throw new Exception('缺少公司信息');
-        }
-        if ($requestedCompanyId !== (int)$_SESSION['company_id']) {
+        if (!maintenance_gate_non_owner_can_use_company($pdo, $requestedCompanyId)) {
             throw new Exception('无权访问该公司');
         }
         return $requestedCompanyId;

@@ -388,15 +388,17 @@ try {
                 throw new Exception('无权访问该公司');
             }
         } else {
-            // 非 owner 用户：优先匹配 session, 否则通过 user_company_map 验证是否有权
-            if (isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === (int) $_GET['company_id']) {
-                $company_id = (int) $_SESSION['company_id'];
+            // 非 owner：session 匹配 / user_company_map / IT 白名单 C168+AP/IG
+            $requestedCompanyId = (int) $_GET['company_id'];
+            if (isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === $requestedCompanyId) {
+                $company_id = $requestedCompanyId;
+            } elseif (maintenance_gate_non_owner_can_use_company($pdo, $requestedCompanyId)) {
+                $company_id = $requestedCompanyId;
             } else {
-                // 检查 user_company_map 是否包含该公司
                 $ucm_stmt = $pdo->prepare("SELECT 1 FROM user_company_map WHERE user_id = ? AND company_id = ? LIMIT 1");
-                $ucm_stmt->execute([$_SESSION['user_id'], (int) $_GET['company_id']]);
+                $ucm_stmt->execute([$_SESSION['user_id'], $requestedCompanyId]);
                 if ($ucm_stmt->fetchColumn()) {
-                    $company_id = (int) $_GET['company_id'];
+                    $company_id = $requestedCompanyId;
                 } else {
                     throw new Exception('无权访问该公司');
                 }

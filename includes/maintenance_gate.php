@@ -415,6 +415,36 @@ if (!function_exists('maintenance_gate_is_it_allowed_company_id')) {
     }
 }
 
+if (!function_exists('maintenance_gate_allowlisted_can_access_company')) {
+    /**
+     * IT 白名单账号是否可访问该公司（C168 或 group AP/IG）。
+     */
+    function maintenance_gate_allowlisted_can_access_company(PDO $pdo, int $companyId): bool
+    {
+        $loginId = (string) ($_SESSION['login_id'] ?? '');
+        if (!maintenance_gate_is_allowlisted_login($loginId)) {
+            return false;
+        }
+        return maintenance_gate_is_it_allowed_company_id($pdo, $companyId);
+    }
+}
+
+if (!function_exists('maintenance_gate_non_owner_can_use_company')) {
+    /**
+     * 非 owner：session 当前公司匹配，或 IT 白名单在 C168/AP/IG 范围内。
+     */
+    function maintenance_gate_non_owner_can_use_company(PDO $pdo, int $requestedCompanyId): bool
+    {
+        if ($requestedCompanyId <= 0) {
+            return false;
+        }
+        if (maintenance_gate_allowlisted_can_access_company($pdo, $requestedCompanyId)) {
+            return true;
+        }
+        return isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === $requestedCompanyId;
+    }
+}
+
 if (!function_exists('maintenance_gate_apply_it_company_session')) {
     /**
      * @param array{id:int, company_id:string, group_id:?string} $company
