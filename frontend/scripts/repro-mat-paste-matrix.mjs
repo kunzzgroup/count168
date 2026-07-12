@@ -89,6 +89,14 @@ $0.00
 $3,008.85</td></tr>
     </table>
   `,
+  // User symptom: colspan fake width + single-space flattened row (no br)
+  "table-colspan-space-flat": `
+    <table>
+      <tr><td colspan="10">SDSPDA95 2,120 $0.00 $3,008.85 $3,008.85 $2,546.40 $3,008.85 $0.00 $462.45</td></tr>
+      <tr><td colspan="10">SUBTOTAL 2,120 $0.00 $3,008.85 $3,008.85 $2,546.40 $3,008.85 $0.00 $462.45</td></tr>
+      <tr><td colspan="10">TOTAL AMOUNT 2,120 $0.00 $3,008.85 $3,008.85 $2,546.40 $3,008.85 $0.00 $462.45</td></tr>
+    </table>
+  `,
 };
 
 let failed = 0;

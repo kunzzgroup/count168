@@ -265,6 +265,11 @@ export function parseAndFillHtmlTableForText(htmlString, anchorCell) {
     if (!measured) return false;
 
     const { allRows, maxCols } = measured;
+    if (maxCols < 2) {
+      console.log(`1.Text: rejecting collapsed HTML table (maxCols=${maxCols})`);
+      return false;
+    }
+
     const dataMatrix = allRows.map((sourceRow) => buildRowPatches(sourceRow, maxCols, null));
 
     const { successCount, maxRows, maxCols: cols } = applyDataMatrixToGrid(dataMatrix, anchorCell, {
@@ -306,6 +311,11 @@ export function parseAndFillHtmlTableForTextWithFormat(htmlString, anchorCell) {
     if (!measured) return false;
 
     const { allRows, maxCols } = measured;
+    if (maxCols < 2) {
+      console.log(`1.Text format-merge: rejecting collapsed HTML table (maxCols=${maxCols})`);
+      return false;
+    }
+
     const dataMatrix = buildRowPatchesWithSpanOccupancy(allRows, maxCols);
 
     const { successCount, maxRows, maxCols: cols } = applyDataMatrixToGrid(dataMatrix, anchorCell, {

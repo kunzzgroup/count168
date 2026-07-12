@@ -317,12 +317,59 @@ function splitCellTextToColumnLines(cell) {
       if (spaced.length >= 2) lines = spaced;
     }
   }
-  return lines;
+  if (lines.length >= 2) return lines;
+
+  // Chrome Material copies often flatten a whole report row into one TD with
+  // single spaces (no <br>, no tabs). Tokenize labels + numeric/money fields.
+  const tokenized = tokenizeCollapsedReportRow(raw);
+  return tokenized.length >= 2 ? tokenized : lines;
+}
+
+/**
+ * Split a collapsed billing-statement row into column tokens.
+ * Keeps multi-word labels like "TOTAL AMOUNT" / "SUB TOTAL".
+ */
+export function tokenizeCollapsedReportRow(text) {
+  const raw = String(text || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!raw) return [];
+
+  const tokens = [];
+  const re =
+    /TOTAL\s+AMOUNT|SUB\s*TOTAL|SUBTOTAL|\$?-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|\$?-?\d+(?:\.\d+)?|\S+/gi;
+  let match;
+  while ((match = re.exec(raw))) {
+    const token = String(match[0] || "").trim();
+    if (token) tokens.push(token);
+  }
+
+  // Only treat as columns when we see multiple numeric/money fields.
+  const numericLike = tokens.filter((token) =>
+    /^\$?-?\d{1,3}(?:,\d{3})*(?:\.\d+)?$|^\$?-?\d+(?:\.\d+)?$/.test(token.replace(/\s/g, "")),
+  ).length;
+  if (tokens.length >= 3 && numericLike >= 2) return tokens;
+  if (tokens.length >= 2 && numericLike >= 1 && /SUB\s*TOTAL|TOTAL\s+AMOUNT/i.test(raw)) {
+    return tokens;
+  }
+  return [];
+}
+
+function cellLooksHorizontallyCollapsed(cell) {
+  if (!cell) return false;
+  const childBlocks = Array.from(cell.children || []).filter(
+    (child) => String(child.textContent || "").trim() !== "",
+  );
+  if (childBlocks.length >= 2) return true;
+  if (collectRowCells(cell).length >= 2) return true;
+  if (splitCellTextToColumnLines(cell).length >= 2) return true;
+  return false;
 }
 
 /**
  * Expand tables where each logical row was collapsed into one TD/TH
- * (nested mat-cells or newline-flattened column values).
+ * (nested mat-cells, colspan wrappers, or flattened column values).
  * Mutates the table in place. Returns true when any row was expanded.
  */
 export function expandCollapsedTableRows(table) {
@@ -334,14 +381,23 @@ export function expandCollapsedTableRows(table) {
       const tag = (el.tagName || "").toUpperCase();
       return tag === "TD" || tag === "TH";
     });
+    // One real cell (ignore colspan inflation) — the Material clipboard failure mode.
     if (cells.length !== 1) return;
+    if (!cellLooksHorizontallyCollapsed(cells[0]) && Number.parseInt(cells[0].getAttribute("colspan") || "1", 10) <= 1) {
+      // Still try tokenize on plain single-cell rows with dense report text.
+      const tokenized = tokenizeCollapsedReportRow(cells[0].textContent || "");
+      if (tokenized.length < 2) return;
+      const asHeader = (cells[0].tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(cells[0]);
+      replaceRowWithTextColumns(tr, tokenized, asHeader);
+      changed = true;
+      return;
+    }
 
     const only = cells[0];
     const asHeader = (only.tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(only);
 
     let nested = collectRowCells(only);
     if (nested.length < 2) {
-      // Plain block children inside the lone cell (div/span stacks from flex copy).
       const kids = Array.from(only.children || []).filter(
         (child) => String(child.textContent || "").trim() !== "",
       );
@@ -362,6 +418,32 @@ export function expandCollapsedTableRows(table) {
   });
 
   return changed;
+}
+
+/** True when a parsed table still looks like columns crushed into one cell/column. */
+export function tableLooksHorizontallyCollapsed(table, maxCols) {
+  if (!table) return true;
+  if (maxCols >= 2) {
+    // colspan can fake a wide table while content still sits in one TD.
+    const rows = Array.from(table.querySelectorAll("tr"));
+    const hasFakeWidth = rows.some((tr) => {
+      const cells = Array.from(tr.children || []).filter((el) => {
+        const tag = (el.tagName || "").toUpperCase();
+        return tag === "TD" || tag === "TH";
+      });
+      if (cells.length !== 1) return false;
+      const colspan = Number.parseInt(cells[0].getAttribute("colspan") || "1", 10);
+      return colspan >= 2 || cellLooksHorizontallyCollapsed(cells[0]);
+    });
+    return hasFakeWidth;
+  }
+  return Array.from(table.querySelectorAll("tr")).some((tr) => {
+    const cell = Array.from(tr.children || []).find((el) => {
+      const tag = (el.tagName || "").toUpperCase();
+      return tag === "TD" || tag === "TH";
+    });
+    return cellLooksHorizontallyCollapsed(cell);
+  });
 }
 
 function tableColumnCount(table) {

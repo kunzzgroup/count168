@@ -4,9 +4,9 @@ import {
   sanitizeFormatHtmlFragment,
   sanitizeCopiedStyleString,
 } from "./dataCaptureFormatStyleUtils.js";
-import { expandCollapsedTableRows } from "./dataCaptureFormatClipboardNormalize.js";
+import { expandCollapsedTableRows, tableLooksHorizontallyCollapsed } from "./dataCaptureFormatClipboardNormalize.js";
 
-/** @returns {{ headerRows: Element[], dataRows: Element[], maxCols: number, allRows: Element[] } | null} */
+/** @returns {{ headerRows: Element[], dataRows: Element[], maxCols: number, allRows: Element[], table: Element } | null} */
 export function parseFormatHtmlTableStructure(htmlString) {
   const tempDiv = document.createElement("div");
   tempDiv.innerHTML = htmlString;
@@ -40,7 +40,16 @@ export function parseFormatHtmlTableStructure(htmlString) {
 
   let maxCols = 0;
   allRows.forEach((tr) => {
-    const cells = tr.querySelectorAll("td, th");
+    // Use direct cell count. Do NOT trust colspan alone — Material clipboards
+    // often set colspan=N on a single TD that still holds every column value.
+    const cells = Array.from(tr.children || []).filter((el) => {
+      const tag = (el.tagName || "").toUpperCase();
+      return tag === "TD" || tag === "TH";
+    });
+    if (cells.length <= 1) {
+      maxCols = Math.max(maxCols, cells.length);
+      return;
+    }
     let colCount = 0;
     cells.forEach((cell) => {
       colCount += parseInt(cell.getAttribute("colspan") || "1", 10);
@@ -50,7 +59,7 @@ export function parseFormatHtmlTableStructure(htmlString) {
 
   if (maxCols === 0) return null;
 
-  return { headerRows, dataRows, maxCols, allRows };
+  return { headerRows, dataRows, maxCols, allRows, table };
 }
 
 function extractCellLines(sourceCell) {

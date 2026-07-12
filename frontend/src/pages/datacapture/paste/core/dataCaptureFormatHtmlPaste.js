@@ -7,6 +7,7 @@ import {
   countFormatRequiredBodyRows,
   buildFormatBodyMatrix,
 } from "./dataCaptureFormatHtmlMatrix.js";
+import { tableLooksHorizontallyCollapsed } from "./dataCaptureFormatClipboardNormalize.js";
 
 export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
   const startRow =
@@ -24,13 +25,20 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
       return false;
     }
 
-    const { headerRows, dataRows, maxCols } = structure;
+    const { headerRows, dataRows, maxCols, table } = structure;
+
+    if (maxCols < 2 || tableLooksHorizontallyCollapsed(table, maxCols)) {
+      console.log(
+        `Format: rejecting collapsed table (maxCols=${maxCols}) — falling back to plain/matrix paste`,
+      );
+      return false;
+    }
 
     ensureGridFits(startRow, 0, countFormatRequiredBodyRows(dataRows), maxCols);
 
     const bodyMatrix = buildFormatBodyMatrix(dataRows, maxCols);
     console.log(
-      `Format: Applying ${bodyMatrix.length} body row(s) at row ${startRow} (${dataRows.length} source data rows)`,
+      `Format: Applying ${bodyMatrix.length} body row(s) at row ${startRow} (${dataRows.length} source data rows x ${maxCols} cols)`,
     );
 
     const { successCount: bodySuccessCount } = applyDataMatrixToGrid(bodyMatrix, null, {

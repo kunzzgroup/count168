@@ -259,7 +259,16 @@ export function detectColumnReorder(allRows) {
 
 function countRowCols(row) {
   if (!row) return 0;
-  const cells = row.querySelectorAll("td, th");
+  // Prefer direct cells — nested td/th inside a crushed cell must not inflate width.
+  const direct = Array.from(row.children || []).filter((el) => {
+    const tag = (el.tagName || "").toUpperCase();
+    return tag === "TD" || tag === "TH";
+  });
+  const cells = direct.length ? direct : Array.from(row.querySelectorAll("td, th"));
+  if (cells.length <= 1) {
+    // A lone TD with colspan=N is still one crushed clipboard cell until expanded.
+    return cells.length;
+  }
   let c = 0;
   cells.forEach((cell) => {
     c += Number.parseInt(cell.getAttribute("colspan") || "1", 10);
