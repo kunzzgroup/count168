@@ -1,7 +1,5 @@
 /** Ported from js/datacapture.js — 2.Format style sanitization (Phase 4c). */
 
-import { stripInteractiveUiFromHtml } from "./dataCaptureClipboard.js";
-
 export function sanitizeCopiedStyleString(styleString) {
     if (!styleString) return '';
     const blocked = new Set([
@@ -37,13 +35,12 @@ export function stripBackgroundFromStyle(styleString) {
 }
 
 // 2.Format: sanitize cell HTML while keeping class-based inline presentation
-// (e.g. badge styles), only stripping id, interactive UI chrome, and layout styles.
+// and interactive chrome (buttons/icons). Only strip id and dangerous layout styles.
 export function sanitizeFormatHtmlFragment(html) {
     if (!html) return '';
     try {
-        const withoutUi = stripInteractiveUiFromHtml(String(html));
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = withoutUi;
+        wrapper.innerHTML = String(html);
 
         const all = wrapper.querySelectorAll('*');
         all.forEach(el => {

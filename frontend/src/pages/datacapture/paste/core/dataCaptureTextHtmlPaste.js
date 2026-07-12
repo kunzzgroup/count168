@@ -32,7 +32,10 @@ function patchFromSourceCell(sourceCell, { includeFormatStyle = false } = {}) {
     cellContent = sourceCell.textContent || "";
   }
 
-  const cleanContent = sanitizePastedCellHtml(cellContent);
+  const cleanContent = sanitizePastedCellHtml(cellContent, {
+    // Format-preserving paste keeps report UI chrome; Reset clears it from the grid.
+    stripInteractive: !includeFormatStyle,
+  });
   const rawText = plainTextFromSanitizedHtml(cleanContent) || getPlainPastedCellValue(sourceCell);
   const cellText = isBlankPastedCellText(rawText) ? "" : rawText;
   const styleCssText = includeFormatStyle ? buildFormatDataCellStyle(sourceCell) : "";

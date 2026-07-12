@@ -202,14 +202,14 @@ export function plainTextFromSanitizedHtml(html) {
   }
 }
 
-export function sanitizePastedCellHtml(cellContent) {
+export function sanitizePastedCellHtml(cellContent, { stripInteractive = true } = {}) {
   if (!cellContent) return "";
   const stripped = cellContent
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/javascript:/gi, "")
     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, "");
-  return stripInteractiveUiFromHtml(stripped);
+  return stripInteractive ? stripInteractiveUiFromHtml(stripped) : stripped;
 }
 
 /** Reorder columns when No./User appear at the end (common Excel copy quirk). */
