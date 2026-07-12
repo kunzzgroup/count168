@@ -1,5 +1,6 @@
 import { parseAndFillHtmlTableForFormat } from "./dataCaptureFormatHtmlPaste.js";
 import { parseAndFillHtmlTableForTextWithFormat } from "./dataCaptureTextHtmlPaste.js";
+import { handleTextPlainPaste } from "./dataCaptureTextPaste.js";
 import {
   buildFormatPreviewFragmentFromClipboardHtml,
   clipboardLooksLikeTable,
@@ -48,6 +49,20 @@ function resolveFormatFallbackAnchorCell(startRow = 0, anchorCell = null) {
   const rowEl = tableBody?.children?.[targetRow];
   const cell = rowEl?.querySelector?.('td[contenteditable="true"]');
   return cell || getDefaultPasteAnchorCell();
+}
+
+function processFormatPlainTextFallback(
+  text,
+  { area = null, startRow = null, anchorCell = null } = {},
+) {
+  if (!text || !String(text).trim()) return false;
+  const resolvedStartRow =
+    startRow != null ? startRow : resolveFormatPasteStartRow(anchorCell || getFormatPasteAnchorCell());
+  const resolvedAnchor = resolveFormatFallbackAnchorCell(resolvedStartRow, anchorCell);
+  if (!resolvedAnchor) return false;
+
+  const filled = handleTextPlainPaste(null, text, resolvedAnchor);
+  return afterFormatPasteFilled(filled, area);
 }
 
 /** Process HTML/TSV clipboard content into preview + editable grid. */
@@ -132,6 +147,12 @@ export function handleFormatPasteAreaEvent(e) {
     return;
   }
 
+  if (text && text.trim()) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (processFormatPlainTextFallback(text, { area, startRow })) return;
+  }
+
   setTimeout(() => {
     try {
       const pastedHTML = area?.innerHTML || "";
@@ -182,6 +203,13 @@ export function handleGlobalFormatPaste(e) {
     processFormatTsv(text, { area: pasteAreaFormat, startRow, anchorCell });
     return;
   }
+
+  if (text && text.trim()) {
+    e.preventDefault();
+    e.stopPropagation();
+    processFormatPlainTextFallback(text, { area: pasteAreaFormat, startRow, anchorCell });
+    return;
+  }
 }
 
 /** Legacy-compatible entry used by handleFormatPasteFromClipboard. */
@@ -197,6 +225,10 @@ export function handleFormatPasteFromClipboard(clipboard, fallbackHTML, options 
 
   if (text && text.includes("\t")) {
     return processFormatTsv(text, options);
+  }
+
+  if (text && text.trim()) {
+    return processFormatPlainTextFallback(text, options);
   }
 
   return false;
@@ -229,6 +261,10 @@ export function handleFormatCellPaste(e, pastedData) {
 
   if (pastedData && pastedData.includes("\t")) {
     return processFormatTsv(pastedData, { startRow, anchorCell });
+  }
+
+  if (pastedData && pastedData.trim()) {
+    return processFormatPlainTextFallback(pastedData, { startRow, anchorCell });
   }
 
   return false;
