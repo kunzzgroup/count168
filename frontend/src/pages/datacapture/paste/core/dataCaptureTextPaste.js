@@ -55,10 +55,30 @@ function parsePlainTextMatrix(pastedData) {
     }
   }
 
-  return normalized
-    .split("\n")
-    .filter((line) => line.trim() !== "")
-    .map((line) => [line]);
+  const nonEmptyLines = rawLines.filter((line) => line.trim() !== "");
+  const spacingSplitRows = nonEmptyLines.map((line) =>
+    line
+      .trim()
+      .split(/\s{2,}/)
+      .map((cell) => cell.trim())
+      .filter((cell) => cell !== ""),
+  );
+  if (spacingSplitRows.length >= 2) {
+    const maxCols = Math.max(...spacingSplitRows.map((row) => row.length));
+    const multiColRows = spacingSplitRows.filter((row) => row.length >= 2).length;
+    const minRowsForWideSplit = Math.max(2, Math.ceil(spacingSplitRows.length * 0.6));
+
+    // Plain-text copies from report tables often use repeated spaces instead of tabs.
+    // Only promote to matrix when most rows clearly look multi-column.
+    if (maxCols >= 2 && multiColRows >= minRowsForWideSplit) {
+      spacingSplitRows.forEach((row) => {
+        while (row.length < maxCols) row.push("");
+      });
+      return spacingSplitRows;
+    }
+  }
+
+  return nonEmptyLines.map((line) => [line]);
 }
 
 /** 1.Text — Excel plain text paste, preserving the clipboard matrix as-is. */
