@@ -4368,93 +4368,6 @@ function fillTextModeDataMatrix(dataMatrix, startCell) {
     return successCount;
 }
 
-function plainMatrixToHtmlTable(matrix) {
-    if (!matrix || !matrix.length) return '';
-    var html = '<table><tbody>';
-    matrix.forEach(function (row) {
-        html += '<tr>';
-        (row || []).forEach(function (cell) {
-            html += '<td>' + escapeHtml(String(cell != null ? cell : '')) + '</td>';
-        });
-        html += '</tr>';
-    });
-    html += '</tbody></table>';
-    return html;
-}
-
-/** 2.Format：HTML / mat-row → 预览 + 填表（尽量保留 CSS） */
-function processFormatHtmlTablePaste(html, area) {
-    if (!html) return false;
-    html = normalizeDataCaptureClipboardHtml(html);
-    if (!html || !/<table\b/i.test(html)) return false;
-
-    var previewFragment = buildFormatPreviewFragmentFromClipboardHtml(html);
-    var sanitized = sanitizePastedHTML(html);
-    if (previewFragment) {
-        renderFormatPreview(previewFragment);
-    }
-
-    var filled = parseAndFillHTMLTableForFormat(sanitized || previewFragment || html);
-    if (!filled) {
-        var tableBody = document.getElementById('tableBody');
-        var startCell = tableBody && tableBody.children[0] && tableBody.children[0].children[1];
-        if (startCell) {
-            filled = parseAndFillHTMLTableForText(html, startCell);
-        }
-    }
-
-    if (filled) {
-        isFormatGridReady = true;
-        if (area) area.innerHTML = '';
-        toggleTableDisplayForFormat();
-        return true;
-    }
-    return false;
-}
-
-/** 2.Format 融合 1.Text：纯换行 mat-row → 横排矩阵 */
-function processFormatMaterialPlainPaste(text, startCell, area) {
-    if (!text || !window.DataCapturePasteMatrix) return false;
-    var normalized = String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    var matrix = window.DataCapturePasteMatrix.parsePlainTextMatrix(normalized);
-    if (!matrix.length || (matrix[0] && matrix[0].length < 2)) return false;
-
-    var tableHtml = plainMatrixToHtmlTable(matrix);
-    if (processFormatHtmlTablePaste(tableHtml, area)) return true;
-
-    if (startCell && fillTextModeDataMatrix(matrix, startCell) > 0) {
-        isFormatGridReady = true;
-        if (area) area.innerHTML = '';
-        toggleTableDisplayForFormat();
-        return true;
-    }
-    return false;
-}
-
-/** 2.Format 单元格粘贴入口 */
-function handleFormatMaterialCellPaste(e, pastedData, cell) {
-    var html = '';
-    try {
-        html = e.clipboardData.getData('text/html') || '';
-    } catch (_) { }
-
-    var norm = window.DataCaptureClipboardNormalize;
-    var looksGrid = html && norm && typeof norm.clipboardHtmlLooksLikeGrid === 'function' && norm.clipboardHtmlLooksLikeGrid(html);
-
-    if (html && (/<table\b/i.test(html) || looksGrid)) {
-        if (processFormatHtmlTablePaste(html, null)) return true;
-    }
-
-    var htmlFromDetect = detectAndParseHTML(e);
-    if (htmlFromDetect && processFormatHtmlTablePaste(htmlFromDetect, null)) return true;
-
-    if (pastedData && pastedData.includes('\t')) {
-        if (processFormatHtmlTablePaste(tsvToHtmlTable(pastedData), null)) return true;
-    }
-
-    return processFormatMaterialPlainPaste(pastedData, cell, null);
-}
-
 // 检测并处理 HTML 格式的粘贴内容（简化版：直接解析并填充，不做复杂转换）
 function detectAndParseHTML(e) {
     try {
@@ -10558,13 +10471,6 @@ function handleCellPaste(e) {
 
         // 如果所有解析都失败，继续使用默认处理逻辑
         console.log('1.Text: All parsing methods failed, continuing with default logic');
-    }
-
-    // 2.Format：融合 1.Text 的 mat-row / 纯换行解析 + Format 样式还原
-    if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '2.Format') {
-        if (handleFormatMaterialCellPaste(e, pastedData, cell)) {
-            return;
-        }
     }
 
     // ===== 2.10 INVOICE 专用解析：完全保持PDF原始格式，粘贴后数据保持行格式 =====
@@ -22847,35 +22753,36 @@ function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
         }
     };
 
-    // 1) HTML table 或 Material mat-row grid
+    // 1) Prefer HTML table
     const htmlData = getClipboardData('text/html') || '';
-    const norm = window.DataCaptureClipboardNormalize;
-    const looksGrid = htmlData && norm && typeof norm.clipboardHtmlLooksLikeGrid === 'function' && norm.clipboardHtmlLooksLikeGrid(htmlData);
-    const htmlToUse = (htmlData && (/<table\b/i.test(htmlData) || looksGrid))
-        ? htmlData
-        : (fallbackHTML || '');
-    if (htmlToUse && (/<table\b/i.test(htmlToUse) || (norm && norm.clipboardHtmlLooksLikeGrid(htmlToUse)))) {
-        setTimeout(function () {
-            processFormatHtmlTablePaste(htmlToUse, pasteAreaFormat);
+    const htmlToUse = (htmlData && /<table\b/i.test(htmlData)) ? htmlData : (fallbackHTML || '');
+    if (htmlToUse && /<table\b/i.test(htmlToUse)) {
+        setTimeout(() => {
+            parseAndFillHTMLTableForFormat(htmlToUse);
         }, 10);
         return true;
     }
 
-    // 2) Tab-separated plain text
+    // 2) Fallback to tab-separated plain text
     const textData = getClipboardData('text/plain') || '';
     if (textData && textData.includes('\t')) {
-        setTimeout(function () {
-            processFormatHtmlTablePaste(tsvToHtmlTable(textData), pasteAreaFormat);
-        }, 10);
-        return true;
-    }
-
-    // 3) Material 纯换行（融合 1.Text）
-    if (textData && textData.trim()) {
-        var tableBody = document.getElementById('tableBody');
-        var startCell = tableBody && tableBody.children[0] && tableBody.children[0].children[1];
-        setTimeout(function () {
-            processFormatMaterialPlainPaste(textData, startCell, pasteAreaFormat);
+        setTimeout(() => {
+            const tableBody = document.getElementById('tableBody');
+            if (tableBody && tableBody.children.length > 0) {
+                const firstRow = tableBody.children[0];
+                if (firstRow && firstRow.children.length > 1) {
+                    const firstCell = firstRow.children[1];
+                    if (firstCell) {
+                        const mockEvent = {
+                            target: firstCell,
+                            clipboardData: clipboard,
+                            preventDefault: () => { },
+                            stopPropagation: () => { }
+                        };
+                        handleCellPaste(mockEvent);
+                    }
+                }
+            }
         }, 10);
         return true;
     }
@@ -22914,40 +22821,81 @@ function initFormatPasteArea() {
         try { html = clipboard && clipboard.getData ? (clipboard.getData('text/html') || '') : ''; } catch (_) { }
         try { text = clipboard && clipboard.getData ? (clipboard.getData('text/plain') || '') : ''; } catch (_) { }
 
-        var norm = window.DataCaptureClipboardNormalize;
-        var looksGrid = html && norm && typeof norm.clipboardHtmlLooksLikeGrid === 'function' && norm.clipboardHtmlLooksLikeGrid(html);
-
-        // 1) HTML table 或 Material mat-row（保留 CSS）
-        if (html && (/<table\b/i.test(html) || looksGrid)) {
+        // 1) HTML table（Excel/Sheets常给<TABLE>大写，所以用正则不区分大小写）
+        if (html && /<table\b/i.test(html)) {
             e.preventDefault();
             e.stopPropagation();
-            if (processFormatHtmlTablePaste(html, area)) return;
+            const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(html);
+            const sanitized = sanitizePastedHTML(html);
+            if (previewFragment) {
+                // 1) 预览：尽量还原Excel原始样式（保留<style>与class）
+                console.log('Format: Rendering preview from HTML table');
+                renderFormatPreview(previewFragment);
+
+                // 2) 数据：填充到Excel表格（像其他选项一样）
+                const filled = parseAndFillHTMLTableForFormat(sanitized || previewFragment);
+                // 只有当数据成功填充时，才设置isFormatGridReady
+                if (filled) {
+                    isFormatGridReady = true;
+                    console.log('Format: Data filled to Excel table, isFormatGridReady set to true');
+                    area.innerHTML = '';
+                    // 确保Excel表格立即显示 - 直接调用，不使用setTimeout
+                    toggleTableDisplayForFormat();
+                } else {
+                    console.error('Format: Failed to fill data to Excel table');
+                }
+                return;
+            }
         }
 
         // 2) plain text 里也可能包含HTML table
         if (text && /<table\b/i.test(text)) {
             e.preventDefault();
             e.stopPropagation();
-            if (processFormatHtmlTablePaste(text, area)) return;
+            const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(text);
+            const sanitized = sanitizePastedHTML(text);
+            if (previewFragment) {
+                console.log('Format: Rendering preview from plain text HTML table');
+                renderFormatPreview(previewFragment);
+
+                const filled = parseAndFillHTMLTableForFormat(sanitized || previewFragment);
+                // 只有当数据成功填充时，才设置isFormatGridReady
+                if (filled) {
+                    isFormatGridReady = true;
+                    console.log('Format: Data filled to Excel table, isFormatGridReady set to true');
+                    area.innerHTML = '';
+                    // 确保Excel表格立即显示 - 直接调用，不使用setTimeout
+                    toggleTableDisplayForFormat();
+                } else {
+                    console.error('Format: Failed to fill data to Excel table');
+                }
+                return;
+            }
         }
 
         // 3) TSV（制表符分隔）
         if (text && text.includes('\t')) {
             e.preventDefault();
             e.stopPropagation();
-            if (processFormatHtmlTablePaste(tsvToHtmlTable(text), area)) return;
+            const tableHtml = tsvToHtmlTable(text);
+            console.log('Format: Rendering preview from TSV');
+            renderFormatPreview(tableHtml);
+
+            const filled = parseAndFillHTMLTableForFormat(tableHtml);
+            // 只有当数据成功填充时，才设置isFormatGridReady
+            if (filled) {
+                isFormatGridReady = true;
+                console.log('Format: Data filled to Excel table from TSV, isFormatGridReady set to true');
+                area.innerHTML = '';
+                // 确保Excel表格立即显示 - 直接调用，不使用setTimeout
+                toggleTableDisplayForFormat();
+            } else {
+                console.error('Format: Failed to fill data to Excel table from TSV');
+            }
+            return;
         }
 
-        // 4) Material 纯换行（融合 1.Text 矩阵解析）
-        if (text && text.trim()) {
-            e.preventDefault();
-            e.stopPropagation();
-            var tableBody = document.getElementById('tableBody');
-            var startCell = tableBody && tableBody.children[0] && tableBody.children[0].children[1];
-            if (processFormatMaterialPlainPaste(text, startCell, area)) return;
-        }
-
-        // 5) 读不到HTML/TSV时：让浏览器先默认粘贴进容器
+        // 4) 读不到HTML/TSV时：让浏览器先默认粘贴进容器（很多情况下会自动生成<table>）
         // 然后我们再从DOM里抓出<table>并清洗成表格显示/填表，避免变成一行一行的纯文字
         setTimeout(() => {
             try {
@@ -24546,18 +24494,10 @@ function clipboardLooksLikeTable(clipboard) {
     try {
         const html = (clipboard && clipboard.getData) ? (clipboard.getData('text/html') || '') : '';
         if (html && /<table\b/i.test(html)) return true;
-        var norm = window.DataCaptureClipboardNormalize;
-        if (html && norm && typeof norm.clipboardHtmlLooksLikeGrid === 'function' && norm.clipboardHtmlLooksLikeGrid(html)) {
-            return true;
-        }
     } catch (_) { }
     try {
         const text = (clipboard && clipboard.getData) ? (clipboard.getData('text/plain') || '') : '';
         if (text && text.includes('\t') && (text.includes('\n') || text.includes('\r'))) return true;
-        if (text && window.DataCapturePasteMatrix && typeof window.DataCapturePasteMatrix.parsePlainTextMatrix === 'function') {
-            var matrix = window.DataCapturePasteMatrix.parsePlainTextMatrix(text);
-            if (matrix.length > 0 && (matrix[0] && matrix[0].length >= 2)) return true;
-        }
     } catch (_) { }
     return false;
 }
@@ -24656,11 +24596,19 @@ document.addEventListener('paste', function (e) {
         html = clipboard.getData('text/html') || '';
     } catch (_) { }
 
-    var norm = window.DataCaptureClipboardNormalize;
-    var looksGrid = html && norm && typeof norm.clipboardHtmlLooksLikeGrid === 'function' && norm.clipboardHtmlLooksLikeGrid(html);
-
-    if (html && (/<table\b/i.test(html) || looksGrid)) {
-        if (processFormatHtmlTablePaste(html, pasteAreaFormat)) return;
+    if (html && /<table\b/i.test(html)) {
+        const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(html);
+        const sanitized = sanitizePastedHTML(html);
+        if (!previewFragment && !sanitized) return;
+        // 预览优先用“还原片段”（保留<style>/class），否则退回清洗后的table
+        renderFormatPreview(previewFragment || sanitized);
+        // 同时填充到Excel表格（像其他选项一样）
+        const filled = parseAndFillHTMLTableForFormat(sanitized || previewFragment);
+        if (filled) {
+            isFormatGridReady = true;
+            toggleTableDisplayForFormat();
+        }
+        return;
     }
 
     let text = '';
@@ -24668,12 +24616,13 @@ document.addEventListener('paste', function (e) {
         text = clipboard.getData('text/plain') || '';
     } catch (_) { }
     if (text && text.includes('\t')) {
-        if (processFormatHtmlTablePaste(tsvToHtmlTable(text), pasteAreaFormat)) return;
-    }
-    if (text && text.trim()) {
-        var tableBody = document.getElementById('tableBody');
-        var startCell = tableBody && tableBody.children[0] && tableBody.children[0].children[1];
-        if (processFormatMaterialPlainPaste(text, startCell, pasteAreaFormat)) return;
+        const tableHtml = tsvToHtmlTable(text);
+        renderFormatPreview(tableHtml);
+        const filled = parseAndFillHTMLTableForFormat(tableHtml);
+        if (filled) {
+            isFormatGridReady = true;
+            toggleTableDisplayForFormat();
+        }
     }
 });
 
