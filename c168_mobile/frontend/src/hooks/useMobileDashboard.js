@@ -16,22 +16,13 @@ import {
   resolveViewGroupForCompany,
   sortedUniqueGroupIds,
 } from "../lib/dashboardScope.js";
+import { fetchMobileCurrencyCodes } from "../lib/dashboardCurrencies.js";
 import { computeDisplayConvertedAmount, fetchFrankfurterRates } from "../lib/frankfurterRates.js";
 import { DEMO_BOOTSTRAP, dashboardDataIsUsable } from "../lib/demoDashboard.js";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
 import { canAccessDashboard, resolveMobileLandingPath } from "../utils/mobilePermissions.js";
 
 const COMPANIES_API = "api/transactions/get_owner_companies_api.php";
-
-function extractCurrencyCodes(bootstrapData, fallback = "MYR") {
-  const rows = bootstrapData?.earnings?.current;
-  if (Array.isArray(rows) && rows.length) {
-    return rows.map((r) => String(r.code || "").trim().toUpperCase()).filter(Boolean);
-  }
-  const cur = bootstrapData?.current?.currency || bootstrapData?.current?.settlement_currency;
-  if (cur) return [String(cur).trim().toUpperCase()];
-  return [fallback];
-}
 
 function sameStringList(a, b) {
   if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
@@ -173,8 +164,35 @@ export function useMobileDashboard() {
     };
   }, [navigate, i18n.loadError]);
 
+  // Load currency pills from company Currency Setting (same source as desktop).
   useEffect(() => {
-    if (!companies.length) return undefined;
+    if (!companies.length || !companyId) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const codes = await fetchMobileCurrencyCodes({
+          companyId,
+          selectedGroup,
+          groupAllMode,
+          groupsAllMode,
+          companies,
+        });
+        if (cancelled) return;
+        setCurrencies((prev) => (sameStringList(prev, codes) ? prev : codes));
+        setCurrency((prev) => (codes.includes(prev) ? prev : codes[0] || "MYR"));
+      } catch {
+        if (!cancelled) {
+          setCurrencies((prev) => (prev.length ? prev : ["MYR"]));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [companies, companyId, selectedGroup, groupAllMode, groupsAllMode]);
+
+  useEffect(() => {
+    if (!companies.length || !companyId) return undefined;
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -195,9 +213,6 @@ export function useMobileDashboard() {
         const finalData =
           import.meta.env.DEV && !dashboardDataIsUsable(data) ? DEMO_BOOTSTRAP : data;
         setBootstrap(finalData);
-        const codes = extractCurrencyCodes(finalData, currency);
-        if (!sameStringList(currencies, codes)) setCurrencies(codes);
-        if (!codes.includes(currency)) setCurrency(codes[0] || "MYR");
       } catch (e) {
         if (!cancelled) {
           setBootstrap(null);
@@ -358,14 +373,19 @@ export function useMobileDashboard() {
   const switchCompany = useCallback(
     async (nextId) => {
       const id = Number(nextId);
-      if (!Number.isFinite(id) || id <= 0 || Number(id) === Number(companyId)) return;
+      if (!Number.isFinite(id) || id <= 0) return;
+      const sameCompany = Number(id) === Number(companyId);
+      // Allow re-selecting current company to exit Group "All" aggregate mode.
+      if (sameCompany && !groupAllMode && !groupsAllMode) return;
       const row = companies.find((c) => Number(c.id) === id);
       setLoading(true);
       setError("");
       try {
-        await syncCompanySession(id);
+        if (!sameCompany) {
+          await syncCompanySession(id);
+        }
         setCompanyId(id);
-        setSelectedGroup(selectedGroup ? resolveViewGroupForCompany(row, selectedGroup) : null);
+        setSelectedGroup(selectedGroup ? resolveViewGroupForCompany(row, selectedGroup) : selectedGroup);
         setGroupsAllMode(false);
         setGroupAllMode(false);
       } catch (e) {
@@ -373,7 +393,7 @@ export function useMobileDashboard() {
         setLoading(false);
       }
     },
-    [companies, companyId, selectedGroup, syncCompanySession, i18n.loadError],
+    [companies, companyId, selectedGroup, groupAllMode, groupsAllMode, syncCompanySession, i18n.loadError],
   );
 
   const resetFilters = useCallback(() => {
