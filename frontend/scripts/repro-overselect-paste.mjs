@@ -232,6 +232,29 @@ if (!formatOverOk) {
   );
 }
 
+const { plainMatrixLooksReliable, matrixAlignsWithPlainSource } = await import(
+  pathToFileURL(path.join(base, "dataCapturePasteMatrixSanitize.js")).href,
+);
+
+const plainTruth = parsePlainTextMatrix("Total\t135,873.00\t114,191.00");
+const htmlMisaligned = [
+  [{ value: "Total" }, { value: "" }, { value: "135,873.00" }, { value: "114,191.00" }],
+];
+const alignReject =
+  plainMatrixLooksReliable(plainTruth) &&
+  !matrixAlignsWithPlainSource(htmlMisaligned, plainTruth);
+const alignAccept = matrixAlignsWithPlainSource(
+  sanitizePasteMatrix(htmlMisaligned),
+  plainTruth,
+);
+console.log(
+  `${alignReject && alignAccept ? "PASS" : "FAIL"} plain-html-cross-check`,
+);
+if (!(alignReject && alignAccept)) {
+  failed += 1;
+  console.log("  rejectMisaligned=", alignReject, "acceptSanitized=", alignAccept);
+}
+
 if (failed) {
   console.error(`\n${failed} over-select fixture(s) failed`);
   process.exit(1);

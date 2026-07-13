@@ -7,7 +7,7 @@ import {
 import { getDefaultPasteAnchorCell } from "./dataCapturePasteApply.js";
 import { parseCitibetPasteData } from "./dataCapturePasteDetect.js";
 import { handleCitibetPaste } from "../vendors/dataCaptureCitibetPaste.js";
-import { handleTextPlainFirstPaste, handleTextModePaste } from "./dataCaptureTextPaste.js";
+import { handleTextReportPaste } from "./dataCaptureTextReportPaste.js";
 import { tryApplyBillingStatementPlainMatrix } from "./dataCaptureStatementMatrixPaste.js";
 import {
   handleFormatCellPaste,
@@ -173,12 +173,9 @@ export function handleCellPasteEvent(e) {
   }
 
   if (captureType === "1.Text") {
-    // Same Citibet-style matrix path first (working reference: 3.CITIBET).
+    // Grill: matrix-first, style-second. Plain TSV is alignment source of truth.
     if (tryApplyBillingStatementPlainMatrix(pastedData, cell)) return;
-    // 1.TEXT + Format pipeline (styles); matrix sanitize handles over-select inside.
-    if (handleFormatCellPaste(e, pastedData, { allowOutsideFormatMode: true })) return;
-    if (handleTextPlainFirstPaste(e, pastedData, cell)) return;
-    if (handleTextModePaste(e, pastedData, cell)) return;
+    if (handleTextReportPaste(e, pastedData, cell)) return;
     invokeGenericPasteFallback(e, pastedData);
     return;
   }

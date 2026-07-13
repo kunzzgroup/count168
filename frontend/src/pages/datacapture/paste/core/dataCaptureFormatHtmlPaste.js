@@ -2,7 +2,12 @@
 
 import { applyDataMatrixToGrid, ensureGridFits } from "./dataCapturePasteApply.js";
 import { notifyPasteUser, recomputeSubmitStateAfterPaste } from "../../lib/dataCaptureBridge.js";
-import { sanitizePasteMatrix } from "./dataCapturePasteMatrixSanitize.js";
+import {
+  sanitizePasteMatrix,
+  matrixAlignsWithPlainSource,
+  matrixPassesStructureHeuristic,
+  plainMatrixLooksReliable,
+} from "./dataCapturePasteMatrixSanitize.js";
 import {
   parseFormatHtmlTableStructure,
   buildFormatBodyMatrix,
@@ -45,6 +50,21 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
     } catch (err) {
       console.warn("Format: buildFormatBodyMatrix failed", err);
       return false;
+    }
+
+    const plainMatrix = Array.isArray(options.plainMatrix) ? options.plainMatrix : null;
+    if (plainMatrixLooksReliable(plainMatrix)) {
+      if (!matrixAlignsWithPlainSource(bodyMatrix, plainMatrix)) {
+        console.log(
+          "Format: rejecting HTML matrix — does not align with plain TSV source of truth",
+        );
+        return false;
+      }
+    } else if (options.requireStructureHeuristic !== false) {
+      if (!matrixPassesStructureHeuristic(bodyMatrix)) {
+        console.log("Format: rejecting collapsed / structure-invalid matrix");
+        return false;
+      }
     }
 
     const appliedCols = Math.max(
