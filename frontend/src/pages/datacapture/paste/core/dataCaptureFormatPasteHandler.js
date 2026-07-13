@@ -112,10 +112,17 @@ export function processFormatTableHtml(
   const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(normalizedHtml);
   const sanitized = sanitizePastedHTML(normalizedHtml);
 
-  if (previewFragment) {
-    renderFormatPreview(previewFragment);
-  } else if (sanitized && /<table\b/i.test(sanitized)) {
-    renderFormatPreview(sanitized);
+  // Format preview iframe belongs to 2.Format only. 1.TEXT reuses this fill
+  // pipeline for matrix+styles but must not show the extra preview below the grid.
+  if (isFormatMode()) {
+    if (previewFragment) {
+      renderFormatPreview(previewFragment);
+    } else if (sanitized && /<table\b/i.test(sanitized)) {
+      renderFormatPreview(sanitized);
+    }
+  } else {
+    const previewContainer = document.getElementById("tablePreviewFormat");
+    if (previewContainer) previewContainer.style.display = "none";
   }
 
   // Prefer the normalized multi-column table first. Preview/sanitized fragments can
