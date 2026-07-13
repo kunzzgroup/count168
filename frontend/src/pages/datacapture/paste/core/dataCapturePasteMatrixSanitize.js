@@ -142,3 +142,46 @@ export function plainTabTextLooksPasteable(text) {
   const maxCols = Math.max(...widths);
   return maxCols >= 2;
 }
+
+/** Sanitized plain matrix is usable as the alignment source of truth. */
+export function plainMatrixLooksReliable(matrix) {
+  if (!Array.isArray(matrix) || matrix.length < 1) return false;
+  const cols = matrix[0]?.length || 0;
+  if (cols < 2) return false;
+  // N×1 vertical dump is never a reliable alignment source.
+  if (matrix.length > 1 && cols === 1) return false;
+  const widths = matrix.map((row) => (Array.isArray(row) ? row.length : 0));
+  const maxW = Math.max(...widths);
+  const minW = Math.min(...widths);
+  return maxW >= 2 && maxW - minW <= 1;
+}
+
+/**
+ * Grill rule: with plain TSV present, HTML/format matrix must match plain shape
+ * (or have fewer rows after over-select trim — never more).
+ */
+export function matrixAlignsWithPlainSource(bodyMatrix, plainMatrix) {
+  if (!plainMatrixLooksReliable(plainMatrix)) return false;
+  if (!Array.isArray(bodyMatrix) || !bodyMatrix.length) return false;
+
+  const plainRows = plainMatrix.length;
+  const plainCols = plainMatrix[0].length;
+  const bodyRows = bodyMatrix.length;
+  const bodyCols = Math.max(0, ...bodyMatrix.map((row) => (Array.isArray(row) ? row.length : 0)));
+
+  if (bodyCols < 2) return false;
+  if (bodyRows > plainRows) return false;
+  if (bodyRows < 1) return false;
+  // Allow Total-gap collapse to change width by at most 0 (sanitize should match plain).
+  if (Math.abs(bodyCols - plainCols) > 0) return false;
+  return true;
+}
+
+/** Structure heuristic when no reliable plain TSV exists. */
+export function matrixPassesStructureHeuristic(matrix) {
+  if (!Array.isArray(matrix) || !matrix.length) return false;
+  const cols = Math.max(0, ...matrix.map((row) => (Array.isArray(row) ? row.length : 0)));
+  if (cols < 2) return false;
+  if (matrix.length > 1 && cols === 1) return false;
+  return true;
+}

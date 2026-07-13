@@ -14,7 +14,7 @@ import {
   clipboardHtmlLooksLikeGrid,
   normalizeClipboardHtmlToTable,
 } from "./dataCaptureFormatClipboardNormalize.js";
-import { plainTabTextLooksPasteable } from "./dataCapturePasteMatrixSanitize.js";
+import { plainTabTextLooksPasteable, plainMatrixLooksReliable } from "./dataCapturePasteMatrixSanitize.js";
 import {
   getDefaultPasteAnchorCell,
   getFormatPasteAnchorCell,
@@ -101,12 +101,13 @@ export function processFormatTableHtml(
     startRow != null ? startRow : resolveFormatPasteStartRow(anchorCell || getFormatPasteAnchorCell());
   const resolvedAnchor = resolveFormatFallbackAnchorCell(resolvedStartRow, anchorCell);
 
-  const plainRowCount = (() => {
+  const plainMatrix = (() => {
     const text = plainText != null ? String(plainText) : "";
-    if (!plainTabTextLooksPasteable(text)) return null;
+    if (!text.trim()) return null;
     const matrix = parsePlainTextMatrix(text);
-    return matrix.length > 0 ? matrix.length : null;
+    return plainMatrixLooksReliable(matrix) ? matrix : null;
   })();
+  const plainRowCount = plainMatrix?.length ?? null;
 
   const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(normalizedHtml);
   const sanitized = sanitizePastedHTML(normalizedHtml);
@@ -126,6 +127,7 @@ export function processFormatTableHtml(
     const filled = parseAndFillHtmlTableForFormat(candidate, {
       startRow: resolvedStartRow,
       plainRowCount,
+      plainMatrix,
     });
     if (afterFormatPasteFilled(filled, area)) return true;
   }
