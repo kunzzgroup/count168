@@ -21,7 +21,8 @@ function assertMatrix(name, plain, expectRows, expectCols, opts = {}) {
   const okRows = rows === expectRows;
   const okCols = cols === expectCols;
   const okNoVertical = opts.allowVertical || !isNx1;
-  const ok = okRows && okCols && okNoVertical;
+  const okFirstNum = opts.firstNumCol == null || matrix[0]?.[opts.firstNumCol] === opts.firstNumValue;
+  const ok = okRows && okCols && okNoVertical && okFirstNum;
   console.log(
     `${ok ? "PASS" : "FAIL"} ${name}: got ${rows}x${cols}` +
       (isNx1 ? " (vertical dump)" : "") +
@@ -139,6 +140,40 @@ failed += assertMatrix(
   1,
   { allowVertical: true },
 );
+
+// Total row: extra empty tab between label and first number (user screenshot symptom)
+failed += assertMatrix(
+  "total-row-label-gap",
+  "Total\t\t135,873.00\t114,191.00\t11\t950",
+  1,
+  5,
+  { firstNumCol: 1, firstNumValue: "135,873.00" },
+);
+
+// Total row: drag-to-end trailing empty tab cells
+failed += assertMatrix(
+  "total-row-trailing-empty-tabs",
+  "Total\t135,873.00\t114,191.00\t11\t\t\t",
+  1,
+  4,
+);
+
+// Sub Total keeps intentional name-column gap (2.Format style)
+const subTotalMatrix = parsePlainTextMatrix("Sub Total\t\t135,873.00\t114,191.00");
+const subCols = subTotalMatrix[0]?.length || 0;
+const subGapKept =
+  subTotalMatrix.length === 1 &&
+  subCols === 4 &&
+  subTotalMatrix[0][0] === "Sub Total" &&
+  subTotalMatrix[0][1] === "" &&
+  subTotalMatrix[0][2] === "135,873.00";
+console.log(
+  `${subGapKept ? "PASS" : "FAIL"} sub-total-gap-preserved: got ${subTotalMatrix.length}x${subCols}`,
+);
+if (!subGapKept) {
+  failed += 1;
+  console.log("  matrix:", subTotalMatrix);
+}
 
 if (failed) {
   console.error(`\n${failed} over-select fixture(s) failed`);
