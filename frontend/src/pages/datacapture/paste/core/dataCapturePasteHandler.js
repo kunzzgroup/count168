@@ -5,14 +5,14 @@ import {
   resolvePasteCell,
 } from "./dataCaptureClipboard.js";
 import { getDefaultPasteAnchorCell } from "./dataCapturePasteApply.js";
-import { parseCitibetPasteData } from "./dataCapturePasteDetect.js";
-import { handleCitibetPaste } from "../vendors/dataCaptureCitibetPaste.js";
-import { handleTextReportPaste } from "./dataCaptureTextReportPaste.js";
-import { tryApplyBillingStatementPlainMatrix } from "./dataCaptureStatementMatrixPaste.js";
 import {
-  handleFormatCellPaste,
-  markFormatGridReadyAfterPlainMatrixPaste,
-} from "./dataCaptureFormatPasteHandler.js";
+  autoDetectCaptureTypeFromPaste,
+  parseCitibetPasteData,
+  shouldExitCitibetMode,
+} from "./dataCapturePasteDetect.js";
+import { handleCitibetPaste } from "../vendors/dataCaptureCitibetPaste.js";
+import { handleTextModePaste } from "./dataCaptureTextPaste.js";
+import { handleFormatCellPaste } from "./dataCaptureFormatPasteHandler.js";
 import { handleGenericPaste } from "./dataCaptureGenericPaste.js";
 import { handle4ReturnPaste, handleApiReturnPaste } from "../vendors/dataCaptureReturnPaste.js";
 import { handleVPowerPaste } from "../vendors/dataCaptureVPowerPaste.js";
@@ -28,10 +28,10 @@ import { handleAlipayPaste } from "../vendors/dataCaptureAlipayPaste.js";
 import { handleC8PlayPaste } from "../vendors/dataCaptureC8PlayPaste.js";
 import { handleMaxbetPaste } from "../vendors/dataCaptureMaxbetPaste.js";
 import {
+  applyActiveCaptureType,
   getActiveCaptureType,
   setTableActiveForPaste,
 } from "../../lib/dataCaptureBridge.js";
-import { trySmartPasteUniversal } from "../engine/SmartPasteOrchestrator.js";
 
 /** Capture types with dedicated paste handlers in React. */
 export const TYPED_CAPTURE_TYPES = new Set([
@@ -135,39 +135,23 @@ export function handleGlobalGridPaste(e) {
 
 /**
  * Full paste orchestrator — all formats in React.
- * When SMART_PASTE_UNIVERSAL is on, Universal Engine runs first (matrix path).
- * Failure / skip falls through to existing Format / vendor / text / generic routes.
  */
 export function handleCellPasteEvent(e) {
-  let cell = resolvePasteCell(e.target);
-  if (!cell?.closest?.("#dataTable")) {
-    cell = getDefaultPasteAnchorCell();
-  }
-  if (!cell) return;
+  const cell = resolvePasteCell(e.target);
 
   e.preventDefault();
-  // Stop bubbling so document-level paste listeners cannot run a second import/notify.
-  e.stopPropagation?.();
 
   const pastedData = getClipboardPlainText(e);
-  const captureType = getActiveCaptureType();
-
-  // Universal Smart Paste (feature-flagged). Skip types / styled Format handled inside.
-  if (trySmartPasteUniversal(e, cell, captureType)) {
-    return;
+  const detected = autoDetectCaptureTypeFromPaste(pastedData);
+  if (detected) {
+    applyActiveCaptureType(detected);
+  } else if (shouldExitCitibetMode(pastedData, getActiveCaptureType())) {
+    applyActiveCaptureType("1.Text");
   }
 
+  const captureType = getActiveCaptureType();
+
   if (captureType === "2.Format") {
-    // Prefer Citibet-style plain matrix for billing statements (SUBTOTAL / TOTAL AMOUNT).
-    if (
-      tryApplyBillingStatementPlainMatrix(pastedData, cell, {
-        startRowOverride: 0,
-        startColOverride: 0,
-      })
-    ) {
-      markFormatGridReadyAfterPlainMatrixPaste();
-      return;
-    }
     if (handleFormatCellPaste(e, pastedData)) return;
     invokeGenericPasteFallback(e, pastedData);
     return;
@@ -175,19 +159,12 @@ export function handleCellPasteEvent(e) {
 
   if (TYPED_CAPTURE_TYPES.has(captureType)) {
     if (handleTypedCapturePaste(e, pastedData, captureType)) return;
-    // 4.RETURN / API_RETURN must not fall back to generic tab/HTML paste (keeps formulas intact).
-    if (captureType !== "4.RETURN" && captureType !== "API_RETURN") {
-      invokeGenericPasteFallback(e, pastedData);
-    }
+    invokeGenericPasteFallback(e, pastedData);
     return;
   }
 
   if (captureType === "1.Text") {
-    // Grill: matrix-first, style-second. Plain TSV is alignment source of truth.
-    if (tryApplyBillingStatementPlainMatrix(pastedData, cell)) return;
-    if (handleTextReportPaste(e, pastedData, cell)) return;
-    invokeGenericPasteFallback(e, pastedData);
-    return;
+    if (handleTextModePaste(e, pastedData, cell)) return;
   }
 
   const citibetParsed = parseCitibetPasteData(pastedData, captureType);

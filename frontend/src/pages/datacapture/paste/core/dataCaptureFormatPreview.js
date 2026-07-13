@@ -1,8 +1,6 @@
 /** Ported from js/datacapture.js — 2.Format preview helpers (Phase 4c). */
 
 import { setFormatPreviewHtml } from '../../format/dataCaptureFormat.js';
-import { sanitizePastedCellHtml } from './dataCaptureClipboard.js';
-import { clipboardHtmlLooksLikeGrid } from './dataCaptureFormatClipboardNormalize.js';
 
 export function escapeHtml(str) {
     return String(str)
@@ -245,14 +243,6 @@ export function sanitizePastedHTML(html) {
         }
     } catch (_) { }
 
-    table.querySelectorAll('td, th').forEach((cell) => {
-        // Keep buttons/icons for format paste visual fidelity; Reset clears them later.
-        const cleaned = sanitizePastedCellHtml(cell.innerHTML, { stripInteractive: false });
-        if (cleaned !== cell.innerHTML) {
-            cell.innerHTML = cleaned;
-        }
-    });
-
     return table.outerHTML;
 }
 
@@ -332,21 +322,6 @@ export function tsvToHtmlTable(tsv) {
     return html;
 }
 
-/** Plain-text matrix (Material newline paste) → minimal table for 2.Format pipeline. */
-export function plainMatrixToHtmlTable(matrix) {
-    if (!matrix?.length) return '';
-    let html = '<table><tbody>';
-    matrix.forEach((row) => {
-        html += '<tr>';
-        (row || []).forEach((cell) => {
-            html += `<td>${escapeHtml(String(cell ?? ''))}</td>`;
-        });
-        html += '</tr>';
-    });
-    html += '</tbody></table>';
-    return html;
-}
-
 export function clipboardLooksLikeTable(clipboard) {
     // 先用types判断（某些浏览器在某些阶段getData会返回空/抛错）
     try {
@@ -359,12 +334,10 @@ export function clipboardLooksLikeTable(clipboard) {
     try {
         const html = (clipboard && clipboard.getData) ? (clipboard.getData('text/html') || '') : '';
         if (html && /<table\b/i.test(html)) return true;
-        if (html && clipboardHtmlLooksLikeGrid(html)) return true;
     } catch (_) { }
     try {
         const text = (clipboard && clipboard.getData) ? (clipboard.getData('text/plain') || '') : '';
-        if (text && text.includes('\t')) return true;
-        if (text && (text.includes('\n') || text.includes('\r'))) return true;
+        if (text && text.includes('\t') && (text.includes('\n') || text.includes('\r'))) return true;
     } catch (_) { }
     return false;
 }

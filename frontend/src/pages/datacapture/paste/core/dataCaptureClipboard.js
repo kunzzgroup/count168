@@ -1,7 +1,5 @@
 /** Read clipboard payloads from a paste event; HTML table detect/parse helpers. */
 
-import { clipboardHtmlLooksLikeGrid } from "./dataCaptureFormatClipboardNormalize.js";
-
 export function resolvePasteCell(target) {
   if (!target) return null;
   return target.nodeType === Node.TEXT_NODE ? target.parentElement : target;
@@ -33,74 +31,16 @@ export function clipboardLooksLikeGridPaste(clipboard) {
   try {
     const html = clipboard.getData?.("text/html") || "";
     if (html && /<table\b/i.test(html)) return true;
-    if (html && clipboardHtmlLooksLikeGrid(html)) return true;
   } catch {
     /* ignore */
   }
   try {
     const text = clipboard.getData?.("text/plain") || "";
-    if (!text || !text.trim()) return false;
-    // Excel 单行复制也带 Tab；多行 TSV 同样支持
-    if (text.includes("\t")) return true;
-    if (text.includes("\n") || text.includes("\r")) return true;
-    // 单个值也可贴入选中格
-    return true;
+    if (text && text.includes("\t") && (text.includes("\n") || text.includes("\r"))) return true;
   } catch {
     /* ignore */
   }
   return false;
-}
-
-/** Read clipboard for programmatic paste (Ctrl+V on selected cells). */
-export async function readClipboardForPaste() {
-  if (navigator.clipboard?.read) {
-    try {
-      const items = await navigator.clipboard.read();
-      let text = "";
-      let html = "";
-      for (const item of items) {
-        for (const type of item.types) {
-          if (type === "text/plain") {
-            text = await (await item.getType(type)).text();
-          } else if (type === "text/html") {
-            html = await (await item.getType(type)).text();
-          }
-        }
-      }
-      if (text || html) return { text, html };
-    } catch (err) {
-      console.warn("clipboard.read failed, falling back to readText:", err);
-    }
-  }
-
-  if (navigator.clipboard?.readText) {
-    const text = await navigator.clipboard.readText();
-    return { text, html: "" };
-  }
-
-  throw new Error("clipboard unavailable");
-}
-
-/** Synthetic paste event with text/html payloads (for Ctrl+V / context menu paste). */
-export function buildSyntheticPasteEvent(target, { text = "", html = "" } = {}) {
-  const types = [];
-  if (html) types.push("text/html");
-  if (text || !html) types.push("text/plain");
-
-  return {
-    preventDefault() {},
-    stopPropagation() {},
-    clipboardData: {
-      types,
-      getData(type) {
-        if (type === "text/html") return html || "";
-        if (type === "text/plain" || type === "text" || type === "Text") return text || "";
-        return "";
-      },
-    },
-    target,
-    currentTarget: target,
-  };
 }
 
 export function getClipboardPlainText(e) {
@@ -144,75 +84,13 @@ export function detectHtmlTableInClipboard(e) {
   return null;
 }
 
-/**
- * Rich table HTML used by 1.Text format-merge mode.
- * Only treat as rich when it's a table and carries format/span hints.
- */
-export function isFormatRichHtmlTable(html) {
-  if (!html || !/<table\b/i.test(html)) return false;
-  return /rowspan\s*=|colspan\s*=|style\s*=|<font\b|<strong\b|<b\b|<span\b/i.test(html);
-}
-
-/** UI chrome copied from external sites (action buttons, icons) — not cell data. */
-const PASTED_INTERACTIVE_UI_SELECTOR = [
-  "button",
-  "input",
-  "select",
-  "textarea",
-  "svg",
-  "img",
-  "i",
-  "mat-icon",
-  "[role='button']",
-  "[aria-label]",
-  "a[href]",
-].join(", ");
-
-/**
- * Remove interactive UI elements from pasted HTML while keeping text/formatting tags.
- * External reports often include minus/action buttons in the last column.
- */
-export function stripInteractiveUiFromHtml(html) {
-  if (!html || !html.includes("<")) return html || "";
-  try {
-    const div = document.createElement("div");
-    div.innerHTML = html;
-    div.querySelectorAll(PASTED_INTERACTIVE_UI_SELECTOR).forEach((el) => {
-      const text = (el.textContent || "").trim();
-      // Keep meaningful link/button labels; drop icon-only chrome.
-      if (text && text.length > 1 && !/^[-−–—+×xX]$/.test(text)) {
-        el.replaceWith(document.createTextNode(text));
-      } else {
-        el.remove();
-      }
-    });
-    return div.innerHTML;
-  } catch {
-    return html;
-  }
-}
-
-/** Plain text from sanitized HTML (after UI elements are stripped). */
-export function plainTextFromSanitizedHtml(html) {
-  if (!html) return "";
-  if (!html.includes("<")) return String(html).replace(/\u00a0/g, " ").trim();
-  try {
-    const div = document.createElement("div");
-    div.innerHTML = html;
-    return (div.textContent ?? "").replace(/\u00a0/g, " ").trim();
-  } catch {
-    return "";
-  }
-}
-
-export function sanitizePastedCellHtml(cellContent, { stripInteractive = true } = {}) {
+export function sanitizePastedCellHtml(cellContent) {
   if (!cellContent) return "";
-  const stripped = cellContent
+  return cellContent
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/javascript:/gi, "")
     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, "");
-  return stripInteractive ? stripInteractiveUiFromHtml(stripped) : stripped;
 }
 
 /** Reorder columns when No./User appear at the end (common Excel copy quirk). */
@@ -262,16 +140,7 @@ export function detectColumnReorder(allRows) {
 
 function countRowCols(row) {
   if (!row) return 0;
-  // Prefer direct cells — nested td/th inside a crushed cell must not inflate width.
-  const direct = Array.from(row.children || []).filter((el) => {
-    const tag = (el.tagName || "").toUpperCase();
-    return tag === "TD" || tag === "TH";
-  });
-  const cells = direct.length ? direct : Array.from(row.querySelectorAll("td, th"));
-  if (cells.length <= 1) {
-    // A lone TD with colspan=N is still one crushed clipboard cell until expanded.
-    return cells.length;
-  }
+  const cells = row.querySelectorAll("td, th");
   let c = 0;
   cells.forEach((cell) => {
     c += Number.parseInt(cell.getAttribute("colspan") || "1", 10);
@@ -300,28 +169,12 @@ export function getTopLevelTables(root) {
   });
 }
 
-/** Count only a table's OWN cells (cells not belonging to a nested table). */
-function ownCellCount(table) {
-  let count = 0;
-  table.querySelectorAll("td, th").forEach((cell) => {
-    if (cell.closest("table") === table) count += 1;
-  });
-  return count;
-}
-
-/**
- * The table with the most of its OWN td/th cells (the real data table).
- *
- * Counting own cells (not nested descendants) is what lets us drill into a
- * report that wraps the real data grid inside a single cell of an outer layout
- * table: the outer wrapper has few own cells, the inner data grid has many, so
- * the inner grid wins instead of dumping the whole grid into one cell.
- */
+/** The table with the most td/th cells (the real data table). */
 function pickLargestTable(tables) {
   let best = null;
   let bestScore = -1;
   tables.forEach((t) => {
-    const score = ownCellCount(t);
+    const score = t.querySelectorAll("td, th").length;
     if (score > bestScore) {
       bestScore = score;
       best = t;
