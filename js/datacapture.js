@@ -3846,6 +3846,52 @@ function undoLastPaste() {
     showNotification(`Undo completed: ${undoCount} cells restored`, 'success');
 }
 
+// 1.Text：识别「网页单行报表被剪贴板拆成竖列」并展平为一行（不影响其它粘贴形态）
+function isMoneyLikePasteValue(value) {
+    const t = (value == null ? '' : String(value)).trim();
+    return /^\$?-?[\d,]+\.\d{2}$/.test(t) || /^\(\$?-?[\d,]+\.\d{2}\)$/.test(t);
+}
+
+function isMisorientedSingleRowPaste(matrix) {
+    if (!matrix || matrix.length < 3) return false;
+
+    const rowWidths = matrix.map(row =>
+        (row || []).filter(c => (c == null ? '' : String(c)).trim() !== '').length
+    );
+    const maxWidth = Math.max(...rowWidths, 0);
+    if (maxWidth > 2) return false;
+
+    const singleCellRows = rowWidths.filter(w => w === 1).length;
+    if (singleCellRows / matrix.length < 0.7) return false;
+
+    const flat = [];
+    matrix.forEach(row => {
+        (row || []).forEach(c => {
+            const t = (c == null ? '' : String(c)).trim();
+            if (t !== '') flat.push(t);
+        });
+    });
+    return flat.filter(isMoneyLikePasteValue).length >= 2;
+}
+
+function flattenMisorientedSingleRowPaste(matrix) {
+    const flat = [];
+    matrix.forEach(row => {
+        (row || []).forEach(c => {
+            if (c == null) return;
+            const raw = String(c);
+            if (raw.trim() !== '') flat.push(raw);
+        });
+    });
+    return flat.length > 0 ? [flat] : matrix;
+}
+
+function normalizeMisorientedSingleRowPaste(matrix) {
+    if (!isMisorientedSingleRowPaste(matrix)) return matrix;
+    console.log('1.Text: Detected misoriented single-row web paste, flattening to 1 x N');
+    return flattenMisorientedSingleRowPaste(matrix);
+}
+
 // 智能解析粘贴数据 - 支持 Text Format 和 Table Format
 function parsePastedData(pastedData) {
     // 标准化换行符
@@ -5058,6 +5104,90 @@ function parseAndFillHTMLTableForText(htmlString, startCell) {
 
         if (maxCols === 0) {
             return false;
+        }
+
+        // 仅 1.Text：网页单行被拆成多个单格 <tr> 时，展平为一行再填（2.Format 不动）
+        if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.Text') {
+            const textMatrix = [];
+            allRows.forEach(tr => {
+                const row = [];
+                tr.querySelectorAll('td, th').forEach(cell => {
+                    const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                    const text = cell.textContent || cell.innerText || '';
+                    row.push(text);
+                    for (let i = 1; i < colspan; i++) {
+                        row.push('');
+                    }
+                });
+                if (row.some(c => (c == null ? '' : String(c)).trim() !== '')) {
+                    textMatrix.push(row);
+                }
+            });
+
+            if (isMisorientedSingleRowPaste(textMatrix)) {
+                console.log('1.Text: Detected misoriented single-row web paste in HTML table, flattening to 1 x N');
+                const matrixToFill = flattenMisorientedSingleRowPaste(textMatrix);
+                let fillMaxCols = Math.max(...matrixToFill.map(row => row.length), 0);
+                matrixToFill.forEach(row => {
+                    while (row.length < fillMaxCols) {
+                        row.push('');
+                    }
+                });
+
+                const startRowFlat = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                const startColFlat = 0;
+                const currentRowsFlat = document.querySelectorAll('#tableBody tr').length;
+                const currentColsFlat = document.querySelectorAll('#tableHeader th').length - 1;
+                const requiredRowsFlat = startRowFlat + matrixToFill.length;
+                const requiredColsFlat = startColFlat + fillMaxCols;
+
+                if (requiredRowsFlat > currentRowsFlat || requiredColsFlat > currentColsFlat) {
+                    const targetRows = Math.max(currentRowsFlat, Math.min(requiredRowsFlat, 702));
+                    const targetCols = Math.max(currentColsFlat, requiredColsFlat);
+                    initializeTable(targetRows, targetCols);
+                }
+
+                const tableBodyFlat = document.getElementById('tableBody');
+                const currentPasteChangesFlat = [];
+                let successCountFlat = 0;
+
+                matrixToFill.forEach((rowData, rowIndex) => {
+                    const actualRowIndex = startRowFlat + rowIndex;
+                    const tableRow = tableBodyFlat.children[actualRowIndex];
+                    if (!tableRow) return;
+
+                    rowData.forEach((cellData, colIndex) => {
+                        const actualColIndex = startColFlat + colIndex;
+                        const targetCell = tableRow.children[actualColIndex + 1];
+                        if (targetCell && targetCell.contentEditable === 'true') {
+                            const cellValue = cellData || '';
+                            currentPasteChangesFlat.push({
+                                row: actualRowIndex,
+                                col: actualColIndex,
+                                oldValue: targetCell.textContent || targetCell.innerHTML || '',
+                                newValue: cellValue
+                            });
+                            targetCell.textContent = cellValue;
+                            if (cellValue && String(cellValue).trim() !== '') {
+                                successCountFlat++;
+                            }
+                        }
+                    });
+                });
+
+                if (currentPasteChangesFlat.length > 0) {
+                    pasteHistory.push(currentPasteChangesFlat);
+                    if (pasteHistory.length > maxHistorySize) {
+                        pasteHistory.shift();
+                    }
+                }
+
+                if (successCountFlat > 0) {
+                    showNotification(`成功粘贴 ${successCountFlat} 个单元格 (${matrixToFill.length} 行 x ${fillMaxCols} 列)，已保持Excel原始格式!`, 'success');
+                    setTimeout(updateSubmitButtonState, 0);
+                    return true;
+                }
+            }
         }
 
         // 获取起始位置
@@ -10308,94 +10438,98 @@ function handleCellPaste(e) {
         const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
 
         if (lines.length > 0) {
-            // 检查是否是多行制表符分隔的数据（标准Excel格式）
-            const hasTabSeparator = lines.some(line => line.includes('\t'));
+            const dataMatrix = [];
+            let maxCols = 0;
 
-            if (hasTabSeparator) {
-                const dataMatrix = [];
-                let maxCols = 0;
+            lines.forEach(line => {
+                if (line.includes('\t')) {
+                    // 制表符分隔，保持原始格式（不trim，保留空格）
+                    const cells = line.split('\t');
+                    dataMatrix.push(cells);
+                    maxCols = Math.max(maxCols, cells.length);
+                } else if (line !== '') {
+                    dataMatrix.push([line]);
+                    maxCols = Math.max(maxCols, 1);
+                }
+            });
 
-                lines.forEach(line => {
-                    if (line.includes('\t')) {
-                        // 制表符分隔，保持原始格式（不trim，保留空格）
-                        const cells = line.split('\t');
-                        dataMatrix.push(cells);
-                        maxCols = Math.max(maxCols, cells.length);
-                    } else if (line !== '') {
-                        dataMatrix.push([line]);
-                        maxCols = Math.max(maxCols, 1);
-                    }
-                });
+            // 确保所有行都有相同的列数
+            dataMatrix.forEach(row => {
+                while (row.length < maxCols) {
+                    row.push('');
+                }
+            });
 
-                // 确保所有行都有相同的列数
-                dataMatrix.forEach(row => {
-                    while (row.length < maxCols) {
-                        row.push('');
-                    }
-                });
+            // 网页单行被拆成竖列时，展平为 1 x N（故意竖贴纯 ID 等不命中，保持原样）
+            let matrixToFill = normalizeMisorientedSingleRowPaste(dataMatrix);
+            maxCols = Math.max(...matrixToFill.map(row => row.length), 0);
+            matrixToFill.forEach(row => {
+                while (row.length < maxCols) {
+                    row.push('');
+                }
+            });
 
-                // 填充到表格，保持原始格式。始终从第 0 列开始写，避免点击靠右单元格时 No./User 等前几列被写到后面
-                if (dataMatrix.length > 0 && maxCols > 0) {
-                    const startCell = e.target;
-                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                    const startCol = 0;
+            // 填充到表格，保持原始格式。始终从第 0 列开始写，避免点击靠右单元格时 No./User 等前几列被写到后面
+            if (matrixToFill.length > 0 && maxCols > 0) {
+                const startCell = e.target;
+                const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                const startCol = 0;
 
-                    const currentRows = document.querySelectorAll('#tableBody tr').length;
-                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                    const requiredRows = startRow + dataMatrix.length;
-                    const requiredCols = startCol + maxCols;
+                const currentRows = document.querySelectorAll('#tableBody tr').length;
+                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                const requiredRows = startRow + matrixToFill.length;
+                const requiredCols = startCol + maxCols;
 
-                    if (requiredRows > currentRows || requiredCols > currentCols) {
-                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                        const targetCols = Math.max(currentCols, requiredCols);
-                        initializeTable(targetRows, targetCols);
-                    }
+                if (requiredRows > currentRows || requiredCols > currentCols) {
+                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                    const targetCols = Math.max(currentCols, requiredCols);
+                    initializeTable(targetRows, targetCols);
+                }
 
-                    const tableBody = document.getElementById('tableBody');
-                    const currentPasteChanges = [];
-                    let successCount = 0;
+                const tableBody = document.getElementById('tableBody');
+                const currentPasteChanges = [];
+                let successCount = 0;
 
-                    dataMatrix.forEach((rowData, rowIndex) => {
-                        const actualRowIndex = startRow + rowIndex;
-                        const tableRow = tableBody.children[actualRowIndex];
-                        if (!tableRow) return;
+                matrixToFill.forEach((rowData, rowIndex) => {
+                    const actualRowIndex = startRow + rowIndex;
+                    const tableRow = tableBody.children[actualRowIndex];
+                    if (!tableRow) return;
 
-                        rowData.forEach((cellData, colIndex) => {
-                            const actualColIndex = startCol + colIndex;
-                            const cell = tableRow.children[actualColIndex + 1];
+                    rowData.forEach((cellData, colIndex) => {
+                        const actualColIndex = startCol + colIndex;
+                        const cell = tableRow.children[actualColIndex + 1];
 
-                            if (cell && cell.contentEditable === 'true') {
-                                // 保持原始格式，不trim，保留所有空格和格式
-                                const cellValue = cellData || '';
-                                currentPasteChanges.push({
-                                    row: actualRowIndex,
-                                    col: actualColIndex,
-                                    oldValue: cell.textContent,
-                                    newValue: cellValue
-                                });
+                        if (cell && cell.contentEditable === 'true') {
+                            // 保持原始格式，不trim，保留所有空格和格式
+                            const cellValue = cellData || '';
+                            currentPasteChanges.push({
+                                row: actualRowIndex,
+                                col: actualColIndex,
+                                oldValue: cell.textContent,
+                                newValue: cellValue
+                            });
 
-                                // 1.Text 和 2.Format 模式：直接使用原始值，不做任何转换（像Excel一样）
-                                cell.textContent = cellValue;
+                            // 1.Text 和 2.Format 模式：直接使用原始值，不做任何转换（像Excel一样）
+                            cell.textContent = cellValue;
 
-                                if (cellValue) {
-                                    successCount++;
-                                }
+                            if (cellValue) {
+                                successCount++;
                             }
-                        });
-                    });
-
-                    if (currentPasteChanges.length > 0) {
-                        pasteHistory.push(currentPasteChanges);
-                        if (pasteHistory.length > maxHistorySize) {
-                            pasteHistory.shift();
                         }
-                    }
+                    });
+                });
 
-                    if (successCount > 0) {
-                        showNotification(`成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持Excel原始格式!`, 'success');
-                        setTimeout(updateSubmitButtonState, 0);
-                        return;
+                if (currentPasteChanges.length > 0) {
+                    pasteHistory.push(currentPasteChanges);
+                    if (pasteHistory.length > maxHistorySize) {
+                        pasteHistory.shift();
                     }
+                }
+
+                if (successCount > 0) {
+                    showNotification(`成功粘贴 ${successCount} 个单元格 (${matrixToFill.length} 行 x ${maxCols} 列)，已保持Excel原始格式!`, 'success');
+                    setTimeout(updateSubmitButtonState, 0);
+                    return;
                 }
             }
         }
