@@ -43,6 +43,17 @@ function allThRowLooksLikeDataOrSummary(tr) {
   return nums >= 2 && nums >= Math.ceil(nonEmpty.length * 0.5);
 }
 
+function trLooksLikePaginatorOrInfoRow(tr) {
+  const className = String(tr.className || "").toLowerCase();
+  if (/datatables_info|mat-paginator|paginator/i.test(className)) return true;
+  const texts = Array.from(tr.querySelectorAll("th,td"))
+    .map((cell) => String(cell.textContent || "").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  if (!texts.length) return true;
+  const joined = texts.join(" ");
+  return /^Showing\s+\d+\s+to\s+\d+\s+of\s+\d+/i.test(joined);
+}
+
 /** @returns {{ headerRows: Element[], dataRows: Element[], maxCols: number, allRows: Element[], table: Element } | null} */
 export function parseFormatHtmlTableStructure(htmlString) {
   const tempDiv = document.createElement("div");
@@ -73,7 +84,7 @@ export function parseFormatHtmlTableStructure(htmlString) {
       inThead || (allTh && !allThRowLooksLikeDataOrSummary(tr));
     if (isHeaderRow) {
       headerRows.push(tr);
-    } else {
+    } else if (!trLooksLikePaginatorOrInfoRow(tr)) {
       dataRows.push(tr);
     }
   });
@@ -535,10 +546,24 @@ export function reshapeCollapsedFormatMatrix(bodyMatrix) {
     }
 
     // Case B: several cells, but each cell still holds a full dense report row.
+    // Over-select can duplicate the same row into multiple TDs — keep one row.
     if (
       filledIdx.length >= 2 &&
       filledIdx.every((index) => tokenizeCollapsedReportRow(row[index]?.value || "").length >= 3)
     ) {
+      const tokenRows = filledIdx.map((index) =>
+        tokenizeCollapsedReportRow(row[index]?.value || ""),
+      );
+      const firstLabels = tokenRows.map((tokens) => String(tokens[0] || "").toUpperCase()).filter(Boolean);
+      const uniqueLabels = new Set(firstLabels);
+      if (uniqueLabels.size === 1 && firstLabels.length >= 2) {
+        const tokens = tokenRows[0];
+        if (tokens.length >= 2) {
+          reshaped.push(tokens.map((token) => ({ value: token })));
+          return;
+        }
+      }
+
       filledIdx.forEach((index) => {
         const tokens = tokenizeCollapsedReportRow(row[index]?.value || "");
         reshaped.push(tokens.map((token) => ({ value: token })));

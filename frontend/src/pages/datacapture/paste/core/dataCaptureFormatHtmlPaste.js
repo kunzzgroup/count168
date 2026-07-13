@@ -24,7 +24,18 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
       return false;
     }
 
-    const { headerRows, dataRows, maxCols } = structure;
+    const { headerRows, dataRows: rawDataRows, maxCols } = structure;
+    let dataRows = rawDataRows;
+    if (
+      Number.isFinite(options.plainRowCount) &&
+      options.plainRowCount > 0 &&
+      dataRows.length > options.plainRowCount
+    ) {
+      console.log(
+        `Format: trimming ${dataRows.length - options.plainRowCount} HTML over-select row(s) using plain TSV row count`,
+      );
+      dataRows = dataRows.slice(0, options.plainRowCount);
+    }
 
     // Build/reshape first — source maxCols from colspan can lie; matrix width is truth.
     let bodyMatrix;

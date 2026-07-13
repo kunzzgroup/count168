@@ -14,6 +14,7 @@ import {
   clipboardHtmlLooksLikeGrid,
   normalizeClipboardHtmlToTable,
 } from "./dataCaptureFormatClipboardNormalize.js";
+import { plainTabTextLooksPasteable } from "./dataCapturePasteMatrixSanitize.js";
 import {
   getDefaultPasteAnchorCell,
   getFormatPasteAnchorCell,
@@ -82,7 +83,7 @@ function processFormatPlainTextFallback(
   const matrix = parsePlainTextMatrix(String(text));
   if (matrix.length > 0 && (matrix[0]?.length ?? 0) >= 2) {
     const tableHtml = plainMatrixToHtmlTable(matrix);
-    if (processFormatTableHtml(tableHtml, { area, startRow, anchorCell })) return true;
+    if (processFormatTableHtml(tableHtml, { area, startRow, anchorCell, plainText: text })) return true;
   }
 
   const filled = handleTextPlainPaste(null, text, resolvedAnchor);
@@ -90,12 +91,22 @@ function processFormatPlainTextFallback(
 }
 
 /** Process HTML/TSV clipboard content into preview + editable grid. */
-export function processFormatTableHtml(html, { area = null, startRow = null, anchorCell = null } = {}) {
+export function processFormatTableHtml(
+  html,
+  { area = null, startRow = null, anchorCell = null, plainText = null } = {},
+) {
   if (!html) return false;
   const normalizedHtml = normalizeClipboardHtmlToTable(html) || html;
   const resolvedStartRow =
     startRow != null ? startRow : resolveFormatPasteStartRow(anchorCell || getFormatPasteAnchorCell());
   const resolvedAnchor = resolveFormatFallbackAnchorCell(resolvedStartRow, anchorCell);
+
+  const plainRowCount = (() => {
+    const text = plainText != null ? String(plainText) : "";
+    if (!plainTabTextLooksPasteable(text)) return null;
+    const matrix = parsePlainTextMatrix(text);
+    return matrix.length > 0 ? matrix.length : null;
+  })();
 
   const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(normalizedHtml);
   const sanitized = sanitizePastedHTML(normalizedHtml);
@@ -114,6 +125,7 @@ export function processFormatTableHtml(html, { area = null, startRow = null, anc
   for (const candidate of candidates) {
     const filled = parseAndFillHtmlTableForFormat(candidate, {
       startRow: resolvedStartRow,
+      plainRowCount,
     });
     if (afterFormatPasteFilled(filled, area)) return true;
   }
@@ -135,7 +147,7 @@ export function processFormatTsv(text, { area = null, startRow = null, anchorCel
   const matrix = parsePlainTextMatrix(text);
   if (!matrix.length) return false;
   const tableHtml = plainMatrixToHtmlTable(matrix);
-  return processFormatTableHtml(tableHtml, { area, startRow, anchorCell });
+  return processFormatTableHtml(tableHtml, { area, startRow, anchorCell, plainText: text });
 }
 
 function readClipboard(clipboard) {
@@ -195,14 +207,14 @@ export function handleFormatPasteAreaEvent(e) {
   if (html && (/<table\b/i.test(html) || clipboardHtmlLooksLikeGrid(html))) {
     e.preventDefault();
     e.stopPropagation();
-    processFormatTableHtml(html, { area, startRow, anchorCell });
+    processFormatTableHtml(html, { area, startRow, anchorCell, plainText: text });
     return;
   }
 
   if (text && /<table\b/i.test(text)) {
     e.preventDefault();
     e.stopPropagation();
-    processFormatTableHtml(text, { area, startRow, anchorCell });
+    processFormatTableHtml(text, { area, startRow, anchorCell, plainText: text });
     return;
   }
 
@@ -286,7 +298,7 @@ export function handleGlobalFormatPaste(e) {
   if (html && (/<table\b/i.test(html) || clipboardHtmlLooksLikeGrid(html))) {
     e.preventDefault();
     e.stopPropagation();
-    processFormatTableHtml(html, { area: pasteAreaFormat, startRow, anchorCell });
+    processFormatTableHtml(html, { area: pasteAreaFormat, startRow, anchorCell, plainText: text });
     return;
   }
 
@@ -341,7 +353,7 @@ export function handleFormatPasteFromClipboard(clipboard, fallbackHTML, options 
   }
 
   if (htmlToUse) {
-    return processFormatTableHtml(htmlToUse, options);
+    return processFormatTableHtml(htmlToUse, { ...options, plainText: text });
   }
 
   if (text && text.includes("\t")) {
@@ -403,7 +415,7 @@ export function handleFormatCellPaste(e, pastedData, options = {}) {
   }
 
   if (html && (/<table\b/i.test(html) || clipboardHtmlLooksLikeGrid(html))) {
-    return processFormatTableHtml(html, { startRow, anchorCell });
+    return processFormatTableHtml(html, { startRow, anchorCell, plainText: pastedData });
   }
 
   if (pastedData && pastedData.includes("\t")) {

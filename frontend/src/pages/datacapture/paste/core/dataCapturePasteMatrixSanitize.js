@@ -38,6 +38,16 @@ function isPaginatorToken(text) {
   );
 }
 
+/** Paginator / info chrome row (DataTables drag-to-end over-select). */
+export function rowLooksLikePaginatorRow(row) {
+  if (!Array.isArray(row)) return false;
+  const tokens = row.map((cell) => cellValue(cell)).filter(Boolean);
+  if (!tokens.length) return true;
+  if (tokens.every((token) => isPaginatorToken(token))) return true;
+  const joined = tokens.join(" ").replace(/\s+/g, " ").trim();
+  return /^Showing\s+\d+\s+to\s+\d+\s+of\s+\d+/i.test(joined);
+}
+
 function countNonEmpty(row) {
   if (!Array.isArray(row)) return 0;
   return row.filter((cell) => cellValue(cell) !== "").length;
@@ -66,31 +76,44 @@ export function trimTrailingEmptyColumns(matrix) {
   });
 }
 
-/** Drop a short trailing stub row (partial next row / paginator chrome). */
-export function dropTrailingIncompleteRows(matrix) {
+/** Drop trailing empty / paginator / truncated stub rows (loop for multi-line chrome). */
+export function dropTrailingJunkRows(matrix) {
   if (!Array.isArray(matrix) || matrix.length < 2) return matrix;
 
-  const bodyWidths = matrix.slice(0, -1).map(countNonEmpty);
-  const bodyWidth = Math.max(0, ...bodyWidths);
-  if (bodyWidth < 3) return matrix;
+  let next = [...matrix];
+  while (next.length > 1) {
+    const last = next[next.length - 1];
+    if (rowLooksLikePaginatorRow(last)) {
+      next = next.slice(0, -1);
+      continue;
+    }
 
-  const last = matrix[matrix.length - 1];
-  const lastTokens = last.map((cell) => cellValue(cell)).filter(Boolean);
-  if (!lastTokens.length) return matrix.slice(0, -1);
+    const bodyWidths = next.slice(0, -1).map(countNonEmpty);
+    const bodyWidth = Math.max(0, ...bodyWidths);
+    if (bodyWidth < 3) break;
 
-  const lastWidth = lastTokens.length;
-  if (lastWidth >= bodyWidth - 1) return matrix;
+    const lastTokens = last.map((cell) => cellValue(cell)).filter(Boolean);
+    if (!lastTokens.length) {
+      next = next.slice(0, -1);
+      continue;
+    }
 
-  const first = lastTokens[0];
-  const mostlyPaginator = lastTokens.every((token) => isPaginatorToken(token));
-  if (mostlyPaginator) return matrix.slice(0, -1);
+    const lastWidth = lastTokens.length;
+    if (lastWidth >= bodyWidth - 1) break;
 
-  // Truncated next row: label + a few numbers, shorter than body rows.
-  if (!isMoneyOrNumberLikeToken(first) && lastWidth < bodyWidth) {
-    return matrix.slice(0, -1);
+    const first = lastTokens[0];
+    if (!isMoneyOrNumberLikeToken(first) && lastWidth < bodyWidth) {
+      next = next.slice(0, -1);
+      continue;
+    }
+    break;
   }
+  return next;
+}
 
-  return matrix;
+/** @deprecated use dropTrailingJunkRows */
+export function dropTrailingIncompleteRows(matrix) {
+  return dropTrailingJunkRows(matrix);
 }
 
 /**
@@ -100,8 +123,22 @@ export function dropTrailingIncompleteRows(matrix) {
 export function sanitizePasteMatrix(matrix) {
   if (!Array.isArray(matrix) || !matrix.length) return matrix;
   let next = trimTrailingEmptyColumns(matrix);
-  next = dropTrailingIncompleteRows(next);
+  next = dropTrailingJunkRows(next);
   next = alignTotalRowsInMatrix(next);
   next = trimTrailingEmptyColumns(next);
   return next;
+}
+
+/** True when clipboard plain TSV parses to a usable multi-column matrix. */
+export function plainTabTextLooksPasteable(text) {
+  if (!text || !String(text).includes("\t")) return false;
+  const lines = String(text)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .filter((line) => line.trim() !== "" && line.includes("\t"));
+  if (!lines.length) return false;
+  const widths = lines.map((line) => line.split("\t").length);
+  const maxCols = Math.max(...widths);
+  return maxCols >= 2;
 }

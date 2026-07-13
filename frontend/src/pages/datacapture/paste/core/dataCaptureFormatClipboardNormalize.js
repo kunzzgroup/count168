@@ -136,6 +136,15 @@ function rowLooksLikeFlattenedColumns(row) {
   return lines.length >= 2;
 }
 
+/** DataTables / Material paginator pulled in by drag-to-end over-select. */
+function gridRowLooksLikePaginator(row) {
+  const className = String(row.className || "").toLowerCase();
+  if (/datatables_info|mat-paginator|paginator|page-navigation/i.test(className)) return true;
+  const text = String(row.textContent || "").replace(/\s+/g, " ").trim();
+  if (!text) return false;
+  return /^Showing\s+\d+\s+to\s+\d+\s+of\s+\d+/i.test(text);
+}
+
 function collectGridRows(root) {
   const seen = new Set();
   const rows = [];
@@ -160,7 +169,9 @@ function collectGridRows(root) {
   });
 
   // Drop outer shells that only wrap other rows (keep leaf data rows).
-  return rows.filter((row) => !rows.some((other) => other !== row && row.contains(other)));
+  return rows
+    .filter((row) => !rows.some((other) => other !== row && row.contains(other)))
+    .filter((row) => !gridRowLooksLikePaginator(row));
 }
 
 function collectRowCells(row) {

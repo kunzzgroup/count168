@@ -206,6 +206,32 @@ if (!formatOk) {
   );
 }
 
+// 2.Format over-select: Total row + paginator row + trailing empty cols
+const formatOverselect = sanitizePasteMatrix([
+  [
+    { value: "Total" },
+    { value: "" },
+    { value: "135,873.00" },
+    { value: "114,191.00" },
+    { value: "" },
+    { value: "" },
+  ],
+  [{ value: "Showing" }, { value: "1" }, { value: "to" }, { value: "10" }],
+]);
+const formatOverOk =
+  formatOverselect.length === 1 &&
+  formatOverselect[0][1]?.value === "135,873.00";
+console.log(
+  `${formatOverOk ? "PASS" : "FAIL"} format-overselect-paginator: rows=${formatOverselect.length}`,
+);
+if (!formatOverOk) {
+  failed += 1;
+  console.log(
+    "  matrix:",
+    formatOverselect.map((r) => r.map((c) => c.value)),
+  );
+}
+
 if (failed) {
   console.error(`\n${failed} over-select fixture(s) failed`);
   process.exit(1);
