@@ -9,10 +9,10 @@ import path from "node:path";
 const FOLLOWUP = [
   "按 e2e-pipeline skill 执行：",
   "1) 圈定本次改动相关 SPA 路由（spaPath，勿漏 UUID）",
-  "2) 用 Playwright MCP 冒烟（browser_navigate + browser_snapshot）",
+  "2) 对 https://count168.site 用 Playwright MCP 冒烟（browser_navigate + browser_snapshot）",
   "3) 对照 diff 做 Review（同一会话；不要调外部 Codex 扩展）",
   "4) 输出 Bug 清单后停步，等我回复「确认」再修",
-  "基址默认 http://127.0.0.1:5173；打不开先说明需启动前端。",
+  "基址默认 https://count168.site（live）；测的是已部署版本，本地未上线改动要标明。",
 ].join("\n");
 
 function readStdin() {

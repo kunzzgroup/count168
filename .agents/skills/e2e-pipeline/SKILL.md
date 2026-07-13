@@ -24,17 +24,18 @@ description: >
 1. `git diff --name-only`（含未暂存）看改动文件。
 2. 把 `frontend/src/pages/{domain}/`、相关 `pageRoutes` / CSS / hooks 映射到 `pageKey`。
 3. 用 `frontend/src/utils/routing/pageRoutes.js` 的 `spaPath(pageKey)` 拼路径（勿手写漏 UUID）。
-4. 基址默认 `http://127.0.0.1:5173`（Vite）；若用户给了别的 origin 用用户的。
-5. 输出「将测路由」列表。若无法映射：问用户要测哪几个 pageKey，不要瞎点全站。
+4. 基址默认 **`https://count168.site`（live）**。仅当用户明确说 localhost / Vite / 本机时，才用 `http://127.0.0.1:5173`。也可读 `.cursor/state/e2e-pipeline.origin`（单行 origin，无尾斜杠）。
+5. **Live 注意**：Playwright 测的是**已部署到 count168.site 的版本**。本地未 deploy 的改动线上看不到——若 diff 尚未上线，在清单里标明「本地有改动、live 未验证到新代码」，不要假装测过本地改动。
+6. 输出「将测路由」列表。若无法映射：问用户要测哪几个 pageKey，不要瞎点全站。
 
 完成标准：至少 1 条可打开的完整 URL，或已向用户问清范围。
 
 ### 2. Playwright 冒烟
 
-1. 确认本机前端已起（打不开则先说明需 `cd frontend && npm run dev`，不要假装测过）。
+1. 打开 live（或用户指定的 origin）；打不开则记录网络/证书错误，不要假装测过。
 2. 用 Playwright MCP：`browser_navigate` → `browser_snapshot`（必要时 `browser_click` / `browser_fill_form`）。
 3. 每条路由记录：加载是否成功、控制台/明显 UI 错误、与改动相关的关键交互是否可用。
-4. 登录墙：停在登录页就记录「需登录态」，不要猜密码硬闯；可测的匿名/已登录路径继续。
+4. 登录墙：停在登录页就记录「需登录态」，不要猜密码硬闯；可测的匿名/已登录路径继续。用户若提供测试账号，仅用于本次会话，勿写入仓库。
 5. 金额/租户/权限相关改动：在清单里标红线风险，即使 UI 看起来正常。
 
 完成标准：每条目标路由都有「通过 / 失败 / 受阻」结果。
