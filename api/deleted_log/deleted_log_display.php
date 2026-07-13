@@ -115,6 +115,47 @@ function deleted_log_display_summary(string $table, string $page, ?array $data, 
 }
 
 /**
+ * 展示用公司列：优先 JOIN 的 company_code；否则从快照取 group_id / company 标识
+ *
+ * @param array<string,mixed>|null $data
+ */
+function deleted_log_display_company(string $joinedCode, string $logCompanyId, string $table, ?array $data): string
+{
+    $joined = trim($joinedCode);
+    if ($joined !== '') {
+        return $joined;
+    }
+    $cid = trim($logCompanyId);
+    if ($cid !== '' && !ctype_digit($cid)) {
+        return $cid;
+    }
+    if ($data !== null) {
+        foreach (['company_code', 'group_id', 'group_code', 'code'] as $k) {
+            if (!isset($data[$k])) {
+                continue;
+            }
+            $v = trim((string) $data[$k]);
+            if ($v !== '') {
+                if ($k === 'group_id' || $k === 'group_code') {
+                    return 'Group ' . $v;
+                }
+                return $v;
+            }
+        }
+        if (isset($data['company_id']) && trim((string) $data['company_id']) !== '') {
+            return 'CID ' . trim((string) $data['company_id']);
+        }
+    }
+    if ($cid !== '') {
+        return 'CID ' . $cid;
+    }
+    if (in_array($table, ['group_ownership', 'company_ownership', 'maintenance_marquee'], true)) {
+        return '—';
+    }
+    return '—';
+}
+
+/**
  * 批量解析当前页需要的 account.id → account.account_id（展示用）
  *
  * @param array<int,array<string,mixed>> $rows
