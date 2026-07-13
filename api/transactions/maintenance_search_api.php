@@ -63,12 +63,50 @@ function maintenanceAssertProcessIdForScope(PDO $pdo, int $processId, int $compa
 /**
  * 统一 Rate 显示：最多 8 位小数，不补尾零（与 Data Summary / Payment History 一致）
  */
-function formatRateForDisplay($rate): ?string
+function formatRateForDisplay($rate, $rateExpression = null): ?string
 {
+    $expr = $rateExpression !== null ? trim((string) $rateExpression) : '';
+    if ($expr !== '') {
+        return $expr;
+    }
     if ($rate === null || $rate === '') {
         return null;
     }
+    $rateStr = trim((string) $rate);
+    if ($rateStr !== '' && (strpos($rateStr, '*') === 0 || strpos($rateStr, '/') === 0)) {
+        return $rateStr;
+    }
     return money_out($rate, 8);
+}
+
+/** Detect-only: whether data_capture_details.rate_expression exists (no DDL). */
+function maintenanceHasRateExpressionColumn(PDO $pdo): bool
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    try {
+        $st = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'rate_expression'");
+        $cached = (bool) ($st && $st->fetch(PDO::FETCH_ASSOC));
+    } catch (Throwable $e) {
+        $cached = false;
+        error_log('maintenance rate_expression column check: ' . $e->getMessage());
+    }
+    return $cached;
+}
+
+/** SELECT fragment for rate_expression — NULL alias when column missing. */
+function maintenanceRateExpressionSelectSql(PDO $pdo, bool $unionTextWrap = false): string
+{
+    if (!maintenanceHasRateExpressionColumn($pdo)) {
+        return $unionTextWrap
+            ? maintenanceUnionNullTextCol() . ' AS rate_expression'
+            : 'NULL AS rate_expression';
+    }
+    return $unionTextWrap
+        ? maintenanceUnionTextExpr('dcd.rate_expression') . ' AS rate_expression'
+        : 'dcd.rate_expression';
 }
 
 function maintenanceSplitCrDr($amount): array
@@ -208,7 +246,7 @@ function maintenanceFormatUnionRow(array $row): array
     $rateDisplay = null;
     $idProductDisplay = '-';
     if ($isCapture) {
-        $rateDisplay = formatRateForDisplay($row['rate'] ?? null);
+        $rateDisplay = formatRateForDisplay($row['rate'] ?? null, $row['rate_expression'] ?? null);
         $idProductDisplay = formatMaintenanceIdProductLikeDataSummary($row);
     }
 
@@ -294,6 +332,7 @@ function maintenanceBuildTransactionUnionBranch(
             " . maintenanceUnionNullTextCol() . " AS source_value,
             " . maintenanceUnionNullTextCol() . " AS source_percent,
             NULL AS rate,
+            " . maintenanceUnionNullTextCol() . " AS rate_expression,
             " . maintenanceUnionNullTextCol() . " AS id_product,
             " . maintenanceUnionNullTextCol() . " AS id_product_main,
             " . maintenanceUnionNullTextCol() . " AS id_product_sub,
@@ -416,6 +455,7 @@ function maintenanceBuildCaptureUnionBranch(
     );
     $captureWhereSql = $built['where_sql'];
     $captureParams = $built['params'];
+    $rateExpressionSelect = maintenanceRateExpressionSelectSql($pdo, true);
 
     $sql = "
         SELECT
@@ -440,6 +480,7 @@ function maintenanceBuildCaptureUnionBranch(
             " . maintenanceUnionTextExpr('dcd.source_value') . " AS source_value,
             " . maintenanceUnionTextExpr('dcd.source_percent') . " AS source_percent,
             dcd.rate,
+            " . $rateExpressionSelect . ",
             " . maintenanceUnionTextExpr('dcd.id_product') . " AS id_product,
             " . maintenanceUnionTextExpr('dcd.id_product_main') . " AS id_product_main,
             " . maintenanceUnionTextExpr('dcd.id_product_sub') . " AS id_product_sub,
@@ -514,6 +555,7 @@ function maintenanceBuildTransactionFastBranch(
             NULL AS source_value,
             NULL AS source_percent,
             NULL AS rate,
+            NULL AS rate_expression,
             NULL AS id_product,
             NULL AS id_product_main,
             NULL AS id_product_sub,
@@ -554,6 +596,7 @@ function maintenanceBuildCaptureFastBranch(
     );
     $captureWhereSql = $built['where_sql'];
     $captureParams = $built['params'];
+    $rateExpressionSelect = maintenanceRateExpressionSelectSql($pdo, false);
 
     $sql = "
         SELECT
@@ -578,6 +621,7 @@ function maintenanceBuildCaptureFastBranch(
             dcd.source_value AS source_value,
             dcd.source_percent AS source_percent,
             dcd.rate,
+            $rateExpressionSelect,
             dcd.id_product AS id_product,
             dcd.id_product_main AS id_product_main,
             dcd.id_product_sub AS id_product_sub,
@@ -1377,6 +1421,7 @@ try {
         );
         $captureWhereSql = $captureBuilt['where_sql'];
         $captureParams = $captureBuilt['params'];
+        $rateExpressionSelect = maintenanceRateExpressionSelectSql($pdo, false);
 
         $captureSql = "
             SELECT
@@ -1398,6 +1443,7 @@ try {
                 dcd.source_value,
                 dcd.source_percent,
                 dcd.rate,
+                $rateExpressionSelect,
                 dcd.id_product,
                 dcd.id_product_main,
                 dcd.id_product_sub,
@@ -1424,7 +1470,7 @@ try {
         foreach ($captureRows as $row) {
             [$crVal, $drVal] = maintenanceSplitCrDr($row['amount'] ?? '0');
             
-            $rateDisplay = formatRateForDisplay($row['rate'] ?? null);
+            $rateDisplay = formatRateForDisplay($row['rate'] ?? null, $row['rate_expression'] ?? null);
             $idProductDisplay = formatMaintenanceIdProductLikeDataSummary($row);
             
             $formatted[] = [
@@ -1625,7 +1671,7 @@ try {
             foreach ($deletedCaptureRows as $row) {
                 [$crVal, $drVal] = maintenanceSplitCrDr($row['amount'] ?? '0');
                 
-                $rateDisplay = formatRateForDisplay($row['rate'] ?? null);
+                $rateDisplay = formatRateForDisplay($row['rate'] ?? null, $row['rate_expression'] ?? null);
                 $idProductDelDisplay = formatMaintenanceIdProductLikeDataSummary($row);
                 
                 $formatted[] = [
