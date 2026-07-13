@@ -196,7 +196,9 @@ export function rowToEditFormulaForm(row) {
   const formulaText =
     row.formulaOperators || row.formula || row.formulaDisplay || "";
   return {
-    processValue: row.idProduct || "",
+    // Id Product shows the base id only; the description (e.g. COMM) is a
+    // separate field and must not be appended here.
+    processValue: getProcessValueFromSummaryRow(row) || row.idProduct || "",
     accountId: row.accountId ? String(row.accountId) : "",
     accountText: row.account || "",
     sourcePercent: row.sourcePercent || "1",
@@ -213,7 +215,7 @@ export function rowToEditFormulaForm(row) {
 }
 
 export function createBlankEditFormulaForm(row) {
-  return createEmptyEditFormulaForm(row?.idProduct || "");
+  return createEmptyEditFormulaForm(getProcessValueFromSummaryRow(row) || row?.idProduct || "");
 }
 
 /** Parse descriptionSelect1 value — id_product or id_product:row_label (legacy updateIdProductRowData). */
