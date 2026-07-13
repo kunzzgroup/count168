@@ -186,8 +186,10 @@
 
 /*
  * Deleted Log 分页：不要用 Account List 的 fixed 右下角浮层。
- * 否则会盖住表格末行 Restore / 数据（用户可见重叠）。
+ * 否则会盖住表格末行 Restore、以及盖住拉长的 User/Module 下拉。
+ * 选择器需压过 body.account-page:not(.account-page--show-all) .account-pagination-container。
  */
+body.account-page.deleted-log-page:not(.account-page--show-all) .account-pagination-container.deleted-log-pagination,
 body.account-page.deleted-log-page .account-pagination-container.deleted-log-pagination,
 body.account-page.deleted-log-page .account-pagination-container {
     position: static !important;
@@ -196,9 +198,40 @@ body.account-page.deleted-log-page .account-pagination-container {
     left: auto !important;
     top: auto !important;
     margin: 16px 0 24px auto !important;
-    z-index: auto !important;
+    z-index: 1 !important;
     align-self: flex-end;
     flex-shrink: 0;
+    width: fit-content;
+    max-width: 100%;
+    padding: 2px 8px !important;
+    gap: 4px !important;
+}
+
+body.account-page.deleted-log-page .account-pagination-info {
+    width: auto !important;
+    min-width: 4.5em;
+    max-width: none !important;
+    padding: 0 8px;
+    overflow: visible;
+}
+
+/* 工具栏下拉必须高于分页（fixed z-index:120），避免长列表底部被页数器压住 */
+body.account-page.deleted-log-page .deleted-log-toolbar {
+    position: relative;
+    z-index: 200;
+}
+
+body.account-page.deleted-log-page .deleted-log-toolbar .custom-select-wrapper {
+    position: relative;
+    z-index: 201;
+}
+
+body.account-page.deleted-log-page .deleted-log-toolbar .custom-select-dropdown {
+    z-index: 10050;
+}
+
+body.account-page.deleted-log-page .custom-select-dropdown.custom-select-dropdown-portal {
+    z-index: 10060 !important;
 }
 
 body.account-page.deleted-log-page .account-table-wrapper {
@@ -206,6 +239,8 @@ body.account-page.deleted-log-page .account-table-wrapper {
     min-height: 0;
     overflow: auto;
     padding-bottom: 8px;
+    position: relative;
+    z-index: 1;
 }
 
 .deleted-log-json-modal-overlay {

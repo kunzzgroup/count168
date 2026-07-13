@@ -267,6 +267,7 @@ export default function DeletedLogPage() {
                 options={usersDistinct.map((u) => ({ value: u, label: u }))}
                 placeholder={t.all}
                 includeEmptyOption
+                forcePortal
               />
             </div>
             <div>
@@ -278,6 +279,7 @@ export default function DeletedLogPage() {
                 options={moduleOptions.map(([key, label]) => ({ value: key, label }))}
                 placeholder={t.all}
                 includeEmptyOption
+                forcePortal
               />
             </div>
             <div>
