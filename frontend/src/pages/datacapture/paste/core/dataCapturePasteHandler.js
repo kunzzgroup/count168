@@ -31,6 +31,7 @@ import {
   getActiveCaptureType,
   setTableActiveForPaste,
 } from "../../lib/dataCaptureBridge.js";
+import { trySmartPasteUniversal } from "../engine/SmartPasteOrchestrator.js";
 
 /** Capture types with dedicated paste handlers in React. */
 export const TYPED_CAPTURE_TYPES = new Set([
@@ -134,6 +135,8 @@ export function handleGlobalGridPaste(e) {
 
 /**
  * Full paste orchestrator — all formats in React.
+ * When SMART_PASTE_UNIVERSAL is on, Universal Engine runs first (matrix path).
+ * Failure / skip falls through to existing Format / vendor / text / generic routes.
  */
 export function handleCellPasteEvent(e) {
   let cell = resolvePasteCell(e.target);
@@ -146,6 +149,11 @@ export function handleCellPasteEvent(e) {
 
   const pastedData = getClipboardPlainText(e);
   const captureType = getActiveCaptureType();
+
+  // Universal Smart Paste (feature-flagged). Skip types / styled Format handled inside.
+  if (trySmartPasteUniversal(e, cell, captureType)) {
+    return;
+  }
 
   if (captureType === "2.Format") {
     // Prefer Citibet-style plain matrix for billing statements (SUBTOTAL / TOTAL AMOUNT).
