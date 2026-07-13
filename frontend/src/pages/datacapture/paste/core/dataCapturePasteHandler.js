@@ -146,6 +146,8 @@ export function handleCellPasteEvent(e) {
   if (!cell) return;
 
   e.preventDefault();
+  // Stop bubbling so document-level paste listeners cannot run a second import/notify.
+  e.stopPropagation?.();
 
   const pastedData = getClipboardPlainText(e);
   const captureType = getActiveCaptureType();
