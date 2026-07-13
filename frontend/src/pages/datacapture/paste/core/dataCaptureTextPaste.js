@@ -380,9 +380,30 @@ export function handleTextHtmlPaste(html, anchorCell) {
 }
 
 /**
- * Secondary 1.Text path after the shared Excel-format pipeline
- * (`handleFormatCellPaste` with allowOutsideFormatMode) fails.
- * Keeps matrix reconstruction + light style HTML fill as a safety net.
+ * Primary 1.TEXT path: plain matrix first (accurate columns), then simple HTML table.
+ * No format-style enrichment — used before the shared Format pipeline in 1.Text mode.
+ */
+export function handleTextPlainFirstPaste(e, pastedData, anchorCell) {
+  if (pastedData?.trim() && handleTextPlainPaste(e, pastedData, anchorCell)) {
+    return true;
+  }
+
+  const html = getClipboardHtml(e);
+  const htmlFromDetect = html ? "" : detectHtmlTableInClipboard(e);
+  const rawHtmlCandidate = html || htmlFromDetect;
+  const htmlCandidate =
+    rawHtmlCandidate && clipboardHtmlLooksLikeGrid(rawHtmlCandidate)
+      ? normalizeClipboardHtmlToTable(rawHtmlCandidate) || rawHtmlCandidate
+      : rawHtmlCandidate;
+
+  if (htmlCandidate && handleTextHtmlPaste(htmlCandidate, anchorCell)) return true;
+  if (htmlFromDetect && handleTextHtmlPaste(htmlFromDetect, anchorCell)) return true;
+  return false;
+}
+
+/**
+ * Full 1.Text path with format-style HTML fill when plain paths fail.
+ * Used as fallback after handleTextPlainFirstPaste and handleFormatCellPaste.
  */
 export function handleTextModePaste(e, pastedData, anchorCell) {
   const html = getClipboardHtml(e);
