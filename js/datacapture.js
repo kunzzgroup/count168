@@ -4307,6 +4307,107 @@ function parseHTMLTable(htmlString) {
     }
 }
 
+/** Angular Material mat-row / mat-cell → real <table> (js/datacapture-clipboard-normalize.js). */
+function normalizeMatRowClipboardHtml(html) {
+    const norm = window.DataCaptureClipboardNormalize;
+    if (!html || !norm || typeof norm.normalizeClipboardHtmlToTable !== 'function') return '';
+    const looksGrid =
+        /<table\b/i.test(html) ||
+        (typeof norm.clipboardHtmlLooksLikeGrid === 'function' && norm.clipboardHtmlLooksLikeGrid(html));
+    if (!looksGrid) return '';
+    return norm.normalizeClipboardHtmlToTable(html) || '';
+}
+
+/** Fill editable grid from a plain string[][] matrix (1.Text / mat-row reshape). */
+function applyPlainMatrixLikeExcel(dataMatrix, startCell) {
+    if (!dataMatrix || !dataMatrix.length || !startCell) return false;
+    const maxCols = Math.max(...dataMatrix.map((row) => (row && row.length) || 0));
+    if (maxCols < 1) return false;
+
+    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+    const startCol = 0;
+    const currentRows = document.querySelectorAll('#tableBody tr').length;
+    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+    const requiredRows = startRow + dataMatrix.length;
+    const requiredCols = startCol + maxCols;
+
+    if (requiredRows > currentRows || requiredCols > currentCols) {
+        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+        const targetCols = Math.max(currentCols, requiredCols);
+        initializeTable(targetRows, targetCols);
+    }
+
+    const tableBody = document.getElementById('tableBody');
+    const currentPasteChanges = [];
+    let successCount = 0;
+
+    dataMatrix.forEach((rowData, rowIndex) => {
+        const actualRowIndex = startRow + rowIndex;
+        const tableRow = tableBody.children[actualRowIndex];
+        if (!tableRow) return;
+
+        (rowData || []).forEach((cellData, colIndex) => {
+            const actualColIndex = startCol + colIndex;
+            const cell = tableRow.children[actualColIndex + 1];
+            if (cell && cell.contentEditable === 'true') {
+                const cellValue = cellData != null ? String(cellData) : '';
+                currentPasteChanges.push({
+                    row: actualRowIndex,
+                    col: actualColIndex,
+                    oldValue: cell.textContent,
+                    newValue: cellValue
+                });
+                cell.textContent = cellValue;
+                if (cellValue) successCount++;
+            }
+        });
+    });
+
+    if (currentPasteChanges.length > 0) {
+        pasteHistory.push(currentPasteChanges);
+        if (pasteHistory.length > maxHistorySize) {
+            pasteHistory.shift();
+        }
+    }
+
+    if (successCount > 0) {
+        showNotification(
+            `成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持Excel原始格式!`,
+            'success'
+        );
+        setTimeout(updateSubmitButtonState, 0);
+        return true;
+    }
+    return false;
+}
+
+/** 1.Text: mat-row HTML or vertical plain dump → grid. */
+function tryHandleMatRowPasteForText(e, pastedData, startCell) {
+    const cell = startCell || e.target;
+    let html = '';
+    try {
+        html = (e.clipboardData && e.clipboardData.getData('text/html')) || '';
+    } catch (_) { }
+
+    const normalizedHtml = normalizeMatRowClipboardHtml(html);
+    if (normalizedHtml && /<table\b/i.test(normalizedHtml)) {
+        console.log('1.Text: mat-row HTML normalized to table');
+        if (parseAndFillHTMLTableForText(normalizedHtml, cell)) return true;
+    }
+
+    const matrixApi = window.DataCapturePasteMatrix;
+    if (matrixApi && typeof matrixApi.parsePlainTextMatrix === 'function' && pastedData) {
+        const matrix = matrixApi.parsePlainTextMatrix(pastedData);
+        const cols = matrix[0] ? matrix[0].length : 0;
+        // Only take over when reshape produced a real multi-column matrix (mat-row symptom).
+        if (matrix.length >= 1 && cols >= 2) {
+            console.log('1.Text: mat-row plain matrix', matrix.length + 'x' + cols);
+            return applyPlainMatrixLikeExcel(matrix, cell);
+        }
+    }
+    return false;
+}
+
 // 检测并处理 HTML 格式的粘贴内容（简化版：直接解析并填充，不做复杂转换）
 function detectAndParseHTML(e) {
     try {
@@ -4315,6 +4416,13 @@ function detectAndParseHTML(e) {
         if (htmlData && /<table\b/i.test(htmlData)) {
             console.log('Detected HTML table format in clipboard');
             return htmlData; // 直接返回HTML，让后续处理
+        }
+
+        // Material mat-row (no <table>) → normalized table HTML
+        const matNormalized = normalizeMatRowClipboardHtml(htmlData || '');
+        if (matNormalized && /<table\b/i.test(matNormalized)) {
+            console.log('Detected mat-row grid in clipboard HTML');
+            return matNormalized;
         }
 
         // 如果 HTML 格式解析失败，尝试从 text/plain 中检测 HTML
@@ -10274,6 +10382,11 @@ function handleCellPaste(e) {
     // 1.Text 专用解析：完全保持Excel原始格式，不做任何转换
     if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.Text') {
         console.log('1.Text mode detected, preserving Excel format...');
+
+        // Material mat-row: HTML normalize and/or plain newline reshape (before table-only / TSV paths)
+        if (tryHandleMatRowPasteForText(e, pastedData, e.target)) {
+            return;
+        }
 
         // 优先尝试获取HTML格式的数据（Excel粘贴通常包含HTML格式）
         let htmlData = null;
@@ -22684,9 +22797,13 @@ function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
         }
     };
 
-    // 1) Prefer HTML table
+    // 1) Prefer HTML table (or mat-row normalized to table)
     const htmlData = getClipboardData('text/html') || '';
-    const htmlToUse = (htmlData && /<table\b/i.test(htmlData)) ? htmlData : (fallbackHTML || '');
+    const matNormalized = normalizeMatRowClipboardHtml(htmlData || fallbackHTML || '');
+    const htmlToUse =
+        (htmlData && /<table\b/i.test(htmlData)) ? htmlData :
+        (matNormalized && /<table\b/i.test(matNormalized)) ? matNormalized :
+        ((fallbackHTML && /<table\b/i.test(fallbackHTML)) ? fallbackHTML : '');
     if (htmlToUse && /<table\b/i.test(htmlToUse)) {
         setTimeout(() => {
             parseAndFillHTMLTableForFormat(htmlToUse);
@@ -22694,8 +22811,23 @@ function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
         return true;
     }
 
+    // 1b) mat-row plain newline → table
+    const textForMatrix = getClipboardData('text/plain') || '';
+    const matrixApi = window.DataCapturePasteMatrix;
+    if (matrixApi && textForMatrix && !textForMatrix.includes('\t')) {
+        const matrix = matrixApi.parsePlainTextMatrix(textForMatrix);
+        const cols = matrix[0] ? matrix[0].length : 0;
+        if (matrix.length >= 1 && cols >= 2 && typeof matrixApi.plainMatrixToHtmlTable === 'function') {
+            const tableHtml = matrixApi.plainMatrixToHtmlTable(matrix);
+            setTimeout(() => {
+                parseAndFillHTMLTableForFormat(tableHtml);
+            }, 10);
+            return true;
+        }
+    }
+
     // 2) Fallback to tab-separated plain text
-    const textData = getClipboardData('text/plain') || '';
+    const textData = textForMatrix;
     if (textData && textData.includes('\t')) {
         setTimeout(() => {
             const tableBody = document.getElementById('tableBody');
@@ -22751,6 +22883,45 @@ function initFormatPasteArea() {
         let text = '';
         try { html = clipboard && clipboard.getData ? (clipboard.getData('text/html') || '') : ''; } catch (_) { }
         try { text = clipboard && clipboard.getData ? (clipboard.getData('text/plain') || '') : ''; } catch (_) { }
+
+        // 0) Material mat-row / mat-cell (no real <table>, or 1-TD wrappers)
+        const matHtml = normalizeMatRowClipboardHtml(html);
+        if (matHtml && /<table\b/i.test(matHtml)) {
+            e.preventDefault();
+            e.stopPropagation();
+            const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(matHtml) || matHtml;
+            const sanitized = sanitizePastedHTML(matHtml);
+            console.log('Format: mat-row HTML normalized');
+            renderFormatPreview(previewFragment);
+            const filled = parseAndFillHTMLTableForFormat(sanitized || matHtml);
+            if (filled) {
+                isFormatGridReady = true;
+                area.innerHTML = '';
+                toggleTableDisplayForFormat();
+            }
+            return;
+        }
+
+        // 0b) mat-row plain newline → matrix → table
+        const matrixApi = window.DataCapturePasteMatrix;
+        if (matrixApi && text && !text.includes('\t')) {
+            const matrix = matrixApi.parsePlainTextMatrix(text);
+            const cols = matrix[0] ? matrix[0].length : 0;
+            if (matrix.length >= 1 && cols >= 2 && typeof matrixApi.plainMatrixToHtmlTable === 'function') {
+                e.preventDefault();
+                e.stopPropagation();
+                const tableHtml = matrixApi.plainMatrixToHtmlTable(matrix);
+                console.log('Format: mat-row plain matrix', matrix.length + 'x' + cols);
+                renderFormatPreview(tableHtml);
+                const filled = parseAndFillHTMLTableForFormat(tableHtml);
+                if (filled) {
+                    isFormatGridReady = true;
+                    area.innerHTML = '';
+                    toggleTableDisplayForFormat();
+                }
+                return;
+            }
+        }
 
         // 1) HTML table（Excel/Sheets常给<TABLE>大写，所以用正则不区分大小写）
         if (html && /<table\b/i.test(html)) {
@@ -24425,10 +24596,20 @@ function clipboardLooksLikeTable(clipboard) {
     try {
         const html = (clipboard && clipboard.getData) ? (clipboard.getData('text/html') || '') : '';
         if (html && /<table\b/i.test(html)) return true;
+        const norm = window.DataCaptureClipboardNormalize;
+        if (html && norm && typeof norm.clipboardHtmlLooksLikeGrid === 'function' && norm.clipboardHtmlLooksLikeGrid(html)) {
+            return true;
+        }
     } catch (_) { }
     try {
         const text = (clipboard && clipboard.getData) ? (clipboard.getData('text/plain') || '') : '';
         if (text && text.includes('\t') && (text.includes('\n') || text.includes('\r'))) return true;
+        // mat-row plain: dense vertical money dump (no tabs)
+        const matrixApi = window.DataCapturePasteMatrix;
+        if (matrixApi && text && !text.includes('\t')) {
+            const matrix = matrixApi.parsePlainTextMatrix(text);
+            if (matrix.length >= 1 && (matrix[0] || []).length >= 2) return true;
+        }
     } catch (_) { }
     return false;
 }
@@ -24527,6 +24708,19 @@ document.addEventListener('paste', function (e) {
         html = clipboard.getData('text/html') || '';
     } catch (_) { }
 
+    const matHtml = normalizeMatRowClipboardHtml(html);
+    if (matHtml && /<table\b/i.test(matHtml)) {
+        const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(matHtml) || matHtml;
+        const sanitized = sanitizePastedHTML(matHtml);
+        renderFormatPreview(previewFragment || sanitized);
+        const filled = parseAndFillHTMLTableForFormat(sanitized || matHtml);
+        if (filled) {
+            isFormatGridReady = true;
+            toggleTableDisplayForFormat();
+        }
+        return;
+    }
+
     if (html && /<table\b/i.test(html)) {
         const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(html);
         const sanitized = sanitizePastedHTML(html);
@@ -24546,6 +24740,23 @@ document.addEventListener('paste', function (e) {
     try {
         text = clipboard.getData('text/plain') || '';
     } catch (_) { }
+
+    const matrixApi = window.DataCapturePasteMatrix;
+    if (matrixApi && text && !text.includes('\t')) {
+        const matrix = matrixApi.parsePlainTextMatrix(text);
+        const cols = matrix[0] ? matrix[0].length : 0;
+        if (matrix.length >= 1 && cols >= 2 && typeof matrixApi.plainMatrixToHtmlTable === 'function') {
+            const tableHtml = matrixApi.plainMatrixToHtmlTable(matrix);
+            renderFormatPreview(tableHtml);
+            const filled = parseAndFillHTMLTableForFormat(tableHtml);
+            if (filled) {
+                isFormatGridReady = true;
+                toggleTableDisplayForFormat();
+            }
+            return;
+        }
+    }
+
     if (text && text.includes('\t')) {
         const tableHtml = tsvToHtmlTable(text);
         renderFormatPreview(tableHtml);
