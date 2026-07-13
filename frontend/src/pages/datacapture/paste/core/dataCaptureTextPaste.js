@@ -45,11 +45,28 @@ function isDenseReportRow(row) {
 }
 
 /**
- * DataTables / Material copies often prepend column-title tokens. Find the first
- * "label + consecutive numbers" row and treat that as matrix start (no fixed width).
+ * Over-select ("drag to end") often appends a truncated next row or multi-line
+ * paginator after complete dense rows. Those leftovers are shorter than `width`
+ * and start with a non-numeric label — drop them instead of rejecting the anchor.
+ */
+function isDroppableTrailingLeftover(leftover, width) {
+  if (!leftover.length) return true;
+  const leftoverNums = leftover.filter((t) => isMoneyOrNumberLikeToken(t)).length;
+  if (leftoverNums === 0) return true; // label-only chrome / header titles
+  // Truncated next row or digit-bearing paginator ("Showing", "1", "to", …).
+  if (!isMoneyOrNumberLikeToken(leftover[0]) && leftover.length < width) return true;
+  return false;
+}
+
+/**
+ * DataTables / Material copies often prepend column-title tokens. Find the best
+ * "label + consecutive numbers" anchor (no fixed width). Prefer more complete
+ * rows so a short trailing stub does not win over earlier full data rows.
  */
 function tryParseAnchoredVerticalRows(tokens) {
   if (tokens.length < 3) return null;
+
+  let best = null;
 
   for (let start = 0; start < tokens.length - 2; start += 1) {
     if (isMoneyOrNumberLikeToken(tokens[start])) continue;
@@ -72,21 +89,26 @@ function tryParseAnchoredVerticalRows(tokens) {
     }
     if (!rows.every((row) => isDenseReportRow(row))) continue;
 
-    // Trailing leftover should be empty or a short all-label stub (ignore), not extra numbers.
     const rem = dataTokens.length % width;
     if (rem > 0) {
       const leftover = dataTokens.slice(completeRows * width);
-      const leftoverNums = leftover.filter((t) => isMoneyOrNumberLikeToken(t)).length;
-      if (leftoverNums > 0) continue;
+      if (!isDroppableTrailingLeftover(leftover, width)) continue;
     }
 
-    rows.forEach((row) => {
-      while (row.length < width) row.push("");
-    });
-    return rows;
+    if (
+      !best ||
+      completeRows > best.completeRows ||
+      (completeRows === best.completeRows && width > best.width)
+    ) {
+      best = { rows, width, completeRows };
+    }
   }
 
-  return null;
+  if (!best) return null;
+  best.rows.forEach((row) => {
+    while (row.length < best.width) row.push("");
+  });
+  return best.rows;
 }
 
 function detectFlattenedStatementColCount(tokens) {
@@ -149,16 +171,16 @@ function parseFlattenedStatementMatrix(nonEmptyLines) {
   const dataTokens = tokens.slice(start);
   const dataRows = [];
   for (let i = 0; i < dataTokens.length; i += colCount) {
-    dataRows.push(dataTokens.slice(i, i + colCount));
+    const chunk = dataTokens.slice(i, i + colCount);
+    // Over-select mid-row: drop the incomplete trailing chunk instead of padding it.
+    if (chunk.length < colCount) break;
+    dataRows.push(chunk);
   }
   if (dataRows.length < 2) return null;
 
   const hasSummaryRow = dataRows.some((row) => row.length && isSummaryLabelToken(row[0]));
   if (!hasSummaryRow) return null;
 
-  dataRows.forEach((row) => {
-    while (row.length < colCount) row.push("");
-  });
   return dataRows;
 }
 
@@ -207,13 +229,13 @@ function tryParseVerticalFieldDump(nonEmptyLines) {
     if (steady) {
       const rows = [];
       for (let i = 0; i < tokens.length; i += stride) {
-        rows.push(tokens.slice(i, i + stride));
+        const chunk = tokens.slice(i, i + stride);
+        // Drag-to-end over-select: drop a short final chunk rather than pad/fail.
+        if (chunk.length < stride) break;
+        rows.push(chunk);
       }
       const width = stride;
-      if (!rows.every((row) => isDenseReportRow(row))) return null;
-      rows.forEach((row) => {
-        while (row.length < width) row.push("");
-      });
+      if (!rows.length || !rows.every((row) => isDenseReportRow(row))) return null;
       return rows;
     }
   }

@@ -1,0 +1,147 @@
+/**
+ * Over-select ("drag to end") plain-text paste fixtures.
+ * Expect: keep complete dense rows; drop truncated trailing tokens / paginator.
+ * Run: node ./scripts/repro-overselect-paste.mjs
+ */
+import { pathToFileURL } from "node:url";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const base = path.join(__dirname, "../src/pages/datacapture/paste/core");
+const { parsePlainTextMatrix } = await import(
+  pathToFileURL(path.join(base, "dataCaptureTextPaste.js")).href,
+);
+
+function assertMatrix(name, plain, expectRows, expectCols, opts = {}) {
+  const matrix = parsePlainTextMatrix(plain);
+  const rows = matrix.length;
+  const cols = matrix[0]?.length || 0;
+  const isNx1 = rows > 1 && cols === 1;
+  const okRows = rows === expectRows;
+  const okCols = cols === expectCols;
+  const okNoVertical = opts.allowVertical || !isNx1;
+  const ok = okRows && okCols && okNoVertical;
+  console.log(
+    `${ok ? "PASS" : "FAIL"} ${name}: got ${rows}x${cols}` +
+      (isNx1 ? " (vertical dump)" : "") +
+      ` expected ${expectRows}x${expectCols}`,
+  );
+  if (!ok) {
+    console.log(
+      "  matrix:",
+      matrix.map((r) => r.map((c) => String(c).slice(0, 16))),
+    );
+  }
+  return ok ? 0 : 1;
+}
+
+let failed = 0;
+
+// Partial next agent row after 2 complete 5-col rows → drop stub, keep 2x5
+failed += assertMatrix(
+  "partial-next-row",
+  [
+    "AGENTA",
+    "10",
+    "$1.00",
+    "$2.00",
+    "$3.00",
+    "AGENTB",
+    "20",
+    "$4.00",
+    "$5.00",
+    "$6.00",
+    "AGENTC",
+    "30",
+    "$7.00",
+  ].join("\n"),
+  2,
+  5,
+);
+
+// Multi-line DataTables paginator after one complete 9-col row
+failed += assertMatrix(
+  "multiline-paginator",
+  [
+    "SDSPDA95",
+    "6522",
+    "$0.00",
+    "$1.00",
+    "$2.00",
+    "$3.00",
+    "$4.00",
+    "$0.00",
+    "$5.00",
+    "Showing",
+    "1",
+    "to",
+    "10",
+    "of",
+    "50",
+    "entries",
+  ].join("\n"),
+  1,
+  9,
+);
+
+// Complete agent + Subtotal + truncated Total Amount → keep 2x9
+failed += assertMatrix(
+  "truncated-total-amount",
+  [
+    "SDSPDA95",
+    "6522",
+    "$0.00",
+    "$11,110.75",
+    "$11,110.75",
+    "$9,825.31",
+    "$11,110.75",
+    "$0.00",
+    "$1,285.44",
+    "Subtotal",
+    "6522",
+    "$0.00",
+    "$11,110.75",
+    "$11,110.75",
+    "$9,825.31",
+    "$11,110.75",
+    "$0.00",
+    "$1,285.44",
+    "Total Amount",
+    "6522",
+    "$0.00",
+  ].join("\n"),
+  2,
+  9,
+);
+
+// Label-only trailing chrome (already expected green)
+failed += assertMatrix(
+  "label-only-trailing",
+  [
+    "AGENTA",
+    "10",
+    "$1.00",
+    "$2.00",
+    "$3.00",
+    "Downline Login Id",
+    "Total Turnover",
+  ].join("\n"),
+  1,
+  5,
+);
+
+// Guard: intentional all-numeric vertical list stays Nx1
+failed += assertMatrix(
+  "numeric-column-guard",
+  ["100", "200", "300", "$4.00", "5,000"].join("\n"),
+  5,
+  1,
+  { allowVertical: true },
+);
+
+if (failed) {
+  console.error(`\n${failed} over-select fixture(s) failed`);
+  process.exit(1);
+}
+console.log("\nAll over-select paste fixtures green");
