@@ -278,7 +278,7 @@ export function parseAndFillHtmlTableForText(htmlString, anchorCell) {
     const { successCount, maxRows, maxCols: cols } = applyDataMatrixToGrid(dataMatrix, anchorCell, {
       trimValues: false,
       uppercaseValues: false,
-      alignTotalRows: true,
+      alignTotalRows: false,
     });
 
     if (successCount > 0) {
@@ -324,7 +324,7 @@ export function parseAndFillHtmlTableForTextWithFormat(htmlString, anchorCell) {
     const { successCount, maxRows, maxCols: cols } = applyDataMatrixToGrid(dataMatrix, anchorCell, {
       trimValues: false,
       uppercaseValues: false,
-      alignTotalRows: true,
+      alignTotalRows: false,
     });
 
     if (successCount > 0) {

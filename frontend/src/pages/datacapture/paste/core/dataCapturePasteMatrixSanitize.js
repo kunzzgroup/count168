@@ -1,7 +1,7 @@
 /**
- * Shared paste-matrix cleanup for 1.TEXT + 2.Format (over-select / Total row gaps).
+ * Shared paste-matrix cleanup for 1.TEXT + 2.Format (over-select trim only).
+ * Total-row empty cells between label and first number are preserved 1:1.
  */
-import { alignTotalRowsInMatrix } from "./dataCaptureTotalRowAlign.js";
 
 function cellValue(cell) {
   if (cell != null && typeof cell === "object" && "value" in cell) {
@@ -117,14 +117,13 @@ export function dropTrailingIncompleteRows(matrix) {
 }
 
 /**
- * Plain string[][] or format cell matrix — trim, drop stubs, align Total rows.
+ * Plain string[][] or format cell matrix — trim trailing over-select chrome only.
  * @param {Array<Array<string|object>>} matrix
  */
 export function sanitizePasteMatrix(matrix) {
   if (!Array.isArray(matrix) || !matrix.length) return matrix;
   let next = trimTrailingEmptyColumns(matrix);
   next = dropTrailingJunkRows(next);
-  next = alignTotalRowsInMatrix(next);
   next = trimTrailingEmptyColumns(next);
   return next;
 }
@@ -172,7 +171,7 @@ export function matrixAlignsWithPlainSource(bodyMatrix, plainMatrix) {
   if (bodyCols < 2) return false;
   if (bodyRows > plainRows) return false;
   if (bodyRows < 1) return false;
-  // Allow Total-gap collapse to change width by at most 0 (sanitize should match plain).
+  // Plain TSV is source of truth — widths must match (Total empties kept 1:1).
   if (Math.abs(bodyCols - plainCols) > 0) return false;
   return true;
 }

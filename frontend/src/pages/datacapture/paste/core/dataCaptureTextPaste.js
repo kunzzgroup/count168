@@ -338,7 +338,7 @@ export function handleTextPlainPaste(e, pastedData, anchorCell) {
   const { successCount, maxRows, maxCols: cols } = applyDataMatrixToGrid(dataMatrix, anchorCell, {
     uppercaseValues: false,
     trimValues: false,
-    alignTotalRows: true,
+    alignTotalRows: false,
   });
 
   if (successCount > 0) {

@@ -144,13 +144,22 @@ failed += assertMatrix(
   { allowVertical: true },
 );
 
-// Total row: extra empty tab between label and first number (user screenshot symptom)
+// Total row: preserve blank tabs between label and first number (web 1:1)
 failed += assertMatrix(
   "total-row-label-gap",
   "Total\t\t135,873.00\t114,191.00\t11\t950",
   1,
-  5,
-  { firstNumCol: 1, firstNumValue: "135,873.00" },
+  6,
+  { firstNumCol: 2, firstNumValue: "135,873.00" },
+);
+
+// Screenshot: Total | empty | empty | 135,873.00 | … (two name-column gaps)
+failed += assertMatrix(
+  "total-row-double-empty-gap",
+  "Total\t\t\t135,873.00\t114,191.00\t11\t950",
+  1,
+  7,
+  { firstNumCol: 3, firstNumValue: "135,873.00" },
 );
 
 // Total row: drag-to-end trailing empty tab cells
@@ -191,10 +200,11 @@ const formatTotalRow = sanitizePasteMatrix([
 ]);
 const formatOk =
   formatTotalRow.length === 1 &&
-  formatTotalRow[0].length === 3 &&
+  formatTotalRow[0].length === 4 &&
   formatTotalRow[0][0].value === "Total" &&
-  formatTotalRow[0][1].value === "135,873.00" &&
-  formatTotalRow[0][2].value === "114,191.00";
+  formatTotalRow[0][1].value === "" &&
+  formatTotalRow[0][2].value === "135,873.00" &&
+  formatTotalRow[0][3].value === "114,191.00";
 console.log(
   `${formatOk ? "PASS" : "FAIL"} format-total-row-sanitize: cols=${formatTotalRow[0]?.length}`,
 );
@@ -220,7 +230,8 @@ const formatOverselect = sanitizePasteMatrix([
 ]);
 const formatOverOk =
   formatOverselect.length === 1 &&
-  formatOverselect[0][1]?.value === "135,873.00";
+  formatOverselect[0][1]?.value === "" &&
+  formatOverselect[0][2]?.value === "135,873.00";
 console.log(
   `${formatOverOk ? "PASS" : "FAIL"} format-overselect-paginator: rows=${formatOverselect.length}`,
 );
@@ -236,15 +247,18 @@ const { plainMatrixLooksReliable, matrixAlignsWithPlainSource } = await import(
   pathToFileURL(path.join(base, "dataCapturePasteMatrixSanitize.js")).href,
 );
 
-const plainTruth = parsePlainTextMatrix("Total\t135,873.00\t114,191.00");
+const plainTruth = parsePlainTextMatrix("Total\t\t135,873.00\t114,191.00");
 const htmlMisaligned = [
+  [{ value: "Total" }, { value: "135,873.00" }, { value: "114,191.00" }],
+];
+const htmlAligned = [
   [{ value: "Total" }, { value: "" }, { value: "135,873.00" }, { value: "114,191.00" }],
 ];
 const alignReject =
   plainMatrixLooksReliable(plainTruth) &&
   !matrixAlignsWithPlainSource(htmlMisaligned, plainTruth);
 const alignAccept = matrixAlignsWithPlainSource(
-  sanitizePasteMatrix(htmlMisaligned),
+  sanitizePasteMatrix(htmlAligned),
   plainTruth,
 );
 console.log(
