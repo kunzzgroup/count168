@@ -12,6 +12,9 @@ const base = path.join(__dirname, "../src/pages/datacapture/paste/core");
 const { parsePlainTextMatrix } = await import(
   pathToFileURL(path.join(base, "dataCaptureTextPaste.js")).href,
 );
+const { sanitizePasteMatrix } = await import(
+  pathToFileURL(path.join(base, "dataCapturePasteMatrixSanitize.js")).href,
+);
 
 function assertMatrix(name, plain, expectRows, expectCols, opts = {}) {
   const matrix = parsePlainTextMatrix(plain);
@@ -173,6 +176,34 @@ console.log(
 if (!subGapKept) {
   failed += 1;
   console.log("  matrix:", subTotalMatrix);
+}
+
+// Format-style cell matrix: Total label gap + trailing empty cols (text+format path)
+const formatTotalRow = sanitizePasteMatrix([
+  [
+    { value: "Total", styleCssText: "background:#ff0" },
+    { value: "" },
+    { value: "135,873.00" },
+    { value: "114,191.00" },
+    { value: "" },
+    { value: "" },
+  ],
+]);
+const formatOk =
+  formatTotalRow.length === 1 &&
+  formatTotalRow[0].length === 3 &&
+  formatTotalRow[0][0].value === "Total" &&
+  formatTotalRow[0][1].value === "135,873.00" &&
+  formatTotalRow[0][2].value === "114,191.00";
+console.log(
+  `${formatOk ? "PASS" : "FAIL"} format-total-row-sanitize: cols=${formatTotalRow[0]?.length}`,
+);
+if (!formatOk) {
+  failed += 1;
+  console.log(
+    "  row:",
+    formatTotalRow[0]?.map((c) => c.value),
+  );
 }
 
 if (failed) {

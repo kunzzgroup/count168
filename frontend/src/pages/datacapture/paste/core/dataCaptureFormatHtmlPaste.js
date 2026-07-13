@@ -2,6 +2,7 @@
 
 import { applyDataMatrixToGrid, ensureGridFits } from "./dataCapturePasteApply.js";
 import { notifyPasteUser, recomputeSubmitStateAfterPaste } from "../../lib/dataCaptureBridge.js";
+import { sanitizePasteMatrix } from "./dataCapturePasteMatrixSanitize.js";
 import {
   parseFormatHtmlTableStructure,
   buildFormatBodyMatrix,
@@ -29,6 +30,7 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
     let bodyMatrix;
     try {
       bodyMatrix = buildFormatBodyMatrix(dataRows, Math.max(maxCols, 1));
+      bodyMatrix = sanitizePasteMatrix(bodyMatrix);
     } catch (err) {
       console.warn("Format: buildFormatBodyMatrix failed", err);
       return false;
@@ -59,7 +61,7 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
       startRowOverride: startRow,
       startColOverride: 0,
       trimValues: false,
-      alignTotalRows: false,
+      alignTotalRows: true,
     });
 
     if (successCount > 0) {

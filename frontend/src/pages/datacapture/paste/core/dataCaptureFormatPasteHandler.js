@@ -131,7 +131,10 @@ export function processFormatTableHtml(html, { area = null, startRow = null, anc
 
 export function processFormatTsv(text, { area = null, startRow = null, anchorCell = null } = {}) {
   if (!text || !text.includes("\t")) return false;
-  const tableHtml = tsvToHtmlTable(text);
+  // Reuse 1.TEXT matrix parser (over-select trim, Total gap collapse, vertical reshape).
+  const matrix = parsePlainTextMatrix(text);
+  if (!matrix.length) return false;
+  const tableHtml = plainMatrixToHtmlTable(matrix);
   return processFormatTableHtml(tableHtml, { area, startRow, anchorCell });
 }
 

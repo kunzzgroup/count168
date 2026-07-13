@@ -175,9 +175,9 @@ export function handleCellPasteEvent(e) {
   if (captureType === "1.Text") {
     // Same Citibet-style matrix path first (working reference: 3.CITIBET).
     if (tryApplyBillingStatementPlainMatrix(pastedData, cell)) return;
-    // 1.TEXT plain matrix is the reliable default; Format pipeline is fallback for style-rich HTML.
-    if (handleTextPlainFirstPaste(e, pastedData, cell)) return;
+    // 1.TEXT + Format pipeline (styles); matrix sanitize handles over-select inside.
     if (handleFormatCellPaste(e, pastedData, { allowOutsideFormatMode: true })) return;
+    if (handleTextPlainFirstPaste(e, pastedData, cell)) return;
     if (handleTextModePaste(e, pastedData, cell)) return;
     invokeGenericPasteFallback(e, pastedData);
     return;

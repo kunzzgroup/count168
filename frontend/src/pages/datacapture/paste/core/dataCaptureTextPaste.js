@@ -11,30 +11,7 @@ import {
   parseAndFillHtmlTableForText,
   parseAndFillHtmlTableForTextWithFormat,
 } from "./dataCaptureTextHtmlPaste.js";
-import { alignTotalRowsInMatrix } from "./dataCaptureTotalRowAlign.js";
-
-/** Drag-to-end over-select often adds trailing empty tab cells — trim them. */
-function trimTrailingEmptyTabColumns(matrix) {
-  if (!matrix?.length) return matrix;
-
-  let lastNonEmpty = -1;
-  matrix.forEach((row) => {
-    for (let i = row.length - 1; i >= 0; i -= 1) {
-      if (String(row[i] ?? "").trim() !== "") {
-        lastNonEmpty = Math.max(lastNonEmpty, i);
-        break;
-      }
-    }
-  });
-  if (lastNonEmpty < 0) return matrix;
-
-  const width = lastNonEmpty + 1;
-  return matrix.map((row) => {
-    const next = row.slice(0, width);
-    while (next.length < width) next.push("");
-    return next;
-  });
-}
+import { sanitizePasteMatrix } from "./dataCapturePasteMatrixSanitize.js";
 
 function isMoneyOrNumberLikeToken(text) {
   const cleaned = String(text ?? "")
@@ -288,7 +265,7 @@ export function parsePlainTextMatrix(pastedData) {
     tabRows.forEach((row) => {
       while (row.length < maxCols) row.push("");
     });
-    return trimTrailingEmptyTabColumns(alignTotalRowsInMatrix(trimTrailingEmptyTabColumns(tabRows)));
+    return sanitizePasteMatrix(tabRows);
   }
 
   const rawLines = normalized.split("\n");
