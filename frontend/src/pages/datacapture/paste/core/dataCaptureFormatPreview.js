@@ -1,6 +1,7 @@
 /** Ported from js/datacapture.js — 2.Format preview helpers (Phase 4c). */
 
 import { setFormatPreviewHtml } from '../../format/dataCaptureFormat.js';
+import { sanitizePastedCellHtml } from './dataCaptureClipboard.js';
 
 export function escapeHtml(str) {
     return String(str)
@@ -243,6 +244,13 @@ export function sanitizePastedHTML(html) {
         }
     } catch (_) { }
 
+    table.querySelectorAll('td, th').forEach((cell) => {
+        const cleaned = sanitizePastedCellHtml(cell.innerHTML);
+        if (cleaned !== cell.innerHTML) {
+            cell.innerHTML = cleaned;
+        }
+    });
+
     return table.outerHTML;
 }
 
@@ -337,7 +345,8 @@ export function clipboardLooksLikeTable(clipboard) {
     } catch (_) { }
     try {
         const text = (clipboard && clipboard.getData) ? (clipboard.getData('text/plain') || '') : '';
-        if (text && text.includes('\t') && (text.includes('\n') || text.includes('\r'))) return true;
+        if (text && text.includes('\t')) return true;
+        if (text && (text.includes('\n') || text.includes('\r'))) return true;
     } catch (_) { }
     return false;
 }
