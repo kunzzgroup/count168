@@ -4307,21 +4307,83 @@ function parseHTMLTable(htmlString) {
     }
 }
 
+// Material mat-row / ARIA grid → real <table>; plain newline → horizontal matrix.
+function normalizeDataCaptureClipboardHtml(htmlData) {
+    if (!htmlData) return htmlData;
+    var norm = window.DataCaptureClipboardNormalize;
+    if (!norm || typeof norm.clipboardHtmlLooksLikeGrid !== 'function') return htmlData;
+    if (!norm.clipboardHtmlLooksLikeGrid(htmlData)) return htmlData;
+    return norm.normalizeClipboardHtmlToTable(htmlData) || htmlData;
+}
+
+function fillTextModeDataMatrix(dataMatrix, startCell) {
+    if (!dataMatrix || !dataMatrix.length) return 0;
+    var maxCols = Math.max.apply(null, dataMatrix.map(function (row) { return row.length; }));
+    var startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+    var startCol = 0;
+    var currentRows = document.querySelectorAll('#tableBody tr').length;
+    var currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+    var requiredRows = startRow + dataMatrix.length;
+    var requiredCols = startCol + maxCols;
+    if (requiredRows > currentRows || requiredCols > currentCols) {
+        initializeTable(
+            Math.max(currentRows, Math.min(requiredRows, 702)),
+            Math.max(currentCols, requiredCols)
+        );
+    }
+    var tableBody = document.getElementById('tableBody');
+    var currentPasteChanges = [];
+    var successCount = 0;
+    dataMatrix.forEach(function (rowData, rowIndex) {
+        var actualRowIndex = startRow + rowIndex;
+        var tableRow = tableBody.children[actualRowIndex];
+        if (!tableRow) return;
+        rowData.forEach(function (cellData, colIndex) {
+            var actualColIndex = startCol + colIndex;
+            var cell = tableRow.children[actualColIndex + 1];
+            if (cell && cell.contentEditable === 'true') {
+                var cellValue = cellData || '';
+                currentPasteChanges.push({
+                    row: actualRowIndex,
+                    col: actualColIndex,
+                    oldValue: cell.textContent,
+                    newValue: cellValue
+                });
+                cell.textContent = cellValue;
+                if (cellValue) successCount++;
+            }
+        });
+    });
+    if (currentPasteChanges.length > 0) {
+        pasteHistory.push(currentPasteChanges);
+        if (pasteHistory.length > maxHistorySize) pasteHistory.shift();
+    }
+    if (successCount > 0) {
+        showNotification(
+            '成功粘贴 ' + successCount + ' 个单元格 (' + dataMatrix.length + ' 行 x ' + maxCols + ' 列)，已保持Excel原始格式!',
+            'success'
+        );
+        setTimeout(updateSubmitButtonState, 0);
+    }
+    return successCount;
+}
+
 // 检测并处理 HTML 格式的粘贴内容（简化版：直接解析并填充，不做复杂转换）
 function detectAndParseHTML(e) {
     try {
         // 尝试获取 HTML 格式的数据
-        const htmlData = e.clipboardData.getData('text/html');
+        var htmlData = e.clipboardData.getData('text/html');
+        htmlData = normalizeDataCaptureClipboardHtml(htmlData);
         if (htmlData && /<table\b/i.test(htmlData)) {
             console.log('Detected HTML table format in clipboard');
             return htmlData; // 直接返回HTML，让后续处理
         }
 
         // 如果 HTML 格式解析失败，尝试从 text/plain 中检测 HTML
-        const textData = e.clipboardData.getData('text/plain');
+        var textData = e.clipboardData.getData('text/plain');
         if (textData && /<table\b/i.test(textData)) {
             console.log('Detected HTML table format in plain text');
-            return textData; // 直接返回HTML
+            return normalizeDataCaptureClipboardHtml(textData) || textData;
         }
 
         return null;
@@ -10279,6 +10341,7 @@ function handleCellPaste(e) {
         let htmlData = null;
         try {
             htmlData = e.clipboardData.getData('text/html');
+            htmlData = normalizeDataCaptureClipboardHtml(htmlData);
             if (htmlData && htmlData.includes('<table')) {
                 console.log('1.Text: HTML table format detected');
                 const startCell = e.target;
@@ -10396,6 +10459,12 @@ function handleCellPaste(e) {
                         setTimeout(updateSubmitButtonState, 0);
                         return;
                     }
+                }
+            } else if (window.DataCapturePasteMatrix && typeof window.DataCapturePasteMatrix.parsePlainTextMatrix === 'function') {
+                // Material 报表纯换行复制（每字段一行、无 Tab）→ 横排矩阵
+                var plainMatrix = window.DataCapturePasteMatrix.parsePlainTextMatrix(normalizedData);
+                if (plainMatrix.length > 0 && fillTextModeDataMatrix(plainMatrix, e.target) > 0) {
+                    return;
                 }
             }
         }
