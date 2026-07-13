@@ -72,12 +72,37 @@ function isTextStyleTotalLabel(value) {
   return CJK_TOTAL_LABELS.has(raw);
 }
 
-/** A 1.TEXT total row: first non-empty cell is a Chinese total label. */
-function rowIsTextStyleTotalRow(row) {
+/** English footer "Total" only — not Sub Total / Grand Total (2.Format keeps their gap). */
+function isEnglishTextTotalLabel(value) {
+  return String(value || "").trim().toUpperCase() === "TOTAL";
+}
+
+/** A 1.TEXT total row whose label→number gap may be collapsed. */
+function rowIsCollapsibleTotalRow(row) {
   if (!Array.isArray(row)) return false;
   const idx = rowFirstNonEmptyIndex(row);
   if (idx < 0) return false;
-  return isTextStyleTotalLabel(trimCellValue(row[idx]));
+  const label = trimCellValue(row[idx]);
+  return isTextStyleTotalLabel(label) || isEnglishTextTotalLabel(label);
+}
+
+/** @deprecated alias — use rowIsCollapsibleTotalRow */
+function rowIsTextStyleTotalRow(row) {
+  return rowIsCollapsibleTotalRow(row);
+}
+
+function collapseTotalLabelGap(row) {
+  if (!Array.isArray(row)) return row;
+
+  const labelIdx = rowFirstNonEmptyIndex(row);
+  const numIdx = rowFirstNumericIndex(row);
+  if (numIdx <= labelIdx + 1) return row;
+
+  const gap = numIdx - (labelIdx + 1);
+  const next = [...row];
+  next.splice(labelIdx + 1, gap);
+  for (let i = 0; i < gap; i += 1) next.push(makeBlankCellLike(row));
+  return next;
 }
 
 function makeBlankCellLike(row) {
@@ -116,13 +141,12 @@ export function matrixHasNameColumnPattern(matrix) {
 }
 
 /**
- * Preserve the source TOTAL row exactly as pasted (matches PHP).
- *
- * PHP renders the captured row as-is — it neither inserts a name-column gap nor
- * removes one — so this is intentionally a no-op.
+ * Collapse blank gap between a TOTAL / 总数 label and its first number so values
+ * start in the column immediately after the label (matches PHP 1.TEXT).
  */
 export function alignTotalRowArray(row) {
-  return row;
+  if (!rowIsCollapsibleTotalRow(row)) return row;
+  return collapseTotalLabelGap(row);
 }
 
 /**
@@ -135,21 +159,13 @@ export function alignTotalRowArray(row) {
  */
 export function alignTotalRowsInMatrix(matrix) {
   if (!Array.isArray(matrix) || !matrix.length) return matrix;
-  if (!matrix.some(rowIsTextStyleTotalRow)) return matrix;
+  if (!matrix.some(rowIsCollapsibleTotalRow)) return matrix;
 
   let changed = false;
   const aligned = matrix.map((row) => {
-    if (!Array.isArray(row) || !rowIsTextStyleTotalRow(row)) return row;
-
-    const labelIdx = rowFirstNonEmptyIndex(row);
-    const numIdx = rowFirstNumericIndex(row);
-    if (numIdx <= labelIdx + 1) return row;
-
-    const gap = numIdx - (labelIdx + 1);
-    const next = [...row];
-    next.splice(labelIdx + 1, gap);
-    for (let i = 0; i < gap; i += 1) next.push(makeBlankCellLike(row));
-    changed = true;
+    if (!Array.isArray(row) || !rowIsCollapsibleTotalRow(row)) return row;
+    const next = collapseTotalLabelGap(row);
+    if (next !== row) changed = true;
     return next;
   });
 

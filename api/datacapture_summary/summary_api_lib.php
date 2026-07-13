@@ -111,8 +111,10 @@ function summaryApiHasSubmitRequestId(PDO $pdo): bool
 }
 
 /**
- * Detect-only schema check for submit correctness columns (no runtime DDL).
- * Columns/indexes must come from migration 20260713_...
+ * Ensure submit correctness columns exist.
+ * Prefer migration 20260713_... in ops; runtime ADD COLUMN is a safe fallback
+ * (same pattern as display_order) so live does not silently drop *3 / /3.
+ * Unique indexes stay migration-only (avoid runtime table locks).
  */
 function ensureSummarySubmitCorrectnessSchema(PDO $pdo): void
 {
@@ -123,16 +125,37 @@ function ensureSummarySubmitCorrectnessSchema(PDO $pdo): void
     $checked = true;
 
     if (!summaryApiHasSubmitRequestId($pdo)) {
-        error_log(
-            'Submit schema warning: data_captures.submit_request_id missing — '
-            . 'run migration 20260713_data_capture_submit_idempotency_and_rate_expression.sql'
-        );
+        try {
+            $pdo->exec(
+                "ALTER TABLE `data_captures`
+                 ADD COLUMN `submit_request_id` VARCHAR(64) NULL DEFAULT NULL
+                 COMMENT 'Client submit idempotency key (UUID)' AFTER `remark`"
+            );
+            error_log('Added data_captures.submit_request_id (runtime fallback; prefer migration 20260713)');
+        } catch (Throwable $e) {
+            error_log(
+                'Submit schema warning: data_captures.submit_request_id missing — '
+                . 'run migration 20260713_data_capture_submit_idempotency_and_rate_expression.sql — '
+                . $e->getMessage()
+            );
+        }
     }
+
     if (!summaryApiHasRateExpression($pdo)) {
-        error_log(
-            'Submit schema warning: data_capture_details.rate_expression missing — '
-            . 'run migration 20260713_data_capture_submit_idempotency_and_rate_expression.sql'
-        );
+        try {
+            $pdo->exec(
+                "ALTER TABLE `data_capture_details`
+                 ADD COLUMN `rate_expression` VARCHAR(64) NULL DEFAULT NULL
+                 COMMENT 'Original rate text e.g. *3 /3 3' AFTER `rate`"
+            );
+            error_log('Added data_capture_details.rate_expression (runtime fallback; prefer migration 20260713)');
+        } catch (Throwable $e) {
+            error_log(
+                'Submit schema warning: data_capture_details.rate_expression missing — '
+                . 'run migration 20260713_data_capture_submit_idempotency_and_rate_expression.sql — '
+                . $e->getMessage()
+            );
+        }
     }
 }
 

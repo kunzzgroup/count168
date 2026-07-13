@@ -1,5 +1,6 @@
 import { applyDataMatrixToGrid, notifyPasteSuccess } from "./dataCapturePasteApply.js";
 import { recomputeSubmitStateAfterPaste } from "../../lib/dataCaptureBridge.js";
+import { sanitizePasteMatrix } from "./dataCapturePasteMatrixSanitize.js";
 import {
   measureTopLevelTables,
   plainTextFromSanitizedHtml,
@@ -270,12 +271,14 @@ export function parseAndFillHtmlTableForText(htmlString, anchorCell) {
       return false;
     }
 
-    const dataMatrix = allRows.map((sourceRow) => buildRowPatches(sourceRow, maxCols, null));
+    const dataMatrix = sanitizePasteMatrix(
+      allRows.map((sourceRow) => buildRowPatches(sourceRow, maxCols, null)),
+    );
 
     const { successCount, maxRows, maxCols: cols } = applyDataMatrixToGrid(dataMatrix, anchorCell, {
       trimValues: false,
       uppercaseValues: false,
-      alignTotalRows: false,
+      alignTotalRows: true,
     });
 
     if (successCount > 0) {
@@ -316,12 +319,12 @@ export function parseAndFillHtmlTableForTextWithFormat(htmlString, anchorCell) {
       return false;
     }
 
-    const dataMatrix = buildRowPatchesWithSpanOccupancy(allRows, maxCols);
+    const dataMatrix = sanitizePasteMatrix(buildRowPatchesWithSpanOccupancy(allRows, maxCols));
 
     const { successCount, maxRows, maxCols: cols } = applyDataMatrixToGrid(dataMatrix, anchorCell, {
       trimValues: false,
       uppercaseValues: false,
-      alignTotalRows: false,
+      alignTotalRows: true,
     });
 
     if (successCount > 0) {
