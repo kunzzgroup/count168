@@ -11,20 +11,22 @@ Moved from `includes/deleted_log*.php`. Used by delete/restore APIs and `deleted
 
 Frontend: `frontend/src/pages/deletedlog/DeletedLogPage.jsx` → `GET api/deleted_log_list_api.php`.
 
-## Entry tabs ↔ 物理删除入口
+## Entry tabs ↔ 侧栏页面
 
-| Tab key | SPA / 功能 | API `page` 值 |
-|---------|------------|---------------|
-| `account` | Account List | `/api/accounts/delete_*` / currency / link / company |
-| `txn_maint` | Transaction Maintenance | `/api/transactions/maintenance_delete_api.php` |
-| `payment` | Payment Maintenance | `/api/payment_maintenance/delete_api.php` |
-| `bank_maint` | Bank Process Maintenance | `/api/bankprocess_maintenance/delete_api.php` |
-| `capture` | Capture Maintenance | `/api/capture_maintenance/delete_api.php` |
-| `formula` | Formula Maintenance | `/api/formula_maintenance/delete_api.php` |
-| `process` | Process List（物理删 Bank Process） | `/api/processes/delete_processes_api.php` |
-| `ownership` | Ownership | `/api/ownership/remove_owner_api.php` |
-| `auto_renew` | Auto Renew | `/api/subscription/auto_renew_api.php` |
-| `marquee` | Announcement / Marquee | `/api/maintenance/delete_api.php` |
+Label 对齐 `AuthenticatedLayout` + `dashboardTranslate`（EN / 中）：
+
+| Tab key | 侧栏位置 | Label |
+|---------|----------|-------|
+| `account` | Account | Account · 账号 |
+| `ownership` | Ownership | Ownership · 股权 |
+| `process` | Process | Process · 流程 |
+| `capture` | Maintenance › Data Capture | Data Capture · 数据采集 |
+| `txn_maint` | Maintenance › Transaction | Transaction · 交易 |
+| `payment` | Maintenance › Payment | Payment · 支付 |
+| `formula` | Maintenance › Formula | Formula · 公式 |
+| `bank_maint` | Maintenance › Bank | Bank · 银行 |
+| `auto_renew` | Auto Renew | Auto Renew · 自动续费 |
+| `marquee` | Announcement | Announcement · 公告 |
 
 **不进 Deleted Log**：Games Process soft-delete（`waiting`）、只写旁路表而无 `deletedLog()` 的路径、Payment History（业务历史非删除审计）。
 

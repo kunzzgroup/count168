@@ -26,6 +26,22 @@
     border-bottom: 1px solid #e2e8f0;
 }
 
+/* ec-s / ec-m：多 tab 时横向滚动，避免挤成难点的多行药丸 */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .deleted-log-entry-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        padding-bottom: 10px;
+    }
+
+    .deleted-log-entry-tab {
+        flex: 0 0 auto;
+    }
+}
+
 .deleted-log-entry-tab {
     display: inline-flex;
     align-items: center;

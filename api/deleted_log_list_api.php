@@ -33,12 +33,12 @@ if ($scope['mode'] === 'none') {
 }
 
 $moduleMap = [
-    'accounts' => 'Accounts',
-    'transactions' => 'Transactions',
-    'ownership' => 'Ownership',
-    'data_capture' => 'Data Capture',
-    'bankprocess' => 'Bank Process',
-    'maintenance' => 'Maintenance',
+    'accounts' => 'Account · 账号',
+    'transactions' => 'Transaction · 交易',
+    'ownership' => 'Ownership · 股权',
+    'data_capture' => 'Data Capture · 数据采集',
+    'bankprocess' => 'Bank / Process · 银行/流程',
+    'maintenance' => 'Formula / Announcement · 公式/公告',
 ];
 
 $moduleToTables = [
