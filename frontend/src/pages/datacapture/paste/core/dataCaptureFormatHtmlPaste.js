@@ -92,7 +92,7 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
       startRowOverride: startRow,
       startColOverride: 0,
       trimValues: false,
-      alignTotalRows: true,
+      alignTotalRows: false,
     });
 
     if (successCount > 0) {

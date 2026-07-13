@@ -294,7 +294,7 @@ export function applyDataMatrixToGrid(dataMatrix, anchorCell, options = {}) {
 }
 
 function applyDataMatrixToGridModel(dataMatrix, anchorCell, options = {}) {
-  const { startColOverride = null, startRowOverride = null, alignTotalRows = true } = options;
+  const { startColOverride = null, startRowOverride = null, alignTotalRows = false } = options;
 
   if (!dataMatrix?.length) return { successCount: 0, changes: [] };
 

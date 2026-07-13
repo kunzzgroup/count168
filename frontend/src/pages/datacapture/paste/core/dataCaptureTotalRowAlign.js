@@ -1,11 +1,12 @@
 /**
- * TOTAL / 总数 row column alignment — matches the PHP site's visible result.
+ * TOTAL / 总数 row helpers.
  *
- * PHP 1.TEXT renders Chinese total rows (总数 / 合计 …) with numbers flush against
- * the label: `总数 | num1 | num2 | ...` starting in column 2. If the captured row
- * has a blank gap between the label and its first number, that gap is collapsed.
- * SUB TOTAL / GRAND TOTAL (2.Format) keep their name-column gap and are never
- * shifted here — PHP has no equivalent alignment on the format paste path.
+ * Clipboard / HTML empty cells between a Total label and its first number are
+ * preserved 1:1 (web report name-column gaps). Do not collapse those blanks —
+ * over-select cleanup lives in dataCapturePasteMatrixSanitize.js only.
+ *
+ * SUB TOTAL / GRAND TOTAL never had gap collapse; English TOTAL / CJK 总数
+ * follow the same preserve rule now.
  */
 
 function trimCellValue(cell) {
@@ -46,70 +47,6 @@ function isTotalLabel(value) {
   return CJK_TOTAL_LABELS.has(raw);
 }
 
-function isNumericValue(value) {
-  const cleaned = String(value ?? "").replace(/,/g, "").trim();
-  if (cleaned === "") return false;
-  return /^-?\d+(\.\d+)?$/.test(cleaned);
-}
-
-function rowFirstNonEmptyIndex(row) {
-  for (let i = 0; i < row.length; i += 1) {
-    if (!isBlankCell(trimCellValue(row[i]))) return i;
-  }
-  return -1;
-}
-
-function rowFirstNumericIndex(row) {
-  for (let i = 0; i < row.length; i += 1) {
-    if (isNumericValue(trimCellValue(row[i]))) return i;
-  }
-  return -1;
-}
-
-/** True for 1.TEXT-style Chinese total rows (总数 / 合计 …), not SUB/GRAND TOTAL. */
-function isTextStyleTotalLabel(value) {
-  const raw = String(value || "").trim();
-  return CJK_TOTAL_LABELS.has(raw);
-}
-
-/** English footer "Total" only — not Sub Total / Grand Total (2.Format keeps their gap). */
-function isEnglishTextTotalLabel(value) {
-  return String(value || "").trim().toUpperCase() === "TOTAL";
-}
-
-/** A 1.TEXT total row whose label→number gap may be collapsed. */
-function rowIsCollapsibleTotalRow(row) {
-  if (!Array.isArray(row)) return false;
-  const idx = rowFirstNonEmptyIndex(row);
-  if (idx < 0) return false;
-  const label = trimCellValue(row[idx]);
-  return isTextStyleTotalLabel(label) || isEnglishTextTotalLabel(label);
-}
-
-/** @deprecated alias — use rowIsCollapsibleTotalRow */
-function rowIsTextStyleTotalRow(row) {
-  return rowIsCollapsibleTotalRow(row);
-}
-
-function collapseTotalLabelGap(row) {
-  if (!Array.isArray(row)) return row;
-
-  const labelIdx = rowFirstNonEmptyIndex(row);
-  const numIdx = rowFirstNumericIndex(row);
-  if (numIdx <= labelIdx + 1) return row;
-
-  const gap = numIdx - (labelIdx + 1);
-  const next = [...row];
-  next.splice(labelIdx + 1, gap);
-  for (let i = 0; i < gap; i += 1) next.push(makeBlankCellLike(row));
-  return next;
-}
-
-function makeBlankCellLike(row) {
-  const sample = row.find((cell) => cell != null && typeof cell === "object" && "value" in cell);
-  return sample ? { value: "" } : "";
-}
-
 function rowHasTotalLabel(row) {
   if (!Array.isArray(row)) return false;
   for (let i = 0; i < Math.min(row.length, 4); i += 1) {
@@ -141,100 +78,30 @@ export function matrixHasNameColumnPattern(matrix) {
 }
 
 /**
- * Collapse blank gap between a TOTAL / 总数 label and its first number so values
- * start in the column immediately after the label (matches PHP 1.TEXT).
+ * Preserve Total-row shape 1:1 (no label→number gap collapse).
+ * @param {Array<string|object>} row
  */
 export function alignTotalRowArray(row) {
-  if (!rowIsCollapsibleTotalRow(row)) return row;
-  return collapseTotalLabelGap(row);
+  return row;
 }
 
 /**
- * Collapse the blank gap between a TOTAL / 总数 label and its first number so the
- * total row's numbers start in column 2 (matches PHP). Cells after the first
- * number keep their order; row length is preserved by padding blanks at the end.
- *
+ * Preserve Total-row empty cells 1:1 from clipboard / HTML matrix.
  * @param {Array<Array<string|object>>} matrix
- * @returns {Array<Array<string|object>>}
  */
 export function alignTotalRowsInMatrix(matrix) {
-  if (!Array.isArray(matrix) || !matrix.length) return matrix;
-  if (!matrix.some(rowIsCollapsibleTotalRow)) return matrix;
-
-  let changed = false;
-  const aligned = matrix.map((row) => {
-    if (!Array.isArray(row) || !rowIsCollapsibleTotalRow(row)) return row;
-    const next = collapseTotalLabelGap(row);
-    if (next !== row) changed = true;
-    return next;
-  });
-
-  if (changed) {
-    console.log("Collapsed TOTAL row label gap so numbers start in column 2 (matches PHP).");
-  }
-
-  return aligned;
+  return matrix;
 }
 
-function getSnapshotDataText(rowData, dataColIndex) {
-  const cell = rowData[dataColIndex + 1];
-  if (!cell || cell.type !== "data") return "";
-  return String(cell.value || "").trim();
-}
-
+/** Snapshot path: keep pasted Total gaps (same rule as paste matrix). */
 export function alignSnapshotRow(rowData) {
-  if (!Array.isArray(rowData) || rowData.length < 4) return rowData;
-
-  const values = [];
-  for (let i = 0; i < rowData.length - 1; i += 1) {
-    values.push(getSnapshotDataText(rowData, i));
-  }
-
-  const alignedValues = alignTotalRowArray(values);
-  if (alignedValues === values) return rowData;
-
-  const next = [rowData[0]];
-  for (let i = 0; i < alignedValues.length; i += 1) {
-    const prev = rowData[i + 1];
-    const value = alignedValues[i];
-    if (prev?.type === "data") {
-      next.push({ ...prev, value, col: i });
-    } else {
-      next.push({ type: "data", value, col: i });
-    }
-  }
-
-  return next;
+  return rowData;
 }
 
 /**
- * Submit-time snapshot fix (same rule as paste matrix alignment).
+ * Submit-time snapshot: no Total-gap rewrite.
  * @param {object} tableData
- * @returns {object}
  */
 export function alignTotalRowsInSnapshot(tableData) {
-  if (!tableData?.rows?.length) return tableData;
-
-  const probe = tableData.rows.map((rowData) => {
-    const values = [];
-    for (let i = 0; i < Math.max(0, (rowData?.length || 1) - 1); i += 1) {
-      values.push(getSnapshotDataText(rowData, i));
-    }
-    return values;
-  });
-
-  if (!matrixHasNameColumnPattern(probe) && !probe.some(rowHasTotalLabel)) return tableData;
-
-  const working = JSON.parse(JSON.stringify(tableData));
-  let changed = false;
-
-  working.rows = working.rows.map((rowData) => {
-    const aligned = alignSnapshotRow(rowData);
-    if (aligned !== rowData) changed = true;
-    return aligned;
-  });
-
-  if (!changed) return tableData;
-  console.log("Submit snapshot: aligned TOTAL row columns to match PHP.");
-  return working;
+  return tableData;
 }
