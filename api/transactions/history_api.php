@@ -374,7 +374,7 @@ function formatMarkupDescription(string $description, ?string $fromCurrencyCode 
 
 /**
  * 确保 data_capture_details.rate 至少支持 8 位小数，避免历史弹窗读取时已被截断到 4 位。
- * rate_expression 不在此做 DDL — 由 migration 负责；读取侧用 historyHasRateExpressionColumn。
+ * rate_expression：优先 migration；缺失时 historyHasRateExpressionColumn 会做一次安全 ADD COLUMN。
  */
 function ensureHistoryRatePrecision(PDO $pdo): void
 {
@@ -409,21 +409,44 @@ function ensureHistoryRatePrecision(PDO $pdo): void
     }
 }
 
-/** Detect-only: whether data_capture_details.rate_expression exists (no DDL). */
+/**
+ * Whether data_capture_details.rate_expression exists.
+ * Prefer migration 20260713; runtime ADD is a safe fallback so History can show *3 / /3.
+ */
 function historyHasRateExpressionColumn(PDO $pdo): bool
 {
     static $cached = null;
-    if ($cached !== null) {
-        return $cached;
+    if ($cached === true) {
+        return true;
     }
     try {
         $st = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'rate_expression'");
-        $cached = (bool) ($st && $st->fetch(PDO::FETCH_ASSOC));
+        if ($st && $st->fetch(PDO::FETCH_ASSOC)) {
+            $cached = true;
+            return true;
+        }
     } catch (Throwable $e) {
-        $cached = false;
         error_log('history_api rate_expression column check: ' . $e->getMessage());
     }
-    return $cached;
+
+    if ($cached === false) {
+        return false;
+    }
+
+    try {
+        $pdo->exec(
+            "ALTER TABLE `data_capture_details`
+             ADD COLUMN `rate_expression` VARCHAR(64) NULL DEFAULT NULL
+             COMMENT 'Original rate text e.g. *3 /3 3' AFTER `rate`"
+        );
+        error_log('history_api added data_capture_details.rate_expression (runtime fallback)');
+        $cached = true;
+        return true;
+    } catch (Throwable $e) {
+        error_log('history_api rate_expression ensure warning: ' . $e->getMessage());
+        $cached = false;
+        return false;
+    }
 }
 
 /** SELECT fragment for rate_expression — NULL alias when column missing. */
