@@ -2,6 +2,14 @@ import { useMemo } from "react";
 import { parseAnnouncementCard } from "./parseAnnouncementCard.js";
 import { toSafeRenderHtml } from "../../utils/content/richTextSanitizer.js";
 
+function faviconUrl() {
+  try {
+    return new URL("/favicon.ico", window.location.origin).href;
+  } catch {
+    return "/favicon.ico";
+  }
+}
+
 function padIndex(index) {
   return String(index + 1).padStart(2, "0");
 }
@@ -123,9 +131,7 @@ export default function AnnouncementUpdateCard({
 
       <div className="auc-footer">
         <div className="auc-brand">
-          <span className="auc-brand-mark" aria-hidden="true">
-            E
-          </span>
+          <img className="auc-brand-mark" src={faviconUrl()} alt="" width={22} height={22} />
           <span>{labels.teamName || "EAZY COUNT Team"}</span>
         </div>
         {announcement?.created_at ? (
