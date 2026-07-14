@@ -207,12 +207,15 @@ function tryProcessFormatClipboard(html, text, options) {
   const plainMulti = matrixLooksMultiColumn(plainMatrix);
 
   // Prefer good multi-col HTML (keeps mat-row styles). Reject N×1 HTML dumps.
+  // IMPORTANT: when HTML "looks" multi-col but fill rejects a collapsed body
+  // (Fig1 stack / empty sibling TDs), fall through to dual-source — do not
+  // `return false` and abandon plain reshape.
   const normalizedHtml = resolveNormalizedHtml(html);
   if (normalizedHtml && /<table\b/i.test(normalizedHtml)) {
     if (!formatHtmlLooksLikeVerticalNx1(normalizedHtml)) {
-      return processFormatTableHtml(normalizedHtml, options);
-    }
-    if (plainMulti) {
+      if (processFormatTableHtml(normalizedHtml, options)) return true;
+      if (plainMulti) return processFormatDualSource(html || normalizedHtml, plainText, options);
+    } else if (plainMulti) {
       return processFormatDualSource(html || normalizedHtml, plainText, options);
     }
   }
@@ -221,9 +224,9 @@ function tryProcessFormatClipboard(html, text, options) {
     const forced = normalizeClipboardHtmlToTable(html);
     if (forced && /<table\b/i.test(forced)) {
       if (!formatHtmlLooksLikeVerticalNx1(forced)) {
-        return processFormatTableHtml(forced, options);
-      }
-      if (plainMulti) {
+        if (processFormatTableHtml(forced, options)) return true;
+        if (plainMulti) return processFormatDualSource(html, plainText, options);
+      } else if (plainMulti) {
         return processFormatDualSource(html, plainText, options);
       }
     }
@@ -236,9 +239,11 @@ function tryProcessFormatClipboard(html, text, options) {
 
   if (plainText && /<table\b/i.test(plainText)) {
     if (!formatHtmlLooksLikeVerticalNx1(plainText)) {
-      return processFormatTableHtml(plainText, options);
+      if (processFormatTableHtml(plainText, options)) return true;
+      if (plainMulti) return processFormatDualSource(html, plainText, options);
+    } else if (plainMulti) {
+      return processFormatDualSource(html, plainText, options);
     }
-    if (plainMulti) return processFormatDualSource(html, plainText, options);
   }
   if (plainText && plainText.includes("\t")) {
     return processFormatTsv(plainText, options);
@@ -293,7 +298,13 @@ export function handleFormatPasteAreaEvent(e) {
         const appendStartRow = domGridHasEditableData()
           ? resolveFormatPasteStartRow(getFormatPasteAnchorCell())
           : 0;
-        processFormatTableHtml(normalizedPasted, { area, startRow: appendStartRow });
+        if (processFormatTableHtml(normalizedPasted, { area, startRow: appendStartRow })) return;
+        if (text?.trim()) {
+          processFormatDualSource(pastedHTML || normalizedPasted, text, {
+            area,
+            startRow: appendStartRow,
+          });
+        }
       }
     } catch {
       /* ignore */

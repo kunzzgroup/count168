@@ -520,34 +520,46 @@ function expandPlainTokensToRow(tokens, maxCols) {
   return [row];
 }
 
+function tryExpandLeadingDumpCell(sourceCells, maxCols) {
+  if (!sourceCells.length) return null;
+  const first = sourceCells[0];
+  const restAreBlank = sourceCells.slice(1).every((cell) => {
+    const text = extractPlainText(cell);
+    if (text) return false;
+    return collectNestedReportFieldCells(cell).length === 0;
+  });
+  // Multi-TD row where only the first cell holds the report field stack.
+  if (sourceCells.length > 1 && !restAreBlank) return null;
+
+  const nested = collectNestedReportFieldCells(first);
+  const nestedTexts = nested.map((el) => extractPlainText(el));
+  if (nested.length >= 3 && nestedFieldsLookLikeReportRow(nestedTexts)) {
+    return expandCollapsedFieldsToRow(nested, maxCols);
+  }
+
+  const lines = extractCellLines(first);
+  if (nestedFieldsLookLikeReportRow(lines)) {
+    return expandPlainTokensToRow(lines, maxCols);
+  }
+
+  const tokens = tokenizeCollapsedReportRow(first.textContent || "");
+  if (nestedFieldsLookLikeReportRow(tokens)) {
+    return expandPlainTokensToRow(tokens, maxCols);
+  }
+
+  if (nested.length >= 3) {
+    return expandCollapsedFieldsToRow(nested, maxCols);
+  }
+  return null;
+}
+
 function expandSourceRowToMatrixRows(sourceRow, maxCols) {
   // Direct children only — nested tables must not inflate sourceCells.
   const sourceCells = getDirectRowCells(sourceRow);
 
-  // Collapsed Material / Word row: one TD holding nested field blocks → expand HORIZONTALLY.
-  if (sourceCells.length === 1) {
-    const only = sourceCells[0];
-    const nested = collectNestedReportFieldCells(only);
-    const nestedTexts = nested.map((el) => extractPlainText(el));
-    if (nested.length >= 3 && nestedFieldsLookLikeReportRow(nestedTexts)) {
-      return expandCollapsedFieldsToRow(nested, maxCols);
-    }
-
-    const lines = extractCellLines(only);
-    if (nestedFieldsLookLikeReportRow(lines)) {
-      return expandPlainTokensToRow(lines, maxCols);
-    }
-
-    const tokens = tokenizeCollapsedReportRow(only.textContent || "");
-    if (nestedFieldsLookLikeReportRow(tokens)) {
-      return expandPlainTokensToRow(tokens, maxCols);
-    }
-
-    // Last resort: never dump a multi-field HTML stack into one grid cell (Fig1).
-    if (nested.length >= 3) {
-      return expandCollapsedFieldsToRow(nested, maxCols);
-    }
-  }
+  // Collapsed Material / Word / wide-empty-TD row → expand HORIZONTALLY.
+  const leadingExpand = tryExpandLeadingDumpCell(sourceCells, maxCols);
+  if (leadingExpand) return leadingExpand;
 
   const { hasVerticalSplit, cellsWithSplit, isFirstCellWithBrOrSpan } =
     detectRowVerticalSplit(sourceCells);
@@ -584,15 +596,19 @@ function expandSourceRowToMatrixRows(sourceRow, maxCols) {
   fillSourceRowPatches(row, sourceCells, row.length, () => null);
 
   // Safety: single filled cell still looks like a stacked field dump → expand it.
-  const nonEmpty = row.filter(
-    (cell) => String(cell?.value || "").trim() || String(cell?.html || "").trim(),
-  );
-  if (nonEmpty.length === 1 && sourceCells.length === 1) {
-    const nested = collectNestedReportFieldCells(sourceCells[0]);
-    if (nested.length >= 3) return expandCollapsedFieldsToRow(nested, Math.max(maxCols, nested.length));
-    const lines = extractCellLines(sourceCells[0]);
-    if (nestedFieldsLookLikeReportRow(lines)) {
-      return expandPlainTokensToRow(lines, Math.max(maxCols, lines.length));
+  const nonEmptyIdx = [];
+  row.forEach((cell, index) => {
+    if (String(cell?.value || "").trim() || String(cell?.html || "").trim()) nonEmptyIdx.push(index);
+  });
+  if (nonEmptyIdx.length === 1) {
+    const dumpCell = sourceCells[nonEmptyIdx[0]] || sourceCells[0];
+    if (dumpCell) {
+      const nested = collectNestedReportFieldCells(dumpCell);
+      if (nested.length >= 3) return expandCollapsedFieldsToRow(nested, Math.max(maxCols, nested.length));
+      const lines = extractCellLines(dumpCell);
+      if (nestedFieldsLookLikeReportRow(lines)) {
+        return expandPlainTokensToRow(lines, Math.max(maxCols, lines.length));
+      }
     }
   }
 
