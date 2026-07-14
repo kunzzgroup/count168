@@ -48,6 +48,17 @@ function isDenseReportRow(row) {
   return nums >= 2 && nums >= Math.ceil(row.length * 0.5);
 }
 
+/** Agent/account-like or summary labels — not prose headers like "Amount". */
+function looksLikeReportRowLabel(token) {
+  if (isVerticalDumpSummaryLabel(token)) return true;
+  const t = normalizeVerticalDumpToken(token);
+  if (!t || t.length < 3) return false;
+  // Reject single Title-case prose words (Amount, Name, …).
+  if (/^[A-Z][a-z]+$/.test(t)) return false;
+  // Agent/account codes: letters required; digits optional (AGENTA / SDSPDA95).
+  return /^[A-Z0-9][A-Z0-9_-]{2,}$/i.test(t) && /[A-Za-z]/.test(t);
+}
+
 function isDroppableTrailingLeftover(leftover, width) {
   if (!leftover.length) return true;
   const leftoverNums = leftover.filter((t) => isVerticalDumpMoneyToken(t)).length;
@@ -183,6 +194,8 @@ function tryParseAnchoredVerticalRows(tokens) {
 
   for (let start = 0; start < tokens.length - 2; start += 1) {
     if (isVerticalDumpMoneyToken(tokens[start])) continue;
+    // Skip prose headers (e.g. "Amount") — only agent/summary-like anchors.
+    if (!looksLikeReportRowLabel(tokens[start])) continue;
 
     let end = start + 1;
     while (end < tokens.length && isVerticalDumpMoneyToken(tokens[end])) end += 1;
@@ -234,8 +247,13 @@ function tryParseSummaryStrideRows(tokens) {
   const firstSummary = tokens.findIndex((token) => isVerticalDumpSummaryLabel(token));
   let start = 0;
   if (firstSummary > width && firstSummary % width === 0) {
-    // Header + first data row before SUBTOTAL.
-    if (firstSummary === width * 2) start = width;
+    // Only skip a leading header strip when that strip is all labels (column titles),
+    // not a dense agent data row (e.g. two agents before SUBTOTAL).
+    if (firstSummary === width * 2) {
+      const firstHalf = tokens.slice(0, width);
+      const firstHalfAllLabels = firstHalf.every((t) => !isVerticalDumpMoneyToken(t));
+      if (firstHalfAllLabels) start = width;
+    }
   } else if (firstSummary === width) {
     // Data row then SUBTOTAL — keep from 0.
     start = 0;
@@ -320,18 +338,13 @@ export function detectVerticalFieldDump(nonEmptyLines) {
     }
   }
 
-  // Single crushed report row: leading label + dense money/number fields.
-  if (labelIndices.length <= 2 && labelIndices[0] === 0 && isDenseReportRow(tokens)) {
-    return [tokens];
-  }
-
-  // Leading label + mostly numbers even when a mid-row non-money token exists
-  // (rare chrome) — still one horizontal row when density is high.
+  // Single crushed report row: leading agent/summary label + dense money fields.
+  // Do NOT reshape "Header\n1\n2\n3" intentional 1-col pastes.
   if (
+    labelIndices.length <= 2 &&
     labelIndices[0] === 0 &&
-    tokens.length >= 3 &&
-    numericLikeCount >= Math.ceil(tokens.length * 0.6) &&
-    !isVerticalDumpMoneyToken(tokens[0])
+    isDenseReportRow(tokens) &&
+    looksLikeReportRowLabel(tokens[0])
   ) {
     return [tokens];
   }
