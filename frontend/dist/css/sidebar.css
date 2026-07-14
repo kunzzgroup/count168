@@ -1419,7 +1419,7 @@
     right: -400px;
     width: clamp(260px, 20.83vw, 400px);
     height: 100vh;
-    background: #f8fafc;
+    background: #eef2f7;
     box-shadow: -8px 0 28px rgba(15, 23, 42, 0.12);
     z-index: 1300;
     transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1483,22 +1483,22 @@
 }
 
 .notification-item {
-    padding: clamp(12px, 0.94vw, 18px) clamp(12px, 0.94vw, 18px) clamp(12px, 0.94vw, 18px) clamp(14px, 1.04vw, 20px);
-    margin-bottom: clamp(10px, 0.73vw, 14px);
+    padding: clamp(14px, 1vw, 20px) clamp(14px, 1vw, 20px) clamp(14px, 1vw, 20px) clamp(16px, 1.1vw, 22px);
+    margin-bottom: clamp(12px, 0.83vw, 16px);
     background: #ffffff;
     border-radius: 14px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #dbe3ef;
     border-left: 4px solid #1a237e;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06), 0 10px 22px rgba(15, 23, 42, 0.08);
     cursor: pointer;
     transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 .notification-item:hover {
     background: #ffffff;
-    border-color: #cbd5e1;
+    border-color: #b6c4d8;
     transform: translateX(-2px);
-    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 8px 18px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 4px 8px rgba(15, 23, 42, 0.08), 0 14px 28px rgba(15, 23, 42, 0.12);
 }
 
 .notification-bell.has-unread::after {
