@@ -8,6 +8,10 @@ import {
   expandCollapsedTableRows,
   tokenizeCollapsedReportRow,
 } from "./dataCaptureFormatClipboardNormalize.js";
+import {
+  cellHtmlLooksLikeActionChrome,
+  FORMAT_ACTION_BUTTON_HTML,
+} from "./dataCaptureClipboard.js";
 
 function cellTextIsMoneyOrNumberLike(text) {
   const cleaned = String(text ?? "")
@@ -439,9 +443,20 @@ export function buildFormatDataCellPatch(sourceCell, displayText) {
     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, "");
 
   if (cleanContent.includes("<") && cleanContent.includes(">")) {
+    const html = sanitizeFormatHtmlFragment(cleanContent);
+    const looksAction =
+      /data-dc-format-action/.test(html) || cellHtmlLooksLikeActionChrome(cleanContent);
     return {
-      value: cellText,
-      html: sanitizeFormatHtmlFragment(cleanContent),
+      value: looksAction && !String(cellText || "").trim() ? "−" : cellText,
+      html,
+      styleCssText,
+    };
+  }
+
+  if (cellHtmlLooksLikeActionChrome(cellContent)) {
+    return {
+      value: "−",
+      html: FORMAT_ACTION_BUTTON_HTML,
       styleCssText,
     };
   }

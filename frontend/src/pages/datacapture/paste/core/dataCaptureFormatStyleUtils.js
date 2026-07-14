@@ -1,5 +1,11 @@
 /** Ported from js/datacapture.js — 2.Format style sanitization (Phase 4c). */
 
+import {
+  cellHtmlLooksLikeActionChrome,
+  FORMAT_ACTION_BUTTON_HTML,
+  sanitizePastedCellHtmlForFormat,
+} from "./dataCaptureClipboard.js";
+
 export function sanitizeCopiedStyleString(styleString) {
     if (!styleString) return '';
     const blocked = new Set([
@@ -35,11 +41,21 @@ export function stripBackgroundFromStyle(styleString) {
 }
 
 // 2.Format：清洗HTML片段，移除class/id，并过滤style里的布局属性（保留颜色/下划线/背景等）
+// Action buttons → decorative circular minus (preserve visual 1:1 after class strip).
 export function sanitizeFormatHtmlFragment(html) {
     if (!html) return '';
     try {
+        const safe = sanitizePastedCellHtmlForFormat(html);
+        if (cellHtmlLooksLikeActionChrome(html) || /data-dc-format-action/.test(safe)) {
+            // Prefer the already-replaced decorative button when chrome was present.
+            if (/data-dc-format-action/.test(safe)) return safe;
+            if (!String(safe).replace(/<[^>]+>/g, '').replace(/\s+/g, '').trim()) {
+                return FORMAT_ACTION_BUTTON_HTML;
+            }
+        }
+
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = String(html);
+        wrapper.innerHTML = String(safe);
 
         const all = wrapper.querySelectorAll('*');
         all.forEach(el => {
