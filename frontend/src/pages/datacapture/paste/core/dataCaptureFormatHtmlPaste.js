@@ -7,6 +7,70 @@ import {
   countFormatRequiredBodyRows,
   buildFormatBodyMatrix,
 } from "./dataCaptureFormatHtmlMatrix.js";
+import { plainMatrixToFormatCellPatches } from "./dataCaptureFormatPreview.js";
+import { parsePlainTextMatrix } from "./dataCaptureTextPaste.js";
+import { tokenizeCollapsedReportRow } from "./dataCaptureFormatClipboardNormalize.js";
+
+function flattenFormatBodyMatrixToPlain(bodyMatrix) {
+  const lines = [];
+  (bodyMatrix || []).forEach((row) => {
+    (row || []).forEach((cell) => {
+      const text = String(cell?.value || "")
+        .replace(/\u00a0/g, " ")
+        .trim();
+      const html = String(cell?.html || "");
+      if (text.includes("\n") || text.includes("\r")) {
+        text
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .forEach((line) => lines.push(line));
+        return;
+      }
+      const fromHtml = html
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/(?:div|p|tr|li|mat-cell)>/gi, "\n")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\u00a0/g, " ");
+      const htmlLines = fromHtml
+        .split(/\r?\n/)
+        .map((line) => line.replace(/\s+/g, " ").trim())
+        .filter(Boolean);
+      if (htmlLines.length >= 3) {
+        htmlLines.forEach((line) => lines.push(line));
+        return;
+      }
+      const tokenized = tokenizeCollapsedReportRow(text || fromHtml);
+      if (tokenized.length >= 3) {
+        tokenized.forEach((token) => lines.push(token));
+        return;
+      }
+      if (text) lines.push(text);
+    });
+  });
+  return lines.join("\n");
+}
+
+function tryReshapeCollapsedFormatBody(bodyMatrix, htmlString) {
+  const fromMatrix = flattenFormatBodyMatrixToPlain(bodyMatrix);
+  const candidates = [fromMatrix, String(htmlString || "").replace(/<[^>]+>/g, "\n")].filter(
+    (s) => s && s.trim().length >= 3,
+  );
+
+  for (const candidate of candidates) {
+    const matrix = parsePlainTextMatrix(candidate);
+    const cols = matrix?.[0]?.length || 0;
+    if (cols < 2) continue;
+    const patches = plainMatrixToFormatCellPatches(matrix, htmlString || "");
+    if (!patches.length) continue;
+    if (formatBodyMatrixLooksCollapsed(patches, null)) continue;
+    console.log(
+      `Format: Healed collapsed body via plain reshape → ${patches.length}x${cols}`,
+    );
+    return patches;
+  }
+  return null;
+}
 
 function cellText(cell) {
   if (cell == null) return "";
@@ -155,7 +219,7 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
 
     ensureGridFits(startRow, 0, countFormatRequiredBodyRows(dataRows), maxCols);
 
-    const bodyMatrix = buildFormatBodyMatrix(dataRows, maxCols);
+    let bodyMatrix = buildFormatBodyMatrix(dataRows, maxCols);
     console.log(
       `Format: Applying ${bodyMatrix.length} body row(s) at row ${startRow} (${dataRows.length} source data rows)`,
     );
@@ -164,10 +228,21 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
       !options.acceptCollapsedMatrix &&
       formatBodyMatrixLooksCollapsed(bodyMatrix, dataRows)
     ) {
-      console.log(
-        "Format: Rejecting collapsed/misaligned body matrix (will try another clipboard path)",
-      );
-      return false;
+      const healed = tryReshapeCollapsedFormatBody(bodyMatrix, htmlString);
+      if (healed) {
+        bodyMatrix = healed;
+        ensureGridFits(
+          startRow,
+          0,
+          bodyMatrix.length,
+          Math.max(...bodyMatrix.map((row) => row.length), 0),
+        );
+      } else {
+        console.log(
+          "Format: Rejecting collapsed/misaligned body matrix (will try another clipboard path)",
+        );
+        return false;
+      }
     }
 
     const { successCount: bodySuccessCount } = applyDataMatrixToGrid(bodyMatrix, null, {

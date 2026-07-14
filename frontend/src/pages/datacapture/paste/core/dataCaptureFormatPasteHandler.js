@@ -2,8 +2,8 @@ import { parseAndFillHtmlTableForFormat } from "./dataCaptureFormatHtmlPaste.js"
 import {
   buildFormatPreviewFragmentFromClipboardHtml,
   clipboardLooksLikeTable,
+  plainMatrixToFormatCellPatches,
   plainMatrixToHtmlTable,
-  plainMatrixToStyledHtmlTable,
   sanitizePastedHTML,
   tsvToHtmlTable,
 } from "./dataCaptureFormatPreview.js";
@@ -12,8 +12,11 @@ import {
   normalizeClipboardHtmlToTable,
 } from "./dataCaptureFormatClipboardNormalize.js";
 import { parseFormatHtmlTableStructure } from "./dataCaptureFormatHtmlMatrix.js";
+import { formatBodyMatrixLooksCollapsed } from "./dataCaptureFormatHtmlPaste.js";
 import { parsePlainTextMatrix } from "./dataCaptureTextPaste.js";
 import {
+  applyDataMatrixToGrid,
+  ensureGridFits,
   getFormatPasteAnchorCell,
   resolveFormatPasteStartRow,
 } from "./dataCapturePasteApply.js";
@@ -23,6 +26,7 @@ import { showFormatEditableGrid, syncFormatPreviewFromDom } from "../../format/d
 import { resolvePasteCell } from "./dataCaptureClipboard.js";
 import {
   getActiveCaptureType,
+  notifyPasteUser,
   recomputeSubmitStateAfterPaste,
   setFormatGridReady,
   toggleFormatDisplay,
@@ -167,14 +171,42 @@ export function processFormatTsv(text, { area = null, startRow = null, anchorCel
 
 /**
  * 2.Format dual-source: plain matrix owns structure; HTML supplies .positive / link colors.
+ * Applies patches directly (no HTML table round-trip) so collapsed clipboard cannot win.
  * Format-only — does not touch 1.TEXT handlers.
  */
 export function processFormatDualSource(html, text, { area = null, startRow = null, anchorCell = null } = {}) {
   if (!text?.trim()) return false;
   const matrix = parsePlainTextMatrix(text);
   if (!matrixLooksMultiColumn(matrix)) return false;
-  const tableHtml = plainMatrixToStyledHtmlTable(matrix, html || "") || plainMatrixToHtmlTable(matrix);
-  return processFormatTableHtml(tableHtml, { area, startRow, anchorCell });
+
+  const resolvedStartRow =
+    startRow != null ? startRow : resolveFormatPasteStartRow(anchorCell || getFormatPasteAnchorCell());
+  const maxCols = Math.max(...matrix.map((row) => (row || []).length), 0);
+  ensureGridFits(resolvedStartRow, 0, matrix.length, maxCols);
+
+  const patches =
+    plainMatrixToFormatCellPatches(matrix, html || "") ||
+    matrix.map((row) => (row || []).map((value) => ({ value: String(value ?? "") })));
+
+  if (formatBodyMatrixLooksCollapsed(patches, null)) {
+    console.log("Format: Dual-source reshape still looks collapsed — abort");
+    return false;
+  }
+
+  const { successCount } = applyDataMatrixToGrid(patches, null, {
+    startRowOverride: resolvedStartRow,
+    startColOverride: 0,
+    trimValues: false,
+    alignTotalRows: false,
+  });
+  if (successCount <= 0) return false;
+
+  notifyPasteUser(
+    `成功粘贴表格 (${matrix.length} 个数据行 x ${maxCols} 列)，已按字段重排!`,
+    "success",
+  );
+  console.log(`Format: Dual-source applied ${matrix.length}x${maxCols} directly (no HTML reparse)`);
+  return afterFormatPasteFilled(true, area);
 }
 
 /** 2.Format: mat-row plain vertical dump → reshape → HTML table fill. */
@@ -206,10 +238,16 @@ function tryProcessFormatClipboard(html, text, options) {
   const plainMatrix = plainText?.trim() ? parsePlainTextMatrix(plainText) : null;
   const plainMulti = matrixLooksMultiColumn(plainMatrix);
 
-  // Prefer good multi-col HTML (keeps mat-row styles). Reject N×1 HTML dumps.
+  // Prefer plain reshape whenever available. Agent_period HTML often "looks"
+  // multi-col (or even expands) yet still lands as stacked A1/B1 on the grid;
+  // plain matrix → direct patches avoids that path entirely.
+  if (plainMulti) {
+    if (processFormatDualSource(html, plainText, options)) return true;
+  }
+
+  // HTML-only fallback when plain cannot reshape (no field dump / empty text).
   // IMPORTANT: when HTML "looks" multi-col but fill rejects a collapsed body
-  // (Fig1 stack / empty sibling TDs), fall through to dual-source — do not
-  // `return false` and abandon plain reshape.
+  // (Fig1 stack / empty sibling TDs), fall through — do not abandon early.
   const normalizedHtml = resolveNormalizedHtml(html);
   if (normalizedHtml && /<table\b/i.test(normalizedHtml)) {
     if (!formatHtmlLooksLikeVerticalNx1(normalizedHtml)) {

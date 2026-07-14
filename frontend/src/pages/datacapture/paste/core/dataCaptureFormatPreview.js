@@ -401,6 +401,72 @@ export function collectFormatStyleHintsFromHtml(html) {
  * Build Format HTML table from matrix + optional Material style hints (1:1 colors).
  * Report-center cues: positive → #82c751, agent link → #82b8b9.
  */
+/**
+ * Plain reshape → Format cell patches (value/html/style), skipping HTML table round-trip.
+ * Prefer this for agent_period dumps so stacked clipboard HTML cannot collapse cols again.
+ */
+export function plainMatrixToFormatCellPatches(matrix, htmlHintsSource = "") {
+    if (!matrix?.length) return [];
+    const hints = collectFormatStyleHintsFromHtml(htmlHintsSource);
+    const queue = hints.slice();
+
+    const takeHint = (text) => {
+        const normalized = normalizeHintText(text);
+        const idx = queue.findIndex((h) => h.text === normalized);
+        if (idx < 0) return null;
+        return queue.splice(idx, 1)[0];
+    };
+
+    return matrix.map((row, rowIndex) =>
+        (row || []).map((cell, colIndex) => {
+            const value = String(cell ?? "");
+            const hint = takeHint(value);
+            const styles = ["border: 1px solid #d0d7de !important;"];
+            let html;
+
+            if (hint?.inlineColor) styles.push(`color: ${hint.inlineColor}`);
+            if (hint?.positive) styles.push("color: #82c751");
+            if (hint?.negative) styles.push("color: #ff7575");
+            if (
+                hint?.hasLink ||
+                (colIndex === 0 &&
+                    rowIndex === 0 &&
+                    /^[A-Z0-9][A-Z0-9_-]{2,}$/i.test(value) &&
+                    !/^(SUBTOTAL|SUB TOTAL|TOTAL(?:\s+AMOUNT)?|GRAND\s*TOTAL)$/i.test(value))
+            ) {
+                styles.push("color: #82b8b9", "text-decoration: underline");
+                html = `<a href="#" style="color: #82b8b9;">${escapeHtml(value)}</a>`;
+            }
+
+            if (
+                !hint &&
+                colIndex === (row?.length || 0) - 1 &&
+                /^\$?-?[\d,]+\.?\d*$/.test(value.replace(/\s/g, ""))
+            ) {
+                const numeric = Number(String(value).replace(/[$,]/g, ""));
+                if (Number.isFinite(numeric) && numeric > 0) {
+                    styles.push("color: #82c751");
+                    html = `<span style="color: #82c751;">${escapeHtml(value)}</span>`;
+                }
+                if (Number.isFinite(numeric) && numeric < 0) {
+                    styles.push("color: #ff7575");
+                    html = `<span style="color: #ff7575;">${escapeHtml(value)}</span>`;
+                }
+            }
+
+            if (/^(SUBTOTAL|SUB TOTAL|TOTAL(?:\s+AMOUNT)?|GRAND\s*TOTAL)$/i.test(value)) {
+                styles.push("font-weight: 700");
+            }
+
+            return {
+                value,
+                ...(html ? { html } : {}),
+                styleCssText: styles.join(" "),
+            };
+        }),
+    );
+}
+
 export function plainMatrixToStyledHtmlTable(matrix, htmlHintsSource = "") {
     if (!matrix?.length) return "";
     const hints = collectFormatStyleHintsFromHtml(htmlHintsSource);
