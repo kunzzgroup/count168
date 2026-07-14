@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   loadStoredRemoveWordChips,
   mergeRemoveWordChips,
@@ -7,7 +7,7 @@ import {
   serializeRemoveWordChips,
 } from "../lib/removeWordChips.js";
 
-/** Plain text Remove Word field (`sad,aa,aaa`). Chips UI removed — copyable + usable. */
+/** Plain text Remove Word field (`sad,aa,aaa`). Normalize only on blur so commas can be typed. */
 export default function RemoveWordChipInput({
   value,
   onChange,
@@ -18,6 +18,8 @@ export default function RemoveWordChipInput({
   placeholder = "",
   disabled = false,
 }) {
+  const hydratedProcessRef = useRef(null);
+
   const commitNormalized = useCallback(
     (raw) => {
       if (disabled) return;
@@ -33,27 +35,23 @@ export default function RemoveWordChipInput({
     [disabled, onChange, processId, scopeCompanyId],
   );
 
+  // Merge stored chips once per process; do not re-normalize while typing.
   useEffect(() => {
     if (!processId || disabled) return;
+    if (hydratedProcessRef.current === processId) return;
+    hydratedProcessRef.current = processId;
+
     const fromValue = parseRemoveWordChips(value);
     const stored = loadStoredRemoveWordChips(scopeCompanyId, processId);
     const merged = mergeRemoveWordChips(fromValue, stored);
     const next = serializeRemoveWordChips(merged);
-    if (next !== serializeRemoveWordChips(fromValue)) {
+    if (next !== String(value ?? "")) {
       onChange?.(next);
     }
     if (merged.length) {
       saveStoredRemoveWordChips(scopeCompanyId, processId, merged);
     }
   }, [processId, scopeCompanyId, value, onChange, disabled]);
-
-  useEffect(() => {
-    if (disabled) return;
-    const next = serializeRemoveWordChips(parseRemoveWordChips(value));
-    if (value && next !== value) {
-      onChange?.(next);
-    }
-  }, [disabled, onChange, value]);
 
   return (
     <input
