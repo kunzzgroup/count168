@@ -279,29 +279,10 @@ function tryParseSummaryStrideRows(tokens) {
 }
 
 /**
- * Wrap reshaped rows as `{ width, rows }` (Plan B public shape).
- * @param {string[][]} rows
- * @returns {{ width: number, rows: string[][] } | null}
- */
-function asVerticalDumpResult(rows) {
-  if (!Array.isArray(rows) || !rows.length) return null;
-  const width = Math.max(...rows.map((row) => (Array.isArray(row) ? row.length : 0)));
-  if (width < 2) return null;
-  const normalized = rows.map((row) => {
-    const next = Array.isArray(row) ? [...row] : [row];
-    while (next.length < width) next.push("");
-    return next;
-  });
-  return { width, rows: normalized };
-}
-
-/**
  * Detect vertical field dump and reshape to horizontal rows.
  *
- * Plan B: detection + row-cut only. Callers (parsePlainTextMatrix) own apply.
- *
  * @param {string[]} nonEmptyLines
- * @returns {{ width: number, rows: string[][] } | null}
+ * @returns {string[][] | null}
  */
 export function detectVerticalFieldDump(nonEmptyLines) {
   if (!Array.isArray(nonEmptyLines) || nonEmptyLines.length < 3) return null;
@@ -325,11 +306,11 @@ export function detectVerticalFieldDump(nonEmptyLines) {
 
   // 1) Statement summary stride (Agent + SUBTOTAL / TOTAL AMOUNT) — highest confidence.
   const summaryRows = tryParseSummaryStrideRows(tokens);
-  if (summaryRows) return asVerticalDumpResult(summaryRows);
+  if (summaryRows) return summaryRows;
 
   // 2) Anchor on first dense label+numbers block (skips column-title headers).
   const anchoredRows = tryParseAnchoredVerticalRows(tokens);
-  if (anchoredRows) return asVerticalDumpResult(anchoredRows);
+  if (anchoredRows) return anchoredRows;
 
   // Without a header-stripped anchor, require overall numeric density.
   if (numericLikeCount < Math.ceil(tokens.length * 0.5)) return null;
@@ -353,7 +334,7 @@ export function detectVerticalFieldDump(nonEmptyLines) {
       stride >= 3 && diffs.every((diff) => diff === stride) && labelIndices[0] === 0;
     if (steady) {
       const rows = chunkTokensToRows(tokens, stride, { requireDense: true });
-      if (rows) return asVerticalDumpResult(rows);
+      if (rows) return rows;
     }
   }
 
@@ -365,7 +346,7 @@ export function detectVerticalFieldDump(nonEmptyLines) {
     isDenseReportRow(tokens) &&
     looksLikeReportRowLabel(tokens[0])
   ) {
-    return asVerticalDumpResult([tokens]);
+    return [tokens];
   }
 
   return null;

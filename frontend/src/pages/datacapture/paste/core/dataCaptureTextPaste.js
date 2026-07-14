@@ -48,8 +48,8 @@ export function parsePlainTextMatrix(pastedData) {
 
   // Prefer vertical-dump reshape before blank-line block splitting so mat-row
   // dumps with blank separators / trailing paginator still become multi-col rows.
-  const verticalDump = detectVerticalFieldDump(nonEmptyLines);
-  if (verticalDump?.rows?.length) return sanitizePasteMatrix(verticalDump.rows);
+  const verticalDumpRows = detectVerticalFieldDump(nonEmptyLines);
+  if (verticalDumpRows) return sanitizePasteMatrix(verticalDumpRows);
 
   const hasBlankLine = rawLines.some((line) => line.trim() === "");
   if (hasBlankLine) {
@@ -139,28 +139,7 @@ export function handleTextHtmlPaste(html, anchorCell) {
   return parseAndFillHtmlTableForText(tableHtml, anchorCell);
 }
 
-/**
- * True when plain clipboard is a Material/report one-field-per-line dump that
- * Plan B can reshape — prefer this over HTML that often lands as N×1 <tr>s.
- */
-function plainLooksLikeReshapableVerticalDump(pastedData) {
-  const text = String(pastedData ?? "");
-  if (!text.trim() || text.includes("\t")) return false;
-  const nonEmptyLines = text
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .split("\n")
-    .filter((line) => line.trim() !== "");
-  return Boolean(detectVerticalFieldDump(nonEmptyLines)?.rows?.length);
-}
-
 export function handleTextModePaste(e, pastedData, anchorCell) {
-  // Plan B first: agent_period / mat-row copies often ship HTML that parses as
-  // N×1 while plain is the reliable vertical field dump.
-  if (plainLooksLikeReshapableVerticalDump(pastedData)) {
-    if (handleTextPlainPaste(e, pastedData, anchorCell)) return true;
-  }
-
   const html = getClipboardHtml(e);
   const htmlFromDetect = html ? "" : detectHtmlTableInClipboard(e);
   const rawHtmlCandidate = html || htmlFromDetect;

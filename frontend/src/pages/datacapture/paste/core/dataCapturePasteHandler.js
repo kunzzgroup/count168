@@ -148,8 +148,7 @@ export function handleCellPasteEvent(e) {
 
   if (captureType === "2.Format") {
     if (handleFormatCellPaste(e, pastedData)) return;
-    // Format-only: never fall through to generic N×1 for report field dumps.
-    // Generic paste maps each newline to its own row and recreates the screenshot bug.
+    invokeGenericPasteFallback(e, pastedData);
     return;
   }
 
