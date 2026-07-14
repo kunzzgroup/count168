@@ -1486,17 +1486,16 @@
     padding: clamp(14px, 1vw, 20px) clamp(14px, 1vw, 20px) clamp(14px, 1vw, 20px) clamp(16px, 1.1vw, 22px);
     margin-bottom: clamp(12px, 0.83vw, 16px);
     background: #ffffff;
-    border-radius: 14px;
-    border: 1px solid #dbe3ef;
+    border-radius: 0;
+    border: none;
     border-left: 4px solid #1a237e;
     box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06), 0 10px 22px rgba(15, 23, 42, 0.08);
     cursor: pointer;
-    transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .notification-item:hover {
     background: #ffffff;
-    border-color: #b6c4d8;
     transform: translateX(-2px);
     box-shadow: 0 4px 8px rgba(15, 23, 42, 0.08), 0 14px 28px rgba(15, 23, 42, 0.12);
 }
@@ -1516,24 +1515,20 @@
 
 .notification-item.unread {
     background: #eff6ff;
-    border-color: #bfdbfe;
     border-left-color: #3b82f6;
 }
 
 .notification-item.unread:hover {
     background: #eff6ff;
-    border-color: #93c5fd;
 }
 
 .notification-item.expiration-reminder-item.unread {
     background: #fff7ed;
-    border-color: #fed7aa;
     border-left-color: #f97316;
 }
 
 .notification-item.expiration-reminder-item.unread:hover {
     background: #fff7ed;
-    border-color: #fdba74;
 }
 
 .notification-title {
@@ -1619,21 +1614,18 @@
 
 /* Structured system-update announcement card (blue palette) */
 .notification-item.announcement-update-card {
-    border-left-width: 1px;
-    border-left-color: #dbe3ef;
+    border-left: none;
     padding: clamp(14px, 1.04vw, 20px);
     background: #ffffff;
 }
 
 .notification-item.announcement-update-card.unread {
     background: #ffffff;
-    border-color: #bfdbfe;
     box-shadow: 0 2px 4px rgba(37, 99, 235, 0.08), 0 10px 22px rgba(37, 99, 235, 0.1);
 }
 
 .notification-item.announcement-update-card.unread:hover {
     background: #ffffff;
-    border-color: #93c5fd;
 }
 
 .auc-header {
@@ -1774,9 +1766,9 @@
     gap: 10px;
     margin-top: 14px;
     padding: 10px 12px;
-    border-radius: 10px;
+    border-radius: 0;
     background: #eff6ff;
-    border: 1px solid #bfdbfe;
+    border: none;
 }
 
 .auc-thanks-icon {
@@ -1822,12 +1814,12 @@
 .auc-brand-mark {
     width: 22px;
     height: 22px;
-    border-radius: 50%;
+    border-radius: 0;
     object-fit: cover;
     display: block;
     flex: 0 0 auto;
     background: #ffffff;
-    border: 1px solid #e2e8f0;
+    border: none;
 }
 
 .auc-time {
