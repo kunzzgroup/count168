@@ -15,7 +15,6 @@ import {
   recalculateRowAmounts,
   roundSummaryTotalForValidation,
 } from "./summaryRowAmount.js";
-import { resolveSubmitAccountId } from "../submit/summarySubmitRowGuard.js";
 
 /** @typedef {import('./summaryRowModel.js').SummaryRowKey} SummaryRowKey */
 
@@ -217,9 +216,9 @@ export function applyMainTemplateToRowModel(row, mainTemplate, templateKey) {
 
   next.formulaDisplay = formulaDisplay;
   next.formula = formulaOperators || formulaDisplay;
-  // Do NOT restore batch_selection → selectChecked. That checkbox excludes the row from
-  // Submit; auto-checking from templates caused one-sided COMM splits (leg visible in
-  // total, silently dropped on save).
+  if (mainTemplate.batch_selection == 1) {
+    next.selectChecked = true;
+  }
 
   const amount =
     mainTemplate.last_processed_amount != null && mainTemplate.last_processed_amount !== ""
@@ -247,17 +246,11 @@ export function clearRowEditableFields(row) {
   };
 }
 
-/**
- * Sum processed amounts for rows that will actually be submitted.
- * Skips checkbox-excluded rows, rows without account text, and (when accounts
- * are provided) rows whose account cannot be resolved — matching buildSubmitRowsFromModel.
- */
-export function computeSummaryTotal(rows, globalRateInput = "", accounts = null) {
+/** @param {SummaryRowData[]} rows @param {string} [globalRateInput] */
+export function computeSummaryTotal(rows, globalRateInput = "") {
   let total = MoneyDecimal.toDecimal("0");
   for (const row of rows) {
     if (row.selectChecked) continue;
-    if (!String(row?.account || "").trim()) continue;
-    if (Array.isArray(accounts) && !resolveSubmitAccountId(row, accounts)) continue;
     try {
       const rowForTotal = computeRowFinalAmountForTotal(row, globalRateInput);
       total = MoneyDecimal.add(total, MoneyDecimal.toDecimal(rowForTotal, 0));

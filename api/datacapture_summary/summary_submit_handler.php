@@ -621,17 +621,9 @@ function dcSummaryApiHandleSubmit(): void
                     $rowDisplayOrder = isset($row['displayOrder']) && $row['displayOrder'] !== null ? (int)$row['displayOrder'] : $displayOrder;
                     $displayOrder++;
                 
-                    // Determine product_type:
-                    // Prefer explicit client productType=sub (COMM / formula sub-rows).
-                    // Otherwise: first row per id_product_main → main; later → sub.
-                    $clientProductType = strtolower(trim((string)($row['productType'] ?? '')));
+                    // Determine product_type: 同一 id_product_main 下第一条为 main，其余为 sub；仅 id_product_sub 有值且 main 空时为 sub
                     $productType = 'main';
-                    if ($clientProductType === 'sub') {
-                        $productType = 'sub';
-                        if (!empty($row['idProductMain'])) {
-                            $mainSeenForIdProductMain[trim((string)$row['idProductMain'])] = true;
-                        }
-                    } elseif (empty($row['idProductMain']) && !empty($row['idProductSub'])) {
+                    if (empty($row['idProductMain']) && !empty($row['idProductSub'])) {
                         $productType = 'sub';
                     } elseif (!empty($row['idProductMain'])) {
                         $key = trim((string)$row['idProductMain']);
@@ -642,7 +634,7 @@ function dcSummaryApiHandleSubmit(): void
                             $mainSeenForIdProductMain[$key] = true;
                         }
                     } else {
-                        $productType = $clientProductType === 'main' ? 'main' : ($row['productType'] ?? 'main');
+                        $productType = $row['productType'] ?? 'main';
                     }
 
                     $normalizedIdProductMain = trim((string)($row['idProductMain'] ?? ''));
