@@ -520,79 +520,47 @@ function expandPlainTokensToRow(tokens, maxCols) {
   return [row];
 }
 
-function cellLooksBlank(cell) {
-  return !String(cell?.textContent || "")
-    .replace(/\u00a0/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/**
- * Chrome clipboard often yields N columns where only the first TD holds the whole
- * agent/subtotal field dump and the rest are empty — treat that TD as collapsed.
- */
-function resolveCollapsedDumpCell(sourceCells) {
-  if (!sourceCells?.length) return null;
-  const nonEmpty = sourceCells.filter((cell) => !cellLooksBlank(cell));
-  if (nonEmpty.length === 1) return nonEmpty[0];
-  if (sourceCells.length === 1) return sourceCells[0];
-  return null;
-}
-
-/** Try to reshape one collapsed dump cell → one horizontal report row. */
-function tryExpandDumpCellToMatrixRows(dumpCell, maxCols) {
-  if (!dumpCell) return null;
-
-  const nested = collectNestedReportFieldCells(dumpCell);
-  const nestedTexts = nested.map((el) => extractPlainText(el));
-  if (nested.length >= 3 && nestedFieldsLookLikeReportRow(nestedTexts)) {
-    return expandCollapsedFieldsToRow(nested, maxCols);
-  }
-
-  const lines = extractCellLines(dumpCell);
-  if (nestedFieldsLookLikeReportRow(lines)) {
-    return expandPlainTokensToRow(lines, maxCols);
-  }
-
-  const tokens = tokenizeCollapsedReportRow(dumpCell.textContent || "");
-  if (nestedFieldsLookLikeReportRow(tokens)) {
-    return expandPlainTokensToRow(tokens, maxCols);
-  }
-
-  // Last resort: never dump a multi-field HTML stack into one grid cell (Fig1).
-  if (nested.length >= 3) {
-    return expandCollapsedFieldsToRow(nested, maxCols);
-  }
-
-  return null;
-}
-
 function expandSourceRowToMatrixRows(sourceRow, maxCols) {
   // Direct children only — nested tables must not inflate sourceCells.
   const sourceCells = getDirectRowCells(sourceRow);
 
-  // Collapsed Material / Word / wide-empty-TD row → expand HORIZONTALLY into
-  // SDSPDA95 | 7,182 | $0.00 | … columns.
-  const dumpCell = resolveCollapsedDumpCell(sourceCells);
-  if (dumpCell) {
-    const expanded = tryExpandDumpCellToMatrixRows(dumpCell, maxCols);
-    if (expanded) return expanded;
+  // Collapsed Material / Word row: one TD holding nested field blocks → expand HORIZONTALLY.
+  if (sourceCells.length === 1) {
+    const only = sourceCells[0];
+    const nested = collectNestedReportFieldCells(only);
+    const nestedTexts = nested.map((el) => extractPlainText(el));
+    if (nested.length >= 3 && nestedFieldsLookLikeReportRow(nestedTexts)) {
+      return expandCollapsedFieldsToRow(nested, maxCols);
+    }
+
+    const lines = extractCellLines(only);
+    if (nestedFieldsLookLikeReportRow(lines)) {
+      return expandPlainTokensToRow(lines, maxCols);
+    }
+
+    const tokens = tokenizeCollapsedReportRow(only.textContent || "");
+    if (nestedFieldsLookLikeReportRow(tokens)) {
+      return expandPlainTokensToRow(tokens, maxCols);
+    }
+
+    // Last resort: never dump a multi-field HTML stack into one grid cell (Fig1).
+    if (nested.length >= 3) {
+      return expandCollapsedFieldsToRow(nested, maxCols);
+    }
   }
 
   const { hasVerticalSplit, cellsWithSplit, isFirstCellWithBrOrSpan } =
     detectRowVerticalSplit(sourceCells);
 
   const firstSplitLines = cellsWithSplit.find((entry) => entry.index === 0)?.allLines || [];
-  if (nestedFieldsLookLikeReportRow(firstSplitLines) && dumpCell) {
+  if (nestedFieldsLookLikeReportRow(firstSplitLines) && sourceCells.length === 1) {
     return expandPlainTokensToRow(firstSplitLines, maxCols);
   }
 
   if (isFirstCellWithBrOrSpan && hasVerticalSplit && cellsWithSplit.length > 0) {
     // True vertical split (e.g. two stacked labels in one Excel cell) — only top/bottom.
-    // Do not use this path for multi-column report rows (agent + amounts on one mat-row):
-    // BR inside the agent cell must not orphan the id onto its own matrix row (Fig2 跑位).
-    const filledCellCount = sourceCells.filter((cell) => !cellLooksBlank(cell)).length;
-    if (filledCellCount < 3 && (cellsWithSplit[0]?.allLines?.length || 0) <= 2) {
+    // Do not use this path for 9-field agent dumps.
+    if ((cellsWithSplit[0]?.allLines?.length || 0) <= 2) {
       const topRow = emptyRowPatch(maxCols);
       const bottomRow = emptyRowPatch(maxCols);
 
@@ -615,17 +583,17 @@ function expandSourceRowToMatrixRows(sourceRow, maxCols) {
   const row = emptyRowPatch(Math.max(maxCols, sourceCells.length));
   fillSourceRowPatches(row, sourceCells, row.length, () => null);
 
-  // Safety: only one filled cell and it still looks like a stacked field dump → expand.
-  const filledIndexes = [];
-  row.forEach((cell, index) => {
-    if (String(cell?.value || "").trim() || String(cell?.html || "").trim()) {
-      filledIndexes.push(index);
+  // Safety: single filled cell still looks like a stacked field dump → expand it.
+  const nonEmpty = row.filter(
+    (cell) => String(cell?.value || "").trim() || String(cell?.html || "").trim(),
+  );
+  if (nonEmpty.length === 1 && sourceCells.length === 1) {
+    const nested = collectNestedReportFieldCells(sourceCells[0]);
+    if (nested.length >= 3) return expandCollapsedFieldsToRow(nested, Math.max(maxCols, nested.length));
+    const lines = extractCellLines(sourceCells[0]);
+    if (nestedFieldsLookLikeReportRow(lines)) {
+      return expandPlainTokensToRow(lines, Math.max(maxCols, lines.length));
     }
-  });
-  if (filledIndexes.length === 1) {
-    const source = sourceCells[filledIndexes[0]] || dumpCell || sourceCells[0];
-    const expanded = tryExpandDumpCellToMatrixRows(source, Math.max(maxCols, 9));
-    if (expanded) return expanded;
   }
 
   return [row];

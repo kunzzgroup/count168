@@ -4,19 +4,8 @@
  * while preserving inline styles and class-driven colors from clipboard CSS.
  */
 
-import { detectVerticalFieldDump } from "./dataCaptureVerticalDumpDetect.js";
-
 const GRID_HINT_RE =
   /mat-row|mat-cell|mat-header-row|mat-header-cell|mat-footer-cell|cdk-row|cdk-cell|role\s*=\s*["'](?:row|gridcell|columnheader|rowheader)["']/i;
-
-/** Angular Material / CDK / ARIA grid clipboard (report sites). */
-const ANGULAR_MATERIAL_HINT_RE =
-  /mat-(?:row|cell|header|footer)|cdk-(?:row|cell|header|footer)|role\s*=\s*["'](?:grid|row|gridcell|columnheader|rowheader)["']/i;
-
-/** Match Report Center / Format matrix: positive #82c751, negative #ff7575, agent link #82b8b9 */
-const FMT_COLOR_POSITIVE = "#82c751";
-const FMT_COLOR_NEGATIVE = "#ff7575";
-const FMT_COLOR_LINK = "#82b8b9";
 
 const STYLE_RULE_RE = /([^{}@]+)\{([^{}]+)\}/g;
 
@@ -362,47 +351,31 @@ function tryMergeDataTablesScrollTables(root) {
   return merged;
 }
 
-/**
- * Clone one Material/ARIA cell onto a <td>/<th> with visual styles baked inline
- * (sanitize later strips classes — styles must survive as attributes).
- */
-function bakeMatCellOntoTd(td, cell) {
-  if (!td || !cell) return;
-  const cellStyle = cell.getAttribute?.("style");
-  if (cellStyle) td.setAttribute("style", sanitizeStyleKeepVisual(cellStyle));
-
-  const colspan = cell.getAttribute?.("colspan") || cell.getAttribute?.("aria-colspan");
-  if (colspan && Number(colspan) > 1) td.setAttribute("colspan", String(colspan));
-  const rowspan = cell.getAttribute?.("rowspan") || cell.getAttribute?.("aria-rowspan");
-  if (rowspan && Number(rowspan) > 1) td.setAttribute("rowspan", String(rowspan));
-
-  const cls = String(cell.className || "");
-  const styleText = td.getAttribute("style") || "";
-  const hasColor = /\bcolor\s*:/i.test(styleText);
-  const baked = {};
-  if (/\bpositive\b/i.test(cls) && !hasColor) baked.color = FMT_COLOR_POSITIVE;
-  if (/\bnegative\b/i.test(cls) && !hasColor) baked.color = FMT_COLOR_NEGATIVE;
-  if (cell.querySelector?.("a")) {
-    if (!hasColor && !baked.color) baked.color = FMT_COLOR_LINK;
-    baked["text-decoration"] = "underline";
-  }
-  if (/\b(mat-header-cell|cdk-header-cell|mat-footer-cell|cdk-footer-cell)\b/i.test(cls)) {
-    if (!/\bfont-weight\s*:/i.test(styleText)) baked["font-weight"] = "700";
-  }
-  if (Object.keys(baked).length) mergeStyleAttr(td, baked);
-
-  if (cell.innerHTML != null) {
-    td.innerHTML = cell.innerHTML || escapeHtml(cell.textContent || "");
-  } else {
-    td.textContent = String(cell.textContent || cell || "");
-  }
-}
-
 function replaceRowWithElements(tr, elements, asHeader) {
   while (tr.firstChild) tr.removeChild(tr.firstChild);
   elements.forEach((el) => {
     const td = document.createElement(asHeader || isHeaderLikeCell(el) ? "th" : "td");
-    bakeMatCellOntoTd(td, el);
+    const cellStyle = el.getAttribute?.("style");
+    if (cellStyle) td.setAttribute("style", sanitizeStyleKeepVisual(cellStyle));
+    // Bake Material status / link cues when clipboard CSS was not embedded.
+    const cls = String(el.className || "");
+    const baked = {};
+    if (/\bpositive\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
+      baked.color = "#82c751";
+    }
+    if (/\bnegative\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
+      baked.color = "#ff7575";
+    }
+    if (el.querySelector?.("a")) {
+      if (!/\bcolor\s*:/i.test(td.getAttribute("style") || "")) baked.color = "#82b8b9";
+      baked["text-decoration"] = "underline";
+    }
+    if (Object.keys(baked).length) mergeStyleAttr(td, baked);
+    if (el.innerHTML != null) {
+      td.innerHTML = el.innerHTML || escapeHtml(el.textContent || "");
+    } else {
+      td.textContent = String(el.textContent || el || "");
+    }
     tr.appendChild(td);
   });
 }
@@ -508,34 +481,19 @@ export function expandCollapsedTableRows(table) {
       const tag = (el.tagName || "").toUpperCase();
       return tag === "TD" || tag === "TH";
     });
-    if (!cells.length) return;
-
-    // One real content cell (ignore trailing empty TDs) — Material/Chrome dump mode.
-    const nonEmptyCells = cells.filter(
-      (cell) =>
-        String(cell.textContent || "")
-          .replace(/\u00a0/g, " ")
-          .replace(/\s+/g, " ")
-          .trim() !== "",
-    );
-    if (nonEmptyCells.length !== 1) return;
-    const only = nonEmptyCells[0];
-
-    if (
-      !cellLooksHorizontallyCollapsed(only) &&
-      Number.parseInt(only.getAttribute("colspan") || "1", 10) <= 1
-    ) {
+    // One real cell (ignore colspan inflation) — the Material clipboard failure mode.
+    if (cells.length !== 1) return;
+    if (!cellLooksHorizontallyCollapsed(cells[0]) && Number.parseInt(cells[0].getAttribute("colspan") || "1", 10) <= 1) {
       // Still try tokenize on plain single-cell rows with dense report text.
-      const tokenized = tokenizeCollapsedReportRow(only.textContent || "");
-      if (tokenized.length >= 2) {
-        const asHeader = (only.tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(only);
-        replaceRowWithTextColumns(tr, tokenized, asHeader);
-        changed = true;
-        return;
-      }
-      // Glued agent+amounts (no spaces) fails tokenize — fall through to unwrap nested spans.
+      const tokenized = tokenizeCollapsedReportRow(cells[0].textContent || "");
+      if (tokenized.length < 2) return;
+      const asHeader = (cells[0].tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(cells[0]);
+      replaceRowWithTextColumns(tr, tokenized, asHeader);
+      changed = true;
+      return;
     }
 
+    const only = cells[0];
     const asHeader = (only.tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(only);
 
     // Unwrap single MsoNormal / layout wrappers so field children become visible.
@@ -598,67 +556,7 @@ export function expandCollapsedTableRows(table) {
     }
   });
 
-  // Chrome often strips mat-* tags and leaves one field per <tr><td> (Fig1 N×1).
-  if (reshapeVerticalNx1FieldDumpTable(table)) changed = true;
-
   return changed;
-}
-
-/**
- * Reshape a vertical field dump table (one token per TR) into horizontal report
- * rows — same heuristic as plain-text mat-row reshape. Mutates table in place.
- */
-export function reshapeVerticalNx1FieldDumpTable(table) {
-  if (!table) return false;
-  const trs = Array.from(table.querySelectorAll("tr"));
-  if (trs.length < 6) return false;
-
-  const tokens = [];
-  for (const tr of trs) {
-    const cells = Array.from(tr.children || []).filter((el) => {
-      const tag = (el.tagName || "").toUpperCase();
-      return tag === "TD" || tag === "TH";
-    });
-    const nonEmpty = cells.filter(
-      (cell) =>
-        String(cell.textContent || "")
-          .replace(/\u00a0/g, " ")
-          .replace(/\s+/g, " ")
-          .trim() !== "",
-    );
-    // Already multi-column → leave alone.
-    if (nonEmpty.length > 1) return false;
-    if (!nonEmpty.length) continue;
-    const only = nonEmpty[0];
-    // BR / nested mat-cell rows belong to expandCollapsedTableRows, not this path.
-    if (cellLooksHorizontallyCollapsed(only)) return false;
-    const text = String(only.textContent || "")
-      .replace(/\u00a0/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (!text) continue;
-    // Multi-token single cell without BR markers → not a pure N×1 dump.
-    if (tokenizeCollapsedReportRow(text).length >= 3) return false;
-    tokens.push(text);
-  }
-
-  if (tokens.length < 6) return false;
-  const rows = detectVerticalFieldDump(tokens);
-  if (!rows?.length || (rows[0]?.length || 0) < 2) return false;
-
-  while (table.firstChild) table.removeChild(table.firstChild);
-  const tbody = document.createElement("tbody");
-  rows.forEach((row) => {
-    const tr = document.createElement("tr");
-    (row || []).forEach((value) => {
-      const td = document.createElement("td");
-      td.textContent = String(value ?? "");
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);
-  return true;
 }
 
 /** True when a parsed table still looks like columns crushed into one cell/column. */
@@ -672,15 +570,6 @@ export function tableLooksHorizontallyCollapsed(table, maxCols) {
         const tag = (el.tagName || "").toUpperCase();
         return tag === "TD" || tag === "TH";
       });
-      const nonEmpty = cells.filter(
-        (cell) =>
-          String(cell.textContent || "")
-            .replace(/\u00a0/g, " ")
-            .replace(/\s+/g, " ")
-            .trim() !== "",
-      );
-      // Wide empty TDs still crush content into one filled cell (Material dump).
-      if (nonEmpty.length === 1 && cells.length > 1) return true;
       if (cells.length !== 1) return false;
       const colspan = Number.parseInt(cells[0].getAttribute("colspan") || "1", 10);
       return colspan >= 2 || cellLooksHorizontallyCollapsed(cells[0]);
@@ -708,96 +597,6 @@ function tableColumnCount(table) {
   return maxCols;
 }
 
-/** Build a real <table> from mat/cdk/ARIA row shells (1:1 horizontal columns). */
-function buildTableFromMaterialGridRows(gridRows) {
-  if (!gridRows?.length) return null;
-  const table = document.createElement("table");
-  const tbody = document.createElement("tbody");
-
-  gridRows.forEach((row) => {
-    const tr = document.createElement("tr");
-    let cells = collectRowCells(row);
-
-    // Some clipboards wrap all columns inside one outer cell/div.
-    if (cells.length === 1) {
-      const nested = collectRowCells(cells[0]);
-      if (nested.length >= 2) cells = nested;
-    }
-
-    if (!cells.length) {
-      if (!expandCollapsedRowTextToCells(row, tr)) return;
-      tbody.appendChild(tr);
-      return;
-    }
-
-    // One cell whose text is newline-flattened columns (user symptom).
-    if (cells.length === 1 && rowLooksLikeFlattenedColumns(cells[0])) {
-      if (!expandCollapsedRowTextToCells(cells[0], tr)) return;
-      tbody.appendChild(tr);
-      return;
-    }
-
-    cells.forEach((cell) => {
-      const td = document.createElement(isHeaderLikeCell(cell) ? "th" : "td");
-      bakeMatCellOntoTd(td, cell);
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-
-  if (!tbody.children.length) return null;
-  table.appendChild(tbody);
-  return table;
-}
-
-/** True when clipboard HTML looks like Angular Material / CDK / ARIA report grid. */
-export function clipboardHtmlLooksLikeAngularMaterial(html) {
-  if (!html) return false;
-  return ANGULAR_MATERIAL_HINT_RE.test(String(html));
-}
-
-/**
- * Parse Angular Material / CDK / role=grid clipboard into a real HTML <table>
- * with visual styles baked inline for Format 1:1 cloning.
- * Returns null when no Material/ARIA grid rows (or usable table) found.
- */
-export function parseAngularMaterialTable(html) {
-  const raw = String(html || "");
-  if (!raw.trim() || !clipboardHtmlLooksLikeAngularMaterial(raw)) return null;
-
-  try {
-    const root = document.createElement("div");
-    root.innerHTML = raw;
-
-    const rules = collectClipboardClassRules(root);
-    applyClipboardClassRulesAsInline(root, rules);
-
-    const styleHtml = Array.from(root.querySelectorAll("style"))
-      .map((el) => el.outerHTML)
-      .join("\n");
-
-    const gridRows = collectGridRows(root);
-    if (gridRows.length) {
-      const table = buildTableFromMaterialGridRows(gridRows);
-      if (!table) return null;
-      expandCollapsedTableRows(table);
-      return `${styleHtml}\n${table.outerHTML}`;
-    }
-
-    // Already a <table> with Material classes wrapped in cells — expand in place.
-    const existingTable = root.querySelector("table");
-    if (existingTable) {
-      expandCollapsedTableRows(existingTable);
-      if (tableColumnCount(existingTable) >= 2) {
-        return `${styleHtml}\n${existingTable.outerHTML}`;
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Convert Material/ARIA grid markup into a real HTML table.
  * Returns original HTML when already table-based or conversion is not possible.
@@ -807,10 +606,6 @@ export function normalizeClipboardHtmlToTable(html) {
   if (!raw.trim()) return "";
 
   try {
-    // Prefer the dedicated Material parser for report-site cloning.
-    const matParsed = parseAngularMaterialTable(raw);
-    if (matParsed) return matParsed;
-
     const root = document.createElement("div");
     root.innerHTML = raw;
 
@@ -844,8 +639,57 @@ export function normalizeClipboardHtmlToTable(html) {
       return raw;
     }
 
-    const table = buildTableFromMaterialGridRows(gridRows);
-    if (!table) return raw;
+    const table = document.createElement("table");
+    const tbody = document.createElement("tbody");
+
+    gridRows.forEach((row) => {
+      const tr = document.createElement("tr");
+      let cells = collectRowCells(row);
+
+      // Some clipboards wrap all columns inside one outer cell/div.
+      if (cells.length === 1) {
+        const nested = collectRowCells(cells[0]);
+        if (nested.length >= 2) cells = nested;
+      }
+
+      if (!cells.length) {
+        if (!expandCollapsedRowTextToCells(row, tr)) return;
+        tbody.appendChild(tr);
+        return;
+      }
+
+      // One cell whose text is newline-flattened columns (user symptom).
+      if (cells.length === 1 && rowLooksLikeFlattenedColumns(cells[0])) {
+        if (!expandCollapsedRowTextToCells(cells[0], tr)) return;
+        tbody.appendChild(tr);
+        return;
+      }
+
+      cells.forEach((cell) => {
+        const td = document.createElement(isHeaderLikeCell(cell) ? "th" : "td");
+        const cellStyle = cell.getAttribute("style");
+        if (cellStyle) td.setAttribute("style", sanitizeStyleKeepVisual(cellStyle));
+        const cls = String(cell.className || "");
+        const baked = {};
+        if (/\bpositive\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
+          baked.color = "#82c751";
+        }
+        if (/\bnegative\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
+          baked.color = "#ff7575";
+        }
+        if (cell.querySelector?.("a")) {
+          if (!/\bcolor\s*:/i.test(td.getAttribute("style") || "")) baked.color = "#82b8b9";
+          baked["text-decoration"] = "underline";
+        }
+        if (Object.keys(baked).length) mergeStyleAttr(td, baked);
+        td.innerHTML = cell.innerHTML || escapeHtml(cell.textContent || "");
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+
+    if (!tbody.children.length) return raw;
+    table.appendChild(tbody);
     expandCollapsedTableRows(table);
 
     return `${styleHtml}\n${table.outerHTML}`;

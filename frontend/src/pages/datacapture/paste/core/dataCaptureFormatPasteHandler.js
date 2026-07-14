@@ -1,7 +1,4 @@
-import {
-  formatPlainMatrixLooksIdNumberSplit,
-  parseAndFillHtmlTableForFormat,
-} from "./dataCaptureFormatHtmlPaste.js";
+import { parseAndFillHtmlTableForFormat } from "./dataCaptureFormatHtmlPaste.js";
 import {
   buildFormatPreviewFragmentFromClipboardHtml,
   clipboardLooksLikeTable,
@@ -11,10 +8,8 @@ import {
   tsvToHtmlTable,
 } from "./dataCaptureFormatPreview.js";
 import {
-  clipboardHtmlLooksLikeAngularMaterial,
   clipboardHtmlLooksLikeGrid,
   normalizeClipboardHtmlToTable,
-  parseAngularMaterialTable,
 } from "./dataCaptureFormatClipboardNormalize.js";
 import { parseFormatHtmlTableStructure } from "./dataCaptureFormatHtmlMatrix.js";
 import { parsePlainTextMatrix } from "./dataCaptureTextPaste.js";
@@ -54,10 +49,6 @@ function afterFormatPasteFilled(filled, area) {
 
 function resolveNormalizedHtml(html) {
   if (!html) return "";
-  // Angular Material / CDK / role=grid → dedicated HTML table clone (styles baked).
-  if (clipboardHtmlLooksLikeAngularMaterial(html)) {
-    return parseAngularMaterialTable(html) || normalizeClipboardHtmlToTable(html) || "";
-  }
   if (/<table\b/i.test(html)) {
     return normalizeClipboardHtmlToTable(html) || html;
   }
@@ -71,11 +62,6 @@ function matrixLooksMultiColumn(matrix) {
   if (!matrix?.length) return false;
   const cols = matrix[0]?.length || 0;
   return cols >= 2 && matrix.some((row) => (row?.length || 0) >= 2);
-}
-
-/** Usable for Format dual-source: multi-col and not Fig2 id/number row-split. */
-function matrixLooksSafeFormatPlain(matrix) {
-  return matrixLooksMultiColumn(matrix) && !formatPlainMatrixLooksIdNumberSplit(matrix);
 }
 
 /**
@@ -186,7 +172,7 @@ export function processFormatTsv(text, { area = null, startRow = null, anchorCel
 export function processFormatDualSource(html, text, { area = null, startRow = null, anchorCell = null } = {}) {
   if (!text?.trim()) return false;
   const matrix = parsePlainTextMatrix(text);
-  if (!matrixLooksSafeFormatPlain(matrix)) return false;
+  if (!matrixLooksMultiColumn(matrix)) return false;
   const tableHtml = plainMatrixToStyledHtmlTable(matrix, html || "") || plainMatrixToHtmlTable(matrix);
   return processFormatTableHtml(tableHtml, { area, startRow, anchorCell });
 }
@@ -196,7 +182,7 @@ export function processFormatPlainMatrix(text, { area = null, startRow = null, a
   if (!text?.trim()) return false;
   if (html) return processFormatDualSource(html, text, { area, startRow, anchorCell });
   const matrix = parsePlainTextMatrix(text);
-  if (!matrixLooksSafeFormatPlain(matrix)) return false;
+  if (!matrixLooksMultiColumn(matrix)) return false;
   const tableHtml = plainMatrixToHtmlTable(matrix);
   return processFormatTableHtml(tableHtml, { area, startRow, anchorCell });
 }
@@ -218,36 +204,15 @@ function readClipboard(clipboard) {
 function tryProcessFormatClipboard(html, text, options) {
   const plainText = resolveFormatPlainText(html, text);
   const plainMatrix = plainText?.trim() ? parsePlainTextMatrix(plainText) : null;
-  const plainSafe = matrixLooksSafeFormatPlain(plainMatrix);
-  const isAngularMat = clipboardHtmlLooksLikeAngularMaterial(html);
+  const plainMulti = matrixLooksMultiColumn(plainMatrix);
 
-  // Highest priority: Angular Material visual clone (structure + styles). Plain reshape
-  // only as last resort when the Material HTML truly collapses to N×1.
-  if (isAngularMat) {
-    const matTable =
-      parseAngularMaterialTable(html) ||
-      normalizeClipboardHtmlToTable(html) ||
-      "";
-    if (matTable && /<table\b/i.test(matTable)) {
-      if (!formatHtmlLooksLikeVerticalNx1(matTable)) {
-        if (processFormatTableHtml(matTable, options)) return true;
-      }
-      // N×1 or multi-col fill rejected → dual-source from field dump (Fig1 → Fig2).
-      if (plainSafe) {
-        return processFormatDualSource(html || matTable, plainText, options);
-      }
-      return false;
-    }
-  }
-
-  // HTML structure first (webpage 1:1). Plain dual-source only when HTML is a true N×1 dump
-  // or HTML fill fails/rejects collapsed / id-number-split shapes.
+  // Prefer good multi-col HTML (keeps mat-row styles). Reject N×1 HTML dumps.
   const normalizedHtml = resolveNormalizedHtml(html);
   if (normalizedHtml && /<table\b/i.test(normalizedHtml)) {
     if (!formatHtmlLooksLikeVerticalNx1(normalizedHtml)) {
-      if (processFormatTableHtml(normalizedHtml, options)) return true;
+      return processFormatTableHtml(normalizedHtml, options);
     }
-    if (plainSafe) {
+    if (plainMulti) {
       return processFormatDualSource(html || normalizedHtml, plainText, options);
     }
   }
@@ -256,29 +221,29 @@ function tryProcessFormatClipboard(html, text, options) {
     const forced = normalizeClipboardHtmlToTable(html);
     if (forced && /<table\b/i.test(forced)) {
       if (!formatHtmlLooksLikeVerticalNx1(forced)) {
-        if (processFormatTableHtml(forced, options)) return true;
+        return processFormatTableHtml(forced, options);
       }
-      if (plainSafe) {
+      if (plainMulti) {
         return processFormatDualSource(html, plainText, options);
       }
     }
   }
 
-  // Grid-like HTML + safe plain, but normalize failed → still dual-source.
-  if (html && clipboardHtmlLooksLikeGrid(html) && plainSafe) {
+  // Grid-like HTML + reshapable plain, but normalize failed → still dual-source.
+  if (html && clipboardHtmlLooksLikeGrid(html) && plainMulti) {
     return processFormatDualSource(html, plainText, options);
   }
 
   if (plainText && /<table\b/i.test(plainText)) {
     if (!formatHtmlLooksLikeVerticalNx1(plainText)) {
-      if (processFormatTableHtml(plainText, options)) return true;
+      return processFormatTableHtml(plainText, options);
     }
-    if (plainSafe) return processFormatDualSource(html, plainText, options);
+    if (plainMulti) return processFormatDualSource(html, plainText, options);
   }
   if (plainText && plainText.includes("\t")) {
     return processFormatTsv(plainText, options);
   }
-  if (plainSafe) {
+  if (plainMulti) {
     return processFormatDualSource(html, plainText, options);
   }
   if (plainText?.trim()) {
