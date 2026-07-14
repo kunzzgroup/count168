@@ -152,71 +152,18 @@ export function isFormatRichHtmlTable(html) {
 
 /** UI chrome copied from external sites (action buttons, icons) — not cell data. */
 const PASTED_INTERACTIVE_UI_SELECTOR =
-  "button, input, select, textarea, svg, img, [role='button'], mat-icon, .mat-icon, [mat-icon-button]";
-
-/**
- * Safe decorative stand-in for Report Center row action (blue circular minus).
- * Kept for 2.FORMAT visual 1:1 — no handlers / no external CSS dependency.
- */
-export const FORMAT_ACTION_BUTTON_HTML =
-  '<span data-dc-format-action="1" aria-hidden="true" ' +
-  'style="display:inline-flex;align-items:center;justify-content:center;' +
-  "width:22px;height:22px;border-radius:50%;background:#1e88e5;color:#fff;" +
-  'box-sizing:border-box;vertical-align:middle;user-select:none;">' +
-  '<span style="display:block;width:10px;height:2px;background:#fff;border-radius:1px;"></span>' +
-  "</span>";
-
-/** True when clipboard cell HTML looks like an icon/action control (not money data). */
-export function cellHtmlLooksLikeActionChrome(html) {
-  const raw = String(html || "");
-  if (!raw.includes("<")) return false;
-  return /<button\b|<svg\b|<img\b|role\s*=\s*["']button["']|<mat-icon\b|mat-icon-button|mat-mdc-icon-button|material-icons/i.test(
-    raw,
-  );
-}
+  "button, input, select, textarea, svg, img, [role='button']";
 
 /**
  * Remove interactive UI elements from pasted HTML while keeping text/formatting tags.
  * External reports often include minus/action buttons in the last column.
- * @param {string} html
- * @param {{ preserveFormatActionChrome?: boolean }} [options]
- *        When true (2.FORMAT): replace action chrome with a decorative circular minus
- *        instead of deleting it. 1.TEXT must leave this false.
  */
-export function stripInteractiveUiFromHtml(html, options = {}) {
+export function stripInteractiveUiFromHtml(html) {
   if (!html || !html.includes("<")) return html || "";
-  const preserveFormatAction = options.preserveFormatActionChrome === true;
   try {
     const div = document.createElement("div");
     div.innerHTML = html;
-    const nodes = Array.from(div.querySelectorAll(PASTED_INTERACTIVE_UI_SELECTOR));
-    if (!nodes.length) return div.innerHTML;
-
-    if (preserveFormatAction) {
-      const plain = String(div.textContent || "")
-        .replace(/\u00a0/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      // Icon-only action cell → decorative button.
-      if (!plain) {
-        div.innerHTML = FORMAT_ACTION_BUTTON_HTML;
-        return div.innerHTML;
-      }
-      // Mixed cell: keep text, swap chrome for decorative button.
-      nodes.forEach((el) => {
-        const text = (el.textContent || "").trim();
-        if (text && !/^(remove|clear|close|−|-|–|—)$/i.test(text)) {
-          el.replaceWith(document.createTextNode(text));
-        } else {
-          const wrap = document.createElement("span");
-          wrap.innerHTML = FORMAT_ACTION_BUTTON_HTML;
-          el.replaceWith(wrap.firstChild || document.createTextNode(""));
-        }
-      });
-      return div.innerHTML;
-    }
-
-    nodes.forEach((el) => {
+    div.querySelectorAll(PASTED_INTERACTIVE_UI_SELECTOR).forEach((el) => {
       const text = (el.textContent || "").trim();
       if (text) {
         el.replaceWith(document.createTextNode(text));
@@ -243,7 +190,6 @@ export function plainTextFromSanitizedHtml(html) {
   }
 }
 
-/** 1.TEXT / generic: strip action chrome entirely. */
 export function sanitizePastedCellHtml(cellContent) {
   if (!cellContent) return "";
   const stripped = cellContent
@@ -252,17 +198,6 @@ export function sanitizePastedCellHtml(cellContent) {
     .replace(/javascript:/gi, "")
     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, "");
   return stripInteractiveUiFromHtml(stripped);
-}
-
-/** 2.FORMAT: keep a decorative stand-in for report action buttons. */
-export function sanitizePastedCellHtmlForFormat(cellContent) {
-  if (!cellContent) return "";
-  const stripped = cellContent
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/javascript:/gi, "")
-    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, "");
-  return stripInteractiveUiFromHtml(stripped, { preserveFormatActionChrome: true });
 }
 
 /** Reorder columns when No./User appear at the end (common Excel copy quirk). */
