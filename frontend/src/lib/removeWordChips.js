@@ -1,5 +1,5 @@
 function normalizeRemoveWordToken(value) {
-  return String(value ?? "").toUpperCase();
+  return String(value ?? "").trim();
 }
 
 const STORAGE_PREFIX = "dc_remove_word_chips:";

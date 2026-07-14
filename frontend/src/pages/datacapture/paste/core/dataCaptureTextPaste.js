@@ -139,7 +139,28 @@ export function handleTextHtmlPaste(html, anchorCell) {
   return parseAndFillHtmlTableForText(tableHtml, anchorCell);
 }
 
+/**
+ * True when plain clipboard is a Material/report one-field-per-line dump that
+ * vertical-dump reshape can fix — prefer this over HTML that often lands as N×1.
+ */
+function plainLooksLikeReshapableVerticalDump(pastedData) {
+  const text = String(pastedData ?? "");
+  if (!text.trim() || text.includes("\t")) return false;
+  const nonEmptyLines = text
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .filter((line) => line.trim() !== "");
+  const rows = detectVerticalFieldDump(nonEmptyLines);
+  return Boolean(rows?.length);
+}
+
 export function handleTextModePaste(e, pastedData, anchorCell) {
+  // Prefer plain reshape when HTML would otherwise dump as N×1 / first-column glue.
+  if (plainLooksLikeReshapableVerticalDump(pastedData)) {
+    if (handleTextPlainPaste(e, pastedData, anchorCell)) return true;
+  }
+
   const html = getClipboardHtml(e);
   const htmlFromDetect = html ? "" : detectHtmlTableInClipboard(e);
   const rawHtmlCandidate = html || htmlFromDetect;
