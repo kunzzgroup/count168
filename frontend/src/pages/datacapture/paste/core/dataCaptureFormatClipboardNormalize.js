@@ -481,19 +481,32 @@ export function expandCollapsedTableRows(table) {
       const tag = (el.tagName || "").toUpperCase();
       return tag === "TD" || tag === "TH";
     });
-    // One real cell (ignore colspan inflation) — the Material clipboard failure mode.
-    if (cells.length !== 1) return;
-    if (!cellLooksHorizontallyCollapsed(cells[0]) && Number.parseInt(cells[0].getAttribute("colspan") || "1", 10) <= 1) {
+    if (!cells.length) return;
+
+    // One real content cell (ignore trailing empty TDs) — Material/Chrome dump mode.
+    const nonEmptyCells = cells.filter(
+      (cell) =>
+        String(cell.textContent || "")
+          .replace(/\u00a0/g, " ")
+          .replace(/\s+/g, " ")
+          .trim() !== "",
+    );
+    if (nonEmptyCells.length !== 1) return;
+    const only = nonEmptyCells[0];
+
+    if (
+      !cellLooksHorizontallyCollapsed(only) &&
+      Number.parseInt(only.getAttribute("colspan") || "1", 10) <= 1
+    ) {
       // Still try tokenize on plain single-cell rows with dense report text.
-      const tokenized = tokenizeCollapsedReportRow(cells[0].textContent || "");
+      const tokenized = tokenizeCollapsedReportRow(only.textContent || "");
       if (tokenized.length < 2) return;
-      const asHeader = (cells[0].tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(cells[0]);
+      const asHeader = (only.tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(only);
       replaceRowWithTextColumns(tr, tokenized, asHeader);
       changed = true;
       return;
     }
 
-    const only = cells[0];
     const asHeader = (only.tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(only);
 
     // Unwrap single MsoNormal / layout wrappers so field children become visible.
