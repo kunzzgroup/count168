@@ -11,8 +11,10 @@ import {
   tsvToHtmlTable,
 } from "./dataCaptureFormatPreview.js";
 import {
+  clipboardHtmlLooksLikeAngularMaterial,
   clipboardHtmlLooksLikeGrid,
   normalizeClipboardHtmlToTable,
+  parseAngularMaterialTable,
 } from "./dataCaptureFormatClipboardNormalize.js";
 import { parseFormatHtmlTableStructure } from "./dataCaptureFormatHtmlMatrix.js";
 import { parsePlainTextMatrix } from "./dataCaptureTextPaste.js";
@@ -52,6 +54,10 @@ function afterFormatPasteFilled(filled, area) {
 
 function resolveNormalizedHtml(html) {
   if (!html) return "";
+  // Angular Material / CDK / role=grid → dedicated HTML table clone (styles baked).
+  if (clipboardHtmlLooksLikeAngularMaterial(html)) {
+    return parseAngularMaterialTable(html) || normalizeClipboardHtmlToTable(html) || "";
+  }
   if (/<table\b/i.test(html)) {
     return normalizeClipboardHtmlToTable(html) || html;
   }
@@ -213,6 +219,28 @@ function tryProcessFormatClipboard(html, text, options) {
   const plainText = resolveFormatPlainText(html, text);
   const plainMatrix = plainText?.trim() ? parsePlainTextMatrix(plainText) : null;
   const plainSafe = matrixLooksSafeFormatPlain(plainMatrix);
+  const isAngularMat = clipboardHtmlLooksLikeAngularMaterial(html);
+
+  // Highest priority: Angular Material visual clone (structure + styles). Plain reshape
+  // only as last resort when the Material HTML truly collapses to N×1.
+  if (isAngularMat) {
+    const matTable =
+      parseAngularMaterialTable(html) ||
+      normalizeClipboardHtmlToTable(html) ||
+      "";
+    if (matTable && /<table\b/i.test(matTable)) {
+      if (!formatHtmlLooksLikeVerticalNx1(matTable)) {
+        if (processFormatTableHtml(matTable, options)) return true;
+        // Multi-col Material parse succeeded structurally but fill failed — do not
+        // prefer plain reshape (would break 1:1 / styles).
+        return false;
+      }
+      if (plainSafe) {
+        return processFormatDualSource(html || matTable, plainText, options);
+      }
+      return false;
+    }
+  }
 
   // HTML structure first (webpage 1:1). Plain dual-source only when HTML is a true N×1 dump
   // or HTML fill fails/rejects collapsed / id-number-split shapes.
