@@ -124,9 +124,8 @@ function resolveFormatPlainText(html, text) {
 }
 
 /**
- * True when Format HTML is a vertical field dump (one logical field per row),
- * including "fake-wide" tables where only the first cell is filled and the rest
- * are empty padding columns (Chrome Material clipboard failure mode).
+ * True when normalized Format HTML collapsed to a vertical N×1 dump
+ * (common when mat-cell copies become one <td> per <tr>).
  */
 export function formatHtmlLooksLikeVerticalNx1(html) {
   if (!html || !/<table\b/i.test(html)) return false;
@@ -134,46 +133,8 @@ export function formatHtmlLooksLikeVerticalNx1(html) {
     const structure = parseFormatHtmlTableStructure(html);
     if (!structure) return true;
     const { dataRows, maxCols } = structure;
-    if (!dataRows?.length) return maxCols <= 1;
-
-    let singleFilledRows = 0;
-    const tokens = [];
-    dataRows.forEach((tr) => {
-      const cells = Array.from(tr.querySelectorAll("td, th"));
-      const filled = cells.filter((cell) => {
-        const text = String(cell.textContent || "")
-          .replace(/\u00a0/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-        return Boolean(text);
-      });
-      if (filled.length === 1) {
-        singleFilledRows += 1;
-        tokens.push(
-          String(filled[0].textContent || "")
-            .replace(/\u00a0/g, " ")
-            .replace(/\s+/g, " ")
-            .trim(),
-        );
-      }
-    });
-
-    // Fake-wide N×1: many rows, each with only one non-empty cell (padding TDs).
-    if (
-      dataRows.length >= 3 &&
-      singleFilledRows >= Math.max(3, Math.ceil(dataRows.length * 0.75))
-    ) {
-      const moneyLike = tokens.filter((token) =>
-        /^\$?-?\d{1,3}(?:,\d{3})*(?:\.\d+)?$|^\$?-?\d+(?:\.\d+)?$/.test(token),
-      ).length;
-      if (moneyLike >= 2) return true;
-      if (tokens.some((token) => /^(?:SUB\s*TOTAL|SUBTOTAL|TOTAL\s*AMOUNT|TOTAL)$/i.test(token))) {
-        return true;
-      }
-    }
-
     if (maxCols >= 2) return false;
-    return dataRows.length >= 3 || maxCols <= 1;
+    return (dataRows?.length || 0) >= 3 || maxCols <= 1;
   } catch {
     return false;
   }
@@ -245,14 +206,12 @@ function tryProcessFormatClipboard(html, text, options) {
   const plainMatrix = plainText?.trim() ? parsePlainTextMatrix(plainText) : null;
   const plainMulti = matrixLooksMultiColumn(plainMatrix);
 
-  // Prefer good multi-col HTML (keeps mat-row styles). Reject N×1 / fake-wide dumps.
+  // Prefer good multi-col HTML (keeps mat-row styles). Reject N×1 HTML dumps.
   const normalizedHtml = resolveNormalizedHtml(html);
   if (normalizedHtml && /<table\b/i.test(normalizedHtml)) {
-    const isVerticalDump = formatHtmlLooksLikeVerticalNx1(normalizedHtml);
-    if (!isVerticalDump) {
+    if (!formatHtmlLooksLikeVerticalNx1(normalizedHtml)) {
       return processFormatTableHtml(normalizedHtml, options);
     }
-    // Reshape via plain matrix; HTML only supplies style hints.
     if (plainMulti) {
       return processFormatDualSource(html || normalizedHtml, plainText, options);
     }
@@ -261,8 +220,7 @@ function tryProcessFormatClipboard(html, text, options) {
   if (html && clipboardHtmlLooksLikeGrid(html)) {
     const forced = normalizeClipboardHtmlToTable(html);
     if (forced && /<table\b/i.test(forced)) {
-      const isVerticalDump = formatHtmlLooksLikeVerticalNx1(forced);
-      if (!isVerticalDump) {
+      if (!formatHtmlLooksLikeVerticalNx1(forced)) {
         return processFormatTableHtml(forced, options);
       }
       if (plainMulti) {
@@ -325,15 +283,16 @@ export function handleFormatPasteAreaEvent(e) {
       const pastedHTML = area?.innerHTML || "";
       const normalizedPasted = resolveNormalizedHtml(pastedHTML) || pastedHTML;
       if (normalizedPasted && /<table\b/i.test(normalizedPasted)) {
+        if (formatHtmlLooksLikeVerticalNx1(normalizedPasted) && text?.trim()) {
+          const appendStartRow = domGridHasEditableData()
+            ? resolveFormatPasteStartRow(getFormatPasteAnchorCell())
+            : 0;
+          processFormatDualSource(pastedHTML, text, { area, startRow: appendStartRow });
+          return;
+        }
         const appendStartRow = domGridHasEditableData()
           ? resolveFormatPasteStartRow(getFormatPasteAnchorCell())
           : 0;
-        if (formatHtmlLooksLikeVerticalNx1(normalizedPasted)) {
-          const recovered = resolveFormatPlainText(pastedHTML, text);
-          if (recovered?.trim() && processFormatDualSource(pastedHTML, recovered, { area, startRow: appendStartRow })) {
-            return;
-          }
-        }
         processFormatTableHtml(normalizedPasted, { area, startRow: appendStartRow });
       }
     } catch {

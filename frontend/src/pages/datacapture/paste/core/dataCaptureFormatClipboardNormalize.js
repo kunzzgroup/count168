@@ -4,11 +4,6 @@
  * while preserving inline styles and class-driven colors from clipboard CSS.
  */
 
-import {
-  applyMaterialStyleHintsToTable,
-  bakeMaterialVisualOntoElement,
-} from "./dataCaptureFormatMaterialStyleMap.js";
-
 const GRID_HINT_RE =
   /mat-row|mat-cell|mat-header-row|mat-header-cell|mat-footer-cell|cdk-row|cdk-cell|role\s*=\s*["'](?:row|gridcell|columnheader|rowheader)["']/i;
 
@@ -362,18 +357,25 @@ function replaceRowWithElements(tr, elements, asHeader) {
     const td = document.createElement(asHeader || isHeaderLikeCell(el) ? "th" : "td");
     const cellStyle = el.getAttribute?.("style");
     if (cellStyle) td.setAttribute("style", sanitizeStyleKeepVisual(cellStyle));
+    // Bake Material status / link cues when clipboard CSS was not embedded.
+    const cls = String(el.className || "");
+    const baked = {};
+    if (/\bpositive\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
+      baked.color = "rgb(0, 200, 83)";
+    }
+    if (/\bnegative\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
+      baked.color = "rgb(244, 67, 54)";
+    }
+    if (el.querySelector?.("a")) {
+      if (!/\bcolor\s*:/i.test(td.getAttribute("style") || "")) baked.color = "rgb(33, 150, 243)";
+      baked["text-decoration"] = "underline";
+    }
+    if (Object.keys(baked).length) mergeStyleAttr(td, baked);
     if (el.innerHTML != null) {
       td.innerHTML = el.innerHTML || escapeHtml(el.textContent || "");
     } else {
       td.textContent = String(el.textContent || el || "");
     }
-    // Bake Material status / link / footer cues (class often has no matching <style>).
-    bakeMaterialVisualOntoElement(td, {
-      className: el.className,
-      rowClassName: tr.className || el.parentElement?.className,
-      text: td.textContent,
-      hasLink: Boolean(el.querySelector?.("a") || td.querySelector?.("a")),
-    });
     tr.appendChild(td);
   });
 }
@@ -385,8 +387,6 @@ function replaceRowWithTextColumns(tr, lines, asHeader) {
     td.textContent = line;
     tr.appendChild(td);
   });
-  // Text-only expansion lost Material classes; still bold Subtotal / Total Amount rows.
-  applyMaterialStyleHintsToTable(tr.closest("table") || tr.parentElement);
 }
 
 function splitCellTextToColumnLines(cell) {
@@ -481,56 +481,24 @@ export function expandCollapsedTableRows(table) {
       const tag = (el.tagName || "").toUpperCase();
       return tag === "TD" || tag === "TH";
     });
-    if (!cells.length) return;
-
-    // One real content cell (ignore trailing empty TDs) — Material/Chrome dump mode.
-    const nonEmptyCells = cells.filter(
-      (cell) =>
-        String(cell.textContent || "")
-          .replace(/\u00a0/g, " ")
-          .replace(/\s+/g, " ")
-          .trim() !== "",
-    );
-    if (nonEmptyCells.length !== 1) return;
-    const only = nonEmptyCells[0];
-
-    if (
-      !cellLooksHorizontallyCollapsed(only) &&
-      Number.parseInt(only.getAttribute("colspan") || "1", 10) <= 1
-    ) {
+    // One real cell (ignore colspan inflation) — the Material clipboard failure mode.
+    if (cells.length !== 1) return;
+    if (!cellLooksHorizontallyCollapsed(cells[0]) && Number.parseInt(cells[0].getAttribute("colspan") || "1", 10) <= 1) {
       // Still try tokenize on plain single-cell rows with dense report text.
-      const tokenized = tokenizeCollapsedReportRow(only.textContent || "");
+      const tokenized = tokenizeCollapsedReportRow(cells[0].textContent || "");
       if (tokenized.length < 2) return;
-      const asHeader = (only.tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(only);
+      const asHeader = (cells[0].tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(cells[0]);
       replaceRowWithTextColumns(tr, tokenized, asHeader);
       changed = true;
       return;
     }
 
+    const only = cells[0];
     const asHeader = (only.tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(only);
 
-    // Unwrap single MsoNormal / layout wrappers so field children become visible.
-    let scanRoot = only;
-    for (let depth = 0; depth < 6; depth += 1) {
-      const kids = Array.from(scanRoot.children || []).filter(
-        (child) => String(child.textContent || "").trim() !== "",
-      );
-      if (kids.length !== 1) break;
-      const tag = (kids[0].tagName || "").toLowerCase();
-      if (!["p", "div", "span", "font", "section", "article", "center"].includes(tag)) break;
-      const grand = Array.from(kids[0].children || []).filter(
-        (child) => String(child.textContent || "").trim() !== "",
-      );
-      if (grand.length < 2) break;
-      scanRoot = kids[0];
-    }
-
-    let nested = collectRowCells(scanRoot);
+    let nested = collectRowCells(only);
     if (nested.length < 2) {
-      nested = collectRowCells(only);
-    }
-    if (nested.length < 2) {
-      const kids = Array.from(scanRoot.children || []).filter(
+      const kids = Array.from(only.children || []).filter(
         (child) => String(child.textContent || "").trim() !== "",
       );
       if (kids.length >= 2) nested = kids;
@@ -542,7 +510,7 @@ export function expandCollapsedTableRows(table) {
       return;
     }
 
-    const lines = splitCellTextToColumnLines(scanRoot);
+    const lines = splitCellTextToColumnLines(only);
     if (lines.length >= 2) {
       // Each line is itself a full report row (Agent + amounts…) → one <tr> per line.
       const denseLines = lines.filter((line) => tokenizeCollapsedReportRow(line).length >= 2);
@@ -635,7 +603,6 @@ export function normalizeClipboardHtmlToTable(html) {
     if (mergedDataTables) {
       expandCollapsedTableRows(mergedDataTables);
       if (tableColumnCount(mergedDataTables) >= 2) {
-        applyMaterialStyleHintsToTable(mergedDataTables);
         return `${styleHtml}\n${mergedDataTables.outerHTML}`;
       }
     }
@@ -644,7 +611,6 @@ export function normalizeClipboardHtmlToTable(html) {
     if (existingTable && !gridRows.length) {
       expandCollapsedTableRows(existingTable);
       if (tableColumnCount(existingTable) >= 2) {
-        applyMaterialStyleHintsToTable(existingTable);
         return `${styleHtml}\n${existingTable.outerHTML}`;
       }
       return raw;
@@ -684,13 +650,20 @@ export function normalizeClipboardHtmlToTable(html) {
         const td = document.createElement(isHeaderLikeCell(cell) ? "th" : "td");
         const cellStyle = cell.getAttribute("style");
         if (cellStyle) td.setAttribute("style", sanitizeStyleKeepVisual(cellStyle));
+        const cls = String(cell.className || "");
+        const baked = {};
+        if (/\bpositive\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
+          baked.color = "rgb(0, 200, 83)";
+        }
+        if (/\bnegative\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
+          baked.color = "rgb(244, 67, 54)";
+        }
+        if (cell.querySelector?.("a")) {
+          if (!/\bcolor\s*:/i.test(td.getAttribute("style") || "")) baked.color = "rgb(33, 150, 243)";
+          baked["text-decoration"] = "underline";
+        }
+        if (Object.keys(baked).length) mergeStyleAttr(td, baked);
         td.innerHTML = cell.innerHTML || escapeHtml(cell.textContent || "");
-        bakeMaterialVisualOntoElement(td, {
-          className: cell.className,
-          rowClassName: row.className,
-          text: td.textContent,
-          hasLink: Boolean(cell.querySelector?.("a") || td.querySelector?.("a")),
-        });
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -699,7 +672,6 @@ export function normalizeClipboardHtmlToTable(html) {
     if (!tbody.children.length) return raw;
     table.appendChild(tbody);
     expandCollapsedTableRows(table);
-    applyMaterialStyleHintsToTable(table);
 
     return `${styleHtml}\n${table.outerHTML}`;
   } catch {
