@@ -65,6 +65,65 @@ function matrixLooksMultiColumn(matrix) {
 }
 
 /**
+ * When text/plain is empty or already crushed to N×1, rebuild a field dump from
+ * Material / table cells so Format dual-source can reshape.
+ */
+export function extractPlainFieldDumpFromHtml(html) {
+  if (!html) return "";
+  try {
+    const root = document.createElement("div");
+    root.innerHTML = String(html);
+    const cells = root.querySelectorAll(
+      [
+        "mat-cell",
+        "mat-footer-cell",
+        "mat-header-cell",
+        ".mat-cell",
+        ".mat-footer-cell",
+        ".mat-header-cell",
+        '[role="gridcell"]',
+        "td",
+        "th",
+      ].join(", "),
+    );
+    const tokens = [];
+    cells.forEach((cell) => {
+      const text = String(cell.textContent || "")
+        .replace(/\u00a0/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (text) tokens.push(text);
+    });
+    if (tokens.length >= 3) return tokens.join("\n");
+
+    // Fallback: newline-split text content (paste-area / collapsed copies).
+    const raw = String(root.textContent || "")
+      .replace(/\u00a0/g, " ")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n");
+    const lines = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    return lines.length >= 3 ? lines.join("\n") : "";
+  } catch {
+    return "";
+  }
+}
+
+function resolveFormatPlainText(html, text) {
+  const direct = String(text ?? "");
+  const directMatrix = direct.trim() ? parsePlainTextMatrix(direct) : null;
+  if (matrixLooksMultiColumn(directMatrix)) return direct;
+
+  const fromHtml = extractPlainFieldDumpFromHtml(html);
+  if (!fromHtml) return direct;
+  const htmlMatrix = parsePlainTextMatrix(fromHtml);
+  if (matrixLooksMultiColumn(htmlMatrix)) return fromHtml;
+  return direct || fromHtml;
+}
+
+/**
  * True when normalized Format HTML collapsed to a vertical N×1 dump
  * (common when mat-cell copies become one <td> per <tr>).
  */
@@ -143,7 +202,8 @@ function readClipboard(clipboard) {
 }
 
 function tryProcessFormatClipboard(html, text, options) {
-  const plainMatrix = text?.trim() ? parsePlainTextMatrix(text) : null;
+  const plainText = resolveFormatPlainText(html, text);
+  const plainMatrix = plainText?.trim() ? parsePlainTextMatrix(plainText) : null;
   const plainMulti = matrixLooksMultiColumn(plainMatrix);
 
   // Prefer good multi-col HTML (keeps mat-row styles). Reject N×1 HTML dumps.
@@ -153,7 +213,7 @@ function tryProcessFormatClipboard(html, text, options) {
       return processFormatTableHtml(normalizedHtml, options);
     }
     if (plainMulti) {
-      return processFormatDualSource(html || normalizedHtml, text, options);
+      return processFormatDualSource(html || normalizedHtml, plainText, options);
     }
   }
 
@@ -164,30 +224,30 @@ function tryProcessFormatClipboard(html, text, options) {
         return processFormatTableHtml(forced, options);
       }
       if (plainMulti) {
-        return processFormatDualSource(html, text, options);
+        return processFormatDualSource(html, plainText, options);
       }
     }
   }
 
   // Grid-like HTML + reshapable plain, but normalize failed → still dual-source.
   if (html && clipboardHtmlLooksLikeGrid(html) && plainMulti) {
-    return processFormatDualSource(html, text, options);
+    return processFormatDualSource(html, plainText, options);
   }
 
-  if (text && /<table\b/i.test(text)) {
-    if (!formatHtmlLooksLikeVerticalNx1(text)) {
-      return processFormatTableHtml(text, options);
+  if (plainText && /<table\b/i.test(plainText)) {
+    if (!formatHtmlLooksLikeVerticalNx1(plainText)) {
+      return processFormatTableHtml(plainText, options);
     }
-    if (plainMulti) return processFormatDualSource(html, text, options);
+    if (plainMulti) return processFormatDualSource(html, plainText, options);
   }
-  if (text && text.includes("\t")) {
-    return processFormatTsv(text, options);
+  if (plainText && plainText.includes("\t")) {
+    return processFormatTsv(plainText, options);
   }
   if (plainMulti) {
-    return processFormatDualSource(html, text, options);
+    return processFormatDualSource(html, plainText, options);
   }
-  if (text?.trim()) {
-    return processFormatPlainMatrix(text, options);
+  if (plainText?.trim()) {
+    return processFormatPlainMatrix(plainText, { ...options, html: html || "" });
   }
   return false;
 }
@@ -208,6 +268,14 @@ export function handleFormatPasteAreaEvent(e) {
     e.preventDefault();
     e.stopPropagation();
     return;
+  }
+
+  // Still intercept Material / report pastes so the browser does not dump N×1 into the area.
+  if ((html && clipboardHtmlLooksLikeGrid(html)) || resolveFormatPlainText(html, text).includes("\n")) {
+    e.preventDefault();
+    e.stopPropagation();
+    const recovered = resolveFormatPlainText(html, text);
+    if (recovered?.trim() && processFormatDualSource(html, recovered, options)) return;
   }
 
   setTimeout(() => {

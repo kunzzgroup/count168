@@ -22,7 +22,7 @@ const { parsePlainTextMatrix } = await import(
 const { plainMatrixToStyledHtmlTable, collectFormatStyleHintsFromHtml } = await import(
   pathToFileURL(path.join(base, "dataCaptureFormatPreview.js")).href,
 );
-const { formatHtmlLooksLikeVerticalNx1 } = await import(
+const { formatHtmlLooksLikeVerticalNx1, extractPlainFieldDumpFromHtml } = await import(
   pathToFileURL(path.join(base, "dataCaptureFormatPasteHandler.js")).href,
 );
 
@@ -81,6 +81,9 @@ const matrix = parsePlainTextMatrix(plain);
 const hints = collectFormatStyleHintsFromHtml(matHtml);
 const styled = plainMatrixToStyledHtmlTable(matrix, matHtml);
 
+const fromHtmlOnly = extractPlainFieldDumpFromHtml(matHtml);
+const fromHtmlMatrix = parsePlainTextMatrix(fromHtmlOnly);
+
 const checks = {
   matrix3x9: matrix.length === 3 && matrix[0].length === 9,
   nx1Detected: formatHtmlLooksLikeVerticalNx1(nx1Html) === true,
@@ -90,6 +93,7 @@ const checks = {
   styledHasGreen: /#82c751/.test(styled),
   styledHasLink: /#82b8b9/.test(styled) && /<a\b/i.test(styled),
   styledHasSubtotal: /Subtotal/.test(styled),
+  extractFromHtmlReshape: fromHtmlMatrix.length >= 1 && fromHtmlMatrix[0].length === 9,
 };
 
 const ok = Object.values(checks).every(Boolean);
