@@ -35,9 +35,9 @@ export function trySplitLabelColonMoneyCell(cell) {
   );
   if (!match) return null;
 
-  const label = match[1].trim().replace(/:+$/, "");
+  const label = `${match[1].trim()}:`;
   const value = match[2].trim();
-  if (!label || !value) return null;
+  if (!match[1].trim() || !value) return null;
   // Need a word-like label (not bare punctuation / numeric ratio left side).
   if (!/[A-Za-z\u4e00-\u9fff]/.test(label)) return null;
   return [label, value];

@@ -1,5 +1,5 @@
 /**
- * Badge / chip "Total win: 2,753.79" must split into label | money cells.
+ * Badge / chip "Total win: 2,753.79" → ["Total win:", "2,753.79"] (keep colon on label).
  * Run: node ./scripts/repro-label-colon-money-split.mjs
  */
 import { pathToFileURL } from "node:url";
@@ -14,11 +14,11 @@ const { parsePlainTextMatrix, trySplitLabelColonMoneyCell } = await import(
 );
 
 assert.deepEqual(trySplitLabelColonMoneyCell("Total win: 2,753.79"), [
-  "Total win",
+  "Total win:",
   "2,753.79",
 ]);
 assert.deepEqual(trySplitLabelColonMoneyCell("TOTAL WIN: 2,753.79"), [
-  "TOTAL WIN",
+  "TOTAL WIN:",
   "2,753.79",
 ]);
 assert.equal(trySplitLabelColonMoneyCell("12:30"), null);
@@ -27,14 +27,14 @@ assert.equal(trySplitLabelColonMoneyCell("http://example.com"), null);
 const matrix = parsePlainTextMatrix("Total win: 2,753.79");
 assert.equal(matrix.length, 1);
 assert.equal(matrix[0].length, 2);
-assert.equal(matrix[0][0], "Total win");
+assert.equal(matrix[0][0], "Total win:");
 assert.equal(matrix[0][1], "2,753.79");
 
 const multi = parsePlainTextMatrix("Total win: 1.00\nTotal bet: 2,500.50");
 assert.equal(multi.length, 2);
-assert.equal(multi[0][0], "Total win");
+assert.equal(multi[0][0], "Total win:");
 assert.equal(multi[0][1], "1.00");
-assert.equal(multi[1][0], "Total bet");
+assert.equal(multi[1][0], "Total bet:");
 assert.equal(multi[1][1], "2,500.50");
 
 // Already tab-split rows must stay untouched.
