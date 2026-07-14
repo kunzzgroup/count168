@@ -346,6 +346,108 @@ export function plainMatrixToHtmlTable(matrix) {
     return html;
 }
 
+function normalizeHintText(text) {
+    return String(text ?? "")
+        .replace(/\u00a0/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+/**
+ * Collect ordered visual hints from Material / table clipboard HTML (Format-only).
+ * Used when plain reshape owns structure but HTML still carries .positive / <a> cues.
+ */
+export function collectFormatStyleHintsFromHtml(html) {
+    if (!html) return [];
+    try {
+        const root = document.createElement("div");
+        root.innerHTML = String(html);
+        const cells = root.querySelectorAll(
+            [
+                "mat-cell",
+                "mat-footer-cell",
+                "mat-header-cell",
+                ".mat-cell",
+                ".mat-footer-cell",
+                ".mat-header-cell",
+                '[role="gridcell"]',
+                "td",
+                "th",
+            ].join(", "),
+        );
+        const hints = [];
+        cells.forEach((cell) => {
+            const text = normalizeHintText(cell.textContent);
+            if (!text) return;
+            const cls = String(cell.className || "");
+            const hasLink = Boolean(cell.querySelector?.("a"));
+            const positive = /\bpositive\b/i.test(cls);
+            const negative = /\bnegative\b/i.test(cls);
+            const inlineColor = (() => {
+                const style = cell.getAttribute?.("style") || "";
+                const m = style.match(/(?:^|;)\s*color\s*:\s*([^;]+)/i);
+                return m ? m[1].trim() : "";
+            })();
+            if (!positive && !negative && !hasLink && !inlineColor) return;
+            hints.push({ text, positive, negative, hasLink, inlineColor });
+        });
+        return hints;
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Build Format HTML table from matrix + optional Material style hints (1:1 colors).
+ * Report-center cues: positive → #82c751, agent link → #82b8b9.
+ */
+export function plainMatrixToStyledHtmlTable(matrix, htmlHintsSource = "") {
+    if (!matrix?.length) return "";
+    const hints = collectFormatStyleHintsFromHtml(htmlHintsSource);
+    const queue = hints.slice();
+
+    const takeHint = (text) => {
+        const normalized = normalizeHintText(text);
+        const idx = queue.findIndex((h) => h.text === normalized);
+        if (idx < 0) return null;
+        return queue.splice(idx, 1)[0];
+    };
+
+    let html = "<table><tbody>";
+    matrix.forEach((row, rowIndex) => {
+        html += "<tr>";
+        (row || []).forEach((cell, colIndex) => {
+            const value = String(cell ?? "");
+            const hint = takeHint(value);
+            const styles = [];
+            let inner = escapeHtml(value);
+
+            if (hint?.inlineColor) styles.push(`color: ${hint.inlineColor}`);
+            if (hint?.positive) styles.push("color: #82c751");
+            if (hint?.negative) styles.push("color: #ff7575");
+            if (hint?.hasLink || (colIndex === 0 && rowIndex === 0 && /^[A-Z0-9][A-Z0-9_-]{2,}$/i.test(value))) {
+                styles.push("color: #82b8b9", "text-decoration: underline");
+                if (hint?.hasLink || colIndex === 0) {
+                    inner = `<a href="#" style="color: #82b8b9;">${escapeHtml(value)}</a>`;
+                }
+            }
+
+            // Heuristic fallback when HTML hints missing: last money col on data rows → green if $ amount.
+            if (!hint && colIndex === (row?.length || 0) - 1 && /^\$?-?[\d,]+\.?\d*$/.test(value.replace(/\s/g, ""))) {
+                const numeric = Number(String(value).replace(/[$,]/g, ""));
+                if (Number.isFinite(numeric) && numeric > 0) styles.push("color: #82c751");
+                if (Number.isFinite(numeric) && numeric < 0) styles.push("color: #ff7575");
+            }
+
+            const styleAttr = styles.length ? ` style="${styles.join("; ")}"` : "";
+            html += `<td${styleAttr}>${inner}</td>`;
+        });
+        html += "</tr>";
+    });
+    html += "</tbody></table>";
+    return html;
+}
+
 export function clipboardLooksLikeTable(clipboard) {
     // 先用types判断（某些浏览器在某些阶段getData会返回空/抛错）
     try {
