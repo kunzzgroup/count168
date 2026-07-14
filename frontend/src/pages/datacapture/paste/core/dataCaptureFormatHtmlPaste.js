@@ -96,6 +96,24 @@ export function formatBodyMatrixLooksCollapsed(bodyMatrix, dataRows) {
   // N×1 dump: many rows, only first column filled, looks like field-per-row.
   if (matrixRows >= 6 && maxFilledCols <= 1 && totalFilled >= 6) return true;
 
+  // Few tall cells (agent/subtotal/total) each still holding a multi-field stack (Fig1).
+  if (matrixRows >= 2 && matrixRows <= 5 && maxFilledCols <= 1 && totalFilled >= 2) {
+    const stackedRows = bodyMatrix.filter((row) => {
+      const cell = (row || [])[0];
+      if (!cell) return false;
+      const text = String(cell?.value || "")
+        .replace(/\u00a0/g, " ")
+        .trim();
+      const html = String(cell?.html || "");
+      const blob = `${text}\n${html}`;
+      const moneyHits = (blob.match(/\$[\d,]+(?:\.\d+)?/g) || []).length;
+      const lineHits = text.split(/\r?\n/).filter((line) => line.trim()).length;
+      const nestedBlocks = (html.match(/<(?:div|p|span|br|mat-cell|font)\b/gi) || []).length;
+      return moneyHits >= 2 || lineHits >= 3 || nestedBlocks >= 3;
+    }).length;
+    if (stackedRows >= 1) return true;
+  }
+
   // One (or few) cells still holding a whole multi-field report dump.
   const hasStackedDumpCell = bodyMatrix.some((row) =>
     (row || []).some((cell) => {
@@ -103,9 +121,10 @@ export function formatBodyMatrixLooksCollapsed(bodyMatrix, dataRows) {
         .replace(/\u00a0/g, " ")
         .trim();
       const html = String(cell?.html || "");
-      const moneyHits = (text.match(/\$[\d,]+(?:\.\d+)?/g) || []).length;
+      const blob = `${text}\n${html}`;
+      const moneyHits = (blob.match(/\$[\d,]+(?:\.\d+)?/g) || []).length;
       const lineHits = text.split(/\r?\n/).filter((line) => line.trim()).length;
-      const nestedBlocks = (html.match(/<(?:div|p|span|br)\b/gi) || []).length;
+      const nestedBlocks = (html.match(/<(?:div|p|span|br|mat-cell|font)\b/gi) || []).length;
       return moneyHits >= 3 || lineHits >= 3 || (nestedBlocks >= 3 && moneyHits >= 1);
     }),
   );
