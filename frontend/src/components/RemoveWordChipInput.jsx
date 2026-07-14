@@ -8,7 +8,7 @@ import {
 } from "../lib/removeWordChips.js";
 
 function normalizeDraft(value) {
-  return String(value ?? "").toUpperCase();
+  return String(value ?? "");
 }
 
 export default function RemoveWordChipInput({
