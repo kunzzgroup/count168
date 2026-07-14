@@ -16,6 +16,7 @@ import {
   plainMatrixLooksReliable,
   sanitizePasteMatrix,
 } from "./dataCapturePasteMatrixSanitize.js";
+import { expandLabelColonMoneyCells } from "./dataCaptureTextPaste.js";
 
 function flattenFormatBodyMatrixToPlain(bodyMatrix) {
   const lines = [];
@@ -254,7 +255,7 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
     }
 
     // Over-select: trim trailing empty cols / junk rows (same as 1.TEXT plain path).
-    bodyMatrix = sanitizePasteMatrix(bodyMatrix);
+    bodyMatrix = sanitizePasteMatrix(expandLabelColonMoneyCells(bodyMatrix));
 
     // Same as 1.TEXT: stacked SUBTOTAL + GRAND TOTAL in one row → two full rows.
     const beforeSplit = bodyMatrix.length;
@@ -264,7 +265,7 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
         `Format: Split stacked SUBTOTAL/GRANDTOTAL → ${beforeSplit} row(s) became ${bodyMatrix.length}`,
       );
     }
-    bodyMatrix = sanitizePasteMatrix(bodyMatrix);
+    bodyMatrix = sanitizePasteMatrix(expandLabelColonMoneyCells(bodyMatrix));
 
     // Grill: when plain TSV is reliable, HTML body must match its shape (reject → dual-source).
     const plainMatrix = options.plainMatrix;

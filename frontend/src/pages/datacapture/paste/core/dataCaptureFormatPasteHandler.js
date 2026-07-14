@@ -14,7 +14,7 @@ import {
 } from "./dataCaptureFormatClipboardNormalize.js";
 import { parseFormatHtmlTableStructure } from "./dataCaptureFormatHtmlMatrix.js";
 import { formatBodyMatrixLooksCollapsed } from "./dataCaptureFormatHtmlPaste.js";
-import { parsePlainTextMatrix } from "./dataCaptureTextPaste.js";
+import { parsePlainTextMatrix, expandLabelColonMoneyCells } from "./dataCaptureTextPaste.js";
 import { splitStackedSubtotalGrandTotalRows } from "./dataCaptureStackedTotalSplit.js";
 import { sanitizePasteMatrix } from "./dataCapturePasteMatrixSanitize.js";
 import {
@@ -252,7 +252,7 @@ export function processFormatDualSource(html, text, { area = null, startRow = nu
     plainMatrixToFormatCellPatches(matrix, html || "") ||
     matrix.map((row) => (row || []).map((value) => ({ value: String(value ?? "") })));
   patches = splitStackedSubtotalGrandTotalRows(patches);
-  patches = sanitizePasteMatrix(patches);
+  patches = sanitizePasteMatrix(expandLabelColonMoneyCells(patches));
 
   if (formatBodyMatrixLooksCollapsed(patches, null)) {
     console.log("Format: Dual-source reshape still looks collapsed — abort");
