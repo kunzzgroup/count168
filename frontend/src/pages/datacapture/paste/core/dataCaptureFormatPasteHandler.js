@@ -231,10 +231,8 @@ function tryProcessFormatClipboard(html, text, options) {
     if (matTable && /<table\b/i.test(matTable)) {
       if (!formatHtmlLooksLikeVerticalNx1(matTable)) {
         if (processFormatTableHtml(matTable, options)) return true;
-        // Multi-col Material parse succeeded structurally but fill failed — do not
-        // prefer plain reshape (would break 1:1 / styles).
-        return false;
       }
+      // N×1 or multi-col fill rejected → dual-source from field dump (Fig1 → Fig2).
       if (plainSafe) {
         return processFormatDualSource(html || matTable, plainText, options);
       }

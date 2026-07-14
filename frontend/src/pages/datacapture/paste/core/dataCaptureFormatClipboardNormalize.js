@@ -4,6 +4,8 @@
  * while preserving inline styles and class-driven colors from clipboard CSS.
  */
 
+import { detectVerticalFieldDump } from "./dataCaptureVerticalDumpDetect.js";
+
 const GRID_HINT_RE =
   /mat-row|mat-cell|mat-header-row|mat-header-cell|mat-footer-cell|cdk-row|cdk-cell|role\s*=\s*["'](?:row|gridcell|columnheader|rowheader)["']/i;
 
@@ -596,7 +598,67 @@ export function expandCollapsedTableRows(table) {
     }
   });
 
+  // Chrome often strips mat-* tags and leaves one field per <tr><td> (Fig1 N×1).
+  if (reshapeVerticalNx1FieldDumpTable(table)) changed = true;
+
   return changed;
+}
+
+/**
+ * Reshape a vertical field dump table (one token per TR) into horizontal report
+ * rows — same heuristic as plain-text mat-row reshape. Mutates table in place.
+ */
+export function reshapeVerticalNx1FieldDumpTable(table) {
+  if (!table) return false;
+  const trs = Array.from(table.querySelectorAll("tr"));
+  if (trs.length < 6) return false;
+
+  const tokens = [];
+  for (const tr of trs) {
+    const cells = Array.from(tr.children || []).filter((el) => {
+      const tag = (el.tagName || "").toUpperCase();
+      return tag === "TD" || tag === "TH";
+    });
+    const nonEmpty = cells.filter(
+      (cell) =>
+        String(cell.textContent || "")
+          .replace(/\u00a0/g, " ")
+          .replace(/\s+/g, " ")
+          .trim() !== "",
+    );
+    // Already multi-column → leave alone.
+    if (nonEmpty.length > 1) return false;
+    if (!nonEmpty.length) continue;
+    const only = nonEmpty[0];
+    // BR / nested mat-cell rows belong to expandCollapsedTableRows, not this path.
+    if (cellLooksHorizontallyCollapsed(only)) return false;
+    const text = String(only.textContent || "")
+      .replace(/\u00a0/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!text) continue;
+    // Multi-token single cell without BR markers → not a pure N×1 dump.
+    if (tokenizeCollapsedReportRow(text).length >= 3) return false;
+    tokens.push(text);
+  }
+
+  if (tokens.length < 6) return false;
+  const rows = detectVerticalFieldDump(tokens);
+  if (!rows?.length || (rows[0]?.length || 0) < 2) return false;
+
+  while (table.firstChild) table.removeChild(table.firstChild);
+  const tbody = document.createElement("tbody");
+  rows.forEach((row) => {
+    const tr = document.createElement("tr");
+    (row || []).forEach((value) => {
+      const td = document.createElement("td");
+      td.textContent = String(value ?? "");
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  return true;
 }
 
 /** True when a parsed table still looks like columns crushed into one cell/column. */
