@@ -117,20 +117,33 @@ export function parseAnnouncementCard({ title = "", content = "" } = {}) {
     const numbered = collectNumberedFromPlain(blocks);
     items = numbered.items;
     blocks = numbered.rest;
-  } else {
-    // Drop lines that merely repeat list text or section headers once items exist.
-    blocks = blocks.filter((line) => {
-      if (/本次更新|this update includes/i.test(line)) return false;
-      if (items.some((item) => item === stripNumberedPrefix(line))) return false;
-      return true;
-    });
   }
 
   if (items.length === 0) return null;
 
+  let sectionLabel = "";
+  if (typeof DOMParser !== "undefined") {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div id="root">${html}</div>`, "text/html");
+    const root = doc.getElementById("root") || doc.body;
+    const firstHeading = Array.from(root.children).find((el) => {
+      const tag = el.tagName.toLowerCase();
+      return /^h[2-4]$/.test(tag) && decodeText(el.textContent);
+    });
+    if (firstHeading) {
+      sectionLabel = decodeText(firstHeading.textContent).slice(0, 80);
+    }
+  }
+
   const thankYouBlocks = [];
   const introBlocks = [];
   blocks.forEach((line) => {
+    if (sectionLabel && line === sectionLabel) return;
+    if (/本次更新|this update includes/i.test(line)) {
+      if (!sectionLabel) sectionLabel = line.slice(0, 80);
+      return;
+    }
+    if (items.some((item) => item === stripNumberedPrefix(line))) return;
     if (THANK_RE.test(line)) thankYouBlocks.push(line);
     else introBlocks.push(line);
   });
@@ -141,6 +154,7 @@ export function parseAnnouncementCard({ title = "", content = "" } = {}) {
   return {
     title: safeTitle || "Announcement",
     version,
+    sectionLabel,
     /** First non-thanks prose block; UI may fall back to versionUpdated label. */
     subtitle: introBlocks[0] || "",
     intro: introBlocks.slice(1),

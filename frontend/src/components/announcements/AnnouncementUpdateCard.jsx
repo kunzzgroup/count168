@@ -100,7 +100,7 @@ export default function AnnouncementUpdateCard({
       </div>
 
       <div className="auc-section-label">
-        <span>{labels.updateIncludes || "Update includes"}</span>
+        <span>{parsed.sectionLabel || labels.updateIncludes || "Update includes"}</span>
       </div>
 
       <ol className="auc-list">
