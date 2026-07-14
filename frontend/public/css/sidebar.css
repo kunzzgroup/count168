@@ -1419,8 +1419,8 @@
     right: -400px;
     width: clamp(260px, 20.83vw, 400px);
     height: 100vh;
-    background: #ffffff;
-    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+    background: #f8fafc;
+    box-shadow: -8px 0 28px rgba(15, 23, 42, 0.12);
     z-index: 1300;
     transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
@@ -1434,18 +1434,20 @@
 
 /* 通知面板头部 */
 .notification-header {
-    padding: clamp(10px, 1.04vw, 20px) clamp(16px, 1.25vw, 24px);
-    border-bottom: 1px solid #e5e7eb;
+    padding: clamp(12px, 1.04vw, 20px) clamp(16px, 1.25vw, 24px);
+    border-bottom: 1px solid #e2e8f0;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #f9fafb;
+    background: #ffffff;
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
 }
 
 .notification-header h2 {
     margin: 0;
-    font-size: clamp(14px, 1.04vw, 20px);
-    font-weight: 600;
+    font-size: clamp(15px, 1.04vw, 20px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
     color: #1a237e;
 }
 
@@ -1459,12 +1461,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #6b7280;
+    color: #64748b;
     transition: all 0.2s ease;
 }
 
 .notification-close:hover {
-    background: #e5e7eb;
+    background: #f1f5f9;
     color: #1a237e;
 }
 
@@ -1477,23 +1479,26 @@
 .notification-content {
     flex: 1;
     overflow-y: auto;
-    padding: clamp(10px, 0.83vw, 16px);
+    padding: clamp(12px, 0.94vw, 18px);
 }
 
 .notification-item {
-    padding: clamp(10px, 0.83vw, 16px);
-    margin-bottom: clamp(8px, 0.625vw, 12px);
-    background: #f9fafb;
-    border-radius: 12px;
+    padding: clamp(12px, 0.94vw, 18px) clamp(12px, 0.94vw, 18px) clamp(12px, 0.94vw, 18px) clamp(14px, 1.04vw, 20px);
+    margin-bottom: clamp(10px, 0.73vw, 14px);
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
     border-left: 4px solid #1a237e;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.04);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 .notification-item:hover {
-    background: #f3f4f6;
+    background: #ffffff;
+    border-color: #cbd5e1;
     transform: translateX(-2px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
 .notification-bell.has-unread::after {
@@ -1511,26 +1516,39 @@
 
 .notification-item.unread {
     background: #eff6ff;
+    border-color: #bfdbfe;
     border-left-color: #3b82f6;
+}
+
+.notification-item.unread:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
 }
 
 .notification-item.expiration-reminder-item.unread {
     background: #fff7ed;
+    border-color: #fed7aa;
     border-left-color: #f97316;
 }
 
+.notification-item.expiration-reminder-item.unread:hover {
+    background: #fff7ed;
+    border-color: #fdba74;
+}
+
 .notification-title {
-    font-size: clamp(10px, 0.73vw, 14px);
-    font-weight: 600;
-    color: #111827;
-    margin-bottom: 6px;
+    font-size: clamp(11px, 0.78vw, 15px);
+    font-weight: 700;
+    line-height: 1.35;
+    color: #0f172a;
+    margin-bottom: clamp(6px, 0.52vw, 10px);
 }
 
 .notification-message {
-    font-size: clamp(9px, 0.68vw, 13px);
-    color: #6b7280;
-    line-height: 1.5;
-    margin-bottom: 8px;
+    font-size: clamp(10px, 0.7vw, 13.5px);
+    color: #475569;
+    line-height: 1.65;
+    margin-bottom: clamp(8px, 0.62vw, 12px);
     white-space: pre-wrap;
     word-break: break-word;
 }
@@ -1548,43 +1566,55 @@
 .notification-message.rich-text-renderer h2,
 .notification-message.rich-text-renderer h3,
 .notification-message.rich-text-renderer h4 {
-    margin: 0 0 6px 0;
+    margin: 0 0 8px 0;
 }
 
 .notification-message.rich-text-renderer ul,
 .notification-message.rich-text-renderer ol {
-    padding-left: 18px;
+    padding-left: 20px;
+}
+
+.notification-message.rich-text-renderer li {
+    margin-bottom: 4px;
+}
+
+.notification-message.rich-text-renderer li:last-child {
+    margin-bottom: 0;
 }
 
 .notification-message.rich-text-renderer pre {
     background: #0f172a;
     color: #e2e8f0;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 8px;
     overflow-x: auto;
 }
 
 .notification-time {
-    font-size: clamp(8px, 0.625vw, 12px);
-    color: #9ca3af;
+    font-size: clamp(8px, 0.6vw, 11.5px);
+    font-weight: 500;
+    color: #94a3b8;
+    letter-spacing: 0.01em;
 }
 
 .notification-empty {
     text-align: center;
-    padding: 60px 20px;
-    color: #9ca3af;
+    padding: clamp(48px, 4vw, 72px) clamp(16px, 1.25vw, 24px);
+    color: #94a3b8;
 }
 
 .notification-empty svg {
-    width: 64px;
-    height: 64px;
-    margin-bottom: 16px;
-    opacity: 0.5;
+    width: clamp(48px, 3.75vw, 64px);
+    height: clamp(48px, 3.75vw, 64px);
+    margin-bottom: 14px;
+    opacity: 0.45;
+    color: #94a3b8;
 }
 
 .notification-empty p {
     margin: 0;
-    font-size: 14px;
+    font-size: clamp(12px, 0.78vw, 14px);
+    line-height: 1.5;
 }
 
 /* 公司到期倒计时样式 */
