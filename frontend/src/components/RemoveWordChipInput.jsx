@@ -11,6 +11,15 @@ function normalizeDraft(value) {
   return String(value ?? "");
 }
 
+function selectElementText(el) {
+  if (!el) return;
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+}
+
 export default function RemoveWordChipInput({
   value,
   onChange,
@@ -24,13 +33,15 @@ export default function RemoveWordChipInput({
 }) {
   const [draft, setDraft] = useState("");
   const inputRef = useRef(null);
+  const bulkRef = useRef(null);
   const chips = parseRemoveWordChips(value);
+  const serialized = serializeRemoveWordChips(chips);
 
   const commitChips = useCallback(
     (nextChips) => {
       if (disabled) return;
-      const serialized = serializeRemoveWordChips(nextChips);
-      onChange?.(serialized);
+      const next = serializeRemoveWordChips(nextChips);
+      onChange?.(next);
       if (processId) {
         saveStoredRemoveWordChips(scopeCompanyId, processId, nextChips);
       }
@@ -43,14 +54,23 @@ export default function RemoveWordChipInput({
     const fromValue = parseRemoveWordChips(value);
     const stored = loadStoredRemoveWordChips(scopeCompanyId, processId);
     const merged = mergeRemoveWordChips(fromValue, stored);
-    const serialized = serializeRemoveWordChips(merged);
-    if (serialized !== serializeRemoveWordChips(fromValue)) {
-      onChange?.(serialized);
+    const next = serializeRemoveWordChips(merged);
+    if (next !== serializeRemoveWordChips(fromValue)) {
+      onChange?.(next);
     }
     if (merged.length) {
       saveStoredRemoveWordChips(scopeCompanyId, processId, merged);
     }
   }, [processId, scopeCompanyId, value, onChange, disabled]);
+
+  // Normalize legacy `;` values to comma form when loaded.
+  useEffect(() => {
+    if (disabled) return;
+    const next = serializeRemoveWordChips(parseRemoveWordChips(value));
+    if (value && next !== value) {
+      onChange?.(next);
+    }
+  }, [disabled, onChange, value]);
 
   const addDraftWord = useCallback(() => {
     if (disabled) return;
@@ -75,13 +95,18 @@ export default function RemoveWordChipInput({
 
   const handleContainerClick = (event) => {
     if (disabled) return;
-    // Keep chip text selectable/copyable; don't steal focus into the draft input.
     if (event.target.closest(".dc-remove-word-chip")) return;
+    if (event.target.closest(".dc-remove-word-chip-input__bulk")) return;
     inputRef.current?.focus();
   };
 
   const handleKeyDown = (event) => {
     if (disabled) return;
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a" && chips.length > 0) {
+      event.preventDefault();
+      selectElementText(bulkRef.current);
+      return;
+    }
     if (event.key === "Enter") {
       event.preventDefault();
       addDraftWord();
@@ -113,7 +138,6 @@ export default function RemoveWordChipInput({
           key={`${chip}-${index}`}
           className="dc-remove-word-chip"
           onMouseDown={(event) => {
-            // Preserve text selection on the chip; only the remove button should eat the gesture.
             if (event.target.closest(".dc-remove-word-chip__remove")) return;
             event.stopPropagation();
           }}
@@ -149,6 +173,19 @@ export default function RemoveWordChipInput({
           onBlur={addDraftWord}
           autoComplete="off"
         />
+      ) : null}
+      {chips.length > 0 ? (
+        <span
+          ref={bulkRef}
+          className="dc-remove-word-chip-input__bulk"
+          title={serialized}
+          onClick={(event) => {
+            event.stopPropagation();
+            selectElementText(event.currentTarget);
+          }}
+        >
+          {serialized}
+        </span>
       ) : null}
     </div>
   );

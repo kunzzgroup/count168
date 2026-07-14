@@ -69,11 +69,28 @@
     font-size: 14px;
     line-height: 1;
     cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .dc-remove-word-chip__remove:hover {
     background: #e2e8f0;
     color: #475569;
+}
+
+.dc-remove-word-chip-input__bulk {
+    flex: 1 0 100%;
+    margin-top: 2px;
+    padding: 2px 0 0;
+    border-top: 1px dashed var(--dc-border, #e2e8f0);
+    color: #64748b;
+    font-size: clamp(10px, 0.7vw, 13px);
+    font-weight: 500;
+    line-height: 1.35;
+    word-break: break-all;
+    cursor: text;
+    user-select: all;
+    -webkit-user-select: all;
 }
 
 .process-form .form-group .dc-remove-word-chip-input__field,

@@ -2,13 +2,12 @@ function normalizeRemoveWordToken(value) {
   return String(value ?? "").trim();
 }
 
-const STORAGE_PREFIX = "dc_remove_word_chips:";
-
+/** Split on comma or legacy semicolon; keep first-seen casing. */
 export function parseRemoveWordChips(value) {
   const seen = new Set();
   const chips = [];
-  for (const part of String(value || "").split(";")) {
-    const word = normalizeRemoveWordToken(part.trim());
+  for (const part of String(value || "").split(/[,;]+/)) {
+    const word = normalizeRemoveWordToken(part);
     if (!word) continue;
     const key = word.toLowerCase();
     if (seen.has(key)) continue;
@@ -18,17 +17,21 @@ export function parseRemoveWordChips(value) {
   return chips;
 }
 
+/** Persist as `sad,aa,aaa` (comma, no spaces). */
 export function serializeRemoveWordChips(chips) {
-  return parseRemoveWordChips(chips.join(";")).join(";");
+  const list = Array.isArray(chips) ? chips : parseRemoveWordChips(chips);
+  return parseRemoveWordChips(list.join(",")).join(",");
 }
 
 export function mergeRemoveWordChips(...lists) {
-  return parseRemoveWordChips(lists.flat().join(";"));
+  return parseRemoveWordChips(lists.flat().join(","));
 }
 
 export function resolveSubmittedRemoveWordChips(value, draft) {
   return serializeRemoveWordChips(mergeRemoveWordChips(value, draft));
 }
+
+const STORAGE_PREFIX = "dc_remove_word_chips:";
 
 function storageKey(scopeCompanyId, processId) {
   const company = scopeCompanyId != null && Number(scopeCompanyId) > 0 ? Number(scopeCompanyId) : 0;
@@ -42,7 +45,7 @@ export function loadStoredRemoveWordChips(scopeCompanyId, processId) {
     const raw = localStorage.getItem(storageKey(scopeCompanyId, processId));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parseRemoveWordChips(parsed.join(";")) : [];
+    return Array.isArray(parsed) ? parseRemoveWordChips(parsed.join(",")) : [];
   } catch {
     return [];
   }
@@ -50,7 +53,7 @@ export function loadStoredRemoveWordChips(scopeCompanyId, processId) {
 
 export function saveStoredRemoveWordChips(scopeCompanyId, processId, chips) {
   if (!processId) return;
-  const normalized = parseRemoveWordChips(chips.join(";"));
+  const normalized = parseRemoveWordChips(chips.join(","));
   if (!normalized.length) {
     localStorage.removeItem(storageKey(scopeCompanyId, processId));
     return;
