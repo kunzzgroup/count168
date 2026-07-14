@@ -5,7 +5,10 @@ import {
   resolvePasteCell,
 } from "./dataCaptureClipboard.js";
 import { getDefaultPasteAnchorCell } from "./dataCapturePasteApply.js";
-import { parseCitibetPasteData } from "./dataCapturePasteDetect.js";
+import {
+  autoDetectCaptureTypeFromPaste,
+  parseCitibetPasteData,
+} from "./dataCapturePasteDetect.js";
 import { handleCitibetPaste } from "../vendors/dataCaptureCitibetPaste.js";
 import { handleTextModePaste } from "./dataCaptureTextPaste.js";
 import { handleFormatCellPaste } from "./dataCaptureFormatPasteHandler.js";
@@ -159,6 +162,15 @@ export function handleCellPasteEvent(e) {
   }
 
   if (captureType === "1.Text") {
+    // Fail-closed Citibet layout bypass: only when clipboard strictly detects as a
+    // Citibet report. Dropdown stays on 1.Text — reuse CITIBET parse/fill only.
+    // Miss → existing 1.Text path unchanged (vertical dump / HTML / plain).
+    if (autoDetectCaptureTypeFromPaste(pastedData) === "CITIBET") {
+      const citibetParsed = parseCitibetPasteData(pastedData, "CITIBET");
+      if (citibetParsed && handleCitibetPaste(e, pastedData, cell, "CITIBET", citibetParsed)) {
+        return;
+      }
+    }
     if (handleTextModePaste(e, pastedData, cell)) return;
     invokeGenericPasteFallback(e, pastedData);
     return;
