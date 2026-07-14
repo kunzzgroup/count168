@@ -44,10 +44,46 @@ function looksLikeHorizontalReportFieldDump(tokens) {
   return true;
 }
 
+function elementHasVisibleText(el) {
+  return Boolean(String(el?.textContent || "").replace(/\s+/g, " ").trim());
+}
+
+function isLayoutWrapperTag(el) {
+  const tag = (el?.tagName || "").toLowerCase();
+  return (
+    tag === "p" ||
+    tag === "div" ||
+    tag === "span" ||
+    tag === "font" ||
+    tag === "section" ||
+    tag === "article" ||
+    tag === "center"
+  );
+}
+
+/**
+ * Chrome / Word HTML often wraps a whole report row in one <p class="MsoNormal">
+ * (or similar) whose children are the real fields. Descend through single wrappers.
+ */
+function unwrapSingleLayoutWrappers(root) {
+  let current = root;
+  for (let depth = 0; depth < 6; depth += 1) {
+    const kids = Array.from(current?.children || []).filter(elementHasVisibleText);
+    if (kids.length !== 1 || !isLayoutWrapperTag(kids[0])) break;
+    const grand = Array.from(kids[0].children || []).filter(elementHasVisibleText);
+    // Only unwrap when the wrapper carries multiple field children underneath.
+    if (grand.length < 2) break;
+    current = kids[0];
+  }
+  return current || root;
+}
+
 function collectNestedReportFieldCells(sourceCell) {
   if (!sourceCell) return [];
-  const direct = Array.from(
-    sourceCell.querySelectorAll(
+  const root = unwrapSingleLayoutWrappers(sourceCell);
+
+  const directHint = Array.from(
+    root.querySelectorAll(
       [
         ":scope > mat-cell",
         ":scope > mat-footer-cell",
@@ -58,27 +94,41 @@ function collectNestedReportFieldCells(sourceCell) {
         ':scope > [role="gridcell"]',
         ":scope > div",
         ":scope > span",
+        ":scope > font",
+        ":scope > a",
+        ":scope > p",
       ].join(", "),
     ),
-  ).filter((el) => String(el.textContent || "").replace(/\s+/g, " ").trim());
-  if (direct.length >= 2) return direct;
+  ).filter(elementHasVisibleText);
+  if (directHint.length >= 2) return directHint;
+
+  // Generic direct children (covers a+div mixes and MsoNormal-wrapped spans).
+  const directKids = Array.from(root.children || []).filter(elementHasVisibleText);
+  if (directKids.length >= 2) return directKids;
 
   const nested = Array.from(
-    sourceCell.querySelectorAll(
+    root.querySelectorAll(
       "mat-cell, mat-footer-cell, .mat-cell, .mat-footer-cell, [role='gridcell']",
     ),
   ).filter((el) => {
     let parent = el.parentElement;
-    while (parent && parent !== sourceCell) {
+    while (parent && parent !== root && parent !== sourceCell) {
       const tag = (parent.tagName || "").toLowerCase();
       if (tag === "mat-cell" || tag === "mat-footer-cell" || tag === "td" || tag === "th") {
-        if (parent !== sourceCell) return false;
+        if (parent !== root && parent !== sourceCell) return false;
       }
       parent = parent.parentElement;
     }
-    return parent === sourceCell;
+    return parent === root || parent === sourceCell;
   });
-  return nested.filter((el) => String(el.textContent || "").replace(/\s+/g, " ").trim());
+  return nested.filter(elementHasVisibleText);
+}
+
+function getDirectRowCells(sourceRow) {
+  return Array.from(sourceRow?.children || []).filter((el) => {
+    const tag = (el.tagName || "").toUpperCase();
+    return tag === "TD" || tag === "TH";
+  });
 }
 
 function patchFromPlainReportToken(token, colIndex, rowTokens) {
@@ -228,7 +278,8 @@ function extractCellLines(sourceCell) {
         .map((el) => String(el.textContent || "").replace(/\s+/g, " ").trim())
         .filter(Boolean);
     } else {
-      const directChildren = Array.from(sourceCell.childNodes || []);
+      const scanRoot = unwrapSingleLayoutWrappers(sourceCell);
+      const directChildren = Array.from(scanRoot.childNodes || []);
       const directSpans = directChildren.filter(
         (node) => node.nodeType === Node.ELEMENT_NODE && node.tagName === "SPAN",
       );
@@ -266,7 +317,7 @@ function sourceRowNeedsVerticalSplit(sourceCells) {
   if (sourceCells.length === 0) return false;
   const lines = extractCellLines(sourceCells[0]);
   // Agent-period collapsed rows are HORIZONTAL field dumps, not 2-line vertical splits.
-  if (looksLikeHorizontalReportFieldDump(lines)) return false;
+  if (nestedFieldsLookLikeReportRow(lines)) return false;
   return lines.length >= 2;
 }
 
@@ -448,34 +499,53 @@ function fillSourceRowPatches(targetRow, sourceCells, maxCols, lineSelector) {
   return targetRow;
 }
 
-function expandSourceRowToMatrixRows(sourceRow, maxCols) {
-  const sourceCells = Array.from(sourceRow.querySelectorAll("td, th"));
+function nestedFieldsLookLikeReportRow(texts) {
+  if (!Array.isArray(texts) || texts.length < 3) return false;
+  if (looksLikeHorizontalReportFieldDump(texts)) return true;
+  const moneyCount = texts.filter((token) => cellTextIsMoneyOrNumberLike(token)).length;
+  return moneyCount >= 2 && moneyCount >= Math.ceil(texts.length * 0.4);
+}
 
-  // Collapsed Material row: one TD holding nested mat-cells / newline fields → expand HORIZONTALLY.
+function expandCollapsedFieldsToRow(fieldEls, maxCols) {
+  const width = Math.max(maxCols, fieldEls.length);
+  const row = fieldEls.map((el) => buildFormatDataCellPatch(el));
+  while (row.length < width) row.push({ value: "" });
+  return [row];
+}
+
+function expandPlainTokensToRow(tokens, maxCols) {
+  const width = Math.max(maxCols, tokens.length);
+  const row = tokens.map((token, index) => patchFromPlainReportToken(token, index, tokens));
+  while (row.length < width) row.push({ value: "" });
+  return [row];
+}
+
+function expandSourceRowToMatrixRows(sourceRow, maxCols) {
+  // Direct children only — nested tables must not inflate sourceCells.
+  const sourceCells = getDirectRowCells(sourceRow);
+
+  // Collapsed Material / Word row: one TD holding nested field blocks → expand HORIZONTALLY.
   if (sourceCells.length === 1) {
     const only = sourceCells[0];
     const nested = collectNestedReportFieldCells(only);
-    if (nested.length >= 3 && looksLikeHorizontalReportFieldDump(nested.map((el) => extractPlainText(el)))) {
-      const width = Math.max(maxCols, nested.length);
-      const row = nested.map((el) => buildFormatDataCellPatch(el));
-      while (row.length < width) row.push({ value: "" });
-      return [row];
+    const nestedTexts = nested.map((el) => extractPlainText(el));
+    if (nested.length >= 3 && nestedFieldsLookLikeReportRow(nestedTexts)) {
+      return expandCollapsedFieldsToRow(nested, maxCols);
     }
 
     const lines = extractCellLines(only);
-    if (looksLikeHorizontalReportFieldDump(lines)) {
-      const width = Math.max(maxCols, lines.length);
-      const row = lines.map((token, index) => patchFromPlainReportToken(token, index, lines));
-      while (row.length < width) row.push({ value: "" });
-      return [row];
+    if (nestedFieldsLookLikeReportRow(lines)) {
+      return expandPlainTokensToRow(lines, maxCols);
     }
 
     const tokens = tokenizeCollapsedReportRow(only.textContent || "");
-    if (looksLikeHorizontalReportFieldDump(tokens)) {
-      const width = Math.max(maxCols, tokens.length);
-      const row = tokens.map((token, index) => patchFromPlainReportToken(token, index, tokens));
-      while (row.length < width) row.push({ value: "" });
-      return [row];
+    if (nestedFieldsLookLikeReportRow(tokens)) {
+      return expandPlainTokensToRow(tokens, maxCols);
+    }
+
+    // Last resort: never dump a multi-field HTML stack into one grid cell (Fig1).
+    if (nested.length >= 3) {
+      return expandCollapsedFieldsToRow(nested, maxCols);
     }
   }
 
@@ -483,13 +553,8 @@ function expandSourceRowToMatrixRows(sourceRow, maxCols) {
     detectRowVerticalSplit(sourceCells);
 
   const firstSplitLines = cellsWithSplit.find((entry) => entry.index === 0)?.allLines || [];
-  if (looksLikeHorizontalReportFieldDump(firstSplitLines) && sourceCells.length === 1) {
-    const width = Math.max(maxCols, firstSplitLines.length);
-    const row = firstSplitLines.map((token, index) =>
-      patchFromPlainReportToken(token, index, firstSplitLines),
-    );
-    while (row.length < width) row.push({ value: "" });
-    return [row];
+  if (nestedFieldsLookLikeReportRow(firstSplitLines) && sourceCells.length === 1) {
+    return expandPlainTokensToRow(firstSplitLines, maxCols);
   }
 
   if (isFirstCellWithBrOrSpan && hasVerticalSplit && cellsWithSplit.length > 0) {
@@ -517,6 +582,20 @@ function expandSourceRowToMatrixRows(sourceRow, maxCols) {
 
   const row = emptyRowPatch(Math.max(maxCols, sourceCells.length));
   fillSourceRowPatches(row, sourceCells, row.length, () => null);
+
+  // Safety: single filled cell still looks like a stacked field dump → expand it.
+  const nonEmpty = row.filter(
+    (cell) => String(cell?.value || "").trim() || String(cell?.html || "").trim(),
+  );
+  if (nonEmpty.length === 1 && sourceCells.length === 1) {
+    const nested = collectNestedReportFieldCells(sourceCells[0]);
+    if (nested.length >= 3) return expandCollapsedFieldsToRow(nested, Math.max(maxCols, nested.length));
+    const lines = extractCellLines(sourceCells[0]);
+    if (nestedFieldsLookLikeReportRow(lines)) {
+      return expandPlainTokensToRow(lines, Math.max(maxCols, lines.length));
+    }
+  }
+
   return [row];
 }
 
