@@ -17,6 +17,7 @@ import {
   detectVerticalFieldDump,
 } from "./dataCaptureVerticalDumpDetect.js";
 import { sanitizePasteMatrix } from "./dataCapturePasteMatrixSanitize.js";
+import { splitStackedSubtotalGrandTotalRows } from "./dataCaptureStackedTotalSplit.js";
 
 /**
  * Normalize clipboard plain text into a row/col matrix.
@@ -106,7 +107,8 @@ export function parsePlainTextMatrix(pastedData) {
 
 /** 1.Text — Excel plain text paste, preserving the clipboard matrix as-is. */
 export function handleTextPlainPaste(e, pastedData, anchorCell) {
-  const dataMatrix = parsePlainTextMatrix(pastedData);
+  // TEXT-only: unwind SUB TOTAL+GRAND TOTAL stacked in one label cell (helper not used by Format).
+  const dataMatrix = splitStackedSubtotalGrandTotalRows(parsePlainTextMatrix(pastedData));
   if (!dataMatrix.length) return false;
 
   const { successCount, maxRows, maxCols: cols } = applyDataMatrixToGrid(dataMatrix, anchorCell, {
