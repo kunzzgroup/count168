@@ -7,12 +7,8 @@ import {
 import { getDefaultPasteAnchorCell } from "./dataCapturePasteApply.js";
 import { parseCitibetPasteData } from "./dataCapturePasteDetect.js";
 import { handleCitibetPaste } from "../vendors/dataCaptureCitibetPaste.js";
-import { handleTextReportPaste } from "./dataCaptureTextReportPaste.js";
-import { tryApplyBillingStatementPlainMatrix } from "./dataCaptureStatementMatrixPaste.js";
-import {
-  handleFormatCellPaste,
-  markFormatGridReadyAfterPlainMatrixPaste,
-} from "./dataCaptureFormatPasteHandler.js";
+import { handleTextModePaste } from "./dataCaptureTextPaste.js";
+import { handleFormatCellPaste } from "./dataCaptureFormatPasteHandler.js";
 import { handleGenericPaste } from "./dataCaptureGenericPaste.js";
 import { handle4ReturnPaste, handleApiReturnPaste } from "../vendors/dataCaptureReturnPaste.js";
 import { handleVPowerPaste } from "../vendors/dataCaptureVPowerPaste.js";
@@ -148,16 +144,6 @@ export function handleCellPasteEvent(e) {
   const captureType = getActiveCaptureType();
 
   if (captureType === "2.Format") {
-    // Prefer Citibet-style plain matrix for billing statements (SUBTOTAL / TOTAL AMOUNT).
-    if (
-      tryApplyBillingStatementPlainMatrix(pastedData, cell, {
-        startRowOverride: 0,
-        startColOverride: 0,
-      })
-    ) {
-      markFormatGridReadyAfterPlainMatrixPaste();
-      return;
-    }
     if (handleFormatCellPaste(e, pastedData)) return;
     invokeGenericPasteFallback(e, pastedData);
     return;
@@ -173,9 +159,7 @@ export function handleCellPasteEvent(e) {
   }
 
   if (captureType === "1.Text") {
-    // Grill: matrix-first, style-second. Plain TSV is alignment source of truth.
-    if (tryApplyBillingStatementPlainMatrix(pastedData, cell)) return;
-    if (handleTextReportPaste(e, pastedData, cell)) return;
+    if (handleTextModePaste(e, pastedData, cell)) return;
     invokeGenericPasteFallback(e, pastedData);
     return;
   }

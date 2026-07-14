@@ -2,24 +2,26 @@ import { applyDataMatrixToGrid, notifyPasteSuccess } from "./dataCapturePasteApp
 import {
   detectHtmlTableInClipboard,
   getClipboardHtml,
+  isFormatRichHtmlTable,
 } from "./dataCaptureClipboard.js";
-import {
-  clipboardHtmlLooksLikeGrid,
-  normalizeClipboardHtmlToTable,
-} from "./dataCaptureFormatClipboardNormalize.js";
 import {
   parseAndFillHtmlTableForText,
   parseAndFillHtmlTableForTextWithFormat,
 } from "./dataCaptureTextHtmlPaste.js";
-import { sanitizePasteMatrix } from "./dataCapturePasteMatrixSanitize.js";
 import {
   detectFlattenedStatementMatrix,
   detectVerticalFieldDump,
 } from "./dataCaptureVerticalDumpDetect.js";
 
-/** Exported for Citibet-style statement matrix paste (1.Text / 2.Format). */
+/**
+ * Normalize clipboard plain text into a row/col matrix.
+ * Material / Report-Center copies often land as one field per line — reshape via
+ * detectVerticalFieldDump before falling back to N×1.
+ */
 export function parsePlainTextMatrix(pastedData) {
-  const normalized = pastedData.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const normalized = String(pastedData ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
   if (!normalized.trim()) return [];
 
   if (normalized.includes("\t")) {
@@ -33,7 +35,7 @@ export function parsePlainTextMatrix(pastedData) {
     tabRows.forEach((row) => {
       while (row.length < maxCols) row.push("");
     });
-    return sanitizePasteMatrix(tabRows);
+    return tabRows;
   }
 
   const rawLines = normalized.split("\n");
@@ -66,7 +68,6 @@ export function parsePlainTextMatrix(pastedData) {
 
   const nonEmptyLines = rawLines.filter((line) => line.trim() !== "");
 
-  // Material mat-row copy (any row count, no tabs) — run before statement/heuristics.
   const verticalDumpRows = detectVerticalFieldDump(nonEmptyLines);
   if (verticalDumpRows) return verticalDumpRows;
 
@@ -82,8 +83,6 @@ export function parsePlainTextMatrix(pastedData) {
     const multiColRows = spacingSplitRows.filter((row) => row.length >= 2).length;
     const minRowsForWideSplit = Math.max(2, Math.ceil(spacingSplitRows.length * 0.6));
 
-    // Plain-text copies from report tables often use repeated spaces instead of tabs.
-    // Only promote to matrix when most rows clearly look multi-column.
     if (maxCols >= 2 && multiColRows >= minRowsForWideSplit) {
       spacingSplitRows.forEach((row) => {
         while (row.length < maxCols) row.push("");
@@ -104,6 +103,7 @@ export function handleTextPlainPaste(e, pastedData, anchorCell) {
   if (!dataMatrix.length) return false;
 
   const { successCount, maxRows, maxCols: cols } = applyDataMatrixToGrid(dataMatrix, anchorCell, {
+    startColOverride: 0,
     uppercaseValues: false,
     trimValues: false,
     alignTotalRows: false,
@@ -124,44 +124,15 @@ export function handleTextHtmlPaste(html, anchorCell) {
   return parseAndFillHtmlTableForText(html, anchorCell);
 }
 
-/**
- * Primary 1.TEXT path: plain matrix first (accurate columns), then simple HTML table.
- * No format-style enrichment — used before the shared Format pipeline in 1.Text mode.
- */
-export function handleTextPlainFirstPaste(e, pastedData, anchorCell) {
-  if (pastedData?.trim() && handleTextPlainPaste(e, pastedData, anchorCell)) {
-    return true;
-  }
-
-  const html = getClipboardHtml(e);
-  const htmlFromDetect = html ? "" : detectHtmlTableInClipboard(e);
-  const rawHtmlCandidate = html || htmlFromDetect;
-  const htmlCandidate =
-    rawHtmlCandidate && clipboardHtmlLooksLikeGrid(rawHtmlCandidate)
-      ? normalizeClipboardHtmlToTable(rawHtmlCandidate) || rawHtmlCandidate
-      : rawHtmlCandidate;
-
-  if (htmlCandidate && handleTextHtmlPaste(htmlCandidate, anchorCell)) return true;
-  if (htmlFromDetect && handleTextHtmlPaste(htmlFromDetect, anchorCell)) return true;
-  return false;
-}
-
-/**
- * Full 1.Text path with format-style HTML fill when plain paths fail.
- * Used as fallback after handleTextPlainFirstPaste and handleFormatCellPaste.
- */
 export function handleTextModePaste(e, pastedData, anchorCell) {
   const html = getClipboardHtml(e);
   const htmlFromDetect = html ? "" : detectHtmlTableInClipboard(e);
-  const rawHtmlCandidate = html || htmlFromDetect;
-  const htmlCandidate =
-    rawHtmlCandidate && clipboardHtmlLooksLikeGrid(rawHtmlCandidate)
-      ? normalizeClipboardHtmlToTable(rawHtmlCandidate) || rawHtmlCandidate
-      : rawHtmlCandidate;
+  const htmlCandidate = html || htmlFromDetect;
 
-  if (htmlCandidate && htmlCandidate.includes("<table")) {
+  if (htmlCandidate && isFormatRichHtmlTable(htmlCandidate)) {
     if (parseAndFillHtmlTableForTextWithFormat(htmlCandidate, anchorCell)) return true;
 
+    // Keep user flow unblocked: fallback to legacy 1.Text parsing.
     if (handleTextHtmlPaste(htmlCandidate, anchorCell)) {
       notifyPasteSuccess("格式保留失败，已按纯文本粘贴。", "danger");
       return true;
@@ -174,7 +145,7 @@ export function handleTextModePaste(e, pastedData, anchorCell) {
     return false;
   }
 
-  if (handleTextHtmlPaste(htmlCandidate, anchorCell)) return true;
+  if (handleTextHtmlPaste(html, anchorCell)) return true;
   if (htmlFromDetect && handleTextHtmlPaste(htmlFromDetect, anchorCell)) return true;
 
   return handleTextPlainPaste(e, pastedData, anchorCell);
