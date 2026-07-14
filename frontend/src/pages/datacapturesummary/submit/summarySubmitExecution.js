@@ -304,6 +304,8 @@ export async function executeSummarySubmit({
   }
 
   if (failedProblemRows.length > 0) {
+    // Allow a real retry to INSERT remaining rows (do not reuse idempotent request id).
+    clearSessionSubmitRequestId(submitRequestStorageKey);
     return {
       ok: false,
       message:

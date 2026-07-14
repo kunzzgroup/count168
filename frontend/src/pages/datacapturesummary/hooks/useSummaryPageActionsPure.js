@@ -101,6 +101,8 @@ export function useSummaryPageActionsPure({
 
     rows,
 
+    accounts,
+
     deleteSelectedRows,
 
     toggleAllRate,
@@ -125,7 +127,7 @@ export function useSummaryPageActionsPure({
 
   const submitTotalValid = useMemo(() => {
 
-    const total = computeSummaryTotal(rows, globalRateInput);
+    const total = computeSummaryTotal(rows, globalRateInput, accounts);
 
     const min = MoneyDecimal.toDecimal(SUMMARY_SUBMIT_TOTAL_MIN);
 
@@ -141,7 +143,7 @@ export function useSummaryPageActionsPure({
 
     );
 
-  }, [rows, globalRateInput]);
+  }, [rows, globalRateInput, accounts]);
 
 
 

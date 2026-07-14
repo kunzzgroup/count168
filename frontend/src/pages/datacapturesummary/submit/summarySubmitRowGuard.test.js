@@ -96,3 +96,44 @@ test("validateSubmitRowGuards blocks unresolved account with non-zero amount", (
   assert.equal(result.ok, false);
   assert.match(result.message, /could not be resolved/i);
 });
+
+test("validateSubmitRowGuards blocks no-account rows with non-zero amount", () => {
+  const rows = [
+    commRow({
+      account: "",
+      accountId: "",
+      processedAmountDisplay: "-144.75",
+      formulaDisplay: "-144.75",
+      formula: "-144.75",
+    }),
+  ];
+  const result = validateSubmitRowGuards(rows, accounts);
+  assert.equal(result.ok, false);
+  assert.match(result.message, /no account/i);
+});
+
+test("computeSummaryTotal excludes no-account legs so submit total cannot fake-balance", async () => {
+  const { computeSummaryTotal } = await import("../table/summaryRowData.js");
+  const rows = [
+    commRow({
+      account: "CS006 [JOEL]",
+      accountId: "2",
+      baseProcessedAmount: "144.75",
+      processedAmount: "144.75",
+      processedAmountDisplay: "144.75",
+      formulaDisplay: "144.75",
+      formula: "144.75",
+    }),
+    commRow({
+      account: "",
+      accountId: "",
+      baseProcessedAmount: "-144.75",
+      processedAmount: "-144.75",
+      processedAmountDisplay: "-144.75",
+      formulaDisplay: "-144.75",
+      formula: "-144.75",
+    }),
+  ];
+  const total = computeSummaryTotal(rows, "", accounts);
+  assert.equal(String(total), "144.75");
+});

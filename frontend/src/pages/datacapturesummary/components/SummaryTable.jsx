@@ -7,6 +7,7 @@ import {
   formatSummaryTotalDisplay,
   getSummaryTotalColor,
 } from "../table/summaryRowData.js";
+import { useSummaryContext } from "../context/SummaryContext.jsx";
 
 export default function SummaryTable({
   t,
@@ -20,8 +21,9 @@ export default function SummaryTable({
   onCapturedCellClick,
   globalRateInput = "",
 }) {
+  const { accounts = [] } = useSummaryContext();
   if (!visible || !tableData) return null;
-  const total = computeSummaryTotal(rows, globalRateInput);
+  const total = computeSummaryTotal(rows, globalRateInput, accounts);
   const totalDisplay = formatSummaryTotalDisplay(total);
   const totalColor = getSummaryTotalColor(total);
 
