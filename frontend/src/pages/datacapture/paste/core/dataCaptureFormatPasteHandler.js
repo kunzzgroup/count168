@@ -207,10 +207,11 @@ function tryProcessFormatClipboard(html, text, options) {
   const plainMulti = matrixLooksMultiColumn(plainMatrix);
 
   // Prefer good multi-col HTML (keeps mat-row styles). Reject N×1 HTML dumps.
+  // If HTML fill fails / rejects collapsed matrix, fall through to dual-source.
   const normalizedHtml = resolveNormalizedHtml(html);
   if (normalizedHtml && /<table\b/i.test(normalizedHtml)) {
     if (!formatHtmlLooksLikeVerticalNx1(normalizedHtml)) {
-      return processFormatTableHtml(normalizedHtml, options);
+      if (processFormatTableHtml(normalizedHtml, options)) return true;
     }
     if (plainMulti) {
       return processFormatDualSource(html || normalizedHtml, plainText, options);
@@ -221,7 +222,7 @@ function tryProcessFormatClipboard(html, text, options) {
     const forced = normalizeClipboardHtmlToTable(html);
     if (forced && /<table\b/i.test(forced)) {
       if (!formatHtmlLooksLikeVerticalNx1(forced)) {
-        return processFormatTableHtml(forced, options);
+        if (processFormatTableHtml(forced, options)) return true;
       }
       if (plainMulti) {
         return processFormatDualSource(html, plainText, options);
@@ -236,7 +237,7 @@ function tryProcessFormatClipboard(html, text, options) {
 
   if (plainText && /<table\b/i.test(plainText)) {
     if (!formatHtmlLooksLikeVerticalNx1(plainText)) {
-      return processFormatTableHtml(plainText, options);
+      if (processFormatTableHtml(plainText, options)) return true;
     }
     if (plainMulti) return processFormatDualSource(html, plainText, options);
   }

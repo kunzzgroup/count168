@@ -8,6 +8,45 @@ import {
   buildFormatBodyMatrix,
 } from "./dataCaptureFormatHtmlMatrix.js";
 
+/**
+ * User symptom: "Applying 1 body row(s) … (3 source data rows)" then col1 stack.
+ * Reject so Format can fall through to plain dual-source reshape.
+ */
+export function formatBodyMatrixLooksCollapsed(bodyMatrix, dataRows) {
+  const sourceCount = dataRows?.length || 0;
+  const matrixRows = bodyMatrix?.length || 0;
+  if (!matrixRows) return true;
+
+  // Classic failure log: many source TRs collapsed into one matrix row.
+  if (sourceCount >= 3 && matrixRows === 1) return true;
+
+  const nonEmptyCols = (row) =>
+    (row || []).filter((cell) => String(cell?.value || cell?.html || "").trim()).length;
+
+  const maxFilledCols = Math.max(...bodyMatrix.map(nonEmptyCols), 0);
+  const totalFilled = bodyMatrix.reduce((sum, row) => sum + nonEmptyCols(row), 0);
+
+  // N×1 dump: many rows, only first column filled, looks like field-per-row.
+  if (matrixRows >= 6 && maxFilledCols <= 1 && totalFilled >= 6) return true;
+
+  // One (or few) cells still holding a whole multi-field report dump.
+  const hasStackedDumpCell = bodyMatrix.some((row) =>
+    (row || []).some((cell) => {
+      const text = String(cell?.value || "")
+        .replace(/\u00a0/g, " ")
+        .trim();
+      const html = String(cell?.html || "");
+      const moneyHits = (text.match(/\$[\d,]+(?:\.\d+)?/g) || []).length;
+      const lineHits = text.split(/\r?\n/).filter((line) => line.trim()).length;
+      const nestedBlocks = (html.match(/<(?:div|p|span|br)\b/gi) || []).length;
+      return moneyHits >= 3 || lineHits >= 3 || (nestedBlocks >= 3 && moneyHits >= 1);
+    }),
+  );
+  if (hasStackedDumpCell && maxFilledCols <= 2) return true;
+
+  return false;
+}
+
 export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
   const startRow =
     Number.isFinite(options.startRow) && options.startRow >= 0 ? options.startRow : 0;
@@ -32,6 +71,16 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
     console.log(
       `Format: Applying ${bodyMatrix.length} body row(s) at row ${startRow} (${dataRows.length} source data rows)`,
     );
+
+    if (
+      !options.acceptCollapsedMatrix &&
+      formatBodyMatrixLooksCollapsed(bodyMatrix, dataRows)
+    ) {
+      console.log(
+        "Format: Rejecting collapsed body matrix (will try plain dual-source if available)",
+      );
+      return false;
+    }
 
     const { successCount: bodySuccessCount } = applyDataMatrixToGrid(bodyMatrix, null, {
       startRowOverride: startRow,

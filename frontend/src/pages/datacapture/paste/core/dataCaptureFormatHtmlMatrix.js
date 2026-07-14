@@ -440,7 +440,7 @@ export function buildFormatDataCellPatch(sourceCell, displayText) {
 
   if (cellText && cellText.trim() !== "") {
     const sourceCellStyle = sourceCell.getAttribute("style");
-    const classVisual = inferVisualStyleFromCellClass(sourceCell);
+    const classVisual = inferMaterialVisualStyleFromCell(sourceCell);
     if (sourceCellStyle || classVisual) {
       const sanitizedSpanStyle = [sanitizeCopiedStyleString(sourceCellStyle || ""), classVisual]
         .filter(Boolean)
