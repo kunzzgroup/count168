@@ -49,6 +49,9 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    user-select: text;
+    -webkit-user-select: text;
+    cursor: text;
 }
 
 .dc-remove-word-chip__remove {

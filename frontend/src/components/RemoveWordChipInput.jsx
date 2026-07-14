@@ -73,8 +73,10 @@ export default function RemoveWordChipInput({
     [chips, commitChips, disabled],
   );
 
-  const handleContainerClick = () => {
+  const handleContainerClick = (event) => {
     if (disabled) return;
+    // Keep chip text selectable/copyable; don't steal focus into the draft input.
+    if (event.target.closest(".dc-remove-word-chip")) return;
     inputRef.current?.focus();
   };
 
@@ -107,7 +109,15 @@ export default function RemoveWordChipInput({
       onClick={handleContainerClick}
     >
       {chips.map((chip, index) => (
-        <span key={`${chip}-${index}`} className="dc-remove-word-chip">
+        <span
+          key={`${chip}-${index}`}
+          className="dc-remove-word-chip"
+          onMouseDown={(event) => {
+            // Preserve text selection on the chip; only the remove button should eat the gesture.
+            if (event.target.closest(".dc-remove-word-chip__remove")) return;
+            event.stopPropagation();
+          }}
+        >
           <span className="dc-remove-word-chip__label">{chip}</span>
           {!disabled ? (
             <button

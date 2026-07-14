@@ -1,4 +1,7 @@
-import { parseAndFillHtmlTableForFormat } from "./dataCaptureFormatHtmlPaste.js";
+import {
+  formatPlainMatrixLooksIdNumberSplit,
+  parseAndFillHtmlTableForFormat,
+} from "./dataCaptureFormatHtmlPaste.js";
 import {
   buildFormatPreviewFragmentFromClipboardHtml,
   clipboardLooksLikeTable,
@@ -62,6 +65,11 @@ function matrixLooksMultiColumn(matrix) {
   if (!matrix?.length) return false;
   const cols = matrix[0]?.length || 0;
   return cols >= 2 && matrix.some((row) => (row?.length || 0) >= 2);
+}
+
+/** Usable for Format dual-source: multi-col and not Fig2 id/number row-split. */
+function matrixLooksSafeFormatPlain(matrix) {
+  return matrixLooksMultiColumn(matrix) && !formatPlainMatrixLooksIdNumberSplit(matrix);
 }
 
 /**
@@ -172,7 +180,7 @@ export function processFormatTsv(text, { area = null, startRow = null, anchorCel
 export function processFormatDualSource(html, text, { area = null, startRow = null, anchorCell = null } = {}) {
   if (!text?.trim()) return false;
   const matrix = parsePlainTextMatrix(text);
-  if (!matrixLooksMultiColumn(matrix)) return false;
+  if (!matrixLooksSafeFormatPlain(matrix)) return false;
   const tableHtml = plainMatrixToStyledHtmlTable(matrix, html || "") || plainMatrixToHtmlTable(matrix);
   return processFormatTableHtml(tableHtml, { area, startRow, anchorCell });
 }
@@ -182,7 +190,7 @@ export function processFormatPlainMatrix(text, { area = null, startRow = null, a
   if (!text?.trim()) return false;
   if (html) return processFormatDualSource(html, text, { area, startRow, anchorCell });
   const matrix = parsePlainTextMatrix(text);
-  if (!matrixLooksMultiColumn(matrix)) return false;
+  if (!matrixLooksSafeFormatPlain(matrix)) return false;
   const tableHtml = plainMatrixToHtmlTable(matrix);
   return processFormatTableHtml(tableHtml, { area, startRow, anchorCell });
 }
@@ -204,21 +212,17 @@ function readClipboard(clipboard) {
 function tryProcessFormatClipboard(html, text, options) {
   const plainText = resolveFormatPlainText(html, text);
   const plainMatrix = plainText?.trim() ? parsePlainTextMatrix(plainText) : null;
-  const plainMulti = matrixLooksMultiColumn(plainMatrix);
+  const plainSafe = matrixLooksSafeFormatPlain(plainMatrix);
 
-  // Same structure as 1.TEXT: when plain reshape already yields multi-col rows
-  // (agent_period field-per-line), prefer dual-source. HTML-first often keeps
-  // wide-empty-TD / nested stacks and looks like Fig1 (all fields in column 1).
-  if (plainMulti) {
-    return processFormatDualSource(html || "", plainText, options);
-  }
-
-  // Prefer good multi-col HTML when plain is empty / not reshapable.
-  // If HTML fill fails / rejects collapsed matrix, fall through further.
+  // HTML structure first (webpage 1:1). Plain dual-source only when HTML is a true N×1 dump
+  // or HTML fill fails/rejects collapsed / id-number-split shapes.
   const normalizedHtml = resolveNormalizedHtml(html);
   if (normalizedHtml && /<table\b/i.test(normalizedHtml)) {
     if (!formatHtmlLooksLikeVerticalNx1(normalizedHtml)) {
       if (processFormatTableHtml(normalizedHtml, options)) return true;
+    }
+    if (plainSafe) {
+      return processFormatDualSource(html || normalizedHtml, plainText, options);
     }
   }
 
@@ -228,16 +232,28 @@ function tryProcessFormatClipboard(html, text, options) {
       if (!formatHtmlLooksLikeVerticalNx1(forced)) {
         if (processFormatTableHtml(forced, options)) return true;
       }
+      if (plainSafe) {
+        return processFormatDualSource(html, plainText, options);
+      }
     }
+  }
+
+  // Grid-like HTML + safe plain, but normalize failed → still dual-source.
+  if (html && clipboardHtmlLooksLikeGrid(html) && plainSafe) {
+    return processFormatDualSource(html, plainText, options);
   }
 
   if (plainText && /<table\b/i.test(plainText)) {
     if (!formatHtmlLooksLikeVerticalNx1(plainText)) {
       if (processFormatTableHtml(plainText, options)) return true;
     }
+    if (plainSafe) return processFormatDualSource(html, plainText, options);
   }
   if (plainText && plainText.includes("\t")) {
     return processFormatTsv(plainText, options);
+  }
+  if (plainSafe) {
+    return processFormatDualSource(html, plainText, options);
   }
   if (plainText?.trim()) {
     return processFormatPlainMatrix(plainText, { ...options, html: html || "" });
