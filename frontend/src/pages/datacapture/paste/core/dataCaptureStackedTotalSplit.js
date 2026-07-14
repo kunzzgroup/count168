@@ -1,6 +1,6 @@
 /**
- * 1.TEXT helper: split a matrix row whose label cell stacks SUB TOTAL + GRAND TOTAL
- * (webpage often collapses these into one Excel cell). Format must not import
+ * 1.TEXT helper: split a matrix row whose cells stack SUB TOTAL + GRAND TOTAL
+ * (webpage often collapses these into one Excel row). Format must not import
  * this unless intentionally opted in — keeps 2.FORMAT paths unchanged.
  */
 
@@ -28,8 +28,58 @@ function cellPlainValue(cell) {
   return String(cell.value ?? "");
 }
 
-function labelLinesFromCell(cell) {
+function cellHtml(cell) {
+  if (cell == null || typeof cell !== "object") return "";
+  return String(cell.html ?? "");
+}
+
+/** Split a cell into stack lines from html (<br> / block kids) or plain value. */
+export function cellStackLines(cell) {
+  const html = cellHtml(cell);
+  if (html && /<[^>]+>/.test(html)) {
+    try {
+      const root = document.createElement("div");
+      root.innerHTML = html
+        .replace(/<br\s+[^>]*>/gi, "\n")
+        .replace(/<br\s*\/?>/gi, "\n");
+
+      let scan = root;
+      for (let depth = 0; depth < 4; depth += 1) {
+        const kids = Array.from(scan.children || []).filter((el) =>
+          String(el.textContent || "")
+            .replace(/\s+/g, " ")
+            .trim(),
+        );
+        if (kids.length === 1) {
+          scan = kids[0];
+          continue;
+        }
+        if (kids.length >= 2) {
+          return kids.map((el) =>
+            String(el.textContent || "")
+              .replace(/\u00a0/g, " ")
+              .replace(/\s+/g, " ")
+              .trim(),
+          );
+        }
+        break;
+      }
+
+      const fromHtml = String(scan.textContent || root.textContent || "")
+        .replace(/\u00a0/g, " ")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      if (fromHtml.length >= 2) return fromHtml;
+    } catch {
+      /* fall through to plain */
+    }
+  }
+
   const raw = cellPlainValue(cell)
+    .replace(/\u00a0/g, " ")
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n");
   const lines = raw
@@ -38,10 +88,12 @@ function labelLinesFromCell(cell) {
     .filter(Boolean);
   if (lines.length >= 2) return lines;
 
-  // Rare: both labels on one line separated by spaces / punctuation.
+  // Glued labels after textContent drops block newlines: SUBTOTALGRANDTOTAL.
+  const glued = normalizeLabel(raw).replace(/\s+/g, "");
+  if (/^SUBTOTALGRANDTOTAL$/i.test(glued)) return ["SUB TOTAL", "GRAND TOTAL"];
+
   const spaced = normalizeLabel(raw).split(/\s+/).filter(Boolean);
   if (spaced.length >= 2) {
-    // Re-join multi-word labels like SUB TOTAL / GRAND TOTAL when split by space.
     const joined = [];
     for (let i = 0; i < spaced.length; ) {
       if (spaced[i] === "SUB" && spaced[i + 1] === "TOTAL") {
@@ -57,8 +109,9 @@ function labelLinesFromCell(cell) {
       joined.push(spaced[i]);
       i += 1;
     }
-    return joined;
+    if (joined.length >= 2) return joined;
   }
+
   return lines;
 }
 
@@ -66,13 +119,11 @@ function labelLinesFromCell(cell) {
 function findStackedTotalLabels(row) {
   if (!Array.isArray(row) || !row.length) return null;
   for (let col = 0; col < row.length; col += 1) {
-    const lines = labelLinesFromCell(row[col]);
+    const lines = cellStackLines(row[col]);
     if (lines.length < 2) continue;
-    // Prefer exact top/bottom stack (Fig1).
     if (isSubTotalLabel(lines[0]) && isGrandTotalLabel(lines[1])) {
       return { labelCol: col, labels: [lines[0].trim(), lines[1].trim()] };
     }
-    // Allow only those two labels among lines.
     const sub = lines.find((line) => isSubTotalLabel(line));
     const grand = lines.find((line) => isGrandTotalLabel(line));
     if (sub && grand && lines.length <= 3) {
@@ -82,21 +133,25 @@ function findStackedTotalLabels(row) {
   return null;
 }
 
-function withLabel(cell, label) {
+function withPlainLine(cell, text) {
+  const value = String(text ?? "");
   if (cell != null && typeof cell === "object") {
     return {
       ...cell,
-      value: label,
-      // Drop stacked HTML so the grid shows a single plain label.
+      value,
+      // Drop stacked HTML so each grid row shows a single line.
       html: undefined,
     };
   }
-  return label;
+  return value;
 }
 
-function cloneCell(cell) {
-  if (cell != null && typeof cell === "object") return { ...cell };
-  return cell;
+function lineForRow(cell, lineIndex) {
+  const lines = cellStackLines(cell);
+  if (lines.length >= 2) return lines[lineIndex] ?? "";
+  // Single value shared by both total rows (older collapse shape).
+  if (lines.length === 1) return lines[0];
+  return "";
 }
 
 /**
@@ -116,12 +171,15 @@ export function splitStackedSubtotalGrandTotalRows(matrix) {
 
     const { labelCol, labels } = found;
     const [subLabel, grandLabel] = labels;
-    const subRow = row.map((cell, index) =>
-      index === labelCol ? withLabel(cell, subLabel) : cloneCell(cell),
-    );
-    const grandRow = row.map((cell, index) =>
-      index === labelCol ? withLabel(cell, grandLabel) : cloneCell(cell),
-    );
+
+    const subRow = row.map((cell, index) => {
+      if (index === labelCol) return withPlainLine(cell, subLabel);
+      return withPlainLine(cell, lineForRow(cell, 0));
+    });
+    const grandRow = row.map((cell, index) => {
+      if (index === labelCol) return withPlainLine(cell, grandLabel);
+      return withPlainLine(cell, lineForRow(cell, 1));
+    });
     out.push(subRow, grandRow);
   });
 
