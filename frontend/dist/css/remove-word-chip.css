@@ -7,7 +7,7 @@
     min-width: 0;
     max-width: 100%;
     box-sizing: border-box;
-    text-transform: none !important;
+    text-transform: uppercase !important;
     user-select: text;
     -webkit-user-select: text;
 }
@@ -80,7 +80,7 @@ body.ec-auth-shell.datacapture-page .process-form .dc-remove-word-chip-input__fi
     box-shadow: none !important;
     font-size: clamp(10px, 0.74vw, 14px) !important;
     font-weight: 600 !important;
-    text-transform: none !important;
+    text-transform: uppercase !important;
 }
 
 .process-form-modal .process-form .form-group .dc-remove-word-chip-input__field:focus,
