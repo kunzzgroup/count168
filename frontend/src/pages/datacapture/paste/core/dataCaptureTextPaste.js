@@ -5,10 +5,6 @@ import {
   isFormatRichHtmlTable,
 } from "./dataCaptureClipboard.js";
 import {
-  clipboardHtmlLooksLikeGrid,
-  normalizeClipboardHtmlToTable,
-} from "./dataCaptureFormatClipboardNormalize.js";
-import {
   parseAndFillHtmlTableForText,
   parseAndFillHtmlTableForTextWithFormat,
 } from "./dataCaptureTextHtmlPaste.js";
@@ -16,7 +12,6 @@ import {
   detectFlattenedStatementMatrix,
   detectVerticalFieldDump,
 } from "./dataCaptureVerticalDumpDetect.js";
-import { sanitizePasteMatrix } from "./dataCapturePasteMatrixSanitize.js";
 
 /**
  * Normalize clipboard plain text into a row/col matrix.
@@ -40,17 +35,10 @@ export function parsePlainTextMatrix(pastedData) {
     tabRows.forEach((row) => {
       while (row.length < maxCols) row.push("");
     });
-    return sanitizePasteMatrix(tabRows);
+    return tabRows;
   }
 
   const rawLines = normalized.split("\n");
-  const nonEmptyLines = rawLines.filter((line) => line.trim() !== "");
-
-  // Prefer vertical-dump reshape before blank-line block splitting so mat-row
-  // dumps with blank separators / trailing paginator still become multi-col rows.
-  const verticalDumpRows = detectVerticalFieldDump(nonEmptyLines);
-  if (verticalDumpRows) return sanitizePasteMatrix(verticalDumpRows);
-
   const hasBlankLine = rawLines.some((line) => line.trim() === "");
   if (hasBlankLine) {
     const rowBlocks = [];
@@ -74,9 +62,14 @@ export function parsePlainTextMatrix(pastedData) {
       rowBlocks.forEach((row) => {
         while (row.length < maxCols) row.push("");
       });
-      return sanitizePasteMatrix(rowBlocks);
+      return rowBlocks;
     }
   }
+
+  const nonEmptyLines = rawLines.filter((line) => line.trim() !== "");
+
+  const verticalDumpRows = detectVerticalFieldDump(nonEmptyLines);
+  if (verticalDumpRows) return verticalDumpRows;
 
   const spacingSplitRows = nonEmptyLines.map((line) =>
     line
@@ -94,12 +87,12 @@ export function parsePlainTextMatrix(pastedData) {
       spacingSplitRows.forEach((row) => {
         while (row.length < maxCols) row.push("");
       });
-      return sanitizePasteMatrix(spacingSplitRows);
+      return spacingSplitRows;
     }
   }
 
   const flattenedStatementRows = detectFlattenedStatementMatrix(nonEmptyLines);
-  if (flattenedStatementRows) return sanitizePasteMatrix(flattenedStatementRows);
+  if (flattenedStatementRows) return flattenedStatementRows;
 
   return nonEmptyLines.map((line) => [line]);
 }
@@ -125,29 +118,19 @@ export function handleTextPlainPaste(e, pastedData, anchorCell) {
   return false;
 }
 
-function resolveTextPasteHtml(html) {
-  if (!html) return "";
-  const normalized = normalizeClipboardHtmlToTable(html) || html;
-  if (/<table\b/i.test(normalized)) return normalized;
-  return "";
-}
-
 /** 1.Text — HTML table paste (Phase 4b, React-owned). */
 export function handleTextHtmlPaste(html, anchorCell) {
-  const tableHtml = resolveTextPasteHtml(html);
-  if (!tableHtml) return false;
-  return parseAndFillHtmlTableForText(tableHtml, anchorCell);
+  if (!html || !html.includes("<table")) return false;
+  return parseAndFillHtmlTableForText(html, anchorCell);
 }
 
 export function handleTextModePaste(e, pastedData, anchorCell) {
   const html = getClipboardHtml(e);
   const htmlFromDetect = html ? "" : detectHtmlTableInClipboard(e);
-  const rawHtmlCandidate = html || htmlFromDetect;
-  const htmlCandidate = resolveTextPasteHtml(rawHtmlCandidate) || rawHtmlCandidate;
+  const htmlCandidate = html || htmlFromDetect;
 
-  if (htmlCandidate && (isFormatRichHtmlTable(htmlCandidate) || clipboardHtmlLooksLikeGrid(rawHtmlCandidate))) {
-    const formatHtml = resolveTextPasteHtml(htmlCandidate) || htmlCandidate;
-    if (parseAndFillHtmlTableForTextWithFormat(formatHtml, anchorCell)) return true;
+  if (htmlCandidate && isFormatRichHtmlTable(htmlCandidate)) {
+    if (parseAndFillHtmlTableForTextWithFormat(htmlCandidate, anchorCell)) return true;
 
     // Keep user flow unblocked: fallback to legacy 1.Text parsing.
     if (handleTextHtmlPaste(htmlCandidate, anchorCell)) {

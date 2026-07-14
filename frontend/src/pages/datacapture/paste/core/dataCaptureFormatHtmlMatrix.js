@@ -5,50 +5,6 @@ import {
   sanitizeCopiedStyleString,
   stripBackgroundFromStyle,
 } from "./dataCaptureFormatStyleUtils.js";
-import { expandCollapsedTableRows } from "./dataCaptureFormatClipboardNormalize.js";
-
-function cellTextIsMoneyOrNumberLike(text) {
-  const cleaned = String(text ?? "")
-    .trim()
-    .replace(/[,$]/g, "")
-    .replace(/^\((.*)\)$/, "-$1");
-  if (!cleaned) return false;
-  return /^-?\d+(?:\.\d+)?$/.test(cleaned);
-}
-
-/** DataTables footers often use <th> for Total / Grand Total data rows. */
-function allThRowLooksLikeDataOrSummary(tr) {
-  const cells = Array.from(tr.querySelectorAll("th,td"));
-  if (cells.length < 2) return false;
-  const texts = cells.map((cell) => String(cell.textContent || "").replace(/\s+/g, " ").trim());
-  const nonEmpty = texts.filter(Boolean);
-  if (nonEmpty.length < 2) return false;
-
-  const first = nonEmpty[0].replace(/:$/, "").toUpperCase();
-  if (
-    first === "TOTAL" ||
-    first === "GRAND TOTAL" ||
-    first === "SUBTOTAL" ||
-    first === "SUB TOTAL" ||
-    first === "TOTAL AMOUNT"
-  ) {
-    return true;
-  }
-
-  const nums = nonEmpty.filter((text) => cellTextIsMoneyOrNumberLike(text)).length;
-  return nums >= 2 && nums >= Math.ceil(nonEmpty.length * 0.5);
-}
-
-function trLooksLikePaginatorOrInfoRow(tr) {
-  const className = String(tr.className || "").toLowerCase();
-  if (/datatables_info|mat-paginator|paginator/i.test(className)) return true;
-  const texts = Array.from(tr.querySelectorAll("th,td"))
-    .map((cell) => String(cell.textContent || "").replace(/\s+/g, " ").trim())
-    .filter(Boolean);
-  if (!texts.length) return true;
-  const joined = texts.join(" ");
-  return /^Showing\s+\d+\s+to\s+\d+\s+of\s+\d+/i.test(joined);
-}
 
 /** @returns {{ headerRows: Element[], dataRows: Element[], maxCols: number, allRows: Element[] } | null} */
 export function parseFormatHtmlTableStructure(htmlString) {
@@ -58,8 +14,6 @@ export function parseFormatHtmlTableStructure(htmlString) {
   const table = tempDiv.querySelector("table");
   if (!table) return null;
 
-  expandCollapsedTableRows(table);
-
   const allRows = Array.from(table.querySelectorAll("tr"));
   if (allRows.length === 0) return null;
 
@@ -68,15 +22,14 @@ export function parseFormatHtmlTableStructure(htmlString) {
 
   allRows.forEach((tr) => {
     // Match PHP: only <thead> rows, or rows that are entirely <th> (no <td>).
-    // Exception: DataTables Total/Grand Total footers are all <th> but must stay as data.
+    // Rows that start with <th scope="row"> but include <td> are data rows (e.g. DEMOS).
     const inThead = !!tr.closest("thead");
     const thCount = tr.querySelectorAll("th").length;
     const tdCount = tr.querySelectorAll("td").length;
-    const allTh = thCount > 0 && tdCount === 0;
-    const isHeaderRow = inThead || (allTh && !allThRowLooksLikeDataOrSummary(tr));
+    const isHeaderRow = inThead || (thCount > 0 && tdCount === 0);
     if (isHeaderRow) {
       headerRows.push(tr);
-    } else if (!trLooksLikePaginatorOrInfoRow(tr)) {
+    } else {
       dataRows.push(tr);
     }
   });
@@ -208,14 +161,7 @@ function extractPlainText(sourceCell) {
 
 export function buildFormatDataCellStyle(sourceCell) {
   const sourceCellStyle = sourceCell.getAttribute("style");
-  let sourceCellComputedStyle = null;
-  try {
-    if (typeof window?.getComputedStyle === "function") {
-      sourceCellComputedStyle = window.getComputedStyle(sourceCell);
-    }
-  } catch {
-    sourceCellComputedStyle = null;
-  }
+  const sourceCellComputedStyle = window.getComputedStyle(sourceCell);
 
   if (sourceCellStyle) {
     const sanitizedCellStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
@@ -224,9 +170,9 @@ export function buildFormatDataCellStyle(sourceCell) {
       : sanitizedCellStyle || "border: 1px solid #d0d7de !important;";
   }
 
-  const color = sourceCellComputedStyle?.color;
-  const fontWeight = sourceCellComputedStyle?.fontWeight;
-  const textAlign = sourceCellComputedStyle?.textAlign;
+  const color = sourceCellComputedStyle.color;
+  const fontWeight = sourceCellComputedStyle.fontWeight;
+  const textAlign = sourceCellComputedStyle.textAlign;
   let styleString = "border: 1px solid #d0d7de !important;";
   if (color && color !== "rgb(0, 0, 0)") styleString += ` color: ${color} !important;`;
   if (fontWeight && fontWeight !== "normal" && fontWeight !== "400") {
