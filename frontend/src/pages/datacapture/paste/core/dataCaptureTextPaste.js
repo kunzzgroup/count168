@@ -112,7 +112,6 @@ export function handleTextPlainPaste(e, pastedData, anchorCell) {
   if (!dataMatrix.length) return false;
 
   const { successCount, maxRows, maxCols: cols } = applyDataMatrixToGrid(dataMatrix, anchorCell, {
-    startColOverride: 0,
     uppercaseValues: false,
     trimValues: false,
     alignTotalRows: false,

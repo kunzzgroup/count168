@@ -21,8 +21,8 @@ import {
   ensureGridFits,
   getFormatPasteAnchorCell,
   resolveFormatPasteStartRow,
+  resolvePasteAnchor,
 } from "./dataCapturePasteApply.js";
-import { domGridHasEditableData } from "../../lib/dataCaptureTableSnapshot.js";
 import { isGridPasteBlockedTarget } from "./dataCaptureClipboard.js";
 import { showFormatEditableGrid, syncFormatPreviewFromDom } from "../../format/dataCaptureFormat.js";
 import { resolvePasteCell } from "./dataCaptureClipboard.js";
@@ -197,13 +197,16 @@ export function formatHtmlLooksLikeVerticalNx1(html) {
 }
 
 /** Process HTML/TSV clipboard content into preview + editable grid. */
-export function processFormatTableHtml(html, { area = null, startRow = null, anchorCell = null } = {}) {
+export function processFormatTableHtml(html, { area = null, startRow = null, startCol = null, anchorCell = null } = {}) {
   if (!html) return false;
   const normalizedHtml = resolveNormalizedHtml(html) || html;
   if (!/<table\b/i.test(normalizedHtml)) return false;
 
+  const anchor = anchorCell || getFormatPasteAnchorCell();
+  const { startCol: anchorCol } = resolvePasteAnchor(anchor);
   const resolvedStartRow =
-    startRow != null ? startRow : resolveFormatPasteStartRow(anchorCell || getFormatPasteAnchorCell());
+    startRow != null ? startRow : resolveFormatPasteStartRow(anchor);
+  const resolvedStartCol = startCol != null ? startCol : anchorCol;
 
   const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(normalizedHtml);
   const sanitized = sanitizePastedHTML(normalizedHtml);
@@ -211,14 +214,15 @@ export function processFormatTableHtml(html, { area = null, startRow = null, anc
 
   const filled = parseAndFillHtmlTableForFormat(sanitized || previewFragment, {
     startRow: resolvedStartRow,
+    startCol: resolvedStartCol,
   });
   return afterFormatPasteFilled(filled, area);
 }
 
-export function processFormatTsv(text, { area = null, startRow = null, anchorCell = null } = {}) {
+export function processFormatTsv(text, { area = null, startRow = null, startCol = null, anchorCell = null } = {}) {
   if (!text || !text.includes("\t")) return false;
   const tableHtml = tsvToHtmlTable(text);
-  return processFormatTableHtml(tableHtml, { area, startRow, anchorCell });
+  return processFormatTableHtml(tableHtml, { area, startRow, startCol, anchorCell });
 }
 
 /**
@@ -226,15 +230,18 @@ export function processFormatTsv(text, { area = null, startRow = null, anchorCel
  * Applies patches directly (no HTML table round-trip) so collapsed clipboard cannot win.
  * Format-only — does not touch 1.TEXT handlers.
  */
-export function processFormatDualSource(html, text, { area = null, startRow = null, anchorCell = null } = {}) {
+export function processFormatDualSource(html, text, { area = null, startRow = null, startCol = null, anchorCell = null } = {}) {
   if (!text?.trim()) return false;
   const matrix = parsePlainTextMatrix(text);
   if (!matrixLooksMultiColumn(matrix)) return false;
 
+  const anchor = anchorCell || getFormatPasteAnchorCell();
+  const { startCol: anchorCol } = resolvePasteAnchor(anchor);
   const resolvedStartRow =
-    startRow != null ? startRow : resolveFormatPasteStartRow(anchorCell || getFormatPasteAnchorCell());
+    startRow != null ? startRow : resolveFormatPasteStartRow(anchor);
+  const resolvedStartCol = startCol != null ? startCol : anchorCol;
   const maxCols = Math.max(...matrix.map((row) => (row || []).length), 0);
-  ensureGridFits(resolvedStartRow, 0, matrix.length, maxCols);
+  ensureGridFits(resolvedStartRow, resolvedStartCol, matrix.length, maxCols);
 
   let patches =
     plainMatrixToFormatCellPatches(matrix, html || "") ||
@@ -248,7 +255,7 @@ export function processFormatDualSource(html, text, { area = null, startRow = nu
 
   const { successCount } = applyDataMatrixToGrid(patches, null, {
     startRowOverride: resolvedStartRow,
-    startColOverride: 0,
+    startColOverride: resolvedStartCol,
     trimValues: false,
     alignTotalRows: false,
   });
@@ -263,13 +270,13 @@ export function processFormatDualSource(html, text, { area = null, startRow = nu
 }
 
 /** 2.Format: mat-row plain vertical dump → reshape → HTML table fill. */
-export function processFormatPlainMatrix(text, { area = null, startRow = null, anchorCell = null, html = "" } = {}) {
+export function processFormatPlainMatrix(text, { area = null, startRow = null, startCol = null, anchorCell = null, html = "" } = {}) {
   if (!text?.trim()) return false;
-  if (html) return processFormatDualSource(html, text, { area, startRow, anchorCell });
+  if (html) return processFormatDualSource(html, text, { area, startRow, startCol, anchorCell });
   const matrix = parsePlainTextMatrix(text);
   if (!matrixLooksMultiColumn(matrix)) return false;
   const tableHtml = plainMatrixToHtmlTable(matrix);
-  return processFormatTableHtml(tableHtml, { area, startRow, anchorCell });
+  return processFormatTableHtml(tableHtml, { area, startRow, startCol, anchorCell });
 }
 
 function readClipboard(clipboard) {
@@ -356,9 +363,9 @@ export function handleFormatPasteAreaEvent(e) {
   const { html, text } = readClipboard(clipboard);
   const area = document.getElementById("pasteAreaFormat");
 
-  const hasExistingData = domGridHasEditableData();
-  const startRow = hasExistingData ? resolveFormatPasteStartRow(getFormatPasteAnchorCell()) : 0;
-  const options = { area, startRow };
+  const anchorCell = getFormatPasteAnchorCell();
+  const startRow = resolveFormatPasteStartRow(anchorCell);
+  const options = { area, startRow, anchorCell };
 
   if (tryProcessFormatClipboard(html, text, options)) {
     e.preventDefault();
@@ -380,20 +387,26 @@ export function handleFormatPasteAreaEvent(e) {
       const normalizedPasted = resolveNormalizedHtml(pastedHTML) || pastedHTML;
       if (normalizedPasted && /<table\b/i.test(normalizedPasted)) {
         if (formatHtmlLooksLikeVerticalNx1(normalizedPasted) && text?.trim()) {
-          const appendStartRow = domGridHasEditableData()
-            ? resolveFormatPasteStartRow(getFormatPasteAnchorCell())
-            : 0;
-          processFormatDualSource(pastedHTML, text, { area, startRow: appendStartRow });
+          const appendStartRow = resolveFormatPasteStartRow(getFormatPasteAnchorCell());
+          processFormatDualSource(pastedHTML, text, {
+            area,
+            startRow: appendStartRow,
+            anchorCell: getFormatPasteAnchorCell(),
+          });
           return;
         }
-        const appendStartRow = domGridHasEditableData()
-          ? resolveFormatPasteStartRow(getFormatPasteAnchorCell())
-          : 0;
-        if (processFormatTableHtml(normalizedPasted, { area, startRow: appendStartRow })) return;
+        const appendStartRow = resolveFormatPasteStartRow(getFormatPasteAnchorCell());
+        const delayedAnchor = getFormatPasteAnchorCell();
+        if (processFormatTableHtml(normalizedPasted, {
+          area,
+          startRow: appendStartRow,
+          anchorCell: delayedAnchor,
+        })) return;
         if (text?.trim()) {
           processFormatDualSource(pastedHTML || normalizedPasted, text, {
             area,
             startRow: appendStartRow,
+            anchorCell: delayedAnchor,
           });
         }
       }
@@ -419,9 +432,8 @@ export function handleGlobalFormatPaste(e) {
   e.preventDefault();
   e.stopPropagation();
 
-  const hasExistingData = domGridHasEditableData();
   const anchorCell = getFormatPasteAnchorCell();
-  const startRow = hasExistingData ? resolveFormatPasteStartRow(anchorCell) : 0;
+  const startRow = resolveFormatPasteStartRow(anchorCell);
   const pasteAreaFormat = document.getElementById("pasteAreaFormat");
   const { html, text } = readClipboard(clipboard);
 

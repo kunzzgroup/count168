@@ -203,6 +203,8 @@ export function formatBodyMatrixLooksCollapsed(bodyMatrix, dataRows) {
 export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
   const startRow =
     Number.isFinite(options.startRow) && options.startRow >= 0 ? options.startRow : 0;
+  const startCol =
+    Number.isFinite(options.startCol) && options.startCol >= 0 ? options.startCol : 0;
 
   try {
     const hasBrInOriginal =
@@ -218,11 +220,11 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
 
     const { headerRows, dataRows, maxCols } = structure;
 
-    ensureGridFits(startRow, 0, countFormatRequiredBodyRows(dataRows), maxCols);
+    ensureGridFits(startRow, startCol, countFormatRequiredBodyRows(dataRows), maxCols);
 
     let bodyMatrix = buildFormatBodyMatrix(dataRows, maxCols);
     console.log(
-      `Format: Applying ${bodyMatrix.length} body row(s) at row ${startRow} (${dataRows.length} source data rows)`,
+      `Format: Applying ${bodyMatrix.length} body row(s) at row ${startRow} col ${startCol} (${dataRows.length} source data rows)`,
     );
 
     if (
@@ -234,7 +236,7 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
         bodyMatrix = healed;
         ensureGridFits(
           startRow,
-          0,
+          startCol,
           bodyMatrix.length,
           Math.max(...bodyMatrix.map((row) => row.length), 0),
         );
@@ -255,7 +257,7 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
       );
       ensureGridFits(
         startRow,
-        0,
+        startCol,
         bodyMatrix.length,
         Math.max(...bodyMatrix.map((row) => row.length), 0),
       );
@@ -263,7 +265,7 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
 
     const { successCount: bodySuccessCount } = applyDataMatrixToGrid(bodyMatrix, null, {
       startRowOverride: startRow,
-      startColOverride: 0,
+      startColOverride: startCol,
       trimValues: false,
       alignTotalRows: false,
     });
