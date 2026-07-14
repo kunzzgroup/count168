@@ -361,13 +361,13 @@ function replaceRowWithElements(tr, elements, asHeader) {
     const cls = String(el.className || "");
     const baked = {};
     if (/\bpositive\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
-      baked.color = "rgb(0, 200, 83)";
+      baked.color = "#82c751";
     }
     if (/\bnegative\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
-      baked.color = "rgb(244, 67, 54)";
+      baked.color = "#ff7575";
     }
     if (el.querySelector?.("a")) {
-      if (!/\bcolor\s*:/i.test(td.getAttribute("style") || "")) baked.color = "rgb(33, 150, 243)";
+      if (!/\bcolor\s*:/i.test(td.getAttribute("style") || "")) baked.color = "#82b8b9";
       baked["text-decoration"] = "underline";
     }
     if (Object.keys(baked).length) mergeStyleAttr(td, baked);
@@ -653,13 +653,13 @@ export function normalizeClipboardHtmlToTable(html) {
         const cls = String(cell.className || "");
         const baked = {};
         if (/\bpositive\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
-          baked.color = "rgb(0, 200, 83)";
+          baked.color = "#82c751";
         }
         if (/\bnegative\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
-          baked.color = "rgb(244, 67, 54)";
+          baked.color = "#ff7575";
         }
         if (cell.querySelector?.("a")) {
-          if (!/\bcolor\s*:/i.test(td.getAttribute("style") || "")) baked.color = "rgb(33, 150, 243)";
+          if (!/\bcolor\s*:/i.test(td.getAttribute("style") || "")) baked.color = "#82b8b9";
           baked["text-decoration"] = "underline";
         }
         if (Object.keys(baked).length) mergeStyleAttr(td, baked);
