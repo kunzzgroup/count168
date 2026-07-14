@@ -13,8 +13,8 @@ export function formatSummarySubmitTotalError(totalDisplay) {
   return `Cannot submit: The sum of Processed Amount must be between ${SUMMARY_SUBMIT_TOTAL_MIN} and ${SUMMARY_SUBMIT_TOTAL_MAX}. Current sum: ${totalDisplay}`;
 }
 
-export function validateSummarySubmitTotalPure(rows, globalRateInput = "", accounts = null) {
-  const total = computeSummaryTotal(rows, globalRateInput, accounts);
+export function validateSummarySubmitTotalPure(rows, globalRateInput = "") {
+  const total = computeSummaryTotal(rows, globalRateInput);
   const totalRounded = roundSummaryTotalForValidation(total);
   const min = MoneyDecimal.toDecimal(SUMMARY_SUBMIT_TOTAL_MIN);
   const max = MoneyDecimal.toDecimal(SUMMARY_SUBMIT_TOTAL_MAX);
