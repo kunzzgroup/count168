@@ -5,6 +5,10 @@ import {
   sanitizeCopiedStyleString,
 } from "./dataCaptureFormatStyleUtils.js";
 import { expandCollapsedTableRows } from "./dataCaptureFormatClipboardNormalize.js";
+import {
+  applyMaterialStyleHintsToTable,
+  inferMaterialVisualStyleFromCell,
+} from "./dataCaptureFormatMaterialStyleMap.js";
 
 function cellTextIsMoneyOrNumberLike(text) {
   const cleaned = String(text ?? "")
@@ -58,6 +62,7 @@ export function parseFormatHtmlTableStructure(htmlString) {
   if (!table) return null;
 
   expandCollapsedTableRows(table);
+  applyMaterialStyleHintsToTable(table);
 
   const allRows = Array.from(table.querySelectorAll("tr"));
   if (allRows.length === 0) return null;
@@ -205,18 +210,6 @@ function extractPlainText(sourceCell) {
   return (tempDiv.textContent || tempDiv.innerText || "").trim();
 }
 
-/** Material report status classes often carry color without inline style. */
-function inferVisualStyleFromCellClass(sourceCell) {
-  const cls = String(sourceCell?.className || "");
-  const parts = [];
-  if (/\bpositive\b/i.test(cls)) parts.push("color: rgb(0, 200, 83)");
-  if (/\bnegative\b/i.test(cls)) parts.push("color: rgb(244, 67, 54)");
-  if (sourceCell?.querySelector?.("a")) {
-    parts.push("color: rgb(33, 150, 243)", "text-decoration: underline");
-  }
-  return parts.length ? `${parts.join("; ")};` : "";
-}
-
 export function buildFormatDataCellStyle(sourceCell) {
   const sourceCellStyle = sourceCell.getAttribute("style");
   let sourceCellComputedStyle = null;
@@ -228,7 +221,7 @@ export function buildFormatDataCellStyle(sourceCell) {
     sourceCellComputedStyle = null;
   }
 
-  const classVisual = inferVisualStyleFromCellClass(sourceCell);
+  const classVisual = inferMaterialVisualStyleFromCell(sourceCell);
 
   // 2.Format 1:1 — keep color/background/weight from clipboard; only drop layout props.
   if (sourceCellStyle) {

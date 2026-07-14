@@ -4,6 +4,11 @@
  * while preserving inline styles and class-driven colors from clipboard CSS.
  */
 
+import {
+  applyMaterialStyleHintsToTable,
+  bakeMaterialVisualOntoElement,
+} from "./dataCaptureFormatMaterialStyleMap.js";
+
 const GRID_HINT_RE =
   /mat-row|mat-cell|mat-header-row|mat-header-cell|mat-footer-cell|cdk-row|cdk-cell|role\s*=\s*["'](?:row|gridcell|columnheader|rowheader)["']/i;
 
@@ -357,25 +362,18 @@ function replaceRowWithElements(tr, elements, asHeader) {
     const td = document.createElement(asHeader || isHeaderLikeCell(el) ? "th" : "td");
     const cellStyle = el.getAttribute?.("style");
     if (cellStyle) td.setAttribute("style", sanitizeStyleKeepVisual(cellStyle));
-    // Bake Material status / link cues when clipboard CSS was not embedded.
-    const cls = String(el.className || "");
-    const baked = {};
-    if (/\bpositive\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
-      baked.color = "rgb(0, 200, 83)";
-    }
-    if (/\bnegative\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
-      baked.color = "rgb(244, 67, 54)";
-    }
-    if (el.querySelector?.("a")) {
-      if (!/\bcolor\s*:/i.test(td.getAttribute("style") || "")) baked.color = "rgb(33, 150, 243)";
-      baked["text-decoration"] = "underline";
-    }
-    if (Object.keys(baked).length) mergeStyleAttr(td, baked);
     if (el.innerHTML != null) {
       td.innerHTML = el.innerHTML || escapeHtml(el.textContent || "");
     } else {
       td.textContent = String(el.textContent || el || "");
     }
+    // Bake Material status / link / footer cues (class often has no matching <style>).
+    bakeMaterialVisualOntoElement(td, {
+      className: el.className,
+      rowClassName: tr.className || el.parentElement?.className,
+      text: td.textContent,
+      hasLink: Boolean(el.querySelector?.("a") || td.querySelector?.("a")),
+    });
     tr.appendChild(td);
   });
 }
@@ -387,6 +385,8 @@ function replaceRowWithTextColumns(tr, lines, asHeader) {
     td.textContent = line;
     tr.appendChild(td);
   });
+  // Text-only expansion lost Material classes; still bold Subtotal / Total Amount rows.
+  applyMaterialStyleHintsToTable(tr.closest("table") || tr.parentElement);
 }
 
 function splitCellTextToColumnLines(cell) {
@@ -603,6 +603,7 @@ export function normalizeClipboardHtmlToTable(html) {
     if (mergedDataTables) {
       expandCollapsedTableRows(mergedDataTables);
       if (tableColumnCount(mergedDataTables) >= 2) {
+        applyMaterialStyleHintsToTable(mergedDataTables);
         return `${styleHtml}\n${mergedDataTables.outerHTML}`;
       }
     }
@@ -611,6 +612,7 @@ export function normalizeClipboardHtmlToTable(html) {
     if (existingTable && !gridRows.length) {
       expandCollapsedTableRows(existingTable);
       if (tableColumnCount(existingTable) >= 2) {
+        applyMaterialStyleHintsToTable(existingTable);
         return `${styleHtml}\n${existingTable.outerHTML}`;
       }
       return raw;
@@ -650,20 +652,13 @@ export function normalizeClipboardHtmlToTable(html) {
         const td = document.createElement(isHeaderLikeCell(cell) ? "th" : "td");
         const cellStyle = cell.getAttribute("style");
         if (cellStyle) td.setAttribute("style", sanitizeStyleKeepVisual(cellStyle));
-        const cls = String(cell.className || "");
-        const baked = {};
-        if (/\bpositive\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
-          baked.color = "rgb(0, 200, 83)";
-        }
-        if (/\bnegative\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
-          baked.color = "rgb(244, 67, 54)";
-        }
-        if (cell.querySelector?.("a")) {
-          if (!/\bcolor\s*:/i.test(td.getAttribute("style") || "")) baked.color = "rgb(33, 150, 243)";
-          baked["text-decoration"] = "underline";
-        }
-        if (Object.keys(baked).length) mergeStyleAttr(td, baked);
         td.innerHTML = cell.innerHTML || escapeHtml(cell.textContent || "");
+        bakeMaterialVisualOntoElement(td, {
+          className: cell.className,
+          rowClassName: row.className,
+          text: td.textContent,
+          hasLink: Boolean(cell.querySelector?.("a") || td.querySelector?.("a")),
+        });
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -672,6 +667,7 @@ export function normalizeClipboardHtmlToTable(html) {
     if (!tbody.children.length) return raw;
     table.appendChild(tbody);
     expandCollapsedTableRows(table);
+    applyMaterialStyleHintsToTable(table);
 
     return `${styleHtml}\n${table.outerHTML}`;
   } catch {
