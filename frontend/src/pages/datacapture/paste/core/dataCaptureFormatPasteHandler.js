@@ -10,6 +10,7 @@ import {
 import {
   clipboardHtmlLooksLikeGrid,
   normalizeClipboardHtmlToTable,
+  tokenizeCollapsedReportRow,
 } from "./dataCaptureFormatClipboardNormalize.js";
 import { parseFormatHtmlTableStructure } from "./dataCaptureFormatHtmlMatrix.js";
 import { formatBodyMatrixLooksCollapsed } from "./dataCaptureFormatHtmlPaste.js";
@@ -70,14 +71,45 @@ function matrixLooksMultiColumn(matrix) {
 }
 
 /**
+ * Reshaped plain that looks like Report Center agent_period (label + $ money),
+ * not a wide statement sheet (serial No. | OB | … | 16 cols).
+ */
+function plainMatrixLooksLikeAgentPeriodDump(matrix) {
+  if (!matrixLooksMultiColumn(matrix)) return false;
+  const width = matrix[0]?.length || 0;
+  // agent_period is typically ~9 fields; statement tables are often 14–16+.
+  if (width < 6 || width > 12) return false;
+
+  let dollarRows = 0;
+  for (const row of matrix.slice(0, 5)) {
+    const cells = row || [];
+    const first = String(cells[0] ?? "").trim();
+    if (/^\d{1,4}$/.test(first)) return false;
+    const dollars = cells.filter((c) => /\$/.test(String(c ?? ""))).length;
+    if (dollars >= 3) dollarRows += 1;
+  }
+  return dollarRows >= 1;
+}
+
+function shouldPreferFormatPlainDual(plainMulti, plainMatrix, normalizedHtml) {
+  if (!plainMulti) return false;
+  if (!normalizedHtml || !/<table\b/i.test(normalizedHtml)) return true;
+  if (formatHtmlLooksLikeVerticalNx1(normalizedHtml)) return true;
+  return plainMatrixLooksLikeAgentPeriodDump(plainMatrix);
+}
+
+/**
  * When text/plain is empty or already crushed to N×1, rebuild a field dump from
  * Material / table cells so Format dual-source can reshape.
  */
 export function extractPlainFieldDumpFromHtml(html) {
   if (!html) return "";
   try {
-    const root = document.createElement("div");
-    root.innerHTML = String(html);
+    // Prefer DOMParser so <table> markup is not lost inside a <div> shell.
+    const doc = new DOMParser().parseFromString(String(html), "text/html");
+    const root = doc.body || document.createElement("div");
+    if (!doc.body) root.innerHTML = String(html);
+
     const cells = root.querySelectorAll(
       [
         "mat-cell",
@@ -97,7 +129,14 @@ export function extractPlainFieldDumpFromHtml(html) {
         .replace(/\u00a0/g, " ")
         .replace(/\s+/g, " ")
         .trim();
-      if (text) tokens.push(text);
+      if (!text) return;
+      // One TD may hold a whole agent_period row as flattened text / nested blocks.
+      const tokenized = tokenizeCollapsedReportRow(text);
+      if (tokenized.length >= 3) {
+        tokenized.forEach((token) => tokens.push(token));
+      } else {
+        tokens.push(text);
+      }
     });
     if (tokens.length >= 3) return tokens.join("\n");
 
@@ -241,9 +280,14 @@ function tryProcessFormatClipboard(html, text, options) {
   const plainMulti = matrixLooksMultiColumn(plainMatrix);
   const normalizedHtml = resolveNormalizedHtml(html);
 
-  // Multi-col report HTML (e.g. OB/SUBTOTAL sheets) must stay on the HTML path —
-  // plain dual-source can crush the footer into a 2-col stair-step.
-  // Prefer plain only when HTML is missing or already an N×1 field dump (agent_period).
+  // agent_period / N×1 dumps: plain reshape FIRST (avoids Fig1 col1 stack).
+  // Wide statement HTML (OB / 16-col) stays on HTML path below.
+  if (shouldPreferFormatPlainDual(plainMulti, plainMatrix, normalizedHtml)) {
+    if (processFormatDualSource(html, plainText, options)) return true;
+  }
+
+  // Multi-col report HTML (e.g. OB/SUBTOTAL sheets) — keep styles + icon column.
+  // Fall through to dual when HTML fill rejects collapsed bodies.
   if (normalizedHtml && /<table\b/i.test(normalizedHtml)) {
     if (!formatHtmlLooksLikeVerticalNx1(normalizedHtml)) {
       if (processFormatTableHtml(normalizedHtml, options)) return true;
@@ -252,7 +296,6 @@ function tryProcessFormatClipboard(html, text, options) {
       return processFormatDualSource(html || normalizedHtml, plainText, options);
     }
   } else if (plainMulti) {
-    // No usable table HTML → reshaped plain (agent_period text/plain dumps).
     if (processFormatDualSource(html, plainText, options)) return true;
   }
 
