@@ -3,7 +3,6 @@
 import {
   sanitizeFormatHtmlFragment,
   sanitizeCopiedStyleString,
-  stripBackgroundFromStyle,
 } from "./dataCaptureFormatStyleUtils.js";
 import { expandCollapsedTableRows } from "./dataCaptureFormatClipboardNormalize.js";
 
@@ -206,6 +205,18 @@ function extractPlainText(sourceCell) {
   return (tempDiv.textContent || tempDiv.innerText || "").trim();
 }
 
+/** Material report status classes often carry color without inline style. */
+function inferVisualStyleFromCellClass(sourceCell) {
+  const cls = String(sourceCell?.className || "");
+  const parts = [];
+  if (/\bpositive\b/i.test(cls)) parts.push("color: rgb(0, 200, 83)");
+  if (/\bnegative\b/i.test(cls)) parts.push("color: rgb(244, 67, 54)");
+  if (sourceCell?.querySelector?.("a")) {
+    parts.push("color: rgb(33, 150, 243)", "text-decoration: underline");
+  }
+  return parts.length ? `${parts.join("; ")};` : "";
+}
+
 export function buildFormatDataCellStyle(sourceCell) {
   const sourceCellStyle = sourceCell.getAttribute("style");
   let sourceCellComputedStyle = null;
@@ -217,22 +228,35 @@ export function buildFormatDataCellStyle(sourceCell) {
     sourceCellComputedStyle = null;
   }
 
+  const classVisual = inferVisualStyleFromCellClass(sourceCell);
+
+  // 2.Format 1:1 — keep color/background/weight from clipboard; only drop layout props.
   if (sourceCellStyle) {
-    const sanitizedCellStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
-    return sanitizedCellStyle && !sanitizedCellStyle.includes("border")
-      ? `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}`
-      : sanitizedCellStyle || "border: 1px solid #d0d7de !important;";
+    const sanitizedCellStyle = sanitizeCopiedStyleString(sourceCellStyle);
+    const merged = [sanitizedCellStyle, classVisual].filter(Boolean).join(" ").trim();
+    return merged && !merged.includes("border")
+      ? `border: 1px solid #d0d7de !important; ${merged}`
+      : merged || "border: 1px solid #d0d7de !important;";
   }
 
   const color = sourceCellComputedStyle?.color;
   const fontWeight = sourceCellComputedStyle?.fontWeight;
   const textAlign = sourceCellComputedStyle?.textAlign;
+  const backgroundColor = sourceCellComputedStyle?.backgroundColor;
   let styleString = "border: 1px solid #d0d7de !important;";
   if (color && color !== "rgb(0, 0, 0)") styleString += ` color: ${color} !important;`;
+  if (
+    backgroundColor &&
+    backgroundColor !== "rgba(0, 0, 0, 0)" &&
+    backgroundColor !== "transparent"
+  ) {
+    styleString += ` background-color: ${backgroundColor} !important;`;
+  }
   if (fontWeight && fontWeight !== "normal" && fontWeight !== "400") {
     styleString += ` font-weight: ${fontWeight} !important;`;
   }
   if (textAlign && textAlign !== "left") styleString += ` text-align: ${textAlign} !important;`;
+  if (classVisual) styleString += ` ${classVisual}`;
   return styleString;
 }
 
@@ -266,8 +290,12 @@ export function buildFormatDataCellPatch(sourceCell, displayText) {
 
   if (cellText && cellText.trim() !== "") {
     const sourceCellStyle = sourceCell.getAttribute("style");
-    if (sourceCellStyle) {
-      const sanitizedSpanStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
+    const classVisual = inferVisualStyleFromCellClass(sourceCell);
+    if (sourceCellStyle || classVisual) {
+      const sanitizedSpanStyle = [sanitizeCopiedStyleString(sourceCellStyle || ""), classVisual]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
       if (sanitizedSpanStyle) {
         return {
           value: cellText,

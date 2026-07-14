@@ -357,6 +357,20 @@ function replaceRowWithElements(tr, elements, asHeader) {
     const td = document.createElement(asHeader || isHeaderLikeCell(el) ? "th" : "td");
     const cellStyle = el.getAttribute?.("style");
     if (cellStyle) td.setAttribute("style", sanitizeStyleKeepVisual(cellStyle));
+    // Bake Material status / link cues when clipboard CSS was not embedded.
+    const cls = String(el.className || "");
+    const baked = {};
+    if (/\bpositive\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
+      baked.color = "rgb(0, 200, 83)";
+    }
+    if (/\bnegative\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
+      baked.color = "rgb(244, 67, 54)";
+    }
+    if (el.querySelector?.("a")) {
+      if (!/\bcolor\s*:/i.test(td.getAttribute("style") || "")) baked.color = "rgb(33, 150, 243)";
+      baked["text-decoration"] = "underline";
+    }
+    if (Object.keys(baked).length) mergeStyleAttr(td, baked);
     if (el.innerHTML != null) {
       td.innerHTML = el.innerHTML || escapeHtml(el.textContent || "");
     } else {
@@ -636,6 +650,19 @@ export function normalizeClipboardHtmlToTable(html) {
         const td = document.createElement(isHeaderLikeCell(cell) ? "th" : "td");
         const cellStyle = cell.getAttribute("style");
         if (cellStyle) td.setAttribute("style", sanitizeStyleKeepVisual(cellStyle));
+        const cls = String(cell.className || "");
+        const baked = {};
+        if (/\bpositive\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
+          baked.color = "rgb(0, 200, 83)";
+        }
+        if (/\bnegative\b/i.test(cls) && !/\bcolor\s*:/i.test(td.getAttribute("style") || "")) {
+          baked.color = "rgb(244, 67, 54)";
+        }
+        if (cell.querySelector?.("a")) {
+          if (!/\bcolor\s*:/i.test(td.getAttribute("style") || "")) baked.color = "rgb(33, 150, 243)";
+          baked["text-decoration"] = "underline";
+        }
+        if (Object.keys(baked).length) mergeStyleAttr(td, baked);
         td.innerHTML = cell.innerHTML || escapeHtml(cell.textContent || "");
         tr.appendChild(td);
       });

@@ -111,9 +111,16 @@ function readClipboard(clipboard) {
 }
 
 function tryProcessFormatClipboard(html, text, options) {
+  // Prefer HTML (keeps mat-row styles). Plain matrix is value-only fallback.
   const normalizedHtml = resolveNormalizedHtml(html);
   if (normalizedHtml && /<table\b/i.test(normalizedHtml)) {
     return processFormatTableHtml(normalizedHtml, options);
+  }
+  if (html && clipboardHtmlLooksLikeGrid(html)) {
+    const forced = normalizeClipboardHtmlToTable(html);
+    if (forced && /<table\b/i.test(forced)) {
+      return processFormatTableHtml(forced, options);
+    }
   }
   if (text && /<table\b/i.test(text)) {
     return processFormatTableHtml(text, options);
