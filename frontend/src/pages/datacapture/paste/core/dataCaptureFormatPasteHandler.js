@@ -14,6 +14,7 @@ import {
 import { parseFormatHtmlTableStructure } from "./dataCaptureFormatHtmlMatrix.js";
 import { formatBodyMatrixLooksCollapsed } from "./dataCaptureFormatHtmlPaste.js";
 import { parsePlainTextMatrix } from "./dataCaptureTextPaste.js";
+import { splitStackedSubtotalGrandTotalRows } from "./dataCaptureStackedTotalSplit.js";
 import {
   applyDataMatrixToGrid,
   ensureGridFits,
@@ -184,9 +185,10 @@ export function processFormatDualSource(html, text, { area = null, startRow = nu
   const maxCols = Math.max(...matrix.map((row) => (row || []).length), 0);
   ensureGridFits(resolvedStartRow, 0, matrix.length, maxCols);
 
-  const patches =
+  let patches =
     plainMatrixToFormatCellPatches(matrix, html || "") ||
     matrix.map((row) => (row || []).map((value) => ({ value: String(value ?? "") })));
+  patches = splitStackedSubtotalGrandTotalRows(patches);
 
   if (formatBodyMatrixLooksCollapsed(patches, null)) {
     console.log("Format: Dual-source reshape still looks collapsed — abort");
@@ -237,18 +239,11 @@ function tryProcessFormatClipboard(html, text, options) {
   const plainText = resolveFormatPlainText(html, text);
   const plainMatrix = plainText?.trim() ? parsePlainTextMatrix(plainText) : null;
   const plainMulti = matrixLooksMultiColumn(plainMatrix);
-
-  // Prefer plain reshape whenever available. Agent_period HTML often "looks"
-  // multi-col (or even expands) yet still lands as stacked A1/B1 on the grid;
-  // plain matrix → direct patches avoids that path entirely.
-  if (plainMulti) {
-    if (processFormatDualSource(html, plainText, options)) return true;
-  }
-
-  // HTML-only fallback when plain cannot reshape (no field dump / empty text).
-  // IMPORTANT: when HTML "looks" multi-col but fill rejects a collapsed body
-  // (Fig1 stack / empty sibling TDs), fall through — do not abandon early.
   const normalizedHtml = resolveNormalizedHtml(html);
+
+  // Multi-col report HTML (e.g. OB/SUBTOTAL sheets) must stay on the HTML path —
+  // plain dual-source can crush the footer into a 2-col stair-step.
+  // Prefer plain only when HTML is missing or already an N×1 field dump (agent_period).
   if (normalizedHtml && /<table\b/i.test(normalizedHtml)) {
     if (!formatHtmlLooksLikeVerticalNx1(normalizedHtml)) {
       if (processFormatTableHtml(normalizedHtml, options)) return true;
@@ -256,6 +251,9 @@ function tryProcessFormatClipboard(html, text, options) {
     } else if (plainMulti) {
       return processFormatDualSource(html || normalizedHtml, plainText, options);
     }
+  } else if (plainMulti) {
+    // No usable table HTML → reshaped plain (agent_period text/plain dumps).
+    if (processFormatDualSource(html, plainText, options)) return true;
   }
 
   if (html && clipboardHtmlLooksLikeGrid(html)) {

@@ -10,6 +10,7 @@ import {
 import { plainMatrixToFormatCellPatches } from "./dataCaptureFormatPreview.js";
 import { parsePlainTextMatrix } from "./dataCaptureTextPaste.js";
 import { tokenizeCollapsedReportRow } from "./dataCaptureFormatClipboardNormalize.js";
+import { splitStackedSubtotalGrandTotalRows } from "./dataCaptureStackedTotalSplit.js";
 
 function flattenFormatBodyMatrixToPlain(bodyMatrix) {
   const lines = [];
@@ -243,6 +244,21 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
         );
         return false;
       }
+    }
+
+    // Same as 1.TEXT: stacked SUBTOTAL + GRAND TOTAL in one row → two full rows.
+    const beforeSplit = bodyMatrix.length;
+    bodyMatrix = splitStackedSubtotalGrandTotalRows(bodyMatrix);
+    if (bodyMatrix.length !== beforeSplit) {
+      console.log(
+        `Format: Split stacked SUBTOTAL/GRAND TOTAL → ${beforeSplit} row(s) became ${bodyMatrix.length}`,
+      );
+      ensureGridFits(
+        startRow,
+        0,
+        bodyMatrix.length,
+        Math.max(...bodyMatrix.map((row) => row.length), 0),
+      );
     }
 
     const { successCount: bodySuccessCount } = applyDataMatrixToGrid(bodyMatrix, null, {

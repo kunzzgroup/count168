@@ -572,7 +572,8 @@ function expandSourceRowToMatrixRows(sourceRow, maxCols) {
   if (isFirstCellWithBrOrSpan && hasVerticalSplit && cellsWithSplit.length > 0) {
     // True vertical split (e.g. two stacked labels in one Excel cell) — only top/bottom.
     // Do not use this path for 9-field agent dumps.
-    if ((cellsWithSplit[0]?.allLines?.length || 0) <= 2) {
+    const firstLines = cellsWithSplit[0]?.allLines || [];
+    if (firstLines.length <= 2) {
       const topRow = emptyRowPatch(maxCols);
       const bottomRow = emptyRowPatch(maxCols);
 
