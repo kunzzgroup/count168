@@ -7,10 +7,11 @@
  * strips class attributes.
  */
 
+/** Report Center Material palette (positive / negative / agent link). */
 export const MATERIAL_VISUAL = {
-  positive: "rgb(0, 200, 83)",
-  negative: "rgb(244, 67, 54)",
-  link: "rgb(33, 150, 243)",
+  positive: "#82c751",
+  negative: "#ff7575",
+  link: "#82b8b9",
 };
 
 const POSITIVE_CLASS_RE =

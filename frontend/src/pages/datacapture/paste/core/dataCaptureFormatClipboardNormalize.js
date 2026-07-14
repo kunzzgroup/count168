@@ -481,24 +481,56 @@ export function expandCollapsedTableRows(table) {
       const tag = (el.tagName || "").toUpperCase();
       return tag === "TD" || tag === "TH";
     });
-    // One real cell (ignore colspan inflation) — the Material clipboard failure mode.
-    if (cells.length !== 1) return;
-    if (!cellLooksHorizontallyCollapsed(cells[0]) && Number.parseInt(cells[0].getAttribute("colspan") || "1", 10) <= 1) {
+    if (!cells.length) return;
+
+    // One real content cell (ignore trailing empty TDs) — Material/Chrome dump mode.
+    const nonEmptyCells = cells.filter(
+      (cell) =>
+        String(cell.textContent || "")
+          .replace(/\u00a0/g, " ")
+          .replace(/\s+/g, " ")
+          .trim() !== "",
+    );
+    if (nonEmptyCells.length !== 1) return;
+    const only = nonEmptyCells[0];
+
+    if (
+      !cellLooksHorizontallyCollapsed(only) &&
+      Number.parseInt(only.getAttribute("colspan") || "1", 10) <= 1
+    ) {
       // Still try tokenize on plain single-cell rows with dense report text.
-      const tokenized = tokenizeCollapsedReportRow(cells[0].textContent || "");
+      const tokenized = tokenizeCollapsedReportRow(only.textContent || "");
       if (tokenized.length < 2) return;
-      const asHeader = (cells[0].tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(cells[0]);
+      const asHeader = (only.tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(only);
       replaceRowWithTextColumns(tr, tokenized, asHeader);
       changed = true;
       return;
     }
 
-    const only = cells[0];
     const asHeader = (only.tagName || "").toUpperCase() === "TH" || isHeaderLikeCell(only);
 
-    let nested = collectRowCells(only);
+    // Unwrap single MsoNormal / layout wrappers so field children become visible.
+    let scanRoot = only;
+    for (let depth = 0; depth < 6; depth += 1) {
+      const kids = Array.from(scanRoot.children || []).filter(
+        (child) => String(child.textContent || "").trim() !== "",
+      );
+      if (kids.length !== 1) break;
+      const tag = (kids[0].tagName || "").toLowerCase();
+      if (!["p", "div", "span", "font", "section", "article", "center"].includes(tag)) break;
+      const grand = Array.from(kids[0].children || []).filter(
+        (child) => String(child.textContent || "").trim() !== "",
+      );
+      if (grand.length < 2) break;
+      scanRoot = kids[0];
+    }
+
+    let nested = collectRowCells(scanRoot);
     if (nested.length < 2) {
-      const kids = Array.from(only.children || []).filter(
+      nested = collectRowCells(only);
+    }
+    if (nested.length < 2) {
+      const kids = Array.from(scanRoot.children || []).filter(
         (child) => String(child.textContent || "").trim() !== "",
       );
       if (kids.length >= 2) nested = kids;
@@ -510,7 +542,7 @@ export function expandCollapsedTableRows(table) {
       return;
     }
 
-    const lines = splitCellTextToColumnLines(only);
+    const lines = splitCellTextToColumnLines(scanRoot);
     if (lines.length >= 2) {
       // Each line is itself a full report row (Agent + amounts…) → one <tr> per line.
       const denseLines = lines.filter((line) => tokenizeCollapsedReportRow(line).length >= 2);
