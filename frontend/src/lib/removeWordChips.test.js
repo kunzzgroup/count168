@@ -8,7 +8,7 @@ import {
 } from "./removeWordChips.js";
 
 test("includes an uncommitted draft when the process form is submitted", () => {
-  assert.equal(resolveSubmittedRemoveWordChips("", "TEST"), "TEST");
+  assert.equal(resolveSubmittedRemoveWordChips("", "test"), "TEST");
 });
 
 test("merges the draft with existing chips without duplicates", () => {
@@ -16,18 +16,18 @@ test("merges the draft with existing chips without duplicates", () => {
   assert.equal(resolveSubmittedRemoveWordChips("FIRST", "SECOND"), "FIRST,SECOND");
 });
 
-test("preserves original casing for chips", () => {
-  assert.deepEqual(parseRemoveWordChips("Hello,World"), ["Hello", "World"]);
-  assert.equal(serializeRemoveWordChips(["Hello", "mixedCase"]), "Hello,mixedCase");
+test("uppercases chips on parse and serialize", () => {
+  assert.deepEqual(parseRemoveWordChips("Hello,World"), ["HELLO", "WORLD"]);
+  assert.equal(serializeRemoveWordChips(["Hello", "mixedCase"]), "HELLO,MIXEDCASE");
 });
 
-test("dedupes chips case-insensitively and keeps the first casing", () => {
-  assert.deepEqual(parseRemoveWordChips("Hello,hello,HELLO"), ["Hello"]);
-  assert.equal(resolveSubmittedRemoveWordChips("Hello", "HELLO"), "Hello");
+test("dedupes chips case-insensitively", () => {
+  assert.deepEqual(parseRemoveWordChips("Hello,hello,HELLO"), ["HELLO"]);
+  assert.equal(resolveSubmittedRemoveWordChips("Hello", "HELLO"), "HELLO");
 });
 
-test("parses legacy semicolon values and serializes as commas", () => {
-  assert.deepEqual(parseRemoveWordChips("sad;aa;aaa"), ["sad", "aa", "aaa"]);
-  assert.equal(serializeRemoveWordChips(parseRemoveWordChips("sad;aa;aaa")), "sad,aa,aaa");
-  assert.deepEqual(parseRemoveWordChips("sad, aa; aaa"), ["sad", "aa", "aaa"]);
+test("parses legacy semicolon values and serializes as uppercase commas", () => {
+  assert.deepEqual(parseRemoveWordChips("sad;aa;aaa"), ["SAD", "AA", "AAA"]);
+  assert.equal(serializeRemoveWordChips(parseRemoveWordChips("sad;aa;aaa")), "SAD,AA,AAA");
+  assert.deepEqual(parseRemoveWordChips("sad, aa; aaa"), ["SAD", "AA", "AAA"]);
 });

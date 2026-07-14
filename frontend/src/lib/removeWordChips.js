@@ -1,23 +1,22 @@
 function normalizeRemoveWordToken(value) {
-  return String(value ?? "").trim();
+  return String(value ?? "").trim().toUpperCase();
 }
 
-/** Split on comma or legacy semicolon; keep first-seen casing. */
+/** Split on comma or legacy semicolon; store uppercase. */
 export function parseRemoveWordChips(value) {
   const seen = new Set();
   const chips = [];
   for (const part of String(value || "").split(/[,;]+/)) {
     const word = normalizeRemoveWordToken(part);
     if (!word) continue;
-    const key = word.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
+    if (seen.has(word)) continue;
+    seen.add(word);
     chips.push(word);
   }
   return chips;
 }
 
-/** Persist as `sad,aa,aaa` (comma, no spaces). */
+/** Persist as `FREE,BONUS` (comma, no spaces, uppercase). */
 export function serializeRemoveWordChips(chips) {
   const list = Array.isArray(chips) ? chips : parseRemoveWordChips(chips);
   return parseRemoveWordChips(list.join(",")).join(",");
