@@ -12,242 +12,10 @@ import {
   parseAndFillHtmlTableForTextWithFormat,
 } from "./dataCaptureTextHtmlPaste.js";
 import { sanitizePasteMatrix } from "./dataCapturePasteMatrixSanitize.js";
-
-function isMoneyOrNumberLikeToken(text) {
-  const cleaned = String(text ?? "")
-    .trim()
-    .replace(/[,$]/g, "")
-    .replace(/^\((.*)\)$/, "-$1");
-  if (!cleaned) return false;
-  return /^-?\d+(?:\.\d+)?$/.test(cleaned);
-}
-
-function isSummaryLabelToken(text) {
-  const normalized = String(text ?? "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .replace(/:$/, "")
-    .toUpperCase();
-  return (
-    normalized === "SUBTOTAL" ||
-    normalized === "SUB TOTAL" ||
-    normalized === "TOTAL AMOUNT" ||
-    normalized === "TOTAL" ||
-    normalized === "GRAND TOTAL"
-  );
-}
-
-/** Row looks like report data/summary: non-numeric first cell + dense money/number fields. */
-function isDenseReportRow(row) {
-  if (!row || row.length < 3) return false;
-  if (isMoneyOrNumberLikeToken(row[0])) return false;
-  const nums = row.filter((cell) => isMoneyOrNumberLikeToken(cell)).length;
-  return nums >= 2 && nums >= Math.ceil(row.length * 0.5);
-}
-
-/**
- * Over-select ("drag to end") often appends a truncated next row or multi-line
- * paginator after complete dense rows. Those leftovers are shorter than `width`
- * and start with a non-numeric label — drop them instead of rejecting the anchor.
- */
-function isDroppableTrailingLeftover(leftover, width) {
-  if (!leftover.length) return true;
-  const leftoverNums = leftover.filter((t) => isMoneyOrNumberLikeToken(t)).length;
-  if (leftoverNums === 0) return true; // label-only chrome / header titles
-  // Truncated next row or digit-bearing paginator ("Showing", "1", "to", …).
-  if (!isMoneyOrNumberLikeToken(leftover[0]) && leftover.length < width) return true;
-  return false;
-}
-
-/**
- * DataTables / Material copies often prepend column-title tokens. Find the best
- * "label + consecutive numbers" anchor (no fixed width). Prefer more complete
- * rows so a short trailing stub does not win over earlier full data rows.
- */
-function tryParseAnchoredVerticalRows(tokens) {
-  if (tokens.length < 3) return null;
-
-  let best = null;
-
-  for (let start = 0; start < tokens.length - 2; start += 1) {
-    if (isMoneyOrNumberLikeToken(tokens[start])) continue;
-
-    let end = start + 1;
-    while (end < tokens.length && isMoneyOrNumberLikeToken(tokens[end])) end += 1;
-    const consecutiveNums = end - start - 1;
-    if (consecutiveNums < 2) continue;
-
-    const width = consecutiveNums + 1;
-    if (width < 3) continue;
-
-    const dataTokens = tokens.slice(start);
-    const completeRows = Math.floor(dataTokens.length / width);
-    if (completeRows < 1) continue;
-
-    const rows = [];
-    for (let r = 0; r < completeRows; r += 1) {
-      rows.push(dataTokens.slice(r * width, (r + 1) * width));
-    }
-    if (!rows.every((row) => isDenseReportRow(row))) continue;
-
-    const rem = dataTokens.length % width;
-    if (rem > 0) {
-      const leftover = dataTokens.slice(completeRows * width);
-      if (!isDroppableTrailingLeftover(leftover, width)) continue;
-    }
-
-    if (
-      !best ||
-      completeRows > best.completeRows ||
-      (completeRows === best.completeRows && width > best.width)
-    ) {
-      best = { rows, width, completeRows };
-    }
-  }
-
-  if (!best) return null;
-  best.rows.forEach((row) => {
-    while (row.length < best.width) row.push("");
-  });
-  return best.rows;
-}
-
-function detectFlattenedStatementColCount(tokens) {
-  const summaryIndices = [];
-  tokens.forEach((token, index) => {
-    if (isSummaryLabelToken(token)) summaryIndices.push(index);
-  });
-  if (!summaryIndices.length) return null;
-
-  const candidateDiffs = [];
-  for (let i = 1; i < summaryIndices.length; i += 1) {
-    const diff = summaryIndices[i] - summaryIndices[i - 1];
-    if (diff >= 8 && diff <= 20) candidateDiffs.push(diff);
-  }
-  if (candidateDiffs.length) {
-    // Prefer the most common spacing between summary rows.
-    const counts = new Map();
-    candidateDiffs.forEach((diff) => counts.set(diff, (counts.get(diff) || 0) + 1));
-    let best = candidateDiffs[0];
-    let bestCount = 0;
-    counts.forEach((count, diff) => {
-      if (count > bestCount) {
-        best = diff;
-        bestCount = count;
-      }
-    });
-    return best;
-  }
-
-  const firstIdx = summaryIndices[0];
-  // Typical statement width is ~8–12 columns.
-  if (firstIdx >= 8 && firstIdx <= 12) return firstIdx;
-  // Header row + first data row before SUBTOTAL → index ≈ 2× width.
-  if (firstIdx >= 16 && firstIdx <= 24) {
-    const half = Math.round(firstIdx / 2);
-    if (half >= 8 && half <= 12) return half;
-  }
-  return 10;
-}
-
-function parseFlattenedStatementMatrix(nonEmptyLines) {
-  if (nonEmptyLines.length < 8) return null;
-
-  const tokens = nonEmptyLines.map((line) => line.trim()).filter(Boolean);
-  const numericLikeCount = tokens.filter((token) => isMoneyOrNumberLikeToken(token)).length;
-  if (numericLikeCount < Math.ceil(tokens.length * 0.4)) return null;
-
-  const colCount = detectFlattenedStatementColCount(tokens);
-  if (!colCount || colCount < 2) return null;
-
-  // Drop a leading header row when the first summary aligns to 2× width.
-  let start = 0;
-  const firstSummary = tokens.findIndex((token) => isSummaryLabelToken(token));
-  if (firstSummary > colCount && firstSummary % colCount === 0) {
-    start = firstSummary % colCount === 0 && firstSummary >= colCount * 2 ? colCount : 0;
-    // If tokens before first summary are exactly 2 rows, skip the first (headers).
-    if (firstSummary === colCount * 2) start = colCount;
-  }
-
-  const dataTokens = tokens.slice(start);
-  const dataRows = [];
-  for (let i = 0; i < dataTokens.length; i += colCount) {
-    const chunk = dataTokens.slice(i, i + colCount);
-    // Over-select mid-row: drop the incomplete trailing chunk instead of padding it.
-    if (chunk.length < colCount) break;
-    dataRows.push(chunk);
-  }
-  if (dataRows.length < 2) return null;
-
-  const hasSummaryRow = dataRows.some((row) => row.length && isSummaryLabelToken(row[0]));
-  if (!hasSummaryRow) return null;
-
-  return dataRows;
-}
-
-/**
- * Material / report-center copies often put one logical row into the clipboard as
- * one field per line (no tabs). Detect that vertical dump via numeric density —
- * not vendor names, not a fixed column count — and reshape to 1..N horizontal rows.
- *
- * @returns {string[][] | null}
- */
-function tryParseVerticalFieldDump(nonEmptyLines) {
-  const tokens = nonEmptyLines.map((line) => String(line ?? "").trim()).filter(Boolean);
-  if (tokens.length < 3) return null;
-
-  // Already multi-column lines → leave for spacing/tab paths.
-  if (tokens.some((token) => token.includes("\t") || /\s{2,}/.test(token))) return null;
-
-  const numericLikeCount = tokens.filter((token) => isMoneyOrNumberLikeToken(token)).length;
-  if (numericLikeCount < 2) return null;
-
-  // DataTables copies often include column titles first. Anchor on the first
-  // dense report row so leading headers do not force an N×1 fallback.
-  const anchoredRows = tryParseAnchoredVerticalRows(tokens);
-  if (anchoredRows) return anchoredRows;
-
-  // Without a header-stripped anchor, require overall numeric density.
-  if (numericLikeCount < Math.ceil(tokens.length * 0.5)) return null;
-
-  const labelIndices = [];
-  tokens.forEach((token, index) => {
-    if (!isMoneyOrNumberLikeToken(token)) labelIndices.push(index);
-  });
-
-  // Pure numeric column paste — keep as vertical 1-col (intentional list).
-  if (labelIndices.length === 0) return null;
-
-  // Multiple report rows: non-numeric labels at a steady stride → row width.
-  if (labelIndices.length >= 2) {
-    const diffs = [];
-    for (let i = 1; i < labelIndices.length; i += 1) {
-      diffs.push(labelIndices[i] - labelIndices[i - 1]);
-    }
-    const stride = diffs[0];
-    const steady =
-      stride >= 3 && diffs.every((diff) => diff === stride) && labelIndices[0] === 0;
-    if (steady) {
-      const rows = [];
-      for (let i = 0; i < tokens.length; i += stride) {
-        const chunk = tokens.slice(i, i + stride);
-        // Drag-to-end over-select: drop a short final chunk rather than pad/fail.
-        if (chunk.length < stride) break;
-        rows.push(chunk);
-      }
-      const width = stride;
-      if (!rows.length || !rows.every((row) => isDenseReportRow(row))) return null;
-      return rows;
-    }
-  }
-
-  // Single crushed report row: leading label + dense money/number fields.
-  if (labelIndices.length <= 2 && labelIndices[0] === 0) {
-    return [tokens];
-  }
-
-  return null;
-}
+import {
+  detectFlattenedStatementMatrix,
+  detectVerticalFieldDump,
+} from "./dataCaptureVerticalDumpDetect.js";
 
 /** Exported for Citibet-style statement matrix paste (1.Text / 2.Format). */
 export function parsePlainTextMatrix(pastedData) {
@@ -299,7 +67,7 @@ export function parsePlainTextMatrix(pastedData) {
   const nonEmptyLines = rawLines.filter((line) => line.trim() !== "");
 
   // Material mat-row copy (any row count, no tabs) — run before statement/heuristics.
-  const verticalDumpRows = tryParseVerticalFieldDump(nonEmptyLines);
+  const verticalDumpRows = detectVerticalFieldDump(nonEmptyLines);
   if (verticalDumpRows) return verticalDumpRows;
 
   const spacingSplitRows = nonEmptyLines.map((line) =>
@@ -324,7 +92,7 @@ export function parsePlainTextMatrix(pastedData) {
     }
   }
 
-  const flattenedStatementRows = parseFlattenedStatementMatrix(nonEmptyLines);
+  const flattenedStatementRows = detectFlattenedStatementMatrix(nonEmptyLines);
   if (flattenedStatementRows) return flattenedStatementRows;
 
   return nonEmptyLines.map((line) => [line]);
