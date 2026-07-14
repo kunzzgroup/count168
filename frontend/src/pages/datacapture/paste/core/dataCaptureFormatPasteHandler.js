@@ -140,6 +140,18 @@ export function extractPlainFieldDumpFromHtml(html) {
     });
     if (tokens.length >= 3) return tokens.join("\n");
 
+    // Collapsed clipboard: fields live in nested blocks without usable TD text
+    // (or parser dropped table structure). Walk visible blocks.
+    root.querySelectorAll("div, p, span, font, a").forEach((el) => {
+      if (el.querySelector("div, p, span, font, a, td, th, mat-cell")) return;
+      const text = String(el.textContent || "")
+        .replace(/\u00a0/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (text) tokens.push(text);
+    });
+    if (tokens.length >= 3) return tokens.join("\n");
+
     // Fallback: newline-split text content (paste-area / collapsed copies).
     const raw = String(root.textContent || "")
       .replace(/\u00a0/g, " ")

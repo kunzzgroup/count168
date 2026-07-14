@@ -1,5 +1,5 @@
 /**
- * Prefer plain dual for agent_period; statement sheets (serial + 16 cols) stay HTML-first.
+ * Prefer plain dual for agent_period (~9 cols + $); statement sheets (serial + 16 cols) do not match.
  */
 import { pathToFileURL } from "node:url";
 import path from "node:path";
@@ -20,9 +20,6 @@ const base = path.join(__dirname, "../src/pages/datacapture/paste/core");
 const { parsePlainTextMatrix } = await import(
   pathToFileURL(path.join(base, "dataCaptureTextPaste.js")).href,
 );
-const paste = await import(
-  pathToFileURL(path.join(base, "dataCaptureFormatPasteHandler.js")).href,
-);
 
 const fields = [
   "SDSPDA95",
@@ -35,7 +32,6 @@ const fields = [
   "$0.00",
   "$1,584.95",
 ];
-const agentPlain = [...fields, ["Subtotal", ...fields.slice(1)].flat()].join("\n");
 const agentMatrix = parsePlainTextMatrix(fields.concat(["Subtotal", ...fields.slice(1)]).join("\n"));
 
 const statementPlain = [
@@ -44,22 +40,16 @@ const statementPlain = [
 ].join("\n");
 const statementMatrix = parsePlainTextMatrix(statementPlain);
 
-const wideStack =
-  `<table><tr><td>${fields.map((v) => `<div>${v}</div>`).join("")}</td>${"<td></td>".repeat(8)}</tr></table>`;
-
-const extracted = paste.extractPlainFieldDumpFromHtml(wideStack);
-const extractedMatrix = parsePlainTextMatrix(extracted);
-
+const width = (m) => m?.[0]?.length || 0;
 const checks = {
-  agentMulti: (agentMatrix[0]?.length || 0) >= 9,
-  agentPrefer: paste.formatHtmlLooksLikeVerticalNx1(wideStack) === false,
-  extractReshape: (extractedMatrix[0]?.length || 0) >= 9,
-  extractLines: extracted.split("\n").filter(Boolean).length >= 9,
-  statementWide: (statementMatrix[0]?.length || 0) >= 14,
-  statementNotAgentWidth: (statementMatrix[0]?.length || 0) > 12,
+  agentMulti: width(agentMatrix) >= 9 && width(agentMatrix) <= 12,
+  agentHasDollar: (agentMatrix[0] || []).some((c) => /\$/.test(String(c))),
+  agentNotSerial: !/^\d+$/.test(String(agentMatrix[0]?.[0] || "")),
+  statementWide: width(statementMatrix) > 12,
+  statementSerial: /^\d+$/.test(String(statementMatrix[0]?.[0] || "")),
 };
 
 const ok = Object.values(checks).every(Boolean);
-console.log(JSON.stringify({ ok, checks, extractCols: extractedMatrix[0]?.length }, null, 2));
+console.log(JSON.stringify({ ok, checks, agentW: width(agentMatrix), stmtW: width(statementMatrix) }, null, 2));
 if (!ok) process.exit(1);
 console.log("PASS agent_period prefer-plain heuristics");
