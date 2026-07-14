@@ -269,6 +269,46 @@ if (!(alignReject && alignAccept)) {
   console.log("  rejectMisaligned=", alignReject, "acceptSanitized=", alignAccept);
 }
 
+// Statement footer: SUBTOTAL/GRANDTOTAL have fewer filled cols than body — must keep.
+const bodyAmt = Array.from({ length: 13 }, (_, i) => String(100 + i));
+const statementRows = [
+  ["1", "OB", "RS", ...bodyAmt],
+  ["2", "OC", "NIXON", ...bodyAmt.map((n) => String(Number(n) + 1))],
+  ["3", "OD", "KX", ...bodyAmt.map((n) => String(Number(n) + 2))],
+  // Summary rows skip serial/code columns → fewer non-empty cells
+  ["SUBTOTAL", "", "", ...bodyAmt.map((n) => `${n}.00`)],
+  ["GRAND TOTAL", "", "", ...bodyAmt.map((n) => `${Number(n) * 2}.00`)],
+];
+const statementKept = sanitizePasteMatrix(statementRows);
+const statementOk =
+  statementKept.length === 5 &&
+  statementKept[3][0] === "SUBTOTAL" &&
+  statementKept[4][0] === "GRAND TOTAL";
+console.log(
+  `${statementOk ? "PASS" : "FAIL"} statement-summary-footers-kept: rows=${statementKept.length}`,
+);
+if (!statementOk) {
+  failed += 1;
+  console.log(
+    "  last rows:",
+    statementKept.slice(-2).map((r) => r.slice(0, 4)),
+  );
+}
+
+// Truncated HTML missing footers must not align with full plain → Format dual-source.
+const plainFull = statementKept;
+const htmlMissingFooters = sanitizePasteMatrix(statementRows.slice(0, 3));
+const rejectMissingFooters =
+  plainMatrixLooksReliable(plainFull) &&
+  !matrixAlignsWithPlainSource(htmlMissingFooters, plainFull) &&
+  matrixAlignsWithPlainSource(plainFull, plainFull);
+console.log(
+  `${rejectMissingFooters ? "PASS" : "FAIL"} format-reject-missing-summary-rows`,
+);
+if (!rejectMissingFooters) {
+  failed += 1;
+}
+
 const { parseHTML } = await import("linkedom");
 const { window, document } = parseHTML("<!doctype html><html><body></body></html>");
 Object.assign(globalThis, {
