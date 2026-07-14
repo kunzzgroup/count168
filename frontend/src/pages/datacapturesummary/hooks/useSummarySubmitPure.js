@@ -34,16 +34,6 @@ export function useSummarySubmitPure({
     setIsSubmitting(true);
 
     try {
-      const totalValidation = validateSummarySubmitTotalPure(rows, rateInput);
-      if (!totalValidation.ok) {
-        pushSummaryNotification(
-          "Error",
-          totalValidation.message || t("totalValidationFailed"),
-          "error"
-        );
-        return;
-      }
-
       const session = readCaptureSessionFromStorage(captureScope);
       if (!session?.processData) {
         pushSummaryNotification("Error", t("noProcessData"), "error");
@@ -52,6 +42,16 @@ export function useSummarySubmitPure({
 
       const accountList =
         accounts.length > 0 ? accounts : await fetchSummaryAccountList(captureScope);
+
+      const totalValidation = validateSummarySubmitTotalPure(rows, rateInput, accountList);
+      if (!totalValidation.ok) {
+        pushSummaryNotification(
+          "Error",
+          totalValidation.message || t("totalValidationFailed"),
+          "error"
+        );
+        return;
+      }
 
       const rowValidation = validateRowsForSubmit(rows, accountList, rateInput);
       if (!rowValidation.ok) {

@@ -3,17 +3,31 @@ import { resolveSubmitProcessedAmount } from "../table/summaryRowAmount.js";
 
 const AMOUNT_EPS = "0.005";
 
-/** Resolve row account to numeric/string id from the account list. */
+/**
+ * Resolve row account to an id present in the account list when possible.
+ * Stale accountId values fall back to display/code matching.
+ */
 export function resolveSubmitAccountId(row, accounts) {
-  if (row?.accountId) return String(row.accountId);
+  const list = Array.isArray(accounts) ? accounts : [];
+  const wantedId = row?.accountId != null && String(row.accountId).trim() !== "" ? String(row.accountId) : "";
+  if (wantedId && list.length) {
+    const byId = list.find((a) => String(a.id) === wantedId);
+    if (byId?.id != null) return String(byId.id);
+  }
+
   const text = String(row?.account || "").trim();
-  if (!text || !Array.isArray(accounts)) return null;
-  const found = accounts.find((a) => {
-    const display = String(a.account_display || a.account || a.name || "").trim();
-    const code = String(a.account_code || a.code || "").trim();
-    return display === text || code === text || text.includes(`[${a.id}]`);
-  });
-  return found?.id != null ? String(found.id) : null;
+  if (text && list.length) {
+    const found = list.find((a) => {
+      const display = String(a.account_display || a.account || a.name || "").trim();
+      const code = String(a.account_code || a.code || "").trim();
+      return display === text || code === text || text.includes(`[${a.id}]`);
+    });
+    if (found?.id != null) return String(found.id);
+  }
+
+  // No list (or empty): keep explicit id so server can still validate scope.
+  if (wantedId) return wantedId;
+  return null;
 }
 
 function absAmount(value) {
@@ -93,13 +107,22 @@ export function validateSubmitRowGuards(rows, accounts = [], globalRateInput = "
   }));
 
   for (const item of classified) {
-    if (item.reason === "unresolvedAccount" && isNonZeroAmount(item.amount)) {
+    if (!isNonZeroAmount(item.amount)) continue;
+    if (item.reason === "unresolvedAccount") {
       return {
         ok: false,
         message:
           `Cannot submit: account "${String(item.row.account || "").trim()}" on row ` +
           `"${rowLabel(item.row)}" could not be resolved. Fix the account, then submit again ` +
           `(this row would otherwise be skipped silently).`,
+      };
+    }
+    if (item.reason === "noAccount") {
+      return {
+        ok: false,
+        message:
+          `Cannot submit: row "${rowLabel(item.row)}" has amount ${item.amount} but no account. ` +
+          `Select an account (or clear the amount). It was counted in the total but would not be saved.`,
       };
     }
   }
