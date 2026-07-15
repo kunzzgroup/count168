@@ -1,4 +1,4 @@
-import { brandLogoUrl } from "../../lib/brandAssets.js";
+import { brandLogoUrl, onBrandLogoError } from "../../lib/brandAssets.js";
 
 export default function MobileAppBar({
   i18n,
@@ -29,6 +29,8 @@ export default function MobileAppBar({
             alt="EazyCount"
             className="h-7 max-w-[148px] object-contain"
             draggable={false}
+            data-logo-idx="0"
+            onError={onBrandLogoError}
           />
         </div>
 
