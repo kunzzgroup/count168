@@ -66,6 +66,7 @@ export const DASHBOARD_I18N = {
     from: "From",
     toDate: "To",
     customRange: "Custom",
+    daysCount: "{n} days",
   },
   zh: {
     dashboard: "仪表盘",
@@ -134,6 +135,7 @@ export const DASHBOARD_I18N = {
     from: "开始",
     toDate: "结束",
     customRange: "自定义",
+    daysCount: "{n} 天",
   },
 };
 

@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useOverlayLock } from "../../hooks/useOverlayLock.js";
 import { brandWhiteLogoUrl, onBrandLogoError } from "../../lib/brandAssets.js";
 import { mobileNavItems } from "../../utils/mobilePermissions.js";
+import MobileLangSwitch from "./MobileLangSwitch.jsx";
 
 function initials(name) {
   const parts = String(name || "")
@@ -68,14 +69,23 @@ export default function MobileSidebar({
             data-logo-kind="white"
             onError={onBrandLogoError}
           />
-          <button
-            type="button"
-            onClick={onClose}
-            className="grid size-9 shrink-0 place-items-center rounded-full bg-white/10 text-white/90"
-            aria-label={i18n?.closeMenu || "Close"}
-          >
-            <i className="fas fa-xmark" aria-hidden="true" />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {typeof onLangChange === "function" ? (
+              <MobileLangSwitch
+                lang={lang}
+                onChange={onLangChange}
+                ariaLabel={i18n?.language || "Language"}
+              />
+            ) : null}
+            <button
+              type="button"
+              onClick={onClose}
+              className="grid size-9 shrink-0 place-items-center rounded-full bg-white/10 text-white/90"
+              aria-label={i18n?.closeMenu || "Close"}
+            >
+              <i className="fas fa-xmark" aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 px-4 pb-4 pt-2">
@@ -126,35 +136,6 @@ export default function MobileSidebar({
           className="border-t border-white/15 px-3 pt-3"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)" }}
         >
-          {typeof onLangChange === "function" ? (
-            <div className="mb-3" role="group" aria-label={i18n?.language || "Language"}>
-              <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-white/55">
-                {i18n?.language || "Language"}
-              </p>
-              <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white/10 p-1">
-                <button
-                  type="button"
-                  onClick={() => onLangChange("en")}
-                  aria-pressed={lang !== "zh"}
-                  className={`tap-scale rounded-xl py-2.5 text-[13px] font-bold transition-colors ${
-                    lang !== "zh" ? "bg-white text-[#002d49]" : "text-white/80"
-                  }`}
-                >
-                  EN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onLangChange("zh")}
-                  aria-pressed={lang === "zh"}
-                  className={`tap-scale rounded-xl py-2.5 text-[13px] font-bold transition-colors ${
-                    lang === "zh" ? "bg-white text-[#002d49]" : "text-white/80"
-                  }`}
-                >
-                  中文
-                </button>
-              </div>
-            </div>
-          ) : null}
           <button
             type="button"
             onClick={() => {

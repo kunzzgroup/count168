@@ -107,6 +107,18 @@ export function eachDateInRange(startYmd, endYmd) {
   return dates;
 }
 
+/** Inclusive day count for a YMD range. */
+export function daysInclusive(fromYmd, toYmd) {
+  const start = parseYmd(fromYmd);
+  const end = parseYmd(toYmd);
+  if (!start || !end || start > end) return 0;
+  return Math.round((end - start) / 86400000) + 1;
+}
+
+export function todayYmd() {
+  return formatYmd(new Date());
+}
+
 export const PERIOD_PRESET_KEYS = [
   "today",
   "yesterday",
