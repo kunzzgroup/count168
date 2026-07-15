@@ -8,7 +8,11 @@ import {
 } from "../../lib/dashboardDateUtils.js";
 import { dashboardLabel } from "../../translateFile/dashboardTranslate.js";
 
-function Pill({ active, disabled, onClick, block, children }) {
+function Pill({ active, disabled, onClick, block, tone = "blue", children }) {
+  const activeCls =
+    tone === "violet"
+      ? "border-transparent bg-violet-600 text-white shadow-[0_6px_14px_-4px_rgba(124,58,237,0.45)]"
+      : "border-transparent bg-[#2f6bf6] text-white shadow-[0_6px_14px_-4px_rgba(47,107,246,0.5)]";
   return (
     <button
       type="button"
@@ -16,11 +20,9 @@ function Pill({ active, disabled, onClick, block, children }) {
       onClick={onClick}
       className={`tap-scale rounded-xl border px-3 py-2.5 text-[13px] font-semibold transition-colors ${
         block ? "w-full text-center" : "shrink-0"
-      } ${
-        active
-          ? "border-transparent bg-[#2f6bf6] text-white shadow-[0_6px_14px_-4px_rgba(47,107,246,0.5)]"
-          : "border-slate-200 bg-white text-slate-600"
-      } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
+      } ${active ? activeCls : "border-slate-200 bg-white text-slate-600"} ${
+        disabled ? "cursor-not-allowed opacity-40" : ""
+      }`}
     >
       {children}
     </button>
@@ -200,12 +202,13 @@ export default function FilterSheet({ open, onClose, dash }) {
           {dash.groupIds.length > 0 && (
             <Section title={i18n.groupId}>
               <div className="flex flex-wrap gap-2">
-                <Pill active={dash.groupsAllMode} onClick={pickAllGroupsAndClose}>
+                <Pill tone="violet" active={dash.groupsAllMode} onClick={pickAllGroupsAndClose}>
                   {i18n.all}
                 </Pill>
                 {dash.groupIds.map((gid) => (
                   <Pill
                     key={gid}
+                    tone="violet"
                     active={dash.selectedGroup === gid && !dash.groupsAllMode}
                     onClick={() => {
                       dash.pickGroup(gid);
