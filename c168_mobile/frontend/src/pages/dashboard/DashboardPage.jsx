@@ -201,6 +201,15 @@ export default function DashboardPage() {
 
           {(loading || dash.hasData) && (
             <>
+          <CurrencyDistributionCard
+            i18n={i18n}
+            currencyCode={dash.currency}
+            rows={dash.earningsCurrencyRows}
+            useConverted={dash.useConvertedEarnings}
+            loading={loading}
+            note={dash.useConvertedEarnings ? i18n.multiCurrencyNote : ""}
+          />
+
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-[15px] font-bold text-slate-900">{i18n.overview}</h2>
@@ -219,15 +228,6 @@ export default function DashboardPage() {
               ))}
             </div>
           </section>
-
-          <CurrencyDistributionCard
-            i18n={i18n}
-            currencyCode={dash.currency}
-            rows={dash.earningsCurrencyRows}
-            useConverted={dash.useConvertedEarnings}
-            loading={loading}
-            note={dash.useConvertedEarnings ? i18n.multiCurrencyNote : ""}
-          />
 
           <DashboardTrendChart
             rows={dash.chartRows}

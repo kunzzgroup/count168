@@ -12,7 +12,7 @@ function PullRefreshIndicator({ pullPx, progress, phase, labels }) {
   const visible = phase !== "idle" || pullPx > 1;
   if (!visible) return null;
 
-  const deg = spinning ? 0 : Math.round(progress * 270);
+  const deg = spinning ? 0 : Math.round(progress * 280);
   const label = spinning
     ? labels.loading || "Loading…"
     : armed
@@ -21,36 +21,43 @@ function PullRefreshIndicator({ pullPx, progress, phase, labels }) {
 
   return (
     <div
-      className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center"
+      className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center overflow-visible"
       style={{
-        height: Math.max(pullPx, spinning ? 52 : 0),
-        opacity: Math.min(1, 0.35 + progress * 0.75),
-        transition: spinning || phase === "idle" ? "height 220ms ease, opacity 180ms ease" : undefined,
+        height: 0,
+        opacity: Math.min(1, 0.25 + progress * 0.85),
+        transition: phase === "idle" ? "opacity 180ms ease" : undefined,
       }}
       aria-hidden={phase === "idle"}
     >
-      <div className="flex flex-col items-center justify-end gap-1.5 pb-1.5">
+      <div
+        className="flex flex-col items-center gap-1.5"
+        style={{
+          transform: `translate3d(0, ${Math.max(10, pullPx * 0.72)}px, 0)`,
+          transition: spinning || phase === "idle" ? "transform 220ms cubic-bezier(.22,1,.36,1)" : undefined,
+        }}
+      >
         <span
-          className={`grid size-8 place-items-center rounded-full bg-white shadow-[0_6px_16px_-8px_rgba(15,23,42,0.45)] ring-1 ring-slate-200/80 ${
-            spinning ? "animate-[mDashRefresh_0.9s_linear_infinite]" : ""
+          className={`grid size-9 place-items-center rounded-full bg-white/95 shadow-[0_8px_20px_-8px_rgba(15,23,42,0.5)] ring-1 ring-slate-200/90 ${
+            spinning ? "animate-[mDashRefresh_0.85s_linear_infinite]" : ""
           }`}
           style={
             spinning
               ? undefined
               : {
-                  transform: `rotate(${deg}deg)`,
-                  transition: "transform 40ms linear",
+                  transform: `rotate(${deg}deg) scale(${0.86 + Math.min(progress, 1) * 0.18})`,
                 }
           }
         >
           <i
-            className={`fas fa-arrow-down text-[13px] ${armed || spinning ? "text-[#2f6bf6]" : "text-slate-400"}`}
+            className={`fas fa-arrow-down text-[13px] transition-colors ${
+              armed || spinning ? "text-[#2f6bf6]" : "text-slate-400"
+            }`}
             style={!spinning && armed ? { transform: "rotate(180deg)" } : undefined}
             aria-hidden="true"
           />
         </span>
         <span
-          className={`text-[11px] font-semibold tracking-wide ${
+          className={`rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold tracking-wide shadow-sm ${
             armed || spinning ? "text-[#2f6bf6]" : "text-slate-400"
           }`}
         >
@@ -59,6 +66,54 @@ function PullRefreshIndicator({ pullPx, progress, phase, labels }) {
       </div>
     </div>
   );
+}
+
+/** Hide bottom tab bar while scrolling down; reveal on scroll up (iOS/Android pattern). */
+function useScrollAwareNav(scrollRef, { disabled = false } = {}) {
+  const [hidden, setHidden] = useState(false);
+  const lastY = useRef(0);
+  const acc = useRef(0);
+
+  useEffect(() => {
+    const el = scrollRef?.current;
+    if (!el || disabled) {
+      setHidden(false);
+      return undefined;
+    }
+
+    lastY.current = el.scrollTop;
+    acc.current = 0;
+
+    const onScroll = () => {
+      const y = el.scrollTop;
+      const dy = y - lastY.current;
+      lastY.current = y;
+
+      if (y <= 16) {
+        acc.current = 0;
+        setHidden(false);
+        return;
+      }
+
+      if (dy > 1.5) {
+        acc.current = Math.min(100, Math.max(0, acc.current) + dy);
+        if (acc.current > 28) setHidden(true);
+      } else if (dy < -1.5) {
+        acc.current = Math.max(-100, Math.min(0, acc.current) + dy);
+        if (acc.current < -14) setHidden(false);
+      }
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [scrollRef, disabled]);
+
+  // Re-show when overlays claim the screen.
+  useEffect(() => {
+    if (disabled) setHidden(false);
+  }, [disabled]);
+
+  return hidden;
 }
 
 export default function MobileShell({
@@ -110,6 +165,11 @@ export default function MobileShell({
     refreshing,
   });
 
+  const chromeOpen = sidebarOpen || notifyOpen || overlayOpen || active;
+  const navHidden = useScrollAwareNav(mainRef, {
+    disabled: !showBottomNav || chromeOpen || refreshing,
+  });
+
   const openSidebar = () => {
     onChromeOpen?.();
     setNotifyOpen(false);
@@ -159,6 +219,7 @@ export default function MobileShell({
   }, [notifyOpen]);
 
   const contentShift = active ? pullPx : 0;
+  const navPad = showBottomNav ? "pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))]" : "pb-5";
 
   return (
     <div className="relative flex h-dvh max-h-dvh min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#f2f5fb]">
@@ -177,12 +238,15 @@ export default function MobileShell({
         </div>
       ) : null}
 
-      <main ref={mainRef} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain pb-5">
+      <main ref={mainRef} className={`relative min-h-0 flex-1 overflow-y-auto overscroll-contain ${navPad}`}>
         <PullRefreshIndicator pullPx={pullPx} progress={progress} phase={phase} labels={labels} />
         <div
           style={{
             transform: contentShift ? `translate3d(0, ${contentShift}px, 0)` : undefined,
-            transition: active && phase !== "pulling" && phase !== "armed" ? "transform 220ms ease" : undefined,
+            transition:
+              active && phase !== "pulling" && phase !== "armed"
+                ? "transform 220ms cubic-bezier(.22,1,.36,1)"
+                : undefined,
             willChange: active ? "transform" : undefined,
           }}
         >
@@ -192,9 +256,12 @@ export default function MobileShell({
 
       {showBottomNav ? (
         <nav
-          className="relative z-10 shrink-0 border-t border-slate-200/70 bg-white/85 px-2 pt-1.5 backdrop-blur-xl"
+          className={`absolute inset-x-0 bottom-0 z-20 border-t border-slate-200/70 bg-white/90 px-2 pt-1.5 shadow-[0_-8px_24px_-16px_rgba(15,23,42,0.25)] backdrop-blur-xl transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)] ${
+            navHidden ? "pointer-events-none translate-y-[calc(100%+1px)]" : "translate-y-0"
+          }`}
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)" }}
           aria-label="Main"
+          aria-hidden={navHidden}
         >
           <div className="mx-auto flex max-w-lg items-stretch justify-around">
             {navItems.map((item) => (
@@ -202,6 +269,7 @@ export default function MobileShell({
                 key={item.to}
                 to={item.to}
                 end={item.to === "/dashboard"}
+                tabIndex={navHidden ? -1 : undefined}
                 className={({ isActive }) =>
                   `flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-semibold transition-colors ${
                     isActive ? "text-[#2f80ed]" : "text-slate-400"
