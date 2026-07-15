@@ -11,13 +11,14 @@ function normalizeQuotes(baseCode, quoteCodes) {
   ];
 }
 
-export async function fetchFrankfurterRates(baseCode, quoteCodes, { signal } = {}) {
+export async function fetchFrankfurterRates(baseCode, quoteCodes, { signal, date = null } = {}) {
   const base = String(baseCode || "").trim().toUpperCase();
   const quotes = normalizeQuotes(base, quoteCodes);
   if (!base) return { rates: {}, date: null };
   if (!quotes.length) return { rates: { [base]: 1 }, date: null };
 
   const params = new URLSearchParams({ base, quotes: quotes.join(",") });
+  if (date) params.set("date", String(date));
   const url = `${FRANKFURTER_API}?${params}`;
 
   // Always enforce timeout even when AbortSignal.any is unavailable.
@@ -63,8 +64,18 @@ export async function fetchFrankfurterRates(baseCode, quoteCodes, { signal } = {
   }
   return {
     rates,
-    date: rows[0]?.date || null,
+    date: rows[0]?.date || date || null,
   };
+}
+
+/** Pick rate date: use range end if not in the future, else latest. */
+export function resolveFrankfurterDate(endYmd) {
+  if (!endYmd) return null;
+  const end = new Date(`${endYmd}T12:00:00`);
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  if (Number.isNaN(end.getTime()) || end > today) return null;
+  return endYmd;
 }
 
 export function convertToBaseAmount(amount, fromCode, baseCode, rates) {

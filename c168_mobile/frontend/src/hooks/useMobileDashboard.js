@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../utils/apiUrl.js";
 import { buildChartRows, resolveDailyChartXAxisTicks } from "../lib/dashboardChart.js";
-import { DASHBOARD_BOOTSTRAP_API, DASHBOARD_PROFIT_COLOR } from "../lib/dashboardConstants.js";
+import { DASHBOARD_PROFIT_COLOR } from "../lib/dashboardConstants.js";
 import {
   defaultDashboardDateRange,
   formatRangeLabel,
@@ -10,14 +10,18 @@ import {
 } from "../lib/dashboardDateUtils.js";
 import { buildKpiCompare, computeKpiMetrics } from "../lib/dashboardKpi.js";
 import {
-  buildBootstrapQuery,
   companiesForPicker as resolveCompaniesForPicker,
   pickCompany,
   resolveViewGroupForCompany,
   sortedUniqueGroupIds,
 } from "../lib/dashboardScope.js";
 import { fetchMobileCurrencyCodes } from "../lib/dashboardCurrencies.js";
-import { computeDisplayConvertedAmount, fetchFrankfurterRates } from "../lib/frankfurterRates.js";
+import { loadMobileDashboardData, resolveMobileKpiOwnershipOpts } from "../lib/dashboardLoad.js";
+import {
+  computeDisplayConvertedAmount,
+  fetchFrankfurterRates,
+  resolveFrankfurterDate,
+} from "../lib/frankfurterRates.js";
 import { dashboardDataIsUsable } from "../lib/demoDashboard.js";
 import { assertApiOk, fetchJson } from "../lib/fetchJson.js";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
@@ -30,26 +34,26 @@ function sameStringList(a, b) {
   return a.every((value, index) => value === b[index]);
 }
 
-function earningsRowsFromBootstrap(bootstrap, panelMetric, primaryCurrency) {
+function earningsRowsFromBootstrap(bootstrap, panelMetric, primaryCurrency, kpiOpts = {}) {
   const entries = bootstrap?.earnings?.current;
   if (Array.isArray(entries) && entries.length) {
     return entries
       .map(({ code, payload }) => {
-        const metrics = computeKpiMetrics(payload);
+        const metrics = computeKpiMetrics(payload, kpiOpts);
         const normalized = String(code || "").trim().toUpperCase();
         const earnings =
           normalized === String(primaryCurrency || "").toUpperCase() && panelMetric != null
             ? panelMetric
-            : metrics?.netProfit;
+            : metrics?.earnings ?? metrics?.netProfit;
         return { code: normalized, earnings };
       })
       .filter((row) => row.code);
   }
 
   const current = bootstrap?.current;
-  const metrics = computeKpiMetrics(current);
+  const metrics = computeKpiMetrics(current, kpiOpts);
   const code = String(current?.currency || current?.settlement_currency || primaryCurrency || "MYR").toUpperCase();
-  const earnings = panelMetric ?? metrics?.netProfit ?? null;
+  const earnings = panelMetric ?? metrics?.earnings ?? metrics?.netProfit ?? null;
   return earnings == null ? [] : [{ code, earnings }];
 }
 
@@ -106,11 +110,7 @@ export function useMobileDashboard() {
 
   const loadBootstrap = useCallback(
     async (scopeState, signal) => {
-      const q = buildBootstrapQuery(scopeState);
-      const { res, json } = await fetchJson(buildApiUrl(`${DASHBOARD_BOOTSTRAP_API}?${q}`), { signal });
-      assertApiOk(res, json, i18n.loadError);
-      if (!json?.data) throw new Error(i18n.loadError);
-      return json.data;
+      return loadMobileDashboardData(scopeState, { signal, loadError: i18n.loadError });
     },
     [i18n.loadError],
   );
@@ -278,7 +278,10 @@ export function useMobileDashboard() {
     setExchangeRatesError(false);
     (async () => {
       try {
-        const payload = await fetchFrankfurterRates(currency, currencies, { signal: ac.signal });
+        const payload = await fetchFrankfurterRates(currency, currencies, {
+          signal: ac.signal,
+          date: resolveFrankfurterDate(dateTo),
+        });
         if (!ac.signal.aborted) {
           setExchangeRates(payload);
           setExchangeRatesError(false);
@@ -298,14 +301,26 @@ export function useMobileDashboard() {
     })();
 
     return () => ac.abort();
-  }, [currency, currencies, useConvertedEarnings]);
+  }, [currency, currencies, useConvertedEarnings, dateTo]);
+
+  const kpiOwnershipOpts = useMemo(
+    () =>
+      resolveMobileKpiOwnershipOpts({
+        companyId,
+        selectedGroup,
+        groupAllMode,
+        groupsAllMode,
+        companies,
+      }),
+    [companyId, selectedGroup, groupAllMode, groupsAllMode, companies],
+  );
 
   const kpi = useMemo(() => {
     const current = bootstrap?.current;
     const previous = bootstrap?.previous;
-    const metrics = computeKpiMetrics(current);
+    const metrics = computeKpiMetrics(current, kpiOwnershipOpts);
     if (!metrics) return null;
-    const prevMetrics = computeKpiMetrics(previous);
+    const prevMetrics = computeKpiMetrics(previous, kpiOwnershipOpts);
     const canCompareEarnings = Boolean(metrics.showEarnings && prevMetrics?.showEarnings);
     return {
       ...metrics,
@@ -320,7 +335,7 @@ export function useMobileDashboard() {
           }
         : null,
     };
-  }, [bootstrap]);
+  }, [bootstrap, kpiOwnershipOpts]);
 
   // Backend always shifts range by −1 month; label from previous_date_range when present.
   const compareLabel = useMemo(() => {
@@ -364,7 +379,7 @@ export function useMobileDashboard() {
   const panelMetric = kpi?.netProfit ?? null;
 
   const earningsCurrencyRows = useMemo(() => {
-    const rows = earningsRowsFromBootstrap(bootstrap, panelMetric, currency);
+    const rows = earningsRowsFromBootstrap(bootstrap, panelMetric, currency, kpiOwnershipOpts);
     if (!useConvertedEarnings) return rows;
     return rows.map((row) => {
       if (String(row.code).toUpperCase() === String(currency).toUpperCase()) {
@@ -375,7 +390,7 @@ export function useMobileDashboard() {
         earningsConverted: computeDisplayConvertedAmount(row.earnings, row.code, currency, exchangeRates.rates),
       };
     });
-  }, [bootstrap, panelMetric, currency, useConvertedEarnings, exchangeRates.rates]);
+  }, [bootstrap, panelMetric, currency, useConvertedEarnings, exchangeRates.rates, kpiOwnershipOpts]);
 
   const summaryValue = useMemo(() => {
     if (!useConvertedEarnings) return panelMetric ?? 0;
