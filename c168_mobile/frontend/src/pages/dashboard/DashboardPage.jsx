@@ -179,6 +179,7 @@ export default function DashboardPage() {
             multiCurrency={dash.showMultiCurrencyNote}
             loading={loading}
             empty={!loading && !dash.hasData}
+            emptyLabel={false}
             sparklineValues={sparklineValues}
           />
 
@@ -191,9 +192,7 @@ export default function DashboardPage() {
                 {error ? i18n.emptyErrorTitle || i18n.loadError : i18n.emptyTitle || i18n.noData}
               </p>
               <p className="mt-1 text-[12px] font-medium leading-snug text-slate-500">
-                {error
-                  ? i18n.emptyErrorHint || error
-                  : i18n.emptyHint || i18n.noData}
+                {error ? error : i18n.emptyHint || i18n.noData}
               </p>
               {error ? (
                 <button
