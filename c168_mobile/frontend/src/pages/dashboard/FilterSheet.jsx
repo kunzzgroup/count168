@@ -235,7 +235,10 @@ export default function FilterSheet({ open, onClose, dash }) {
                     key: gid,
                     label: gid,
                     active: dash.selectedGroup === gid && !dash.groupsAllMode,
-                    onClick: () => dash.pickGroup(gid),
+                    onClick: () => {
+                      dash.pickGroup(gid);
+                      onClose?.();
+                    },
                   })),
                 ]}
               />
