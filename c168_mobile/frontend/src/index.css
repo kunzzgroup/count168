@@ -35,13 +35,30 @@
     font-family: "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   }
 
-  /* Login surface can grow / scroll; app shell stays viewport-locked */
+  /*
+   * Login must NOT inherit the app-shell viewport lock.
+   * Keyboard open needs scroll; body.bg is a flex host so #root needs width:100%.
+   */
+  html:has(body.bg) {
+    height: auto;
+    max-height: none;
+    overflow: auto;
+  }
+
   body.bg,
   body.bg #root {
     height: auto;
     max-height: none;
     min-height: 100dvh;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  body.bg #root {
+    width: 100%;
+    max-width: 100%;
+    flex: 1 0 auto;
+    align-items: center;
   }
 
   button,
