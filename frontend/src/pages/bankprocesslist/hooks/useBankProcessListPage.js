@@ -44,11 +44,11 @@ import { getAccountText } from "../../../translateFile/pages/accountTranslate.js
 import { getBankProcessLocale, getBankProcessText, translateBankProcessApiMessage } from "../../../translateFile/pages/bankProcessTranslate.js";
 // Helper imports
 import { useAutoListPageSize } from "../../../hooks/useAutoListPageSize.js";
+import { formatDmy, parseYmd } from "../../../utils/date/dateUtils.js";
 import {
   PAGE_SIZE_MAX,
   PAGE_SIZE_MIN,
   normalizeRows,
-  isoToDmy,
   dmyToIso,
   parseRowDateMs,
   isBankResendDayStartBackendErrorMessage,
@@ -101,6 +101,12 @@ function bankProcessRowsFingerprint(rows) {
 
 function resolveBankProcessBootCurrency() {
   return "";
+}
+
+/** Picker hidden inputs + toolbar label use DD/MM/YYYY (same as MaintenanceDateRangePicker). */
+function ymdToPickerDmy(ymd) {
+  const d = parseYmd(String(ymd || "").trim());
+  return d ? formatDmy(d) : "";
 }
 
 function resolveBankProcessListCurrencyAfterFetch(prev, ordered, userSelectedAllRef) {
@@ -217,10 +223,10 @@ export function useBankProcessListPage() {
   const [dateTo, setDateTo] = useState("");
 
   const toolbarDateRangeText = useMemo(() => {
-    const validFrom = dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom);
-    const validTo = dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo);
-    if (!validFrom || !validTo) return t("selectDateRange");
-    return `${isoToDmy(dateFrom)} - ${isoToDmy(dateTo)}`;
+    const fromD = parseYmd(dateFrom);
+    const toD = parseYmd(dateTo);
+    if (!fromD || !toD) return t("selectDateRange");
+    return `${formatDmy(fromD)} - ${formatDmy(toD)}`;
   }, [dateFrom, dateTo, t]);
   const [toast, setToast] = useState(null);
   const [accounts, setAccounts] = useState([]);
@@ -690,8 +696,8 @@ export function useBankProcessListPage() {
       const dtIso = u.searchParams.get("date_to") || "";
       const fromH = document.getElementById("date_from");
       const toH = document.getElementById("date_to");
-      if (fromH) fromH.value = dfIso && /^\d{4}-\d{2}-\d{2}$/.test(dfIso) ? isoToDmy(dfIso) : "";
-      if (toH) toH.value = dtIso && /^\d{4}-\d{2}-\d{2}$/.test(dtIso) ? isoToDmy(dtIso) : "";
+      if (fromH) fromH.value = dfIso && /^\d{4}-\d{2}-\d{2}$/.test(dfIso) ? ymdToPickerDmy(dfIso) : "";
+      if (toH) toH.value = dtIso && /^\d{4}-\d{2}-\d{2}$/.test(dtIso) ? ymdToPickerDmy(dtIso) : "";
       window.MaintenanceDateRangePicker.init({
         allowEmpty: true,
         preserveDisplayUntilCommit: true,
@@ -747,8 +753,8 @@ export function useBankProcessListPage() {
     const df = document.getElementById("date_from");
     const dt = document.getElementById("date_to");
     if (!df || !dt) return;
-    const fromDmy = dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom) ? isoToDmy(dateFrom) : "";
-    const toDmy = dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo) ? isoToDmy(dateTo) : "";
+    const fromDmy = dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom) ? ymdToPickerDmy(dateFrom) : "";
+    const toDmy = dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo) ? ymdToPickerDmy(dateTo) : "";
     if (df.value !== fromDmy) df.value = fromDmy;
     if (dt.value !== toDmy) dt.value = toDmy;
     const picker = document.getElementById("date-range-picker");

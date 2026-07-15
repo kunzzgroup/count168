@@ -493,7 +493,7 @@ export function ensureMaintenanceDateRangePicker() {
   }
 
   function parseDmy(val) {
-    const m = String(val || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    const m = String(val || "").trim().match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
     if (!m) return null;
     const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
     if (Number.isNaN(d.getTime())) return null;
@@ -1088,7 +1088,13 @@ export function ensureMaintenanceDateRangePicker() {
     if (triggerOnChange !== false) runOnChange();
   }
 
+  let quickRangeGuard = { key: "", at: 0 };
+
   function setQuickRange(range) {
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (quickRangeGuard.key === range && now - quickRangeGuard.at < 80) return;
+    quickRangeGuard = { key: range, at: now };
+
     ensureActiveBindingTargets();
     const quickRange = getQuickRangeDates(range);
     if (!quickRange) {
