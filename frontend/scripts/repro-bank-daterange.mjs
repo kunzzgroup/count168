@@ -128,6 +128,31 @@ try {
   await page.locator("#date-range-picker").click();
   await page.waitForTimeout(250);
 
+  const triggerWhileOpen = await page.evaluate(() => {
+    const pick = document.querySelector("#date-range-picker");
+    const icon = pick.querySelector("i.fa-calendar-alt");
+    const cs = getComputedStyle(pick);
+    const ic = getComputedStyle(icon);
+    const pr = pick.getBoundingClientRect();
+    const ir = icon.getBoundingClientRect();
+    return {
+      border: cs.border,
+      gap: cs.gap,
+      overflow: cs.overflow,
+      iconBg: ic.backgroundColor,
+      iconRadius: ic.borderRadius,
+      flush: {
+        top: Math.abs(ir.top - pr.top),
+        bottom: Math.abs(ir.bottom - pr.bottom),
+        left: Math.abs(ir.left - pr.left),
+      },
+    };
+  });
+
+  await page.locator("#date-range-picker").screenshot({
+    path: path.resolve(__dirname, "../../verify-bank-daterange-open-trigger.png"),
+  });
+
   const popupOpen = await page.evaluate(() => {
     const popup = document.getElementById("calendar-popup");
     const cs = getComputedStyle(popup);
@@ -188,6 +213,9 @@ try {
     triggerIconBlue: triggerStyles.iconBg.includes("59, 130, 246"),
     triggerIconFlush: triggerStyles.flush.top <= 1.5 && triggerStyles.flush.bottom <= 1.5 && triggerStyles.flush.left <= 1.5,
     triggerTextPad: parseFloat(triggerStyles.displayPadLeft) >= 6,
+    openTriggerBorder: triggerWhileOpen.border.includes("1px"),
+    openTriggerGapZero: triggerWhileOpen.gap === "0px",
+    openTriggerIconFlush: triggerWhileOpen.flush.top <= 1.5 && triggerWhileOpen.flush.bottom <= 1.5 && triggerWhileOpen.flush.left <= 1.5,
     popupGrid: popupOpen.display === "grid",
     popupWideEnough: popupOpen.width >= 300,
     popupHasPresets: popupOpen.presetCount === 8 && popupOpen.presetDisplay !== "none",
@@ -199,7 +227,7 @@ try {
     rangeWorks: !!(afterRange.from && afterRange.to && afterRange.from !== afterRange.to),
   };
 
-  console.log(JSON.stringify({ triggerStyles, popupOpen, afterToday, afterWeek, afterRange, pass }, null, 2));
+  console.log(JSON.stringify({ triggerStyles, triggerWhileOpen, popupOpen, afterToday, afterWeek, afterRange, pass }, null, 2));
   const failed = Object.entries(pass).filter(([, v]) => !v).map(([k]) => k);
   await browser.close();
   if (failed.length) {
