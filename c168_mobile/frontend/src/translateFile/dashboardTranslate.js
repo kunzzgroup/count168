@@ -79,6 +79,8 @@ export const DASHBOARD_I18N = {
     emptyErrorTitle: "Can't load this view",
     emptyErrorHint: "You may not have access, or the server failed. Retry or pick a company.",
     chartSelectSeries: "Tap a series above to show the chart",
+    groupIdShort: "Group",
+    allGroups: "All Groups",
   },
   zh: {
     dashboard: "仪表盘",
@@ -160,6 +162,8 @@ export const DASHBOARD_I18N = {
     emptyErrorTitle: "无法加载此视图",
     emptyErrorHint: "可能没有权限，或服务暂时失败。请重试或改选公司。",
     chartSelectSeries: "点上方系列以显示图表",
+    groupIdShort: "Group",
+    allGroups: "全部 Group",
   },
 };
 

@@ -7,6 +7,7 @@ import DashboardKpiCard from "./DashboardKpiCard.jsx";
 import DashboardTrendChart from "./DashboardTrendChart.jsx";
 import FilterSheet from "./FilterSheet.jsx";
 import HeroSummaryCard from "./HeroSummaryCard.jsx";
+import ScopeBreadcrumb from "./ScopeBreadcrumb.jsx";
 
 export default function DashboardPage() {
   const dash = useMobileDashboard();
@@ -56,45 +57,53 @@ export default function DashboardPage() {
       : companyCode;
   const sidebarGroupId = dash.groupOnlyMode ? "" : groupId;
 
+  const scopeTitle = [
+    dash.groupsAllMode ? i18n.all : groupId,
+    dash.groupOnlyMode ? i18n.groupIdShort || "Group" : dash.groupAllMode ? i18n.all : companyCode,
+  ]
+    .filter(Boolean)
+    .join(" › ");
+
   const stickyBar = (
     <button
       type="button"
       onClick={() => setFilterOpen(true)}
-      className="tap-scale flex w-full items-center gap-2 rounded-2xl bg-white px-3 py-2.5 shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
+      className="tap-scale w-full rounded-2xl bg-white px-3 py-2 text-left shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
       aria-label={i18n.filter}
     >
-      <i className="far fa-calendar shrink-0 text-[#2f6bf6]" aria-hidden="true" />
-      <span className="min-w-0 flex-1 truncate text-left text-[13px] font-bold text-slate-700">
-        {dash.dateRangeText}
-      </span>
+      {/* Row 1: date + currency + filter */}
+      <div className="flex items-center gap-2">
+        <i className="far fa-calendar shrink-0 text-[#2f6bf6]" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-slate-700">
+          {dash.dateRangeText}
+        </span>
+        <span className="shrink-0 rounded-lg bg-slate-100 px-1.5 py-1 text-[11px] font-bold tracking-wide text-slate-600">
+          {dash.currency}
+        </span>
+        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-xl bg-[#2f6bf6] text-white">
+          <i className="fas fa-filter text-[11px]" aria-hidden="true" />
+        </span>
+      </div>
 
-      {/* Scope: Group (violet) › Company (blue) */}
-      <span
-        className="inline-flex max-w-[10rem] shrink-0 items-center gap-0.5 overflow-hidden rounded-xl bg-slate-50 p-0.5 ring-1 ring-slate-200/70"
-        title={[groupId, viewingCompanyCode].filter(Boolean).join(" / ")}
+      {/* Row 2: Group › Company path — full width, hierarchy clear */}
+      <div
+        className="mt-1.5 flex items-center gap-2 border-t border-slate-100/90 pt-1.5"
+        title={scopeTitle}
       >
-        {dash.groupsAllMode ? (
-          <span className="truncate rounded-lg bg-violet-100 px-1.5 py-1 text-[11px] font-bold tracking-wide text-violet-700">
-            {i18n.all}
-          </span>
-        ) : groupId ? (
-          <span className="truncate rounded-lg bg-violet-100 px-1.5 py-1 text-[11px] font-bold tracking-wide text-violet-700">
-            {groupId}
-          </span>
-        ) : null}
-        {!dash.groupsAllMode && !dash.groupOnlyMode ? (
-          <span className="truncate rounded-lg bg-[#2f6bf6]/12 px-1.5 py-1 text-[11px] font-bold tracking-wide text-[#2f6bf6]">
-            {dash.groupAllMode ? i18n.all : companyCode || "—"}
-          </span>
-        ) : null}
-      </span>
-
-      <span className="shrink-0 rounded-lg bg-slate-100 px-1.5 py-1 text-[11px] font-bold tracking-wide text-slate-600">
-        {dash.currency}
-      </span>
-      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#2f6bf6] text-white">
-        <i className="fas fa-filter text-[12px]" aria-hidden="true" />
-      </span>
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <ScopeBreadcrumb
+            i18n={i18n}
+            groupId={groupId}
+            companyCode={companyCode}
+            groupsAllMode={dash.groupsAllMode}
+            groupAllMode={dash.groupAllMode}
+            groupOnlyMode={dash.groupOnlyMode}
+          />
+        </div>
+        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+          {i18n.switchCompany || "Switch"}
+        </span>
+      </div>
     </button>
   );
 
