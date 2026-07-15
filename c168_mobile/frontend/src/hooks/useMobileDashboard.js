@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../utils/apiUrl.js";
 import { buildChartRows, resolveDailyChartXAxisTicks } from "../lib/dashboardChart.js";
@@ -19,6 +19,7 @@ import {
 import { fetchMobileCurrencyCodes } from "../lib/dashboardCurrencies.js";
 import { computeDisplayConvertedAmount, fetchFrankfurterRates } from "../lib/frankfurterRates.js";
 import { DEMO_BOOTSTRAP, dashboardDataIsUsable } from "../lib/demoDashboard.js";
+import { assertApiOk, fetchJson } from "../lib/fetchJson.js";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
 import { canAccessDashboard, resolveMobileLandingPath } from "../utils/mobilePermissions.js";
 
@@ -66,6 +67,7 @@ export function useMobileDashboard() {
   const [groupAllMode, setGroupAllMode] = useState(false);
   const [currency, setCurrency] = useState("MYR");
   const [currencies, setCurrencies] = useState(["MYR"]);
+  const [currenciesReady, setCurrenciesReady] = useState(false);
   const [dateFrom, setDateFrom] = useState(defaults.dateFrom);
   const [dateTo, setDateTo] = useState(defaults.dateTo);
   const [activePreset, setActivePreset] = useState("thisMonth");
@@ -74,8 +76,11 @@ export function useMobileDashboard() {
   const [exchangeRatesLoading, setExchangeRatesLoading] = useState(false);
   const [chartVisible, setChartVisible] = useState({ 0: true, 1: true, 2: true, 3: true });
   const [loading, setLoading] = useState(true);
+  const [bootstrapping, setBootstrapping] = useState(false);
   const [error, setError] = useState("");
   const [blocked, setBlocked] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const bootstrapSeq = useRef(0);
 
   const groupIds = useMemo(() => sortedUniqueGroupIds(companies), [companies]);
 
@@ -90,33 +95,28 @@ export function useMobileDashboard() {
   );
 
   const loadBootstrap = useCallback(
-    async (scopeState) => {
+    async (scopeState, signal) => {
       const q = buildBootstrapQuery(scopeState);
-      const res = await fetch(buildApiUrl(`${DASHBOARD_BOOTSTRAP_API}?${q}`), {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = await res.json();
-      if (!res.ok || !json?.success || !json?.data) {
-        throw new Error(json?.message || json?.error || i18n.loadError);
-      }
+      const { res, json } = await fetchJson(buildApiUrl(`${DASHBOARD_BOOTSTRAP_API}?${q}`), { signal });
+      assertApiOk(res, json, i18n.loadError);
+      if (!json?.data) throw new Error(i18n.loadError);
       return json.data;
     },
     [i18n.loadError],
   );
 
+  // Session + companies (once)
   useEffect(() => {
-    let cancelled = false;
+    const ac = new AbortController();
     (async () => {
       setLoading(true);
       setError("");
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const meJson = await meRes.json();
-        if (cancelled) return;
+        const { res: meRes, json: meJson } = await fetchJson(
+          buildApiUrl("api/session/current_user_api.php"),
+          { signal: ac.signal },
+        );
+        if (ac.signal.aborted) return;
         if (!meRes.ok || !meJson?.success || !meJson?.data) {
           navigate("/login", { replace: true });
           return;
@@ -139,11 +139,12 @@ export function useMobileDashboard() {
         }
         setMe(user);
 
-        const coRes = await fetch(buildApiUrl(`${COMPANIES_API}?all=1`), {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const coJson = await coRes.json();
+        const { res: coRes, json: coJson } = await fetchJson(
+          buildApiUrl(`${COMPANIES_API}?all=1`),
+          { signal: ac.signal },
+        );
+        if (ac.signal.aborted) return;
+        assertApiOk(coRes, coJson, i18n.loadError);
         const list = Array.isArray(coJson?.data) ? coJson.data : [];
         const picked = pickCompany(list, user.company_id);
         if (!picked) throw new Error(i18n.loadError);
@@ -154,20 +155,20 @@ export function useMobileDashboard() {
         setGroupsAllMode(false);
         setGroupAllMode(false);
       } catch (e) {
-        if (!cancelled) setError(e?.message || i18n.loadError);
+        if (ac.signal.aborted || e?.name === "AbortError") return;
+        setError(e?.message || i18n.loadError);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!ac.signal.aborted) setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => ac.abort();
   }, [navigate, i18n.loadError]);
 
-  // Load currency pills from company Currency Setting (same source as desktop).
+  // Currencies before bootstrap — avoids first paint locked to MYR-only
   useEffect(() => {
     if (!companies.length || !companyId) return undefined;
-    let cancelled = false;
+    const ac = new AbortController();
+    setCurrenciesReady(false);
     (async () => {
       try {
         const codes = await fetchMobileCurrencyCodes({
@@ -177,54 +178,57 @@ export function useMobileDashboard() {
           groupsAllMode,
           companies,
         });
-        if (cancelled) return;
-        setCurrencies((prev) => (sameStringList(prev, codes) ? prev : codes));
-        setCurrency((prev) => (codes.includes(prev) ? prev : codes[0] || "MYR"));
+        if (ac.signal.aborted) return;
+        const next = codes.length ? codes : ["MYR"];
+        setCurrencies((prev) => (sameStringList(prev, next) ? prev : next));
+        setCurrency((prev) => (next.includes(prev) ? prev : next[0] || "MYR"));
       } catch {
-        if (!cancelled) {
+        if (!ac.signal.aborted) {
           setCurrencies((prev) => (prev.length ? prev : ["MYR"]));
         }
+      } finally {
+        if (!ac.signal.aborted) setCurrenciesReady(true);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => ac.abort();
   }, [companies, companyId, selectedGroup, groupAllMode, groupsAllMode]);
 
+  // Bootstrap — gated on currenciesReady; ignore stale responses
   useEffect(() => {
-    if (!companies.length || !companyId) return undefined;
-    let cancelled = false;
+    if (!companies.length || !companyId || !currenciesReady) return undefined;
+    const ac = new AbortController();
+    const seq = ++bootstrapSeq.current;
+    setBootstrapping(true);
+    setError("");
     (async () => {
-      setLoading(true);
-      setError("");
       try {
-        const data = await loadBootstrap({
-          dateFrom,
-          dateTo,
-          currency,
-          currencies,
-          companyId,
-          selectedGroup,
-          groupAllMode,
-          groupsAllMode,
-          companies,
-        });
-        if (cancelled) return;
+        const data = await loadBootstrap(
+          {
+            dateFrom,
+            dateTo,
+            currency,
+            currencies,
+            companyId,
+            selectedGroup,
+            groupAllMode,
+            groupsAllMode,
+            companies,
+          },
+          ac.signal,
+        );
+        if (ac.signal.aborted || seq !== bootstrapSeq.current) return;
         const finalData =
           import.meta.env.DEV && !dashboardDataIsUsable(data) ? DEMO_BOOTSTRAP : data;
         setBootstrap(finalData);
       } catch (e) {
-        if (!cancelled) {
-          setBootstrap(null);
-          setError(e?.message || i18n.loadError);
-        }
+        if (ac.signal.aborted || e?.name === "AbortError" || seq !== bootstrapSeq.current) return;
+        setBootstrap(null);
+        setError(e?.message || i18n.loadError);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!ac.signal.aborted && seq === bootstrapSeq.current) setBootstrapping(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => ac.abort();
   }, [
     companies,
     companyId,
@@ -235,11 +239,14 @@ export function useMobileDashboard() {
     dateTo,
     currency,
     currencies,
+    currenciesReady,
+    reloadNonce,
     loadBootstrap,
     i18n.loadError,
   ]);
 
   const useConvertedEarnings = currencies.length > 1;
+  const showLoading = loading || bootstrapping || !currenciesReady;
 
   useEffect(() => {
     if (!useConvertedEarnings || !currency) {
@@ -288,17 +295,22 @@ export function useMobileDashboard() {
     };
   }, [bootstrap]);
 
+  // Backend always shifts range by −1 month; label from previous_date_range when present.
   const compareLabel = useMemo(() => {
+    const prev = bootstrap?.previous_date_range;
+    if (prev?.from && prev?.to) {
+      return `${i18n.vsPreviousPeriod} (${formatRangeLabel(prev.from, prev.to, { withYear: false })})`;
+    }
     const map = {
-      today: i18n.vsYesterday,
+      today: i18n.vsPreviousPeriod,
       yesterday: i18n.vsPreviousPeriod,
-      thisWeek: i18n.vsLastWeek,
+      thisWeek: i18n.vsPreviousPeriod,
       thisMonth: i18n.vsLastMonth,
-      lastMonth: i18n.vsLastMonth,
-      thisYear: i18n.vsLastYear,
+      lastMonth: i18n.vsPreviousPeriod,
+      thisYear: i18n.vsPreviousPeriod,
     };
     return map[activePreset] || i18n.vsPreviousPeriod;
-  }, [activePreset, i18n]);
+  }, [activePreset, bootstrap, i18n]);
 
   const chartRows = useMemo(
     () => buildChartRows(bootstrap?.current, dateFrom, dateTo),
@@ -359,13 +371,10 @@ export function useMobileDashboard() {
 
   const syncCompanySession = useCallback(
     async (id) => {
-      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${id}`), {
-        credentials: "include",
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) {
-        throw new Error(json?.message || json?.error || i18n.loadError);
-      }
+      const { res, json } = await fetchJson(
+        buildApiUrl(`api/session/update_company_session_api.php?company_id=${id}`),
+      );
+      assertApiOk(res, json, i18n.loadError);
     },
     [i18n.loadError],
   );
@@ -375,10 +384,9 @@ export function useMobileDashboard() {
       const id = Number(nextId);
       if (!Number.isFinite(id) || id <= 0) return;
       const sameCompany = Number(id) === Number(companyId);
-      // Allow re-selecting current company to exit Group "All" aggregate mode.
       if (sameCompany && !groupAllMode && !groupsAllMode) return;
       const row = companies.find((c) => Number(c.id) === id);
-      setLoading(true);
+      setBootstrapping(true);
       setError("");
       try {
         if (!sameCompany) {
@@ -390,7 +398,7 @@ export function useMobileDashboard() {
         setGroupAllMode(false);
       } catch (e) {
         setError(e?.message || i18n.loadError);
-        setLoading(false);
+        setBootstrapping(false);
       }
     },
     [companies, companyId, selectedGroup, groupAllMode, groupsAllMode, syncCompanySession, i18n.loadError],
@@ -417,13 +425,13 @@ export function useMobileDashboard() {
       const first = resolveCompaniesForPicker(companies, { selectedGroup: group, groupsAllMode: false })[0];
       const nextId = first?.id != null ? Number(first.id) : null;
       if (!nextId || nextId === Number(companyId)) return;
-      setLoading(true);
+      setBootstrapping(true);
       setError("");
       syncCompanySession(nextId)
         .then(() => setCompanyId(nextId))
         .catch((e) => {
           setError(e?.message || i18n.loadError);
-          setLoading(false);
+          setBootstrapping(false);
         });
     },
     [companies, companyId, syncCompanySession, i18n.loadError],
@@ -447,15 +455,17 @@ export function useMobileDashboard() {
 
   const logout = useCallback(async () => {
     try {
-      await fetch(buildApiUrl("api/session/logout_api.php"), {
-        method: "POST",
-        credentials: "include",
-      });
+      await fetchJson(buildApiUrl("api/session/logout_api.php"), { method: "POST" });
     } catch {
       /* continue */
     }
     navigate("/login", { replace: true });
   }, [navigate]);
+
+  const retry = useCallback(() => {
+    setError("");
+    setReloadNonce((n) => n + 1);
+  }, []);
 
   return {
     i18n,
@@ -493,9 +503,11 @@ export function useMobileDashboard() {
     toggleChartSeries,
     earningsCurrencyRows,
     summaryValue,
-    loading,
+    loading: showLoading,
     error,
     blocked,
     logout,
+    retry,
+    hasData: dashboardDataIsUsable(bootstrap),
   };
 }

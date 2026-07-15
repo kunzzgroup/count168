@@ -12,7 +12,8 @@ function normalizeCodes(rows) {
         .map((row) => String(row?.code ?? row ?? "")
           .trim()
           .toUpperCase())
-        .filter(Boolean),
+        // ISO-like: exactly 3 letters. Drops junk such as "1", "AA", "AAAAAA".
+        .filter((code) => /^[A-Z]{3}$/.test(code)),
     ),
   ];
 }

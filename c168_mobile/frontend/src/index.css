@@ -22,7 +22,9 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
-    background: #f2f5fb;
+    background:
+      radial-gradient(ellipse 120% 80% at 50% -20%, #e8eefc 0%, transparent 55%),
+      linear-gradient(180deg, #eef2fb 0%, #f2f5fb 40%, #eef1f8 100%);
     font-family: "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   }
 
