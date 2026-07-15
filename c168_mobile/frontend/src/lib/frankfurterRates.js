@@ -19,17 +19,39 @@ export async function fetchFrankfurterRates(baseCode, quoteCodes, { signal } = {
 
   const params = new URLSearchParams({ base, quotes: quotes.join(",") });
   const url = `${FRANKFURTER_API}?${params}`;
-  const timeoutSignal = typeof AbortSignal !== "undefined" && AbortSignal.timeout
-    ? AbortSignal.timeout(8000)
-    : null;
-  const combined =
-    signal && timeoutSignal
-      ? AbortSignal.any
-        ? AbortSignal.any([signal, timeoutSignal])
-        : signal
-      : signal || timeoutSignal;
 
-  const res = await fetch(url, { signal: combined, cache: "no-store" });
+  // Always enforce timeout even when AbortSignal.any is unavailable.
+  const timeoutMs = 8000;
+  const res = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new DOMException("Exchange rate request timed out", "TimeoutError"));
+    }, timeoutMs);
+
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
+
+    fetch(url, { signal, cache: "no-store" })
+      .then((response) => {
+        clearTimeout(timer);
+        if (signal) signal.removeEventListener("abort", onAbort);
+        resolve(response);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        if (signal) signal.removeEventListener("abort", onAbort);
+        reject(err);
+      });
+  });
+
   if (!res.ok) throw new Error("Failed to load exchange rates");
   const json = await res.json();
   const rows = Array.isArray(json) ? json : Array.isArray(json.data) ? json.data : [];

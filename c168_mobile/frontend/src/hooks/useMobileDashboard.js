@@ -89,6 +89,7 @@ export function useMobileDashboard() {
   const [sessionNonce, setSessionNonce] = useState(0);
   const bootstrapSeq = useRef(0);
   const scopeSeq = useRef(0);
+  const scopeAbortRef = useRef(null);
 
   const groupIds = useMemo(() => sortedUniqueGroupIds(companies), [companies]);
 
@@ -258,8 +259,10 @@ export function useMobileDashboard() {
   ]);
 
   const useConvertedEarnings = currencies.length > 1;
-  // Gate first paint on currencies only until we have usable bootstrap.
-  const showLoading = loading || bootstrapping || (!bootstrap && !currenciesReady);
+  // Skeleton only on cold start; keep previous cards visible while filters refresh.
+  const initialLoading = loading || (!bootstrap && (bootstrapping || !currenciesReady));
+  const refreshing = Boolean(bootstrap) && (bootstrapping || exchangeRatesLoading);
+  const showLoading = initialLoading;
 
   useEffect(() => {
     if (!useConvertedEarnings || !currency) {
@@ -369,8 +372,19 @@ export function useMobileDashboard() {
 
   const summaryValue = useMemo(() => {
     if (!useConvertedEarnings) return panelMetric ?? 0;
-    return earningsCurrencyRows.reduce((sum, row) => sum + (Number(row.earningsConverted) || 0), 0);
+    return earningsCurrencyRows.reduce((sum, row) => {
+      // Skip missing rates (null) — do not coerce to 0 and silently undercount.
+      if (row.earningsConverted == null) return sum;
+      const n = Number(row.earningsConverted);
+      return Number.isFinite(n) ? sum + n : sum;
+    }, 0);
   }, [earningsCurrencyRows, panelMetric, useConvertedEarnings]);
+
+  const heroCompare = useMemo(() => {
+    // Multi-currency hero total is converted; primary-currency MoM would mislead.
+    if (useConvertedEarnings) return null;
+    return kpi?.comparisons?.netProfit || null;
+  }, [useConvertedEarnings, kpi?.comparisons?.netProfit]);
 
   const showMultiCurrencyNote = useMemo(() => {
     if (!useConvertedEarnings) return false;
@@ -428,7 +442,9 @@ export function useMobileDashboard() {
       if (sameCompany && !groupAllMode && !groupsAllMode) return;
       const row = companies.find((c) => Number(c.id) === id);
       const seq = ++scopeSeq.current;
+      scopeAbortRef.current?.abort();
       const ac = new AbortController();
+      scopeAbortRef.current = ac;
       setBootstrapping(true);
       setError("");
       try {
@@ -471,9 +487,12 @@ export function useMobileDashboard() {
       const first = resolveCompaniesForPicker(companies, { selectedGroup: group, groupsAllMode: false })[0];
       const nextId = first?.id != null ? Number(first.id) : null;
       if (!nextId || nextId === Number(companyId)) return;
+      scopeAbortRef.current?.abort();
+      const ac = new AbortController();
+      scopeAbortRef.current = ac;
       setBootstrapping(true);
       setError("");
-      syncCompanySession(nextId)
+      syncCompanySession(nextId, ac.signal)
         .then(() => {
           if (seq !== scopeSeq.current) return;
           setCompanyId(nextId);
@@ -545,6 +564,7 @@ export function useMobileDashboard() {
     exchangeRatesLoading,
     useConvertedEarnings,
     showMultiCurrencyNote,
+    heroCompare,
     dateFrom,
     dateTo,
     dateRangeText,
@@ -563,6 +583,7 @@ export function useMobileDashboard() {
     earningsCurrencyRows,
     summaryValue,
     loading: showLoading,
+    refreshing,
     error,
     blocked,
     logout,

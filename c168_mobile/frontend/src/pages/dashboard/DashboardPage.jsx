@@ -10,7 +10,7 @@ import HeroSummaryCard from "./HeroSummaryCard.jsx";
 
 export default function DashboardPage() {
   const dash = useMobileDashboard();
-  const { i18n, kpi, loading, error, me, blocked, compareLabel } = dash;
+  const { i18n, kpi, loading, refreshing, error, me, blocked, compareLabel } = dash;
   const [filterOpen, setFilterOpen] = useState(false);
 
   const sparklineValues = useMemo(() => {
@@ -96,12 +96,22 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="relative space-y-4">
+        {refreshing && (
+          <div
+            className="relative mb-3 h-0.5 overflow-hidden rounded-full bg-slate-100"
+            aria-live="polite"
+            aria-label={i18n.loading}
+          >
+            <div className="h-full w-1/3 animate-[mDashRefresh_1.1s_ease-in-out_infinite] rounded-full bg-[#2f6bf6]" />
+          </div>
+        )}
+
+        <div className={`relative space-y-4 transition-opacity duration-200 ${refreshing ? "opacity-90" : ""}`}>
           <HeroSummaryCard
             i18n={i18n}
             currency={dash.currency}
             value={dash.summaryValue}
-            compare={kpi?.comparisons?.netProfit}
+            compare={dash.heroCompare}
             compareLabel={compareLabel}
             multiCurrency={dash.showMultiCurrencyNote}
             loading={loading}

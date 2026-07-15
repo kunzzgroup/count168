@@ -54,6 +54,21 @@ async function fetchCompanyCurrencySettingCodes(companyId, viewGroup = "", signa
   return [];
 }
 
+async function mapPool(items, limit, mapper) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+  const pool = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({ length: pool }, () => worker()));
+  return results;
+}
+
 /**
  * Load currency pills like desktop: company Currency Setting (+ subsidiary scope when Group selected).
  * Company/Group "All" unions codes from visible companies.
@@ -76,13 +91,13 @@ export async function fetchMobileCurrencyCodes({
       .slice(0, 30);
     if (!ids.length) return ["MYR"];
 
-    const parts = await Promise.all(
-      ids.map(async (id) => {
-        const row = (companies || []).find((c) => Number(c.id) === id);
-        const vg = groupsAllMode ? resolveViewGroupForCompany(row, selectedGroup) : group;
-        return fetchCompanyCurrencySettingCodes(id, vg, signal);
-      }),
-    );
+    // Cap concurrency so All-mode does not stall bootstrap on weak networks.
+    const parts = await mapPool(ids, 6, async (id) => {
+      if (signal?.aborted) return [];
+      const row = (companies || []).find((c) => Number(c.id) === id);
+      const vg = groupsAllMode ? resolveViewGroupForCompany(row, selectedGroup) : group;
+      return fetchCompanyCurrencySettingCodes(id, vg, signal);
+    });
     const merged = [...new Set(parts.flat())];
     return merged.length ? merged : ["MYR"];
   }

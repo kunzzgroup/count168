@@ -104,6 +104,15 @@
   animation: m-fade-in 0.35s ease-out both;
 }
 
+@keyframes mDashRefresh {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
 .tap-scale {
   transition: transform 0.12s ease;
 }
