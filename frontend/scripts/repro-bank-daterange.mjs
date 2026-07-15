@@ -217,13 +217,22 @@ try {
     popupClosed: getComputedStyle(document.getElementById("calendar-popup")).display === "none",
   }));
 
-  // Simulate React controlled hidden inputs wiping DOM before state commits (bank bug repro).
+  // Stale modal binding (modal closed, hidden inputs gone) should still commit toolbar range on first click.
   await page.evaluate(() => {
+    window.MaintenanceDateRangePicker.getActiveRangeBinding = () => ({
+      dateFromId: "bank_day_start_drp_from",
+      dateToId: "bank_day_start_drp_to",
+      displayId: "bank_day_start_drp_display",
+    });
     document.getElementById("date_from").value = "";
     document.getElementById("date_to").value = "";
-    window.MaintenanceDateRangePicker.refreshInputsDisplay();
+    document.getElementById("date-range-display").textContent = "Select date range";
   });
-  const afterControlledWipe = await page.evaluate(() => ({
+  await page.locator("#date-range-picker").click();
+  await page.waitForTimeout(150);
+  await page.locator('.transaction-calendar-preset[data-period-key="thisYear"]').click();
+  await page.waitForTimeout(200);
+  const afterStaleBinding = await page.evaluate(() => ({
     display: document.getElementById("date-range-display").textContent,
     from: document.getElementById("date_from").value,
     to: document.getElementById("date_to").value,
@@ -248,11 +257,11 @@ try {
     todayWorks: !!(afterToday.from && afterToday.to && afterToday.popupClosed),
     weekWorks: !!(afterWeek.from && afterWeek.to && afterWeek.display.includes("-")),
     thisYearWorks: !!(afterThisYear.from && afterThisYear.to && afterThisYear.display.includes("-") && afterThisYear.popupClosed),
-    controlledWipeKeepsDisplay: !!(afterControlledWipe.display && afterControlledWipe.display !== "Select date range" && afterControlledWipe.display.includes("/")),
+    staleBindingWorks: !!(afterStaleBinding.from && afterStaleBinding.to && afterStaleBinding.display.includes("-")),
     rangeWorks: !!(afterRange.from && afterRange.to && afterRange.from !== afterRange.to),
   };
 
-  console.log(JSON.stringify({ triggerStyles, triggerWhileOpen, popupOpen, afterToday, afterWeek, afterThisYear, afterControlledWipe, afterRange, pass }, null, 2));
+  console.log(JSON.stringify({ triggerStyles, triggerWhileOpen, popupOpen, afterToday, afterWeek, afterThisYear, afterStaleBinding, afterRange, pass }, null, 2));
   const failed = Object.entries(pass).filter(([, v]) => !v).map(([k]) => k);
   await browser.close();
   if (failed.length) {

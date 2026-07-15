@@ -144,33 +144,41 @@ export function useBankProcessListPage() {
   const handleDatePickerChange = useCallback(() => {
     const b = window.MaintenanceDateRangePicker?.getActiveRangeBinding?.() || {};
     const fromId = b.dateFromId || "";
-    const fromDmy = document.getElementById(fromId)?.value?.trim() || "";
-    const iso = dmyToIso(fromDmy);
 
-    if (fromId === "bank_day_start_drp_from") {
-      setForm((prev) => ({ ...prev, day_start: iso }));
+    if (fromId === "bank_day_start_drp_from" && document.getElementById("bank_day_start_drp_from")) {
+      const fromDmy = document.getElementById(fromId)?.value?.trim() || "";
+      setForm((prev) => ({ ...prev, day_start: dmyToIso(fromDmy) }));
       return;
     }
-    if (fromId === "bank_day_end_drp_from") {
+    if (fromId === "bank_day_end_drp_from" && document.getElementById("bank_day_end_drp_from")) {
+      const fromDmy = document.getElementById(fromId)?.value?.trim() || "";
+      const iso = dmyToIso(fromDmy);
       const minYmd = document.getElementById("bank_day_end_drp_from")?.dataset?.minYmd || "";
       if (minYmd && iso && iso < minYmd) return;
       setForm((prev) => ({ ...prev, day_end: iso }));
       return;
     }
-    if (fromId === "bank_resend_day_start_drp_from") {
+    if (fromId === "bank_resend_day_start_drp_from" && document.getElementById("bank_resend_day_start_drp_from")) {
+      const fromDmy = document.getElementById(fromId)?.value?.trim() || "";
       setResendInlineError("");
-      setResendDayStart(iso);
+      setResendDayStart(dmyToIso(fromDmy));
       return;
     }
-    if (fromId === "bank_resend_day_end_drp_from") {
+    if (fromId === "bank_resend_day_end_drp_from" && document.getElementById("bank_resend_day_end_drp_from")) {
+      const fromDmy = document.getElementById(fromId)?.value?.trim() || "";
+      const iso = dmyToIso(fromDmy);
       const minYmd = document.getElementById("bank_resend_day_end_drp_from")?.dataset?.minYmd || "";
       if (minYmd && iso && iso < minYmd) return;
       setResendDayEnd(iso);
       return;
     }
-    const toDmy = document.getElementById(b.dateToId)?.value?.trim() || "";
-    setDateFrom(dmyToIso(fromDmy));
-    setDateTo(dmyToIso(toDmy));
+
+    const listFromDmy = document.getElementById("date_from")?.value?.trim() || "";
+    const listToDmy = document.getElementById("date_to")?.value?.trim() || "";
+    flushSync(() => {
+      setDateFrom(dmyToIso(listFromDmy));
+      setDateTo(dmyToIso(listToDmy));
+    });
   }, []);
   const [cssReady, setCssReady] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -207,6 +215,13 @@ export function useBankProcessListPage() {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+
+  const toolbarDateRangeText = useMemo(() => {
+    const validFrom = dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom);
+    const validTo = dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo);
+    if (!validFrom || !validTo) return t("selectDateRange");
+    return `${isoToDmy(dateFrom)} - ${isoToDmy(dateTo)}`;
+  }, [dateFrom, dateTo, t]);
   const [toast, setToast] = useState(null);
   const [accounts, setAccounts] = useState([]);
 
@@ -711,6 +726,8 @@ export function useBankProcessListPage() {
   useEffect(() => {
     if (modalOpen || resendModalOpen) return;
     closeMaintenanceCalendarPopup();
+    ensureMaintenanceDateRangePicker();
+    window.MaintenanceDateRangePicker?.bindPickers?.();
   }, [modalOpen, resendModalOpen]);
 
   /* Keep date-range chip wording in sync when login/UI language changes (picker caches placeholder internally). */
@@ -724,8 +741,8 @@ export function useBankProcessListPage() {
     });
   }, [lang, loading, cssReady, t, bpLocale.monthsShort]);
 
-  /* React state 为 date range 唯一来源；hidden input 由 effect 写入 DOM，避免受控 input 覆盖 picker 刚提交的值 */
-  useEffect(() => {
+  /* React state 为 date range 唯一来源；hidden input 由 layout effect 写入 DOM（同 Dashboard） */
+  useLayoutEffect(() => {
     if (loading || !cssReady || !bankDatePickerInitRef.current) return;
     const df = document.getElementById("date_from");
     const dt = document.getElementById("date_to");
@@ -734,8 +751,11 @@ export function useBankProcessListPage() {
     const toDmy = dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo) ? isoToDmy(dateTo) : "";
     if (df.value !== fromDmy) df.value = fromDmy;
     if (dt.value !== toDmy) dt.value = toDmy;
-    window.MaintenanceDateRangePicker?.refreshInputsDisplay?.();
-  }, [dateFrom, dateTo, loading, cssReady, lang]);
+    const picker = document.getElementById("date-range-picker");
+    if (picker) {
+      picker.classList.toggle("has-selected-range", !!(fromDmy && toDmy));
+    }
+  }, [dateFrom, dateTo, loading, cssReady]);
 
 
   useEffect(() => {
@@ -2492,6 +2512,7 @@ export function useBankProcessListPage() {
     setDateFrom,
     dateTo,
     setDateTo,
+    toolbarDateRangeText,
     toast,
     setToast,
     accounts,

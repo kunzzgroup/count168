@@ -269,6 +269,30 @@ export function ensureMaintenanceDateRangePicker() {
     };
   }
 
+  /** Modal unmount can leave binding pointing at removed hidden inputs — fall back to toolbar / defaults. */
+  function ensureActiveBindingTargets() {
+    const fromId = activeRangeBinding?.dateFromId;
+    const toId = activeRangeBinding?.dateToId;
+    if (fromId && toId && document.getElementById(fromId) && document.getElementById(toId)) {
+      return;
+    }
+    const toolbarPicker =
+      document.querySelector(".bank-process-toolbar-primary .date-range-picker#date-range-picker") ||
+      document.getElementById("date-range-picker");
+    if (toolbarPicker) {
+      setActiveRangeBindingFromTrigger(toolbarPicker);
+      return;
+    }
+    activeRangeBinding = {
+      dateFromId: config.dateFromId,
+      dateToId: config.dateToId,
+      displayId: config.rangeDisplayId || "date-range-display",
+      hidePresets: false,
+      collapseSingleDisplay: false,
+      hideClear: false,
+    };
+  }
+
   function notifyActivePickerChanged() {
     const picker = document.querySelector(
       `.date-range-picker[data-drp-from="${activeRangeBinding.dateFromId}"]`,
@@ -461,6 +485,7 @@ export function ensureMaintenanceDateRangePicker() {
   }
 
   function syncToHiddenInputs() {
+    ensureActiveBindingTargets();
     const fromEl = document.getElementById(activeRangeBinding.dateFromId);
     const toEl = document.getElementById(activeRangeBinding.dateToId);
     if (fromEl) fromEl.value = calendarStartDate ? formatDateDisplay(calendarStartDate) : "";
@@ -902,6 +927,7 @@ export function ensureMaintenanceDateRangePicker() {
   function toggleCalendar(pickerEl) {
     const picker = pickerEl?.closest?.(".date-range-picker") || pickerEl || document.getElementById("date-range-picker");
     if (pickerEl || picker) setActiveRangeBindingFromTrigger(picker || pickerEl);
+    ensureActiveBindingTargets();
 
     const popup = dedupeStaleCalendarPopups(resolveCalendarPopup(picker));
     if (!popup || !picker) return;
@@ -1063,6 +1089,7 @@ export function ensureMaintenanceDateRangePicker() {
   }
 
   function setQuickRange(range) {
+    ensureActiveBindingTargets();
     const quickRange = getQuickRangeDates(range);
     if (!quickRange) {
       return;

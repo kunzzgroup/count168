@@ -77,6 +77,7 @@ export default function BankProcessListPage() {
     setDateFrom,
     dateTo,
     setDateTo,
+    toolbarDateRangeText,
     toast,
     setToast,
     accounts,
@@ -429,13 +430,15 @@ export default function BankProcessListPage() {
                     <div
                       className="date-range-picker"
                       id="date-range-picker"
+                      data-drp-from="date_from"
+                      data-drp-to="date_to"
+                      data-drp-display="date-range-display"
                       role="button"
                       tabIndex={0}
                       aria-label={t("selectDateRange")}
                     >
                       <i className="fas fa-calendar-alt" aria-hidden="true" />
-                      {/* Text is driven by MaintenanceDateRangePicker (must not set React children or they overwrite picker + stale i18n). */}
-                      <span id="date-range-display" aria-live="polite" />
+                      <span id="date-range-display" aria-live="polite">{toolbarDateRangeText}</span>
                       <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")}>&times;</button>
                       <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
                     </div>
