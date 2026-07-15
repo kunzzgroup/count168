@@ -1057,6 +1057,19 @@ export function useTransactionSearch({
         setTypeSearchFormType(null);
         setTypeSearchAccountIds([]);
 
+        // Submit-focus shows Cr/Dr rows; clear Win/Loss / Payment Only so the fetch and UI match.
+        setSearchState((prev) => {
+          if (!prev.showPaymentOnly && !prev.showCaptureOnly) return prev;
+          return { ...prev, showPaymentOnly: false, showCaptureOnly: false };
+        });
+        if (prevServerSideFiltersRef.current) {
+          prevServerSideFiltersRef.current = {
+            ...prevServerSideFiltersRef.current,
+            showPaymentOnly: false,
+            showCaptureOnly: false,
+          };
+        }
+
         if (currencyCode) {
           setSubmitFocusByCurrency((prev) => {
             const base = !didJumpCaptureDate && submitFocusRangeKey === rangeKey ? { ...prev } : {};
@@ -1101,6 +1114,13 @@ export function useTransactionSearch({
           forceRefresh: true,
           silent: true,
           typeSearchOverride: false,
+          // Submit-focus must fetch Cr/Dr accounts too (ignore Win/Loss Only / Payment Only).
+          searchStateOverride: {
+            ...searchState,
+            showPaymentOnly: false,
+            showCaptureOnly: false,
+            showZeroBalance: true,
+          },
           ...(didJumpCaptureDate
             ? { dateFromOverride: searchDateFrom, dateToOverride: searchDateTo }
             : {}),
@@ -1123,6 +1143,7 @@ export function useTransactionSearch({
       transactionScope?.selectedGroup,
       notifySingleCurrencyIfNeeded,
       runSearch,
+      searchState,
     ],
   );
 
