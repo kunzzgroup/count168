@@ -60,6 +60,9 @@ export default function DashboardPage() {
       <span className="min-w-0 flex-1 truncate text-left text-[13px] font-bold text-slate-700">
         {dash.dateRangeText}
       </span>
+      <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold tracking-wide text-slate-600">
+        {dash.currency}
+      </span>
       <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#2f6bf6] px-2.5 py-1.5 text-white">
         <i className="fas fa-filter text-[11px]" aria-hidden="true" />
         <span className="text-[12px] font-bold">{i18n.filter}</span>

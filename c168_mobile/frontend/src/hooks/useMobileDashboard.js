@@ -404,13 +404,16 @@ export function useMobileDashboard() {
 
   const ratesWarning = useMemo(() => {
     if (!useConvertedEarnings || exchangeRatesLoading) return "";
-    if (exchangeRatesError) return i18n.ratesUnavailable || "";
     const missing = earningsCurrencyRows.some((row) => {
       const raw = Number(row.earnings);
       if (!Number.isFinite(raw) || Math.abs(raw) < 0.005) return false;
       return row.earningsConverted == null;
     });
-    return missing ? i18n.ratesUnavailable || "" : "";
+    // Surface when conversion is incomplete (failed FX fetch typically causes this).
+    if (missing || (exchangeRatesError && useConvertedEarnings)) {
+      return i18n.ratesUnavailable || "";
+    }
+    return "";
   }, [
     useConvertedEarnings,
     exchangeRatesLoading,
