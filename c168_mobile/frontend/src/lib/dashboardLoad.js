@@ -43,12 +43,18 @@ function applyLinkMultiplier(data, companyRow, viewGroup, dateTo) {
   return data;
 }
 
-function resolveGroupAllCompanyList(companies, selectedGroup) {
+/**
+ * Subsidiaries for Company All under one group (desktop allowC168=false for single group).
+ * Groups All union uses allowC168=true so C168 under AP is included.
+ */
+function resolveGroupAllCompanyList(companies, selectedGroup, { allowC168 = false } = {}) {
   const g = normalizeGroupId(selectedGroup);
   if (!g) return [];
   return companiesInGroup(companies, g).filter((c) => {
     const code = String(c.company_id || "").trim().toUpperCase();
-    return code && code !== "C168" && !isGroupEntityRow(c, g);
+    if (!code || isGroupEntityRow(c, g)) return false;
+    if (!allowC168 && code === "C168") return false;
+    return true;
   });
 }
 
@@ -57,7 +63,7 @@ function resolveGroupsAllCompanyList(companies) {
   const seen = new Set();
   const out = [];
   for (const g of gids) {
-    for (const row of resolveGroupAllCompanyList(companies, g)) {
+    for (const row of resolveGroupAllCompanyList(companies, g, { allowC168: true })) {
       const id = Number(row.id);
       if (!Number.isFinite(id) || seen.has(id)) continue;
       seen.add(id);
