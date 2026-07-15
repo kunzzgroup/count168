@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { usePullToRefresh } from "../../hooks/usePullToRefresh.js";
 import { useScrollHideChrome } from "../../hooks/useScrollHideChrome.js";
@@ -37,6 +37,8 @@ export default function MobileShell({
   const [announcements, setAnnouncements] = useState([]);
   const [notifyLoading, setNotifyLoading] = useState(false);
   const mainRef = useRef(null);
+  const topChromeRef = useRef(null);
+  const [topChromeH, setTopChromeH] = useState(0);
 
   const refreshPage = useCallback(async () => {
     if (typeof onRefresh === "function") {
@@ -57,7 +59,21 @@ export default function MobileShell({
     refreshing,
   });
 
-  const navHidden = useScrollHideChrome(mainRef, { threshold: 8, topReveal: 20 });
+  const chromeHidden = useScrollHideChrome(mainRef, { threshold: 8, topReveal: 16 });
+
+  useLayoutEffect(() => {
+    const el = topChromeRef.current;
+    if (!el) return undefined;
+    const measure = () => setTopChromeH(el.offsetHeight);
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [stickyBar, refreshing]);
 
   const openSidebar = () => {
     onChromeOpen?.();
@@ -107,38 +123,51 @@ export default function MobileShell({
     return () => ac.abort();
   }, [notifyOpen]);
 
-  // Hide bottom nav while scrolling down; keep visible during pull / overlays.
-  const hideNav = showBottomNav && navHidden && !active && !overlayOpen && !sidebarOpen && !notifyOpen;
+  // Hide top + bottom chrome on scroll-down; keep during pull / overlays / refresh.
+  const forceChrome =
+    active || isAnimating || overlayOpen || sidebarOpen || notifyOpen || refreshing;
+  const hideChrome = chromeHidden && !forceChrome;
+  const hideNav = showBottomNav && hideChrome;
   const contentShift = pullPx > 0.5 ? pullPx : 0;
   const contentTransition = isAnimating && phase !== "pulling" && phase !== "armed";
+  const mainPadTop = hideChrome ? 0 : topChromeH;
 
   return (
     <div className="relative flex h-dvh max-h-dvh min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#f2f5fb]">
-      <MobileAppBar
-        i18n={labels}
-        notificationCount={announcements.length}
-        onOpenSidebar={openSidebar}
-        onOpenNotifications={openNotifications}
-        onRefresh={typeof onRefresh === "function" ? refreshPage : undefined}
-        refreshing={refreshing}
-      />
+      <div
+        ref={topChromeRef}
+        className={`fixed inset-x-0 top-0 z-30 transition-transform duration-300 ease-out ${
+          hideChrome ? "-translate-y-full pointer-events-none" : "translate-y-0"
+        }`}
+        aria-hidden={hideChrome}
+      >
+        <MobileAppBar
+          i18n={labels}
+          notificationCount={announcements.length}
+          onOpenSidebar={openSidebar}
+          onOpenNotifications={openNotifications}
+          onRefresh={typeof onRefresh === "function" ? refreshPage : undefined}
+          refreshing={refreshing}
+        />
 
-      {stickyBar ? (
-        <div className="z-[15] shrink-0 border-b border-slate-200/50 bg-[#f2f5fb]/95 px-3.5 py-2 backdrop-blur-md">
-          <div className="mx-auto max-w-lg">{stickyBar}</div>
-        </div>
-      ) : null}
+        {stickyBar ? (
+          <div className="border-b border-slate-200/50 bg-[#f2f5fb]/95 px-3.5 py-2 backdrop-blur-md">
+            <div className="mx-auto max-w-lg">{stickyBar}</div>
+          </div>
+        ) : null}
+      </div>
 
       <main
         ref={mainRef}
         className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain"
         style={{
+          paddingTop: mainPadTop,
           paddingBottom: showBottomNav
             ? hideNav
               ? "calc(env(safe-area-inset-bottom, 0px) + 12px)"
               : "calc(env(safe-area-inset-bottom, 0px) + 72px)"
             : "calc(env(safe-area-inset-bottom, 0px) + 12px)",
-          transition: "padding-bottom 220ms ease",
+          transition: "padding-top 300ms ease, padding-bottom 220ms ease",
         }}
       >
         <div
