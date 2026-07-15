@@ -38,7 +38,7 @@ export default function MobileShell({
   const [notifyLoading, setNotifyLoading] = useState(false);
   const mainRef = useRef(null);
   const topChromeRef = useRef(null);
-  const [topChromeH, setTopChromeH] = useState(0);
+  const [topChromeH, setTopChromeH] = useState(118);
 
   const refreshPage = useCallback(async () => {
     if (typeof onRefresh === "function") {
@@ -64,7 +64,10 @@ export default function MobileShell({
   useLayoutEffect(() => {
     const el = topChromeRef.current;
     if (!el) return undefined;
-    const measure = () => setTopChromeH(el.offsetHeight);
+    const measure = () => {
+      const h = el.offsetHeight;
+      if (h > 0) setTopChromeH(h);
+    };
     measure();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
     ro?.observe(el);
