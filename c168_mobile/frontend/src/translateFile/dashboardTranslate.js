@@ -68,6 +68,7 @@ export const DASHBOARD_I18N = {
     toDate: "To",
     customRange: "Custom",
     daysCount: "{n} days",
+    viewThisYear: "View this year",
   },
   zh: {
     dashboard: "仪表盘",
@@ -138,6 +139,7 @@ export const DASHBOARD_I18N = {
     toDate: "结束",
     customRange: "自定义",
     daysCount: "{n} 天",
+    viewThisYear: "查看今年",
   },
 };
 

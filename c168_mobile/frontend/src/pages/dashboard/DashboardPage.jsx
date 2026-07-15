@@ -53,19 +53,23 @@ export default function DashboardPage() {
     <button
       type="button"
       onClick={() => setFilterOpen(true)}
-      className="tap-scale flex w-full items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
+      className="tap-scale flex w-full items-center gap-2 rounded-2xl bg-white px-3 py-2.5 shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
       aria-label={i18n.filter}
     >
-      <i className="far fa-calendar text-[#2f6bf6]" aria-hidden="true" />
+      <i className="far fa-calendar shrink-0 text-[#2f6bf6]" aria-hidden="true" />
       <span className="min-w-0 flex-1 truncate text-left text-[13px] font-bold text-slate-700">
         {dash.dateRangeText}
       </span>
-      <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold tracking-wide text-slate-600">
+      {companyCode ? (
+        <span className="shrink-0 rounded-lg bg-[#2f6bf6]/10 px-1.5 py-1 text-[11px] font-bold tracking-wide text-[#2f6bf6]">
+          {companyCode}
+        </span>
+      ) : null}
+      <span className="shrink-0 rounded-lg bg-slate-100 px-1.5 py-1 text-[11px] font-bold tracking-wide text-slate-600">
         {dash.currency}
       </span>
-      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#2f6bf6] px-2.5 py-1.5 text-white">
-        <i className="fas fa-filter text-[11px]" aria-hidden="true" />
-        <span className="text-[12px] font-bold">{i18n.filter}</span>
+      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#2f6bf6] text-white">
+        <i className="fas fa-filter text-[12px]" aria-hidden="true" />
       </span>
     </button>
   );
@@ -154,10 +158,11 @@ export default function DashboardPage() {
               {dash.activePreset !== "thisYear" && (
                 <button
                   type="button"
-                  className="mt-3 tap-scale rounded-xl bg-[#2f6bf6] px-4 py-2 text-[13px] font-bold text-white"
+                  className="mt-3 tap-scale rounded-xl bg-[#2f6bf6] px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
+                  disabled={Boolean(refreshing)}
                   onClick={() => dash.applyPreset("thisYear")}
                 >
-                  {i18n.thisYear}
+                  {refreshing ? i18n.loading : i18n.viewThisYear || i18n.thisYear}
                 </button>
               )}
             </div>

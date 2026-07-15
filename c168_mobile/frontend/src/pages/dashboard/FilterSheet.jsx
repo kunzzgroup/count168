@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useOverlayLock } from "../../hooks/useOverlayLock.js";
 import {
   PERIOD_PRESET_KEYS,
@@ -67,7 +68,13 @@ function DateTapRow({ label, value, min, max, onChange }) {
 
 export default function FilterSheet({ open, onClose, dash }) {
   const { i18n } = dash;
+  const bodyRef = useRef(null);
   useOverlayLock(open, onClose);
+
+  useEffect(() => {
+    if (!open) return;
+    bodyRef.current?.scrollTo?.({ top: 0 });
+  }, [open]);
 
   const handleReset = () => {
     dash.resetFilters();
@@ -131,7 +138,7 @@ export default function FilterSheet({ open, onClose, dash }) {
           </button>
         </div>
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-5 pb-4">
+        <div ref={bodyRef} className="flex-1 space-y-6 overflow-y-auto px-5 pb-4">
           <Section
             title={i18n.dateRange}
             trailing={

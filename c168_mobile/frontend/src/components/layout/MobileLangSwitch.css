@@ -3,8 +3,8 @@
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  width: 88px;
-  height: 32px;
+  width: 92px;
+  height: 34px;
   padding: 3px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.22);
@@ -42,8 +42,18 @@
   letter-spacing: 0.02em;
   border-radius: 999px;
   cursor: pointer;
+  transition: color 0.2s ease, transform 0.12s ease;
+}
+
+.mobile-lang-switch__seg:active {
+  transform: scale(0.96);
 }
 
 .mobile-lang-switch__seg.is-active {
   color: #fff;
+}
+
+.mobile-lang-switch__seg:focus-visible {
+  outline: 2px solid rgba(99, 196, 255, 0.85);
+  outline-offset: 1px;
 }
