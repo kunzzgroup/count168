@@ -12,11 +12,57 @@ function viewerHasEarningsConfig(dashboardData) {
   return false;
 }
 
+function netProfitFromDashboardPayload(dashboardData) {
+  if (!dashboardData) return 0;
+  const rawProfit = parseFloat(dashboardData?.period_total?.profit ?? dashboardData.profit) || 0;
+  const rawExpenses = parseFloat(dashboardData?.period_total?.expenses ?? dashboardData.expenses) || 0;
+  const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
+  return rawProfit + displayExpenses;
+}
+
 function mergeDailyMap(target, source) {
   if (!source || typeof source !== "object") return;
   Object.keys(source).forEach((date) => {
     target[date] = (target[date] || 0) + parseFloat(source[date] || 0);
   });
+}
+
+/** Attach group ledger expenses/ownership onto merged subsidiary totals (desktop parity). */
+export function attachGroupAggregateEarningsFields(mergedSubsidiaries, groupLedgerPayload) {
+  if (!mergedSubsidiaries || !groupLedgerPayload) return mergedSubsidiaries;
+  const subsidiaryTotal =
+    parseFloat(mergedSubsidiaries._subsidiary_earnings_total) ||
+    parseFloat(mergedSubsidiaries.subsidiary_earnings_total) ||
+    0;
+  const ledgerExpenses =
+    parseFloat(groupLedgerPayload?.period_total?.expenses ?? groupLedgerPayload?.expenses) || 0;
+  const ledgerDailyExpenses =
+    groupLedgerPayload?.daily_data?.expenses &&
+    typeof groupLedgerPayload.daily_data.expenses === "object"
+      ? groupLedgerPayload.daily_data.expenses
+      : mergedSubsidiaries?.daily_data?.expenses || {};
+  const groupLedgerNetProfit =
+    groupLedgerPayload?.group_ledger_net_profit != null
+      ? parseFloat(groupLedgerPayload.group_ledger_net_profit) || 0
+      : netProfitFromDashboardPayload(groupLedgerPayload);
+  return {
+    ...mergedSubsidiaries,
+    expenses: ledgerExpenses,
+    period_total: {
+      ...(mergedSubsidiaries?.period_total || {}),
+      expenses: ledgerExpenses,
+    },
+    daily_data: {
+      ...(mergedSubsidiaries?.daily_data || {}),
+      expenses: ledgerDailyExpenses,
+    },
+    subsidiary_earnings_total: subsidiaryTotal,
+    group_ledger_net_profit: groupLedgerNetProfit,
+    group_account_percentage: parseFloat(groupLedgerPayload?.group_account_percentage) || 0,
+    has_group_ownership: !!groupLedgerPayload?.has_group_ownership,
+    has_ownership_setup: !!groupLedgerPayload?.has_group_ownership,
+    _group_aggregate_earnings: true,
+  };
 }
 
 export function mergeGroupData(dataList, dateRange = {}) {

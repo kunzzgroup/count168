@@ -1,6 +1,6 @@
 import { buildApiUrl } from "../utils/apiUrl.js";
 import { DASHBOARD_BOOTSTRAP_API } from "./dashboardConstants.js";
-import { mergeGroupData } from "./dashboardMerge.js";
+import { attachGroupAggregateEarningsFields, mergeGroupData } from "./dashboardMerge.js";
 import {
   companiesInGroup,
   normalizeGroupId,
@@ -108,6 +108,20 @@ function buildSingleCompanyBootstrapQuery({
   return q;
 }
 
+function buildGroupLedgerBootstrapQuery({ dateFrom, dateTo, currency, groupKey }) {
+  const g = normalizeGroupId(groupKey);
+  const q = new URLSearchParams({
+    date_from: dateFrom,
+    date_to: dateTo,
+    bootstrap_scope: "full",
+    view_group: g,
+    group_id: g,
+    group_only: "1",
+  });
+  if (currency) q.set("currency", currency);
+  return q;
+}
+
 async function fetchBootstrapData(query, signal, loadError) {
   const { res, json } = await fetchJson(
     buildApiUrl(`${DASHBOARD_BOOTSTRAP_API}?${query}`),
@@ -118,10 +132,32 @@ async function fetchBootstrapData(query, signal, loadError) {
   return json.data;
 }
 
+/** Best-effort group ledger enrich; silent if user lacks group-ledger permission. */
+async function enrichWithGroupLedger(merged, previous, { dateFrom, dateTo, currency, groupKey, signal }) {
+  const g = normalizeGroupId(groupKey);
+  if (!merged || !g) return { current: merged, previous, previous_date_range: null, _ledger: false };
+  try {
+    const q = buildGroupLedgerBootstrapQuery({ dateFrom, dateTo, currency, groupKey: g });
+    const ledger = await fetchBootstrapData(q, signal, "ledger");
+    return {
+      current: attachGroupAggregateEarningsFields(merged, ledger.current),
+      previous: previous
+        ? attachGroupAggregateEarningsFields(previous, ledger.previous || ledger.current)
+        : null,
+      previous_date_range: ledger.previous_date_range || null,
+      _ledger: true,
+    };
+  } catch (e) {
+    if (e?.name === "AbortError") throw e;
+    return { current: merged, previous, previous_date_range: null, _ledger: false };
+  }
+}
+
 /**
  * Load dashboard like desktop:
  * - single company → one bootstrap (with subsidiary scope when in a group)
  * - Company All / Groups All → parallel per-company bootstrap + mergeGroupData
+ * - Group All (+ single group) → enrich with group_only ledger expenses/ownership
  */
 export async function loadMobileDashboardData(scopeState, { signal, loadError } = {}) {
   const {
@@ -148,7 +184,6 @@ export async function loadMobileDashboardData(scopeState, { signal, loadError } 
     if (!viewGroup) {
       viewGroup = resolveViewGroupForCompany(row, null);
     }
-    // Independent / no group: plain company bootstrap.
     const q = buildSingleCompanyBootstrapQuery({
       dateFrom,
       dateTo,
@@ -203,24 +238,43 @@ export async function loadMobileDashboardData(scopeState, { signal, loadError } 
   const pairs = settled.filter(Boolean);
   if (!pairs.length) throw new Error(loadError || "Failed to load dashboard");
 
-  const current = mergeGroupData(
+  let current = mergeGroupData(
     pairs.map((p) => p.current).filter(Boolean),
     { startDate: dateFrom, endDate: dateTo },
   );
-  const previousList = pairs.map((p) => p.previous).filter(Boolean);
-  const previous = previousList.length
-    ? mergeGroupData(previousList, { startDate: dateFrom, endDate: dateTo })
-    : null;
+  let previous = (() => {
+    const previousList = pairs.map((p) => p.previous).filter(Boolean);
+    return previousList.length
+      ? mergeGroupData(previousList, { startDate: dateFrom, endDate: dateTo })
+      : null;
+  })();
+  let previous_date_range = pairs.find((p) => p.previous_date_range)?.previous_date_range || null;
+  let ledgerApplied = false;
+
+  if (groupAllMode && !groupsAllMode && selectedGroup) {
+    const enriched = await enrichWithGroupLedger(current, previous, {
+      dateFrom,
+      dateTo,
+      currency,
+      groupKey: selectedGroup,
+      signal,
+    });
+    current = enriched.current;
+    previous = enriched.previous;
+    if (enriched.previous_date_range) previous_date_range = enriched.previous_date_range;
+    ledgerApplied = !!enriched._ledger;
+  }
 
   return {
     current,
     previous,
-    previous_date_range: pairs.find((p) => p.previous_date_range)?.previous_date_range || null,
+    previous_date_range,
     earnings: null,
     _mobile_scope: {
       mode: groupsAllMode ? "groupsAll" : "groupAll",
       count: pairs.length,
       group: normalizeGroupId(selectedGroup),
+      ledger: ledgerApplied,
     },
   };
 }

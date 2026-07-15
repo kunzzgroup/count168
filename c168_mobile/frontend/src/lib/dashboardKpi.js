@@ -49,8 +49,22 @@ export function viewerHasEarningsConfig(dashboardData, options = {}) {
   return false;
 }
 
+function resolveGroupAccountMultiplier(dashboardData) {
+  const accPct = parseFloat(dashboardData?.group_account_percentage) || 0;
+  return accPct > 0 ? accPct / 100 : 1;
+}
+
+function isGroupAggregateEarningsPayload(dashboardData, options = {}) {
+  if (!dashboardData) return false;
+  if (options.groupAggregateEarnings) return true;
+  return dashboardData._group_aggregate_earnings === true;
+}
+
 export function resolveEarningsMultiplier(dashboardData, requireViewerConfig, options = {}) {
   if (!dashboardData) return 0;
+  if (isGroupAggregateEarningsPayload(dashboardData, options)) {
+    return resolveGroupAccountMultiplier(dashboardData);
+  }
   const ownershipPercentage = parseFloat(dashboardData?.ownership_percentage) || 0;
   const groupEquityPercentage = parseFloat(dashboardData?.group_equity_percentage) || 0;
   const groupAccountPercentage = parseFloat(dashboardData?.group_account_percentage) || 0;
@@ -85,6 +99,40 @@ export function resolveEarningsMultiplier(dashboardData, requireViewerConfig, op
   return 0;
 }
 
+function sumSubsidiaryCompanyEarnings(dashboardData) {
+  if (!dashboardData) return 0;
+  const rows = dashboardData.subsidiary_earnings_by_company;
+  if (Array.isArray(rows) && rows.length) {
+    return rows.reduce((sum, row) => {
+      const companyEarning = parseFloat(row.company_earning);
+      if (Number.isFinite(companyEarning)) return sum + companyEarning;
+      const fallbackProfit = parseFloat(row.profit);
+      if (Number.isFinite(fallbackProfit)) return sum + fallbackProfit;
+      return sum + (parseFloat(row.net_profit) || 0);
+    }, 0);
+  }
+  const explicit = parseFloat(dashboardData.subsidiary_company_earnings_total);
+  return Number.isFinite(explicit) ? explicit : 0;
+}
+
+function computeGroupAggregateProfit(dashboardData) {
+  return sumSubsidiaryCompanyEarnings(dashboardData);
+}
+
+function computeGroupAggregateNetProfit(dashboardData) {
+  const profitSum = computeGroupAggregateProfit(dashboardData);
+  const rawExpenses = parseFloat(dashboardData?.period_total?.expenses) || 0;
+  const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
+  return profitSum + displayExpenses;
+}
+
+function computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig = true } = {}) {
+  if (!dashboardData) return 0;
+  const groupAccPct = parseFloat(dashboardData.group_account_percentage) || 0;
+  if (requireViewerConfig && !dashboardData.has_group_ownership && groupAccPct <= 0) return 0;
+  return computeGroupAggregateNetProfit(dashboardData) * resolveGroupAccountMultiplier(dashboardData);
+}
+
 function computeGroupAllCompanyEarningsSum(dashboardData) {
   if (!dashboardData) return 0;
   const rows = dashboardData.subsidiary_earnings_by_company;
@@ -103,8 +151,16 @@ export function computeKpiMetrics(dashboardData, options = {}) {
   const rawExpenses = parseFloat(dashboardData?.period_total?.expenses) || 0;
   const displayProfitNum = rawProfit;
   const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
-  const netProfitDisplay = displayProfitNum + displayExpensesNum;
+  const groupAggregate = isGroupAggregateEarningsPayload(dashboardData, options);
   const groupAllCompanyEarningsSum = !!options.groupAllCompaniesEarningsSum;
+  const groupProfitSum =
+    groupAggregate && !groupAllCompanyEarningsSum
+      ? computeGroupAggregateProfit(dashboardData)
+      : null;
+  const netProfitDisplay =
+    groupAggregate && !groupAllCompanyEarningsSum
+      ? computeGroupAggregateNetProfit(dashboardData)
+      : displayProfitNum + displayExpensesNum;
   const showEarnings = options.groupsAllCompaniesAggregate
     ? false
     : viewerHasEarningsConfig(dashboardData, options);
@@ -117,15 +173,19 @@ export function computeKpiMetrics(dashboardData, options = {}) {
     ? netProfitDisplay
     : groupAllCompanyEarningsSum
       ? mergedGroupAllEarnings
-      : netProfitDisplay * panelMultiplier;
+      : groupAggregate
+        ? computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: false })
+        : netProfitDisplay * panelMultiplier;
   const kpiCardEarnings = showEarnings
     ? groupAllCompanyEarningsSum
       ? mergedGroupAllEarnings
-      : netProfitDisplay * kpiMultiplier
+      : groupAggregate
+        ? computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: true })
+        : netProfitDisplay * kpiMultiplier
     : 0;
 
   return {
-    profit: displayProfitNum,
+    profit: groupAggregate && !groupAllCompanyEarningsSum ? groupProfitSum : displayProfitNum,
     expenses: displayExpensesNum,
     netProfit: netProfitDisplay,
     earnings: earningsDisplay,
