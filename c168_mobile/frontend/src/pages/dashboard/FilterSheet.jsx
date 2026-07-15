@@ -42,6 +42,7 @@ export default function FilterSheet({ open, onClose, dash }) {
         open ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
       aria-hidden={!open}
+      inert={open ? undefined : true}
     >
       <button
         type="button"
