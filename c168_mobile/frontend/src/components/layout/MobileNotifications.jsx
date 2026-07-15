@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useOverlayLock } from "../../hooks/useOverlayLock.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import { fetchJson } from "../../lib/fetchJson.js";
 
@@ -13,6 +14,7 @@ export async function fetchMobileAnnouncements(signal) {
 
 export default function MobileNotifications({ open, onClose, i18n, items = [], loading }) {
   const [active, setActive] = useState(null);
+  useOverlayLock(open, onClose);
 
   useEffect(() => {
     if (!open) setActive(null);

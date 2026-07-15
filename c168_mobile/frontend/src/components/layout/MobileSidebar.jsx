@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useOverlayLock } from "../../hooks/useOverlayLock.js";
 import { brandWhiteLogoUrl, onBrandLogoError } from "../../lib/brandAssets.js";
 import { mobileNavItems } from "../../utils/mobilePermissions.js";
 
@@ -21,6 +22,7 @@ export default function MobileSidebar({ open, onClose, i18n, me, companyCode, gr
   const navItems = mobileNavItems(me);
   const name = me?.nickname || me?.username || me?.name || "—";
   const role = String(me?.role || me?.user_type || "").toUpperCase();
+  useOverlayLock(open, onClose);
 
   return (
     <div

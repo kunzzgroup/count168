@@ -92,9 +92,9 @@ export default function MobileShell({
 
       <CompanyScopeBar i18n={labels} companyCode={companyCode} groupId={groupId} />
 
-      {/* Sticky filter / date tools stay pinned under company context */}
+      {/* Filter / date tools stay pinned under company context (outside scroll main) */}
       {stickyBar ? (
-        <div className="sticky top-0 z-[15] shrink-0 border-b border-slate-200/50 bg-[#f2f5fb]/95 px-3.5 py-2.5 backdrop-blur-md">
+        <div className="z-[15] shrink-0 border-b border-slate-200/50 bg-[#f2f5fb]/95 px-3.5 py-2.5 backdrop-blur-md">
           <div className="mx-auto max-w-lg">{stickyBar}</div>
         </div>
       ) : null}

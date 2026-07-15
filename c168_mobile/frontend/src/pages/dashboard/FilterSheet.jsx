@@ -1,3 +1,4 @@
+import { useOverlayLock } from "../../hooks/useOverlayLock.js";
 import { PERIOD_PRESET_KEYS } from "../../lib/dashboardDateUtils.js";
 import { dashboardLabel } from "../../translateFile/dashboardTranslate.js";
 
@@ -31,6 +32,7 @@ function Section({ title, children }) {
 
 export default function FilterSheet({ open, onClose, dash }) {
   const { i18n } = dash;
+  useOverlayLock(open, onClose);
 
   const handleReset = () => {
     dash.resetFilters();
