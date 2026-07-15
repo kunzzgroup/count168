@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import DashboardPage from "./pages/dashboard/DashboardPage.jsx";
 import LoginPage from "./pages/login/LoginPage.jsx";
 import StubPage from "./pages/StubPage.jsx";
+import TransactionPage from "./pages/transaction/TransactionPage.jsx";
+import TransactionHistoryPage from "./pages/transaction/TransactionHistoryPage.jsx";
 
 export default function App() {
   return (
@@ -11,7 +13,8 @@ export default function App() {
       <Route path="/home" element={<Navigate to="/dashboard" replace />} />
       <Route path="/member" element={<StubPage title="会员 Win/Loss" backTo="/login" />} />
       <Route path="/report" element={<StubPage title="报表 Report" backTo="/dashboard" />} />
-      <Route path="/transaction" element={<StubPage title="交易 Transaction" backTo="/dashboard" />} />
+      <Route path="/transaction" element={<TransactionPage />} />
+      <Route path="/transaction/history" element={<TransactionHistoryPage />} />
       <Route path="/more" element={<StubPage title="更多功能" backTo="/dashboard" />} />
       <Route path="/reset-password" element={<StubPage title="重置密码" />} />
       <Route

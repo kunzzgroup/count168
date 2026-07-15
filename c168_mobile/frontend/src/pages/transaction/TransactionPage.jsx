@@ -1,0 +1,226 @@
+import { useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import MobileShell from "../../components/layout/MobileShell.jsx";
+import { useMobileTransaction } from "../../hooks/useMobileTransaction.js";
+import { buildPaymentHistoryScope, persistPaymentHistoryScope } from "../../lib/transactionHistoryScope.js";
+import { formatTransactionGridMoneyHalfUp } from "../../lib/transactionFormat.js";
+import FilterSheet from "../dashboard/FilterSheet.jsx";
+import ScopeBreadcrumb from "../dashboard/ScopeBreadcrumb.jsx";
+import AccountCard from "./AccountCard.jsx";
+import AddTransactionSheet from "./AddTransactionSheet.jsx";
+
+function ToggleChip({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`tap-scale shrink-0 rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors ${
+        active ? "bg-[#2f6bf6] text-white" : "bg-slate-100 text-slate-600"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+export default function TransactionPage() {
+  const tx = useMobileTransaction();
+  const navigate = useNavigate();
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+
+  const openHistory = useCallback(
+    (row) => {
+      const scope = buildPaymentHistoryScope({
+        row,
+        dateFrom: tx.dateFrom,
+        dateTo: tx.dateTo,
+        scopeApi: tx.scopeApi,
+        currency: tx.currency,
+      });
+      persistPaymentHistoryScope(scope);
+      navigate("/transaction/history");
+    },
+    [navigate, tx.dateFrom, tx.dateTo, tx.scopeApi, tx.currency],
+  );
+
+  if (tx.blocked) return null;
+
+  const companyCode = String(tx.selectedCompany?.company_id || "").toUpperCase();
+  const groupId = String(
+    tx.selectedGroup || tx.selectedCompany?.group_id || tx.selectedCompany?.link_source_group || "",
+  )
+    .trim()
+    .toUpperCase();
+
+  const viewingCompanyCode = tx.groupsAllMode || tx.groupAllMode
+    ? tx.i18n.all
+    : tx.groupOnlyMode
+      ? groupId
+      : companyCode;
+  const sidebarGroupId = tx.groupOnlyMode ? "" : groupId;
+
+  const stickyBar = (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={() => setFilterOpen(true)}
+        className="tap-scale w-full rounded-2xl bg-white px-3 py-2 text-left shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
+      >
+        <div className="flex items-center gap-2">
+          <i className="far fa-calendar shrink-0 text-[#2f6bf6]" aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-slate-700">{tx.dateRangeText}</span>
+          <span className="shrink-0 rounded-lg bg-slate-100 px-1.5 py-1 text-[11px] font-bold tracking-wide text-slate-600">
+            {tx.currency}
+          </span>
+          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-xl bg-[#2f6bf6] text-white">
+            <i className="fas fa-filter text-[11px]" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="mt-1.5 flex items-center gap-2 border-t border-slate-100/90 pt-1.5">
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <ScopeBreadcrumb
+              i18n={tx.i18n}
+              groupId={groupId}
+              companyCode={companyCode}
+              groupsAllMode={tx.groupsAllMode}
+              groupAllMode={tx.groupAllMode}
+              groupOnlyMode={tx.groupOnlyMode}
+            />
+          </div>
+        </div>
+      </button>
+
+      <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <ToggleChip active={tx.showName} onClick={() => tx.setShowName(!tx.showName)}>
+          {tx.m.showName}
+        </ToggleChip>
+        <ToggleChip active={tx.showCaptureOnly} onClick={() => tx.setShowCaptureOnly(!tx.showCaptureOnly)}>
+          {tx.m.showCaptureOnly}
+        </ToggleChip>
+        <ToggleChip active={tx.showPaymentOnly} onClick={() => tx.setShowPaymentOnly(!tx.showPaymentOnly)}>
+          {tx.m.showPaymentOnly}
+        </ToggleChip>
+        <ToggleChip active={tx.showZeroBalance} onClick={() => tx.setShowZeroBalance(!tx.showZeroBalance)}>
+          {tx.m.showZeroBalance}
+        </ToggleChip>
+      </div>
+    </div>
+  );
+
+  const showLoading = tx.loading || (tx.searchLoading && !tx.displayRows.length);
+
+  return (
+    <MobileShell
+      i18n={tx.i18n}
+      me={tx.me}
+      companyCode={viewingCompanyCode}
+      groupId={sidebarGroupId}
+      onLogout={tx.logout}
+      onRefresh={tx.retry}
+      refreshing={tx.searchLoading}
+      stickyBar={stickyBar}
+      lang={tx.lang}
+      onLangChange={tx.setLang}
+      overlayOpen={filterOpen || addOpen}
+      overlay={
+        <>
+          <FilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} dash={tx} />
+          <AddTransactionSheet
+            open={addOpen}
+            onClose={() => setAddOpen(false)}
+            m={tx.m}
+            accountOptions={tx.accountOptions}
+            currencyOptions={tx.formCurrencies}
+            mutationsBlocked={tx.mutationsBlocked}
+            onSubmit={tx.submitTx}
+            pushToast={tx.pushToast}
+          />
+        </>
+      }
+    >
+      {tx.toast ? (
+        <div
+          className={`fixed left-4 right-4 top-24 z-[70] rounded-2xl px-4 py-3 text-[13px] font-semibold shadow-lg ${
+            tx.toast.tone === "error"
+              ? "bg-rose-600 text-white"
+              : tx.toast.tone === "success"
+                ? "bg-emerald-600 text-white"
+                : "bg-slate-800 text-white"
+          }`}
+        >
+          {tx.toast.message}
+        </div>
+      ) : null}
+
+      {tx.error ? (
+        <div className="rounded-2xl bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-700">{tx.error}</div>
+      ) : null}
+
+      {showLoading ? (
+        <div className="flex flex-col items-center gap-3 py-16 text-slate-500">
+          <i className="fas fa-spinner fa-spin text-2xl text-[#2f6bf6]" aria-hidden="true" />
+          <p className="text-[13px] font-semibold">{tx.m.loadingData}</p>
+        </div>
+      ) : (
+        <>
+          {tx.totals ? (
+            <div className="mb-3 grid grid-cols-4 gap-2 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
+              <TotalCell label={tx.m.bfTable} value={tx.totals.bf} />
+              <TotalCell label={tx.m.winLossTableCompact} value={tx.totals.win_loss} />
+              <TotalCell label={tx.m.crDrTable} value={tx.totals.cr_dr} />
+              <TotalCell label={tx.m.balanceTableCompact} value={tx.totals.balance} highlight />
+            </div>
+          ) : null}
+
+          <p className="mb-2 text-[12px] font-bold uppercase tracking-wide text-slate-400">
+            {tx.m.accountList} ({tx.displayRows.length})
+          </p>
+
+          {tx.searchError ? (
+            <p className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-semibold text-rose-700">
+              {tx.searchError}
+            </p>
+          ) : null}
+
+          <div className="space-y-3 pb-24">
+            {tx.displayRows.length === 0 ? (
+              <p className="py-8 text-center text-[13px] font-medium text-slate-500">{tx.m.noAccountsFound}</p>
+            ) : (
+              tx.displayRows.map((row) => (
+                <AccountCard
+                  key={`${row.account_db_id || row.account_id}-${row.currency}`}
+                  row={row}
+                  showName={tx.showName}
+                  m={tx.m}
+                  onOpenHistory={openHistory}
+                />
+              ))
+            )}
+          </div>
+        </>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setAddOpen(true)}
+        disabled={tx.mutationsBlocked}
+        className="tap-scale fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-50 grid size-14 place-items-center rounded-full bg-[#2f6bf6] text-white shadow-[0_12px_28px_-8px_rgba(47,107,246,0.65)] disabled:opacity-40"
+        aria-label={tx.m.addTransaction}
+      >
+        <i className="fas fa-plus text-lg" aria-hidden="true" />
+      </button>
+    </MobileShell>
+  );
+}
+
+function TotalCell({ label, value, highlight = false }) {
+  return (
+    <div className="text-center">
+      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className={`mt-0.5 text-[11px] font-bold tabular-nums ${highlight ? "text-[#2f6bf6]" : "text-slate-800"}`}>
+        {formatTransactionGridMoneyHalfUp(value)}
+      </p>
+    </div>
+  );
+}
