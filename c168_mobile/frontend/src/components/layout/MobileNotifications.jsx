@@ -28,7 +28,7 @@ export default function MobileNotifications({ open, onClose, i18n, items = [], l
     >
       <button
         type="button"
-        aria-label={i18n?.closeMenu || "Close"}
+        aria-label={i18n?.dismissMenu || "Dismiss notifications"}
         onClick={onClose}
         className="absolute inset-0 size-full border-0 bg-slate-900/35 backdrop-blur-[2px]"
       />
