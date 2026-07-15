@@ -290,12 +290,13 @@ function TransactionPaymentPageMain() {
   const scopeDataPending = Boolean(
     filterSnapshot && scopeCacheKey && data.currencyScopeBundle?.scopeKey !== scopeCacheKey,
   );
-  const tablesLoading = search.searchLoading || scopeDataPending;
+  const tablesLoading = search.searchLoading || (scopeDataPending && !search.rawSearchData);
   const tablesVisible = shouldShowTransactionTablesSection({
     showAllCurrencies: search.showAllCurrencies,
     selectedCurrencies: search.selectedCurrencies,
     tablePresentation: search.tablePresentation,
     searchLoading: tablesLoading,
+    hasCommittedSearch: search.rawSearchData != null,
   });
 
   return (
@@ -314,7 +315,7 @@ function TransactionPaymentPageMain() {
         t={t}
       />
 
-      <main className={`transaction-main${booting ? " transaction-main--booting" : ""}`}>
+      <main className={`transaction-main${booting && !search.rawSearchData ? " transaction-main--booting" : ""}`}>
         {booting && !search.rawSearchData ? (
           <div className="transaction-boot-loading" aria-live="polite" aria-busy="true">
             {m.loadingData}

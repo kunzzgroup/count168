@@ -636,8 +636,15 @@ export function useTransactionSearch({
       }
 
       let blockOverlay = showBlockingOverlayOpt !== undefined ? showBlockingOverlayOpt : !silent;
-      if (isInitialLoad || suppressBlockingOverlayOnceRef.current) {
-        blockOverlay = false;
+      // Never suppress the tables loading indicator when we have nothing to paint —
+      // isInitialLoad / company-switch suppress used to leave a silent blank under slow nets.
+      const hasExistingData = Boolean(instantData || rawSearchData);
+      if (showBlockingOverlayOpt === undefined) {
+        if ((isInitialLoad || suppressBlockingOverlayOnceRef.current) && hasExistingData) {
+          blockOverlay = false;
+        }
+      }
+      if (suppressBlockingOverlayOnceRef.current) {
         suppressBlockingOverlayOnceRef.current = false;
       }
 
@@ -651,14 +658,13 @@ export function useTransactionSearch({
       }
 
       let didSetBlockingLoading = false;
-      const hasExistingData = Boolean(instantData || rawSearchData);
       const showLoadingIndicator = blockOverlay && !hasExistingData;
       if (showLoadingIndicator) {
         setSearchLoading(true);
         didSetBlockingLoading = true;
       }
       if (!instantData) {
-        setTablesVisible((prev) => (showLoadingIndicator ? true : prev));
+        setTablesVisible((prev) => (showLoadingIndicator || prev ? true : prev));
       }
 
       const subsidiarySearch =
@@ -855,7 +861,7 @@ export function useTransactionSearch({
       setSearchLoading(true);
       try {
         if (forceRefresh) {
-          clearTxSearchCache();
+          // Only invalidate React Query search roots — do not wipe in-memory/session company grids.
           await queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
         }
 
@@ -887,8 +893,8 @@ export function useTransactionSearch({
             setTypeSearchFormType(normalizedType);
             setTypeSearchAccountIds([]);
             setRawSearchData({ left_table: [], right_table: [], totals: null });
-            setTablesVisible(false);
-            clearTxSearchCache();
+            setTablesVisible(true);
+            if (!silent) pushToast(m.searchCompletedNoData, "info");
             return;
           }
 
@@ -931,13 +937,16 @@ export function useTransactionSearch({
         setTypeSearchFormType(normalizedType);
         setTypeSearchAccountIds(typeAccountIds);
         setRawSearchData(cleaned);
-        clearTxSearchCache();
 
         const displayed =
           (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
-        setTablesVisible(displayed > 0);
-        if (!silent && displayed > 0) {
-          pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
+        setTablesVisible(true);
+        if (!silent) {
+          if (displayed > 0) {
+            pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
+          } else {
+            pushToast(m.searchCompletedNoData, "info");
+          }
         }
       } catch (e) {
         if (e?.name === "AbortError" || isCancelledError(e)) return;
@@ -1383,7 +1392,6 @@ export function useTransactionSearch({
     if (scopeChanged) {
       earlyCurrencyScopeRef.current = null;
       currenciesBeforeAllRef.current = [];
-      suppressBlockingOverlayOnceRef.current = true;
       prevCaptureDateRangeKeyRef.current = null;
       prevServerSideFiltersRef.current = null;
       setSubmitFocusByCurrency({});
@@ -1423,9 +1431,14 @@ export function useTransactionSearch({
         const replayRows =
           (instantReplay.left_table?.length || 0) + (instantReplay.right_table?.length || 0);
         setTablesVisible(replayRows > 0);
+        // Have paint-ready data — skip blocking overlay once.
+        suppressBlockingOverlayOnceRef.current = true;
       } else {
+        // Cold scope: clear previous company rows but keep section visible.
+        // Next initial search must show tables-area loading (not a silent blank).
         setRawSearchData(null);
-        setTablesVisible(false);
+        setTablesVisible(true);
+        suppressBlockingOverlayOnceRef.current = false;
       }
 
       if (!currencyPrefs.showAll && currencyPrefs.currencies.length > 0) {
@@ -1446,7 +1459,6 @@ export function useTransactionSearch({
 
     prevScopeKeyForSearchRef.current = scopeKey;
     if (scopeChanged) {
-      setTablesVisible(false);
       lastCompletedSearchKeyRef.current = "";
       initialSearchDoneRef.current = false;
       lastInitialSearchKeyRef.current = "";
@@ -1524,7 +1536,8 @@ export function useTransactionSearch({
       isInitialLoad: true,
       silent: hadReplay,
       notifyErrors: !hadReplay,
-      showBlockingOverlay: false,
+      // Cold (no session/memory paint): show tables loading. Warm replay: stay silent.
+      showBlockingOverlay: !hadReplay,
     });
   }, [
     scopeKey,

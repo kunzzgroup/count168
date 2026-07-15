@@ -16,6 +16,17 @@ export default function TransactionTablesSection({
   const hasTableData = tp.mode !== "none";
   const showTablesWhileLoading = searchLoading && hasTableData;
   const showNameColumn = Boolean(searchState.showName);
+  const presentationRowCount =
+    (tp.defaultLeft?.length || 0) +
+    (tp.defaultRight?.length || 0) +
+    (Array.isArray(tp.grouped)
+      ? tp.grouped.reduce(
+          (n, g) => n + (g.left?.length || 0) + (g.right?.length || 0),
+          0,
+        )
+      : 0);
+  const showEmptyResult =
+    tablesVisible && !searchLoading && hasTableData && presentationRowCount === 0;
 
   return (
     <>
@@ -28,10 +39,20 @@ export default function TransactionTablesSection({
             {m.loadingData}
           </div>
         ) : null}
+        {showEmptyResult ? (
+          <div className="transaction-tables-empty" role="status" aria-live="polite">
+            {m.searchCompletedNoData}
+          </div>
+        ) : null}
         <div
           id="default-tables-container"
           style={{
-            display: tp.mode === "default" && (!searchLoading || showTablesWhileLoading) ? "flex" : "none",
+            display:
+              tp.mode === "default" &&
+              presentationRowCount > 0 &&
+              (!searchLoading || showTablesWhileLoading)
+                ? "flex"
+                : "none",
             flexDirection: "column",
             width: "100%",
             opacity: showTablesWhileLoading ? 0.55 : 1,
@@ -126,7 +147,12 @@ export default function TransactionTablesSection({
         <div
           id="currency-grouped-tables-container"
           style={{
-            display: tp.mode === "grouped" && (!searchLoading || showTablesWhileLoading) ? "block" : "none",
+            display:
+              tp.mode === "grouped" &&
+              presentationRowCount > 0 &&
+              (!searchLoading || showTablesWhileLoading)
+                ? "block"
+                : "none",
             width: "100%",
             opacity: showTablesWhileLoading ? 0.55 : 1,
             pointerEvents: showTablesWhileLoading ? "none" : "auto",
@@ -196,7 +222,7 @@ export default function TransactionTablesSection({
           ))}
         </div>
       </div>
-      <div className="transaction-summary-section" style={{ display: tablesVisible && tp.mode !== "grouped" ? "flex" : "none" }}>
+      <div className="transaction-summary-section" style={{ display: tablesVisible && tp.mode !== "grouped" && presentationRowCount > 0 ? "flex" : "none" }}>
         <table className="transaction-summary-table">
           <thead><tr className="transaction-table-header"><th colSpan={2}>{m.total}</th></tr></thead>
           <tbody>

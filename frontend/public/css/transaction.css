@@ -1220,10 +1220,9 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     transition: opacity 0.2s ease;
 }
 
+/* Boot indicator only — keep filters/company pills interactive under slow networks. */
 .transaction-page .transaction-main--booting .transaction-main-content {
-    opacity: 0.72;
-    pointer-events: none;
-    user-select: none;
+    opacity: 1;
 }
 
 .transaction-page .transaction-tables-section {
@@ -1266,6 +1265,22 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     width: 100%;
     color: #6b7280;
     font-size: clamp(9px, 0.73vw, 14px);
+}
+
+.transaction-page .transaction-tables-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 96px;
+    width: 100%;
+    margin: 8px 0 16px;
+    padding: 16px 20px;
+    color: #6b7280;
+    font-size: clamp(12px, 0.9vw, 14px);
+    text-align: center;
+    background: #f9fafb;
+    border: 1px dashed #d1d5db;
+    border-radius: 8px;
 }
 
 .transaction-page .transaction-tables-refreshing {
