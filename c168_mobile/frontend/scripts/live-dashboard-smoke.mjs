@@ -109,16 +109,52 @@ async function main() {
     await page.waitForTimeout(2500);
 
     const title = page.getByRole("heading", { name: /Dashboard|仪表盘/i });
-    if (!(await title.count())) fail("Dashboard title missing");
-    ok("Dashboard title visible");
+    if (await title.count()) {
+      console.warn("  ! old Dashboard title still present");
+    }
 
-    const filter = page.getByRole("button", { name: /Filter|筛选/i }).first();
+    const menu = page.getByRole("button", { name: /Open menu|打开菜单/i });
+    if (!(await menu.count())) fail("Hamburger menu missing");
+    ok("App bar hamburger present");
+
+    const logo = page.locator('img[alt="EazyCount"]');
+    if (!(await logo.count())) fail("EazyCount logo missing");
+    ok("Brand logo present");
+
+    const notify = page.getByRole("button", { name: /Notifications|通知/i });
+    if (!(await notify.count())) fail("Notifications button missing");
+    ok("Notifications control present");
+
+    const viewing = page.getByText(/Viewing company|当前公司/i);
+    if (!(await viewing.count())) fail("Company scope bar missing");
+    ok("Company context visible");
+
+    const filter = page.getByRole("button", { name: /^Filter$|^筛选$/i }).first();
     if (!(await filter.count())) fail("Filter button missing");
     ok("Filter control present");
 
     const hero = page.locator("section").filter({ hasText: /NET PROFIT|净利|Net Profit/i }).first();
     if (!(await hero.count())) fail("Hero net profit card missing");
     ok("Hero card present");
+
+    await menu.click();
+    await page.waitForTimeout(400);
+    const side = page.getByRole("dialog", { name: /Menu|菜单/i });
+    if (!(await side.isVisible().catch(() => false))) fail("Sidebar did not open");
+    ok("Sidebar opens");
+    await page.getByRole("button", { name: /Close|关闭/i }).first().click().catch(async () => {
+      await page.locator('[aria-label="Close"], [aria-label="关闭"]').first().click();
+    });
+    await page.waitForTimeout(300);
+
+    await notify.click();
+    await page.waitForTimeout(500);
+    const notifyDlg = page.getByRole("dialog", { name: /Notifications|通知/i });
+    if (!(await notifyDlg.isVisible().catch(() => false))) fail("Notifications sheet did not open");
+    ok("Notifications sheet opens");
+    await page.keyboard.press("Escape").catch(() => {});
+    await page.getByRole("button", { name: /Close|关闭/i }).first().click().catch(() => {});
+    await page.waitForTimeout(200);
 
     const bootstrap = apiHits.find((h) => h.path.includes("dashboard_bootstrap_api.php"));
     if (!bootstrap) fail("dashboard_bootstrap_api never called");

@@ -76,3 +76,20 @@
 .tap-scale:active {
   transform: scale(0.98);
 }
+
+/* Narrow phones / fold cover */
+@media (max-width: 340px) {
+  .dev-phone-screen,
+  #root {
+    font-size: 15px;
+  }
+}
+
+/* Large phones / small tablets: keep content centered */
+@media (min-width: 480px) {
+  .mobile-shell-wide {
+    max-width: 480px;
+    margin-inline: auto;
+  }
+}
+

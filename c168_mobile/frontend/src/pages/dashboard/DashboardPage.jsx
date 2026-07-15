@@ -16,7 +16,6 @@ export default function DashboardPage() {
   const sparklineValues = useMemo(() => {
     const rows = dash.chartRows || [];
     if (rows.length < 2) return [];
-    // Cap points for hero sparkline readability on narrow phones.
     const step = Math.max(1, Math.floor(rows.length / 24));
     return rows.filter((_, i) => i % step === 0 || i === rows.length - 1).map((r) => Number(r.netProfit) || 0);
   }, [dash.chartRows]);
@@ -37,44 +36,36 @@ export default function DashboardPage() {
     });
   }
 
-  const greetingName = me?.nickname || me?.username || me?.name || "";
+  const companyCode = String(dash.selectedCompany?.company_id || "").toUpperCase();
+  const groupId = String(
+    dash.selectedGroup || dash.selectedCompany?.group_id || dash.selectedCompany?.link_source_group || "",
+  )
+    .trim()
+    .toUpperCase();
 
   return (
     <MobileShell
       i18n={i18n}
       me={me}
+      companyCode={companyCode}
+      groupId={dash.groupsAllMode ? i18n.all : groupId}
+      companies={dash.companiesForPicker}
+      onSwitchCompany={dash.switchCompany}
+      onLogout={dash.logout}
+      onOpenCompanyFilter={() => setFilterOpen(true)}
       overlay={<FilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} dash={dash} />}
     >
-      <div
-        className="relative w-full max-w-full overflow-x-hidden px-3.5 pb-3"
-        style={{ paddingTop: "max(10px, env(safe-area-inset-top, 0px))" }}
-      >
+      <div className="relative w-full max-w-full overflow-x-hidden px-3.5 pb-3 pt-3">
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-56 opacity-90"
+          className="pointer-events-none absolute inset-x-0 top-0 h-48 opacity-90"
           style={{
             background:
-              "radial-gradient(ellipse 90% 70% at 10% -10%, rgba(47,107,255,0.14), transparent 55%), radial-gradient(ellipse 60% 50% at 90% 10%, rgba(56,189,248,0.12), transparent 50%)",
+              "radial-gradient(ellipse 90% 70% at 10% -10%, rgba(47,107,255,0.12), transparent 55%), radial-gradient(ellipse 60% 50% at 90% 10%, rgba(56,189,248,0.1), transparent 50%)",
           }}
           aria-hidden="true"
         />
 
-        <header className="relative flex items-end justify-between gap-3 py-2">
-          <div className="min-w-0">
-            <h1 className="text-[24px] font-bold tracking-tight text-slate-900">{i18n.dashboard}</h1>
-            {greetingName ? (
-              <p className="mt-0.5 truncate text-[13px] font-semibold text-slate-500">
-                {i18n.greeting.replace("{name}", greetingName)}
-              </p>
-            ) : null}
-          </div>
-          {dash.selectedCompany?.company_id ? (
-            <span className="shrink-0 rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold tracking-wide text-slate-600 shadow-sm ring-1 ring-slate-100">
-              {dash.selectedCompany.company_id}
-            </span>
-          ) : null}
-        </header>
-
-        <div className="relative mb-4 mt-2 flex items-center gap-2.5">
+        <div className="relative mb-4 flex items-center gap-2.5">
           <button
             type="button"
             onClick={() => setFilterOpen(true)}

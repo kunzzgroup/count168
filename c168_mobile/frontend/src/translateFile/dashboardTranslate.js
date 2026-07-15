@@ -54,6 +54,13 @@ export const DASHBOARD_I18N = {
     navTransaction: "Transaction",
     navMore: "More",
     to: "to",
+    openMenu: "Open menu",
+    closeMenu: "Close",
+    menu: "Menu",
+    notifications: "Notifications",
+    noNotifications: "No notifications",
+    viewingCompany: "Viewing company",
+    switchCompany: "Switch",
   },
   zh: {
     dashboard: "仪表盘",
@@ -110,6 +117,13 @@ export const DASHBOARD_I18N = {
     navTransaction: "交易",
     navMore: "更多",
     to: "至",
+    openMenu: "打开菜单",
+    closeMenu: "关闭",
+    menu: "菜单",
+    notifications: "通知",
+    noNotifications: "暂无通知",
+    viewingCompany: "当前公司",
+    switchCompany: "切换",
   },
 };
 
