@@ -34,6 +34,27 @@ function sameStringList(a, b) {
   return a.every((value, index) => value === b[index]);
 }
 
+function buildDashboardScopeKey({
+  companyId,
+  selectedGroup,
+  groupAllMode,
+  groupsAllMode,
+  dateFrom,
+  dateTo,
+  currency,
+}) {
+  const cid = Number.isFinite(Number(companyId)) && Number(companyId) > 0 ? String(Number(companyId)) : "";
+  return [
+    cid,
+    String(selectedGroup || "").toUpperCase(),
+    groupAllMode ? "1" : "0",
+    groupsAllMode ? "1" : "0",
+    dateFrom || "",
+    dateTo || "",
+    String(currency || "").toUpperCase(),
+  ].join("|");
+}
+
 function earningsRowsFromBootstrap(bootstrap, panelMetric, primaryCurrency, kpiOpts = {}) {
   // Mobile hero/KPI are Net Profit — currency breakdown uses the same metric
   // (avoid mixing primary-currency net with other-currency earnings).
@@ -86,6 +107,8 @@ export function useMobileDashboard() {
   const [dateTo, setDateTo] = useState(defaults.dateTo);
   const [activePreset, setActivePreset] = useState("thisYear");
   const [bootstrap, setBootstrap] = useState(null);
+  const [loadedScopeKey, setLoadedScopeKey] = useState("");
+  const loadedScopeKeyRef = useRef("");
   const [exchangeRates, setExchangeRates] = useState({ rates: { MYR: 1 }, date: null });
   const [exchangeRatesLoading, setExchangeRatesLoading] = useState(false);
   const [exchangeRatesError, setExchangeRatesError] = useState(false);
@@ -213,6 +236,20 @@ export function useMobileDashboard() {
   }, [companies, companyId, selectedGroup, groupAllMode, groupsAllMode]);
 
   // Bootstrap — gated on currenciesReady; ignore stale responses
+  const scopeKey = useMemo(
+    () =>
+      buildDashboardScopeKey({
+        companyId,
+        selectedGroup,
+        groupAllMode,
+        groupsAllMode,
+        dateFrom,
+        dateTo,
+        currency,
+      }),
+    [companyId, selectedGroup, groupAllMode, groupsAllMode, dateFrom, dateTo, currency],
+  );
+
   useEffect(() => {
     const hasCompany = Number.isFinite(Number(companyId)) && Number(companyId) > 0;
     const groupOnly = Boolean(selectedGroup && !groupAllMode && !groupsAllMode && !hasCompany);
@@ -223,6 +260,9 @@ export function useMobileDashboard() {
     if (!canLoad) return undefined;
     const ac = new AbortController();
     const seq = ++bootstrapSeq.current;
+    const requestScopeKey = scopeKey;
+    const prevLoaded = loadedScopeKeyRef.current;
+    const isScopeChange = Boolean(prevLoaded) && prevLoaded !== requestScopeKey;
     setBootstrapping(true);
     setError("");
     (async () => {
@@ -247,11 +287,18 @@ export function useMobileDashboard() {
           const { DEMO_BOOTSTRAP } = await import("../lib/demoDashboard.js");
           finalData = DEMO_BOOTSTRAP;
         }
+        loadedScopeKeyRef.current = requestScopeKey;
+        setLoadedScopeKey(requestScopeKey);
         setBootstrap(finalData);
       } catch (e) {
         if (ac.signal.aborted || e?.name === "AbortError" || seq !== bootstrapSeq.current) return;
-        // Keep last good bootstrap so refresh failures don't blank the screen
         setError(e?.message || i18n.loadError);
+        // Soft refresh keeps last paint; scope change must not show another company's totals.
+        if (isScopeChange || !prevLoaded) {
+          loadedScopeKeyRef.current = "";
+          setLoadedScopeKey("");
+          setBootstrap(null);
+        }
       } finally {
         if (!ac.signal.aborted && seq === bootstrapSeq.current) setBootstrapping(false);
       }
@@ -271,12 +318,14 @@ export function useMobileDashboard() {
     reloadNonce,
     loadBootstrap,
     i18n.loadError,
+    scopeKey,
   ]);
 
   const useConvertedEarnings = currencies.length > 1;
-  // Skeleton only on cold start; keep previous cards visible while filters refresh.
-  const initialLoading = loading || (!bootstrap && (bootstrapping || !currenciesReady));
-  const refreshing = Boolean(bootstrap) && (bootstrapping || exchangeRatesLoading);
+  const scopeStale = Boolean(bootstrap) && loadedScopeKey && loadedScopeKey !== scopeKey;
+  // Skeleton on cold start or when switching Group/Company (never paint wrong-scope totals).
+  const initialLoading = loading || scopeStale || (!bootstrap && (bootstrapping || !currenciesReady));
+  const refreshing = Boolean(bootstrap) && !scopeStale && (bootstrapping || exchangeRatesLoading);
   const showLoading = initialLoading;
 
   useEffect(() => {
