@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from "react";
+import { flushSync } from "react-dom";
 import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import {
   TRANSACTION_CURRENCY_FILTER_KEY_PREFIX,
@@ -18,6 +19,7 @@ import {
   pickTransactionDefaultCurrency,
   readTxListFromSessionStorage,
   sortByRole,
+  applyOptimisticSubmitBalancePatch,
   sanitizeSearchApiData,
   mergeSearchApiDataList,
 } from "../lib/transactionPaymentLogic.js";
@@ -28,6 +30,7 @@ import {
   saveUserCurrencyOrder,
   transactionQueryKeys,
 } from "../lib/transactionApi.js";
+import { buildOptimisticSubmitDeltas } from "../lib/transactionSubmitHelpers.js";
 import { getTxSearchCache, setTxSearchCache, clearTxSearchCache } from "../../../utils/transaction/transactionSearchCache.js";
 import {
   buildDefaultSearchApiParams,
@@ -970,7 +973,14 @@ export function useTransactionSearch({
 
   /** After successful submit/approval: keep capture date; show union of submitted account rows. */
   const applySubmitFocusAndRefresh = useCallback(
-    async ({ accountIds, submitCurrency } = {}) => {
+    async ({
+      accountIds,
+      submitCurrency,
+      amount,
+      txType: submitTxType,
+      toAccountId,
+      fromAccountId,
+    } = {}) => {
       const ids = [...new Set((accountIds || []).map((id) => Number(id)).filter((id) => id > 0))];
       if (ids.length === 0) return;
       if (!scopeReady || !scopeCacheCompanyKey) return;
@@ -1014,8 +1024,8 @@ export function useTransactionSearch({
         }
       }
 
-      setSearchLoading(true);
-      try {
+      // Paint focused rows + optimistic balances before the network refresh.
+      flushSync(() => {
         setTypeSearchActive(false);
         setTypeSearchFormType(null);
         setTypeSearchAccountIds([]);
@@ -1031,6 +1041,31 @@ export function useTransactionSearch({
         setSubmitFocusRangeKey(rangeKey);
         submitFocusLeftRangeKeysRef.current.delete(rangeKey);
 
+        const deltas = buildOptimisticSubmitDeltas({
+          txType: submitTxType,
+          amount,
+          toAccountId,
+          fromAccountId,
+        });
+        if (deltas.length > 0 && currencyCode) {
+          let didPatch = false;
+          setRawSearchData((prev) => {
+            const patched = applyOptimisticSubmitBalancePatch(prev, {
+              currency: currencyCode,
+              deltas,
+            });
+            if (patched && patched !== prev) {
+              didPatch = true;
+              return patched;
+            }
+            return prev;
+          });
+          if (didPatch) setTablesVisible(true);
+        }
+      });
+
+      setSearchLoading(true);
+      try {
         // forceRefresh already clears caches + invalidates; avoid a second round-trip here.
         await runSearch({
           forceRefresh: true,

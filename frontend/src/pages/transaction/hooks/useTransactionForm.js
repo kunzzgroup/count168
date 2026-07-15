@@ -594,6 +594,10 @@ export function useTransactionForm({
                     isAdjustment,
                   }),
                   submitCurrency: txCurrency,
+                  amount: payload.amount,
+                  txType: payload.transaction_type,
+                  toAccountId: toId,
+                  fromAccountId: isAdjustment ? "" : fromId,
                 },
         });
         return;
