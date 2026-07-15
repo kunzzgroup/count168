@@ -71,6 +71,8 @@ export default function DashboardPage() {
       stickyBar={stickyBar}
       lang={dash.lang}
       onLangChange={dash.setLang}
+      onChromeOpen={() => setFilterOpen(false)}
+      overlayOpen={filterOpen}
       overlay={<FilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} dash={dash} />}
     >
       <div className="relative w-full max-w-full overflow-x-hidden px-3.5 pb-3 pt-3">
@@ -115,6 +117,7 @@ export default function DashboardPage() {
             compareLabel={compareLabel}
             multiCurrency={dash.showMultiCurrencyNote}
             loading={loading}
+            empty={!loading && !dash.hasData}
             sparklineValues={sparklineValues}
           />
 

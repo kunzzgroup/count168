@@ -37,6 +37,8 @@ export default function MobileShell({
   showBottomNav = true,
   lang = "en",
   onLangChange,
+  onChromeOpen,
+  overlayOpen = false,
 }) {
   const labels = i18n || {
     navHome: "Home",
@@ -49,6 +51,24 @@ export default function MobileShell({
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const [notifyLoading, setNotifyLoading] = useState(false);
+
+  const openSidebar = () => {
+    onChromeOpen?.();
+    setNotifyOpen(false);
+    setSidebarOpen(true);
+  };
+  const openNotifications = () => {
+    onChromeOpen?.();
+    setSidebarOpen(false);
+    setNotifyOpen(true);
+  };
+
+  // Opening Filter (or any page overlay) dismisses menu / notifications.
+  useEffect(() => {
+    if (!overlayOpen) return;
+    setSidebarOpen(false);
+    setNotifyOpen(false);
+  }, [overlayOpen]);
 
   useEffect(() => {
     if (!me) return undefined;
@@ -86,8 +106,8 @@ export default function MobileShell({
       <MobileAppBar
         i18n={labels}
         notificationCount={announcements.length}
-        onOpenSidebar={() => setSidebarOpen(true)}
-        onOpenNotifications={() => setNotifyOpen(true)}
+        onOpenSidebar={openSidebar}
+        onOpenNotifications={openNotifications}
       />
 
       <CompanyScopeBar i18n={labels} companyCode={companyCode} groupId={groupId} />

@@ -8,11 +8,13 @@ export default function HeroSummaryCard({
   compareLabel,
   multiCurrency,
   loading,
+  empty = false,
   sparklineValues = [],
 }) {
-  const showCompare = !loading && compare && Number.isFinite(compare?.pct);
+  const showCompare = !loading && !empty && compare && Number.isFinite(compare?.pct);
 
   const sparkPath = (() => {
+    if (empty || loading) return null;
     const vals = (sparklineValues || []).filter((v) => Number.isFinite(v));
     if (vals.length < 2) return null;
     const min = Math.min(...vals);
@@ -75,6 +77,8 @@ export default function HeroSummaryCard({
       >
         {loading ? (
           <span className="inline-block h-10 w-40 animate-pulse rounded-xl bg-white/25" />
+        ) : empty ? (
+          <span className="text-[22px] font-semibold tracking-normal text-white/80">—</span>
         ) : (
           formatCurrencyHero(value)
         )}
@@ -86,7 +90,11 @@ export default function HeroSummaryCard({
         </p>
       )}
 
-      {multiCurrency && (
+      {empty && !loading && (
+        <p className="relative mt-3 text-[12px] font-semibold text-white/75">{i18n.noData}</p>
+      )}
+
+      {multiCurrency && !empty && (
         <p className="relative mt-2 text-[11px] font-semibold text-white/70">{i18n.multiCurrencyNote}</p>
       )}
     </section>
