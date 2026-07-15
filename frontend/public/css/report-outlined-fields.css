@@ -63,7 +63,7 @@ body.maintenance-page .customer-report-filters .report-outlined-inner .transacti
     min-height: clamp(32px, 2.25vw, 36px) !important;
 }
 
-/* Maintenance Date Range: left-align text; clip calendar block to shell (no refresh border flash) */
+/* Maintenance Date Range: left-align text; flush calendar tile to shell inner corner (no refresh double-border) */
 body.maintenance-page .customer-report-filters .report-outlined-inner:has(.transaction-date-range-group),
 body.maintenance-page .customer-report-filters .report-outlined-inner:has(.date-range-picker) {
     overflow: hidden;
@@ -77,15 +77,17 @@ body.maintenance-page .customer-report-filters .report-date-range-picker-contain
     border: none !important;
     box-shadow: none !important;
     background: transparent !important;
+    overflow: hidden;
 }
 
 body.maintenance-page .customer-report-filters .report-date-range-picker-container .date-range-picker i.fa-calendar-alt {
     margin: 0 !important;
     flex: 0 0 auto;
     align-self: stretch;
-    /* Inner overflow clips to shell radius — avoid mismatched corners / top hairline on refresh */
-    border-radius: 0 !important;
+    /* Outer shell radius is clamp(6–8px); sit flush inside the 1px border */
+    border-radius: calc(clamp(6px, 0.52vw, 8px) - 1px) 0 0 calc(clamp(6px, 0.52vw, 8px) - 1px) !important;
     background-clip: padding-box;
+    box-shadow: none !important;
 }
 
 body.maintenance-page .customer-report-filters .report-date-range-picker-container .date-range-picker [id^="date-range-display"] {

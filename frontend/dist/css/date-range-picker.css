@@ -44,6 +44,20 @@
     font-weight: 500;
 }
 
+/* Outlined floating-label fields: border lives on .report-outlined-shell only.
+   Keep this in the shared sheet so maintenance/report avoid a double-border FOUC on refresh. */
+.report-outlined-inner .date-range-picker,
+.report-outlined-inner .date-range-picker:hover,
+.report-outlined-inner .date-range-picker:focus-visible {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+.report-outlined-inner .date-range-picker i.fa-calendar-alt {
+    margin: 0 !important;
+}
+
 /* Calendar popup - width set by JS to match date-range bar */
 .calendar-popup {
     position: fixed;
