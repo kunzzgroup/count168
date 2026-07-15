@@ -73,6 +73,12 @@ export const DASHBOARD_I18N = {
     pullToRefresh: "Pull to refresh",
     releaseToRefresh: "Release to refresh",
     groupHint: "Tap a group for group-only · Company All aggregates companies",
+    retry: "Retry",
+    emptyTitle: "No data for this period",
+    emptyHint: "Try another date range, or switch company / group in Filter.",
+    emptyErrorTitle: "Can't load this view",
+    emptyErrorHint: "You may not have access, or the server failed. Retry or pick a company.",
+    chartSelectSeries: "Tap a series above to show the chart",
   },
   zh: {
     dashboard: "仪表盘",
@@ -148,6 +154,12 @@ export const DASHBOARD_I18N = {
     pullToRefresh: "下拉刷新",
     releaseToRefresh: "松开刷新",
     groupHint: "点 Group 仅看该组 · 公司 All 汇总组内公司",
+    retry: "重试",
+    emptyTitle: "该周期暂无数据",
+    emptyHint: "可换日期范围，或在筛选里切换公司 / Group。",
+    emptyErrorTitle: "无法加载此视图",
+    emptyErrorHint: "可能没有权限，或服务暂时失败。请重试或改选公司。",
+    chartSelectSeries: "点上方系列以显示图表",
   },
 };
 

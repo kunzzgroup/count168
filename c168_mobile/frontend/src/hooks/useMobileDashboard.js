@@ -112,7 +112,7 @@ export function useMobileDashboard() {
   const [exchangeRates, setExchangeRates] = useState({ rates: { MYR: 1 }, date: null });
   const [exchangeRatesLoading, setExchangeRatesLoading] = useState(false);
   const [exchangeRatesError, setExchangeRatesError] = useState(false);
-  const [chartVisible, setChartVisible] = useState({ 0: true, 1: true, 2: true, 3: true });
+  const [chartVisible, setChartVisible] = useState({ 0: false, 1: false, 2: true, 3: false });
   const [loading, setLoading] = useState(true);
   const [bootstrapping, setBootstrapping] = useState(false);
   const [error, setError] = useState("");
@@ -435,8 +435,7 @@ export function useMobileDashboard() {
   }, [i18n, kpi?.showEarnings]);
 
   const chartXAxisLayout = useMemo(() => {
-    const tick = resolveDailyChartXAxisTicks(chartRows.length);
-    return { ...tick, height: 22, marginBottom: 22 };
+    return resolveDailyChartXAxisTicks(chartRows.length);
   }, [chartRows.length]);
 
   const panelMetric = kpi?.netProfit ?? null;

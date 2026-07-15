@@ -2,20 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const THRESHOLD = 68;
 const MAX_PULL = 112;
-const ARM_AT = THRESHOLD * 0.9;
+const ARM_RATIO = 0.9;
+const AXIS_LOCK_PX = 8;
 
-/** Finger delta → visible pull distance (snappy first, then rubber-band). */
 function damp(delta) {
   if (delta <= 0) return 0;
-  const felt = delta * 0.52;
-  if (felt <= THRESHOLD) return Math.min(MAX_PULL, felt);
-  const over = felt - THRESHOLD;
-  return Math.min(MAX_PULL, THRESHOLD + over * 0.22);
+  const eased = THRESHOLD * (1 - Math.exp(-delta / (THRESHOLD * 1.15)));
+  return Math.min(MAX_PULL, eased);
 }
 
 /**
  * Touch pull-to-refresh for a vertical scroll container (scrollTop≈0 to arm).
- * Skips horizontal pans (KPI carousels) and ignores mid-scroll pulls.
+ * Ignores horizontal swipes (KPI carousels) and settles with parent `refreshing`.
  */
 export function usePullToRefresh(scrollRef, { onRefresh, enabled = true, refreshing = false } = {}) {
   const [pullPx, setPullPx] = useState(0);
@@ -23,14 +21,18 @@ export function usePullToRefresh(scrollRef, { onRefresh, enabled = true, refresh
   const startY = useRef(0);
   const startX = useRef(0);
   const tracking = useRef(false);
-  const ignored = useRef(false);
+  const axisLocked = useRef(null); // null | "v" | "h"
   const locked = useRef(false);
   const sawRefreshing = useRef(false);
   const pullPxRef = useRef(0);
   const rafRef = useRef(0);
   const fallbackTimer = useRef(0);
+  const minHoldTimer = useRef(0);
+  const refreshStartedAt = useRef(0);
   const onRefreshRef = useRef(onRefresh);
   onRefreshRef.current = onRefresh;
+  const refreshingRef = useRef(refreshing);
+  refreshingRef.current = refreshing;
 
   const setPull = useCallback((px) => {
     pullPxRef.current = px;
@@ -41,7 +43,7 @@ export function usePullToRefresh(scrollRef, { onRefresh, enabled = true, refresh
   const settleIdle = useCallback(() => {
     locked.current = false;
     tracking.current = false;
-    ignored.current = false;
+    axisLocked.current = null;
     sawRefreshing.current = false;
     setPull(0);
     setPhase("idle");
@@ -51,14 +53,18 @@ export function usePullToRefresh(scrollRef, { onRefresh, enabled = true, refresh
     if (refreshing) {
       sawRefreshing.current = true;
       locked.current = true;
+      refreshStartedAt.current = Date.now();
       window.clearTimeout(fallbackTimer.current);
+      window.clearTimeout(minHoldTimer.current);
       setPhase("refreshing");
       setPull(Math.max(pullPxRef.current, 48));
       return;
     }
-    if (sawRefreshing.current) {
-      settleIdle();
-    }
+    if (!sawRefreshing.current) return;
+    const held = Date.now() - (refreshStartedAt.current || Date.now());
+    const wait = Math.max(0, 420 - held);
+    window.clearTimeout(minHoldTimer.current);
+    minHoldTimer.current = window.setTimeout(() => settleIdle(), wait);
   }, [refreshing, setPull, settleIdle]);
 
   useEffect(() => {
@@ -66,32 +72,37 @@ export function usePullToRefresh(scrollRef, { onRefresh, enabled = true, refresh
     if (!el || !enabled) return undefined;
 
     const onTouchStart = (e) => {
-      if (locked.current || refreshing) return;
+      if (locked.current || refreshingRef.current) return;
+      if (el.scrollTop > 1) return;
       const t = e.touches[0];
       if (!t) return;
       startY.current = t.clientY;
       startX.current = t.clientX;
-      ignored.current = false;
-      // Only arm at (near) top — tiny slack for bounce overscroll.
-      tracking.current = el.scrollTop <= 2;
+      tracking.current = true;
+      axisLocked.current = null;
     };
 
     const onTouchMove = (e) => {
-      if (!tracking.current || locked.current || refreshing || ignored.current) return;
-      if (el.scrollTop > 2) {
-        tracking.current = false;
-        setPull(0);
-        setPhase("idle");
-        return;
-      }
+      if (!tracking.current || locked.current || refreshingRef.current) return;
+
       const t = e.touches[0];
       if (!t) return;
-      const dx = Math.abs(t.clientX - startX.current);
       const dy = t.clientY - startY.current;
+      const dx = t.clientX - startX.current;
 
-      // Horizontal gesture (e.g. KPI swipe) — abort pull.
-      if (dx > 12 && dx > Math.abs(dy) * 1.1) {
-        ignored.current = true;
+      if (!axisLocked.current) {
+        if (Math.abs(dx) < AXIS_LOCK_PX && Math.abs(dy) < AXIS_LOCK_PX) return;
+        axisLocked.current = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+        if (axisLocked.current === "h") {
+          tracking.current = false;
+          setPull(0);
+          setPhase("idle");
+          return;
+        }
+      }
+      if (axisLocked.current === "h") return;
+
+      if (el.scrollTop > 1) {
         tracking.current = false;
         setPull(0);
         setPhase("idle");
@@ -106,22 +117,24 @@ export function usePullToRefresh(scrollRef, { onRefresh, enabled = true, refresh
 
       const damped = damp(dy);
       setPull(damped);
-      setPhase(damped >= ARM_AT ? "armed" : "pulling");
-      // Lock vertical scroll only once the user clearly intends to pull.
-      if (dy > 10) e.preventDefault();
+      setPhase(damped >= THRESHOLD * ARM_RATIO ? "armed" : "pulling");
+      if (damped > 2) e.preventDefault();
     };
 
     const onTouchEnd = () => {
-      if (!tracking.current && !locked.current) {
-        ignored.current = false;
+      if (!tracking.current) {
+        axisLocked.current = null;
         return;
       }
-      if (!tracking.current) return;
       tracking.current = false;
-      ignored.current = false;
+      const wasVertical = axisLocked.current === "v";
+      axisLocked.current = null;
 
       const shouldRefresh =
-        pullPxRef.current >= ARM_AT && !refreshing && typeof onRefreshRef.current === "function";
+        wasVertical &&
+        pullPxRef.current >= THRESHOLD * ARM_RATIO &&
+        !refreshingRef.current &&
+        typeof onRefreshRef.current === "function";
 
       if (!shouldRefresh) {
         setPull(0);
@@ -136,7 +149,7 @@ export function usePullToRefresh(scrollRef, { onRefresh, enabled = true, refresh
       window.clearTimeout(fallbackTimer.current);
       fallbackTimer.current = window.setTimeout(() => {
         if (!sawRefreshing.current && locked.current) settleIdle();
-      }, 1400);
+      }, 1600);
     };
 
     el.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -147,12 +160,13 @@ export function usePullToRefresh(scrollRef, { onRefresh, enabled = true, refresh
     return () => {
       cancelAnimationFrame(rafRef.current);
       window.clearTimeout(fallbackTimer.current);
+      window.clearTimeout(minHoldTimer.current);
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
       el.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [scrollRef, enabled, refreshing, setPull, settleIdle]);
+  }, [scrollRef, enabled, setPull, settleIdle]);
 
   return {
     pullPx,
