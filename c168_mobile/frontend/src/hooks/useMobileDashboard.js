@@ -35,10 +35,8 @@ function sameStringList(a, b) {
 }
 
 function earningsRowsFromBootstrap(bootstrap, panelMetric, primaryCurrency, kpiOpts = {}) {
-  // Group/Company All hero + breakdown match desktop Net Profit panel (not ownership earnings).
-  const preferNet =
-    !!kpiOpts.groupAllCompaniesEarningsSum || !!kpiOpts.groupsAllCompaniesAggregate;
-
+  // Mobile hero/KPI are Net Profit — currency breakdown uses the same metric
+  // (avoid mixing primary-currency net with other-currency earnings).
   const entries = bootstrap?.earnings?.current;
   if (Array.isArray(entries) && entries.length) {
     return entries
@@ -46,9 +44,7 @@ function earningsRowsFromBootstrap(bootstrap, panelMetric, primaryCurrency, kpiO
         if (!payload) return null;
         const metrics = computeKpiMetrics(payload, kpiOpts);
         const normalized = String(code || "").trim().toUpperCase();
-        const fromMetrics = preferNet
-          ? metrics?.netProfit
-          : (metrics?.earnings ?? metrics?.netProfit);
+        const fromMetrics = metrics?.netProfit ?? metrics?.earnings;
         const earnings =
           normalized === String(primaryCurrency || "").toUpperCase() && panelMetric != null
             ? panelMetric
@@ -61,10 +57,7 @@ function earningsRowsFromBootstrap(bootstrap, panelMetric, primaryCurrency, kpiO
   const current = bootstrap?.current;
   const metrics = computeKpiMetrics(current, kpiOpts);
   const code = String(current?.currency || current?.settlement_currency || primaryCurrency || "MYR").toUpperCase();
-  const earnings =
-    panelMetric ??
-    (preferNet ? metrics?.netProfit : metrics?.earnings ?? metrics?.netProfit) ??
-    null;
+  const earnings = panelMetric ?? metrics?.netProfit ?? metrics?.earnings ?? null;
   return earnings == null ? [] : [{ code, earnings }];
 }
 
@@ -413,30 +406,13 @@ export function useMobileDashboard() {
     });
   }, [bootstrap, panelMetric, currency, useConvertedEarnings, exchangeRates.rates, kpiOwnershipOpts]);
 
-  const summaryValue = useMemo(() => {
-    if (!useConvertedEarnings) return panelMetric ?? 0;
-    return earningsCurrencyRows.reduce((sum, row) => {
-      // Skip missing rates (null) — do not coerce to 0 and silently undercount.
-      if (row.earningsConverted == null) return sum;
-      const n = Number(row.earningsConverted);
-      return Number.isFinite(n) ? sum + n : sum;
-    }, 0);
-  }, [earningsCurrencyRows, panelMetric, useConvertedEarnings]);
+  // Hero must match KPI Net Profit (selected company/currency) — never sum FX rows.
+  const summaryValue = panelMetric ?? 0;
 
-  const heroCompare = useMemo(() => {
-    // Multi-currency hero total is converted; primary-currency MoM would mislead.
-    if (useConvertedEarnings) return null;
-    return kpi?.comparisons?.netProfit || null;
-  }, [useConvertedEarnings, kpi?.comparisons?.netProfit]);
+  const heroCompare = useMemo(() => kpi?.comparisons?.netProfit || null, [kpi?.comparisons?.netProfit]);
 
-  const showMultiCurrencyNote = useMemo(() => {
-    if (!useConvertedEarnings) return false;
-    const active = earningsCurrencyRows.filter((row) => {
-      const n = Number(row.earningsConverted ?? row.earnings);
-      return Number.isFinite(n) && Math.abs(n) >= 0.005;
-    });
-    return active.length > 1;
-  }, [earningsCurrencyRows, useConvertedEarnings]);
+  // Multi-currency note lives on the currency cards, not the Net Profit hero.
+  const showMultiCurrencyNote = false;
 
   const ratesWarning = useMemo(() => {
     if (!useConvertedEarnings || exchangeRatesLoading) return "";

@@ -72,6 +72,7 @@ export const DASHBOARD_I18N = {
     refresh: "Refresh",
     pullToRefresh: "Pull to refresh",
     releaseToRefresh: "Release to refresh",
+    groupHint: "Tap a group for group-only · Company All aggregates companies",
   },
   zh: {
     dashboard: "仪表盘",
@@ -146,6 +147,7 @@ export const DASHBOARD_I18N = {
     refresh: "刷新",
     pullToRefresh: "下拉刷新",
     releaseToRefresh: "松开刷新",
+    groupHint: "点 Group 仅看该组 · 公司 All 汇总组内公司",
   },
 };
 

@@ -27,30 +27,6 @@ function Pill({ active, disabled, onClick, block, children }) {
   );
 }
 
-function SegmentedControl({ options, disabled }) {
-  return (
-    <div className="flex w-full overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-      {options.map((opt, index) => (
-        <button
-          key={opt.key}
-          type="button"
-          disabled={disabled || opt.disabled}
-          onClick={opt.onClick}
-          className={`relative min-w-[3.25rem] flex-1 px-3 py-2.5 text-[13px] font-semibold transition-colors ${
-            index > 0 ? "border-l border-slate-200" : ""
-          } ${
-            opt.active
-              ? "bg-gradient-to-b from-[#4f8cff] to-[#2f6bf6] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]"
-              : "bg-white text-slate-700"
-          } ${disabled || opt.disabled ? "cursor-not-allowed opacity-40" : ""}`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function Section({ title, trailing, children }) {
   return (
     <div className="space-y-3">
@@ -222,54 +198,54 @@ export default function FilterSheet({ open, onClose, dash }) {
           </Section>
 
           {dash.groupIds.length > 0 && (
-            <Section title={`${i18n.groupId}:`}>
-              <SegmentedControl
-                options={[
-                  {
-                    key: "all-groups",
-                    label: i18n.all,
-                    active: dash.groupsAllMode,
-                    onClick: pickAllGroupsAndClose,
-                  },
-                  ...dash.groupIds.map((gid) => ({
-                    key: gid,
-                    label: gid,
-                    active: dash.selectedGroup === gid && !dash.groupsAllMode,
-                    onClick: () => {
+            <Section title={i18n.groupId}>
+              <div className="flex flex-wrap gap-2">
+                <Pill active={dash.groupsAllMode} onClick={pickAllGroupsAndClose}>
+                  {i18n.all}
+                </Pill>
+                {dash.groupIds.map((gid) => (
+                  <Pill
+                    key={gid}
+                    active={dash.selectedGroup === gid && !dash.groupsAllMode}
+                    onClick={() => {
                       dash.pickGroup(gid);
                       onClose?.();
-                    },
-                  })),
-                ]}
-              />
+                    }}
+                  >
+                    {gid}
+                  </Pill>
+                ))}
+              </div>
+              <p className="text-[11px] font-medium leading-snug text-slate-400">
+                {i18n.groupHint || "Group only — or pick All under Company to aggregate"}
+              </p>
             </Section>
           )}
 
-          <Section title={`${i18n.company}:`}>
-            <SegmentedControl
-              options={[
-                ...(dash.companiesForPicker.length > 1 || dash.selectedGroup
-                  ? [
-                      {
-                        key: "all-companies",
-                        label: i18n.all,
-                        active: dash.groupAllMode,
-                        disabled: !dash.selectedGroup || dash.groupsAllMode,
-                        onClick: pickAllInGroupAndClose,
-                      },
-                    ]
-                  : []),
-                ...dash.companiesForPicker.map((c) => ({
-                  key: String(c.id),
-                  label: String(c.company_id || c.name || c.id).toUpperCase(),
-                  active:
-                    !dash.groupAllMode &&
-                    !dash.groupOnlyMode &&
-                    Number(dash.companyId) === Number(c.id),
-                  onClick: () => switchCompanyAndClose(c.id),
-                })),
-              ]}
-            />
+          <Section title={i18n.company}>
+            <div className="flex flex-wrap gap-2">
+              {(dash.companiesForPicker.length > 1 || dash.selectedGroup) && (
+                <Pill
+                  active={dash.groupAllMode}
+                  disabled={!dash.selectedGroup || dash.groupsAllMode}
+                  onClick={pickAllInGroupAndClose}
+                >
+                  {i18n.all}
+                </Pill>
+              )}
+              {dash.companiesForPicker.map((c) => {
+                const label = String(c.company_id || c.name || c.id).toUpperCase();
+                const active =
+                  !dash.groupAllMode &&
+                  !dash.groupOnlyMode &&
+                  Number(dash.companyId) === Number(c.id);
+                return (
+                  <Pill key={String(c.id)} active={active} onClick={() => switchCompanyAndClose(c.id)}>
+                    {label}
+                  </Pill>
+                );
+              })}
+            </div>
           </Section>
 
           {dash.currencies.length > 0 && (

@@ -6,6 +6,61 @@ import MobileAppBar from "./MobileAppBar.jsx";
 import MobileNotifications, { fetchMobileAnnouncements } from "./MobileNotifications.jsx";
 import MobileSidebar from "./MobileSidebar.jsx";
 
+function PullRefreshIndicator({ pullPx, progress, phase, labels }) {
+  const spinning = phase === "refreshing";
+  const armed = phase === "armed";
+  const visible = phase !== "idle" || pullPx > 1;
+  if (!visible) return null;
+
+  const deg = spinning ? 0 : Math.round(progress * 270);
+  const label = spinning
+    ? labels.loading || "Loading…"
+    : armed
+      ? labels.releaseToRefresh || "Release to refresh"
+      : labels.pullToRefresh || "Pull to refresh";
+
+  return (
+    <div
+      className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center"
+      style={{
+        height: Math.max(pullPx, spinning ? 52 : 0),
+        opacity: Math.min(1, 0.35 + progress * 0.75),
+        transition: spinning || phase === "idle" ? "height 220ms ease, opacity 180ms ease" : undefined,
+      }}
+      aria-hidden={phase === "idle"}
+    >
+      <div className="flex flex-col items-center justify-end gap-1.5 pb-1.5">
+        <span
+          className={`grid size-8 place-items-center rounded-full bg-white shadow-[0_6px_16px_-8px_rgba(15,23,42,0.45)] ring-1 ring-slate-200/80 ${
+            spinning ? "animate-[mDashRefresh_0.9s_linear_infinite]" : ""
+          }`}
+          style={
+            spinning
+              ? undefined
+              : {
+                  transform: `rotate(${deg}deg)`,
+                  transition: "transform 40ms linear",
+                }
+          }
+        >
+          <i
+            className={`fas fa-arrow-down text-[13px] ${armed || spinning ? "text-[#2f6bf6]" : "text-slate-400"}`}
+            style={!spinning && armed ? { transform: "rotate(180deg)" } : undefined}
+            aria-hidden="true"
+          />
+        </span>
+        <span
+          className={`text-[11px] font-semibold tracking-wide ${
+            armed || spinning ? "text-[#2f6bf6]" : "text-slate-400"
+          }`}
+        >
+          {label}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function MobileShell({
   children,
   overlay = null,
@@ -41,7 +96,6 @@ export default function MobileShell({
       await onRefresh();
       return;
     }
-    // Fallback: re-fetch announcements when page has no custom refresh.
     try {
       const rows = await fetchMobileAnnouncements();
       setAnnouncements(rows);
@@ -50,7 +104,7 @@ export default function MobileShell({
     }
   }, [onRefresh]);
 
-  const { pullPx, pulling } = usePullToRefresh(mainRef, {
+  const { pullPx, progress, phase, active } = usePullToRefresh(mainRef, {
     onRefresh: refreshPage,
     enabled: typeof onRefresh === "function",
     refreshing,
@@ -67,7 +121,6 @@ export default function MobileShell({
     setNotifyOpen(true);
   };
 
-  // Opening Filter (or any page overlay) dismisses menu / notifications.
   useEffect(() => {
     if (!overlayOpen) return;
     setSidebarOpen(false);
@@ -105,6 +158,8 @@ export default function MobileShell({
     return () => ac.abort();
   }, [notifyOpen]);
 
+  const contentShift = active ? pullPx : 0;
+
   return (
     <div className="relative flex h-dvh max-h-dvh min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#f2f5fb]">
       <MobileAppBar
@@ -116,37 +171,23 @@ export default function MobileShell({
         refreshing={refreshing}
       />
 
-      {/* Filter / date + scope chips stay pinned under the app bar */}
       {stickyBar ? (
         <div className="z-[15] shrink-0 border-b border-slate-200/50 bg-[#f2f5fb]/95 px-3.5 py-2 backdrop-blur-md">
           <div className="mx-auto max-w-lg">{stickyBar}</div>
         </div>
       ) : null}
 
-      <main
-        ref={mainRef}
-        className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain pb-5"
-      >
+      <main ref={mainRef} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain pb-5">
+        <PullRefreshIndicator pullPx={pullPx} progress={progress} phase={phase} labels={labels} />
         <div
-          className="pointer-events-none sticky top-0 z-10 flex justify-center overflow-hidden transition-[height] duration-150"
-          style={{ height: pulling || refreshing ? Math.max(pullPx, refreshing ? 36 : 0) : 0 }}
-          aria-hidden={!pulling && !refreshing}
+          style={{
+            transform: contentShift ? `translate3d(0, ${contentShift}px, 0)` : undefined,
+            transition: active && phase !== "pulling" && phase !== "armed" ? "transform 220ms ease" : undefined,
+            willChange: active ? "transform" : undefined,
+          }}
         >
-          <div className="flex items-center gap-2 pt-2 text-[12px] font-semibold text-slate-500">
-            <i
-              className={`fas fa-rotate-right text-[#2f6bf6] ${refreshing || pullPx > 24 ? "animate-spin" : ""}`}
-              aria-hidden="true"
-            />
-            <span>
-              {refreshing
-                ? labels.loading || "Loading…"
-                : pullPx >= 28
-                  ? labels.releaseToRefresh || "Release to refresh"
-                  : labels.pullToRefresh || "Pull to refresh"}
-            </span>
-          </div>
+          {children}
         </div>
-        {children}
       </main>
 
       {showBottomNav ? (

@@ -49,20 +49,6 @@ export default function DashboardPage() {
     .trim()
     .toUpperCase();
 
-  // Prefer explicit All / group-only scope over the session company's code.
-  const scopeChip = dash.groupsAllMode
-    ? i18n.all
-    : dash.groupAllMode
-      ? groupId
-        ? `${i18n.all}·${groupId}`
-        : i18n.all
-      : dash.groupOnlyMode
-        ? groupId || i18n.all
-        : companyCode;
-  // Separate group pill (e.g. 95 + IG); skip when already encoded in scopeChip (All·IG / group-only).
-  const scopeGroupChip =
-    groupId && !dash.groupsAllMode && !dash.groupAllMode && !dash.groupOnlyMode ? groupId : "";
-
   const viewingCompanyCode = dash.groupsAllMode || dash.groupAllMode
     ? i18n.all
     : dash.groupOnlyMode
@@ -81,22 +67,28 @@ export default function DashboardPage() {
       <span className="min-w-0 flex-1 truncate text-left text-[13px] font-bold text-slate-700">
         {dash.dateRangeText}
       </span>
-      {scopeChip ? (
-        <span
-          className={`max-w-[4.75rem] shrink-0 truncate rounded-lg px-1.5 py-1 text-[11px] font-bold tracking-wide ${
-            dash.groupsAllMode || dash.groupAllMode || dash.groupOnlyMode
-              ? "bg-violet-50 text-violet-700"
-              : "bg-[#2f6bf6]/10 text-[#2f6bf6]"
-          }`}
-        >
-          {scopeChip}
-        </span>
-      ) : null}
-      {scopeGroupChip ? (
-        <span className="max-w-[3.25rem] shrink-0 truncate rounded-lg bg-[#2f6bf6]/12 px-1.5 py-1 text-[11px] font-bold tracking-wide text-[#2f6bf6]">
-          {scopeGroupChip}
-        </span>
-      ) : null}
+
+      {/* Scope: Group (violet) › Company (blue) */}
+      <span
+        className="inline-flex max-w-[10rem] shrink-0 items-center gap-0.5 overflow-hidden rounded-xl bg-slate-50 p-0.5 ring-1 ring-slate-200/70"
+        title={[groupId, viewingCompanyCode].filter(Boolean).join(" / ")}
+      >
+        {dash.groupsAllMode ? (
+          <span className="truncate rounded-lg bg-violet-100 px-1.5 py-1 text-[11px] font-bold tracking-wide text-violet-700">
+            {i18n.all}
+          </span>
+        ) : groupId ? (
+          <span className="truncate rounded-lg bg-violet-100 px-1.5 py-1 text-[11px] font-bold tracking-wide text-violet-700">
+            {groupId}
+          </span>
+        ) : null}
+        {!dash.groupsAllMode && !dash.groupOnlyMode ? (
+          <span className="truncate rounded-lg bg-[#2f6bf6]/12 px-1.5 py-1 text-[11px] font-bold tracking-wide text-[#2f6bf6]">
+            {dash.groupAllMode ? i18n.all : companyCode || "—"}
+          </span>
+        ) : null}
+      </span>
+
       <span className="shrink-0 rounded-lg bg-slate-100 px-1.5 py-1 text-[11px] font-bold tracking-wide text-slate-600">
         {dash.currency}
       </span>
@@ -234,6 +226,7 @@ export default function DashboardPage() {
             rows={dash.earningsCurrencyRows}
             useConverted={dash.useConvertedEarnings}
             loading={loading}
+            note={dash.useConvertedEarnings ? i18n.multiCurrencyNote : ""}
           />
 
           <DashboardTrendChart
