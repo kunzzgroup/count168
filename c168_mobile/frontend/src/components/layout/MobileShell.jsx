@@ -5,36 +5,23 @@ import MobileAppBar from "./MobileAppBar.jsx";
 import MobileNotifications, { fetchMobileAnnouncements } from "./MobileNotifications.jsx";
 import MobileSidebar from "./MobileSidebar.jsx";
 
-function CompanyScopeBar({ i18n, companyCode, groupId, onOpenFilter }) {
+function CompanyScopeBar({ i18n, companyCode, groupId }) {
   if (!companyCode && !groupId) return null;
 
   return (
     <div className="shrink-0 border-b border-slate-200/60 bg-gradient-to-r from-[#eff4ff] to-white px-3.5 py-2.5">
-      <div className="mx-auto flex max-w-lg items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-            {i18n?.viewingCompany || "Viewing company"}
-          </p>
-          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-            <p className="truncate text-[18px] font-bold tracking-tight text-slate-900">
-              {companyCode || "—"}
-            </p>
-            {groupId ? (
-              <span className="rounded-full bg-[#2f6bf6]/12 px-2 py-0.5 text-[11px] font-bold text-[#2f6bf6]">
-                {groupId}
-              </span>
-            ) : null}
-          </div>
+      <div className="mx-auto max-w-lg">
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+          {i18n?.viewingCompany || "Viewing company"}
+        </p>
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+          <p className="truncate text-[18px] font-bold tracking-tight text-slate-900">{companyCode || "—"}</p>
+          {groupId ? (
+            <span className="rounded-full bg-[#2f6bf6]/12 px-2 py-0.5 text-[11px] font-bold text-[#2f6bf6]">
+              {groupId}
+            </span>
+          ) : null}
         </div>
-        {onOpenFilter ? (
-          <button
-            type="button"
-            onClick={onOpenFilter}
-            className="tap-scale shrink-0 rounded-xl bg-white px-3 py-2 text-[12px] font-bold text-[#2f6bf6] shadow-sm ring-1 ring-blue-100"
-          >
-            {i18n?.switchCompany || i18n?.filter || "Switch"}
-          </button>
-        ) : null}
       </div>
     </div>
   );
@@ -43,14 +30,12 @@ function CompanyScopeBar({ i18n, companyCode, groupId, onOpenFilter }) {
 export default function MobileShell({
   children,
   overlay = null,
+  stickyBar = null,
   i18n,
   me,
   companyCode = "",
   groupId = "",
-  companies = [],
-  onSwitchCompany,
   onLogout,
-  onOpenCompanyFilter,
   showBottomNav = true,
 }) {
   const labels = i18n || {
@@ -105,12 +90,14 @@ export default function MobileShell({
         onOpenNotifications={() => setNotifyOpen(true)}
       />
 
-      <CompanyScopeBar
-        i18n={labels}
-        companyCode={companyCode}
-        groupId={groupId}
-        onOpenFilter={onOpenCompanyFilter}
-      />
+      <CompanyScopeBar i18n={labels} companyCode={companyCode} groupId={groupId} />
+
+      {/* Sticky filter / date tools stay pinned under company context */}
+      {stickyBar ? (
+        <div className="sticky top-0 z-[15] shrink-0 border-b border-slate-200/50 bg-[#f2f5fb]/95 px-3.5 py-2.5 backdrop-blur-md">
+          <div className="mx-auto max-w-lg">{stickyBar}</div>
+        </div>
+      ) : null}
 
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-5">{children}</main>
 
@@ -140,7 +127,6 @@ export default function MobileShell({
         </nav>
       ) : null}
 
-      {/* Overlays after chrome so sheets cover tabs (z-60+). */}
       {overlay}
       <MobileSidebar
         open={sidebarOpen}
@@ -149,8 +135,6 @@ export default function MobileShell({
         me={me}
         companyCode={companyCode}
         groupId={groupId}
-        companies={companies}
-        onSwitchCompany={onSwitchCompany}
         onLogout={onLogout}
       />
       <MobileNotifications

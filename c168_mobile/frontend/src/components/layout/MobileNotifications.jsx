@@ -20,7 +20,7 @@ export default function MobileNotifications({ open, onClose, i18n, items = [], l
 
   return (
     <div
-      className={`absolute inset-0 z-[70] transition-opacity duration-300 ${
+      className={`fixed inset-0 z-[70] transition-opacity duration-300 ${
         open ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
       aria-hidden={!open}

@@ -43,46 +43,46 @@ export default function DashboardPage() {
     .trim()
     .toUpperCase();
 
+  const stickyBar = (
+    <div className="flex items-center gap-2.5">
+      <button
+        type="button"
+        onClick={() => setFilterOpen(true)}
+        className="tap-scale flex min-w-0 flex-1 items-center gap-2 rounded-2xl bg-white px-3.5 py-2.5 shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
+      >
+        <i className="far fa-calendar text-[#2f6bf6]" aria-hidden="true" />
+        <span className="truncate text-[13px] font-bold text-slate-700">{dash.dateRangeText}</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => setFilterOpen(true)}
+        className="tap-scale flex shrink-0 items-center gap-2 rounded-2xl bg-[#2f6bf6] px-3.5 py-2.5 text-white shadow-[0_10px_22px_-10px_rgba(47,107,246,0.65)]"
+      >
+        <i className="fas fa-filter text-[12px]" aria-hidden="true" />
+        <span className="text-[13px] font-bold">{i18n.filter}</span>
+      </button>
+    </div>
+  );
+
   return (
     <MobileShell
       i18n={i18n}
       me={me}
       companyCode={companyCode}
       groupId={dash.groupsAllMode ? i18n.all : groupId}
-      companies={dash.companiesForPicker}
-      onSwitchCompany={dash.switchCompany}
       onLogout={dash.logout}
-      onOpenCompanyFilter={() => setFilterOpen(true)}
+      stickyBar={stickyBar}
       overlay={<FilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} dash={dash} />}
     >
       <div className="relative w-full max-w-full overflow-x-hidden px-3.5 pb-3 pt-3">
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-48 opacity-90"
+          className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-90"
           style={{
             background:
               "radial-gradient(ellipse 90% 70% at 10% -10%, rgba(47,107,255,0.12), transparent 55%), radial-gradient(ellipse 60% 50% at 90% 10%, rgba(56,189,248,0.1), transparent 50%)",
           }}
           aria-hidden="true"
         />
-
-        <div className="relative mb-4 flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => setFilterOpen(true)}
-            className="tap-scale flex min-w-0 flex-1 items-center gap-2 rounded-2xl bg-white/95 px-3.5 py-3 shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
-          >
-            <i className="far fa-calendar text-[#2f6bf6]" aria-hidden="true" />
-            <span className="truncate text-[13px] font-bold text-slate-700">{dash.dateRangeText}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterOpen(true)}
-            className="tap-scale flex shrink-0 items-center gap-2 rounded-2xl bg-[#2f6bf6] px-3.5 py-3 text-white shadow-[0_10px_22px_-10px_rgba(47,107,246,0.65)]"
-          >
-            <i className="fas fa-filter text-[12px]" aria-hidden="true" />
-            <span className="text-[13px] font-bold">{i18n.filter}</span>
-          </button>
-        </div>
 
         {error && (
           <div className="relative mb-4 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">

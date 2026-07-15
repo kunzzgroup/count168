@@ -16,12 +16,20 @@ export function brandWhiteLogoUrl() {
   return new URL("/images/count_whitelogo.png", window.location.origin).href;
 }
 
+const WHITE_LOGO_FALLBACKS = [
+  "/images/count_whitelogo.png",
+  "/frontend/dist/images/count_whitelogo.png",
+  "/images/count_logo.png",
+];
+
 /** Prefer known live-root logos; fall back across candidates on error. */
 export function onBrandLogoError(event) {
   const img = event?.currentTarget;
   if (!img) return;
+  const isWhite = /whitelogo/i.test(img.src || "") || img.dataset.logoKind === "white";
+  const list = isWhite ? WHITE_LOGO_FALLBACKS : LOGO_CANDIDATES;
   const idx = Number(img.dataset.logoIdx || 0) + 1;
-  if (idx >= LOGO_CANDIDATES.length) return;
+  if (idx >= list.length) return;
   img.dataset.logoIdx = String(idx);
-  img.src = new URL(LOGO_CANDIDATES[idx], window.location.origin).href;
+  img.src = new URL(list[idx], window.location.origin).href;
 }

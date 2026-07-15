@@ -38,7 +38,7 @@ export default function FilterSheet({ open, onClose, dash }) {
 
   return (
     <div
-      className={`absolute inset-0 z-[60] transition-opacity duration-300 ${
+      className={`fixed inset-0 z-[60] transition-opacity duration-300 ${
         open ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
       aria-hidden={!open}

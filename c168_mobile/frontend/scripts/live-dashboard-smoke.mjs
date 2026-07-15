@@ -129,9 +129,31 @@ async function main() {
     if (!(await viewing.count())) fail("Company scope bar missing");
     ok("Company context visible");
 
+    if (await page.getByRole("button", { name: /^Switch$|^切换$/i }).count()) {
+      fail("Redundant Switch button should be removed");
+    }
+    ok("No Switch button");
+
     const filter = page.getByRole("button", { name: /^Filter$|^筛选$/i }).first();
     if (!(await filter.count())) fail("Filter button missing");
     ok("Filter control present");
+
+    // Filter bar should stay in viewport chrome (not scrolled away with content)
+    const filterBox = await filter.boundingBox();
+    if (!filterBox || filterBox.y > 220) fail("Filter bar not pinned near top of screen");
+    ok(`Filter pinned at y=${Math.round(filterBox.y)}`);
+
+    await filter.click();
+    await page.waitForTimeout(400);
+    const sheet = page.getByRole("dialog", { name: /Filter|筛选/i });
+    if (!(await sheet.isVisible().catch(() => false))) fail("Filter sheet did not open full-screen");
+    const sheetBox = await sheet.boundingBox();
+    if (!sheetBox) fail("Filter sheet has no box");
+    ok("Filter sheet follows viewport");
+    await page.getByRole("button", { name: /Apply Filter|应用筛选/i }).click().catch(async () => {
+      await page.locator('[aria-label="Close filter"]').click();
+    });
+    await page.waitForTimeout(300);
 
     const hero = page.locator("section").filter({ hasText: /NET PROFIT|净利|Net Profit/i }).first();
     if (!(await hero.count())) fail("Hero net profit card missing");
