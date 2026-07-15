@@ -245,7 +245,7 @@ export default function FilterSheet({ open, onClose, dash }) {
           <Section title={`${i18n.company}:`}>
             <SegmentedControl
               options={[
-                ...(dash.companiesForPicker.length > 1
+                ...(dash.companiesForPicker.length > 1 || dash.selectedGroup
                   ? [
                       {
                         key: "all-companies",
@@ -259,7 +259,10 @@ export default function FilterSheet({ open, onClose, dash }) {
                 ...dash.companiesForPicker.map((c) => ({
                   key: String(c.id),
                   label: String(c.company_id || c.name || c.id).toUpperCase(),
-                  active: !dash.groupAllMode && Number(dash.companyId) === Number(c.id),
+                  active:
+                    !dash.groupAllMode &&
+                    !dash.groupOnlyMode &&
+                    Number(dash.companyId) === Number(c.id),
                   onClick: () => switchCompanyAndClose(c.id),
                 })),
               ]}

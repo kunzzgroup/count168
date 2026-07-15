@@ -187,7 +187,11 @@ export function useMobileDashboard() {
 
   // Currencies before bootstrap — avoids first paint locked to MYR-only
   useEffect(() => {
-    if (!companies.length || !companyId) return undefined;
+    const hasCompany = Number.isFinite(Number(companyId)) && Number(companyId) > 0;
+    const groupOnly = Boolean(selectedGroup && !groupAllMode && !groupsAllMode && !hasCompany);
+    if (!companies.length || (!hasCompany && !groupOnly && !groupsAllMode && !groupAllMode)) {
+      return undefined;
+    }
     const ac = new AbortController();
     // Soft refresh: don't flip currenciesReady false if we already have data (avoids full-page spinner flash).
     setCurrenciesReady((ready) => (ready ? ready : false));
@@ -217,7 +221,13 @@ export function useMobileDashboard() {
 
   // Bootstrap — gated on currenciesReady; ignore stale responses
   useEffect(() => {
-    if (!companies.length || !companyId || !currenciesReady) return undefined;
+    const hasCompany = Number.isFinite(Number(companyId)) && Number(companyId) > 0;
+    const groupOnly = Boolean(selectedGroup && !groupAllMode && !groupsAllMode && !hasCompany);
+    const canLoad =
+      companies.length &&
+      currenciesReady &&
+      (hasCompany || groupOnly || groupsAllMode || groupAllMode);
+    if (!canLoad) return undefined;
     const ac = new AbortController();
     const seq = ++bootstrapSeq.current;
     setBootstrapping(true);
@@ -535,43 +545,37 @@ export function useMobileDashboard() {
     (gid) => {
       const group = String(gid || "").trim().toUpperCase();
       if (!group) return;
-      const seq = ++scopeSeq.current;
+      // Enter group-only (ledger) mode — not Company All. Use Company → All to merge subsidiaries.
       setGroupsAllMode(false);
-      setGroupAllMode(true);
+      setGroupAllMode(false);
       setSelectedGroup(group);
-      const first = resolveCompaniesForPicker(companies, { selectedGroup: group, groupsAllMode: false })[0];
-      const nextId = first?.id != null ? Number(first.id) : null;
-      if (!nextId || nextId === Number(companyId)) return;
-      scopeAbortRef.current?.abort();
-      const ac = new AbortController();
-      scopeAbortRef.current = ac;
+      setCompanyId(null);
       setBootstrapping(true);
       setError("");
-      syncCompanySession(nextId, ac.signal)
-        .then(() => {
-          if (seq !== scopeSeq.current) return;
-          setCompanyId(nextId);
-        })
-        .catch((e) => {
-          if (seq !== scopeSeq.current || e?.name === "AbortError") return;
-          setError(e?.message || i18n.loadError);
-          setBootstrapping(false);
-        });
     },
-    [companies, companyId, syncCompanySession, i18n.loadError],
+    [],
   );
 
   const pickAllGroups = useCallback(() => {
     setGroupsAllMode(true);
     setGroupAllMode(false);
     setSelectedGroup(null);
+    setCompanyId(null);
   }, []);
 
   const pickAllInGroup = useCallback(() => {
     if (!selectedGroup) return;
     setGroupsAllMode(false);
     setGroupAllMode(true);
-  }, [selectedGroup]);
+    // Keep / assign an anchor company id for session + picker, but load uses merge path.
+    if (!(Number.isFinite(Number(companyId)) && Number(companyId) > 0)) {
+      const first = resolveCompaniesForPicker(companies, {
+        selectedGroup,
+        groupsAllMode: false,
+      })[0];
+      if (first?.id != null) setCompanyId(Number(first.id));
+    }
+  }, [selectedGroup, companyId, companies]);
 
   const toggleChartSeries = useCallback((idx) => {
     setChartVisible((prev) => ({ ...prev, [idx]: !prev[idx] }));
@@ -595,6 +599,10 @@ export function useMobileDashboard() {
     setReloadNonce((n) => n + 1);
   }, [companyId]);
 
+  const groupOnlyMode = Boolean(
+    selectedGroup && !groupAllMode && !groupsAllMode && !(Number.isFinite(Number(companyId)) && Number(companyId) > 0),
+  );
+
   return {
     i18n,
     lang,
@@ -605,6 +613,7 @@ export function useMobileDashboard() {
     selectedGroup,
     groupsAllMode,
     groupAllMode,
+    groupOnlyMode,
     companiesForPicker,
     companyId,
     selectedCompany,

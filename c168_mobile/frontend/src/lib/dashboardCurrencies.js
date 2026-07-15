@@ -72,6 +72,7 @@ async function mapPool(items, limit, mapper) {
 /**
  * Load currency pills like desktop: company Currency Setting (+ subsidiary scope when Group selected).
  * Company/Group "All" unions codes from visible companies.
+ * Group-only uses scope account currencies (group ledger books).
  */
 export async function fetchMobileCurrencyCodes({
   companyId,
@@ -82,6 +83,35 @@ export async function fetchMobileCurrencyCodes({
   signal,
 }) {
   const group = normalizeGroupId(selectedGroup);
+  const hasCompany = Number.isFinite(Number(companyId)) && Number(companyId) > 0;
+  const groupOnly = Boolean(group && !groupAllMode && !groupsAllMode && !hasCompany);
+
+  if (groupOnly) {
+    try {
+      const q = new URLSearchParams({
+        view_group: group,
+        group_id: group,
+        group_only: "1",
+      });
+      const anchor = (companies || []).find((c) => normalizeGroupId(c?.group_id) === group);
+      if (anchor?.id) {
+        q.set("company_id", String(anchor.id));
+        q.set("group_aggregate", "1");
+        q.delete("group_only");
+      }
+      const { res, json } = await fetchJson(
+        buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q}`),
+        { signal },
+      );
+      if (res.ok && json?.success && Array.isArray(json.data) && json.data.length) {
+        const codes = normalizeCodes(json.data);
+        if (codes.length) return codes;
+      }
+    } catch (e) {
+      if (e?.name === "AbortError") throw e;
+    }
+    return ["MYR"];
+  }
 
   if (groupsAllMode || groupAllMode) {
     const rows = companiesForPicker(companies, { selectedGroup, groupsAllMode });

@@ -49,15 +49,23 @@ export default function DashboardPage() {
     .trim()
     .toUpperCase();
 
-  // Prefer explicit All scope over the session company's code.
+  // Prefer explicit All / group-only scope over the session company's code.
   const scopeChip = dash.groupsAllMode
     ? i18n.all
     : dash.groupAllMode
       ? groupId
         ? `${i18n.all}·${groupId}`
         : i18n.all
+      : dash.groupOnlyMode
+        ? groupId || i18n.all
+        : companyCode;
+  const scopeGroupBadge = dash.groupsAllMode ? "" : dash.groupOnlyMode ? "" : groupId;
+
+  const viewingCompanyCode = dash.groupsAllMode || dash.groupAllMode
+    ? i18n.all
+    : dash.groupOnlyMode
+      ? groupId
       : companyCode;
-  const scopeGroupBadge = dash.groupsAllMode ? "" : groupId;
 
   const stickyBar = (
     <button
@@ -73,7 +81,7 @@ export default function DashboardPage() {
       {scopeChip ? (
         <span
           className={`max-w-[5.5rem] shrink-0 truncate rounded-lg px-1.5 py-1 text-[11px] font-bold tracking-wide ${
-            dash.groupsAllMode || dash.groupAllMode
+            dash.groupsAllMode || dash.groupAllMode || dash.groupOnlyMode
               ? "bg-violet-50 text-violet-700"
               : "bg-[#2f6bf6]/10 text-[#2f6bf6]"
           }`}
@@ -94,8 +102,8 @@ export default function DashboardPage() {
     <MobileShell
       i18n={i18n}
       me={me}
-      companyCode={dash.groupsAllMode || dash.groupAllMode ? i18n.all : companyCode}
-      groupId={scopeGroupBadge}
+      companyCode={viewingCompanyCode}
+      groupId={dash.groupOnlyMode ? "" : scopeGroupBadge}
       onLogout={dash.logout}
       stickyBar={stickyBar}
       lang={dash.lang}
