@@ -128,6 +128,8 @@ export function useTransactionSearch({
   const prevScopeKeyForSearchRef = useRef(null);
   /** Capture Date 变更后触发搜索；与「仅首次拉数」的 initial effect 分离，避免 initialSearchDoneRef 为 true 时改日期不请求 */
   const prevCaptureDateRangeKeyRef = useRef(null);
+  /** First approved submit may jump Capture Date to the tx date; later submits keep the current range. */
+  const hasAutoJumpedCaptureDateOnSubmitRef = useRef(false);
   const lastInitialSearchKeyRef = useRef("");
   const earlyCurrencyScopeRef = useRef(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
@@ -971,7 +973,7 @@ export function useTransactionSearch({
     ],
   );
 
-  /** After successful submit/approval: keep capture date; show union of submitted account rows. */
+  /** After successful submit/approval: focus submitted accounts; first submit may jump Capture Date to tx date. */
   const applySubmitFocusAndRefresh = useCallback(
     async ({
       accountIds,
@@ -980,13 +982,32 @@ export function useTransactionSearch({
       txType: submitTxType,
       toAccountId,
       fromAccountId,
+      transactionDate,
     } = {}) => {
       const ids = [...new Set((accountIds || []).map((id) => Number(id)).filter((id) => id > 0))];
       if (ids.length === 0) return;
       if (!scopeReady || !scopeCacheCompanyKey) return;
       if (!effectiveDateFrom || !effectiveDateTo) return;
 
-      const rangeKey = `${effectiveDateFrom}|${effectiveDateTo}`;
+      const txDate = String(transactionDate || "").trim();
+      let searchDateFrom = effectiveDateFrom;
+      let searchDateTo = effectiveDateTo;
+      let rangeKey = `${effectiveDateFrom}|${effectiveDateTo}`;
+      let didJumpCaptureDate = false;
+
+      // Only the first successful submit on this page visit may jump Capture Date to the tx date.
+      if (!hasAutoJumpedCaptureDateOnSubmitRef.current) {
+        hasAutoJumpedCaptureDateOnSubmitRef.current = true;
+        if (txDate && (txDate !== effectiveDateFrom || txDate !== effectiveDateTo)) {
+          didJumpCaptureDate = true;
+          searchDateFrom = txDate;
+          searchDateTo = txDate;
+          rangeKey = `${txDate}|${txDate}`;
+          // Prevent the Capture Date effect from clearing submit-focus / double-searching.
+          prevCaptureDateRangeKeyRef.current = rangeKey;
+        }
+      }
+
       const currencyCode = String(submitCurrency || "").toUpperCase().trim();
 
       let currencyOverrides = {};
@@ -1024,16 +1045,23 @@ export function useTransactionSearch({
         }
       }
 
-      // Paint focused rows + optimistic balances before the network refresh.
+      // Paint focused rows (+ optimistic balances when staying on the same capture range) before refresh.
       flushSync(() => {
+        if (didJumpCaptureDate) {
+          setDateFrom(txDate);
+          setDateTo(txDate);
+          syncCaptureDateDom(txDate);
+        }
+
         setTypeSearchActive(false);
         setTypeSearchFormType(null);
         setTypeSearchAccountIds([]);
 
         if (currencyCode) {
           setSubmitFocusByCurrency((prev) => {
-            const base = submitFocusRangeKey === rangeKey ? { ...prev } : {};
-            const existing = Array.isArray(base[currencyCode]) ? base[currencyCode] : [];
+            const base = !didJumpCaptureDate && submitFocusRangeKey === rangeKey ? { ...prev } : {};
+            const existing =
+              !didJumpCaptureDate && Array.isArray(base[currencyCode]) ? base[currencyCode] : [];
             base[currencyCode] = [...new Set([...existing, ...ids])];
             return base;
           });
@@ -1041,36 +1069,41 @@ export function useTransactionSearch({
         setSubmitFocusRangeKey(rangeKey);
         submitFocusLeftRangeKeysRef.current.delete(rangeKey);
 
-        const deltas = buildOptimisticSubmitDeltas({
-          txType: submitTxType,
-          amount,
-          toAccountId,
-          fromAccountId,
-        });
-        if (deltas.length > 0 && currencyCode) {
-          let didPatch = false;
-          setRawSearchData((prev) => {
-            const patched = applyOptimisticSubmitBalancePatch(prev, {
-              currency: currencyCode,
-              deltas,
-            });
-            if (patched && patched !== prev) {
-              didPatch = true;
-              return patched;
-            }
-            return prev;
+        // Skip optimistic patch when jumping months — old-range rows are the wrong base.
+        if (!didJumpCaptureDate) {
+          const deltas = buildOptimisticSubmitDeltas({
+            txType: submitTxType,
+            amount,
+            toAccountId,
+            fromAccountId,
           });
-          if (didPatch) setTablesVisible(true);
+          if (deltas.length > 0 && currencyCode) {
+            let didPatch = false;
+            setRawSearchData((prev) => {
+              const patched = applyOptimisticSubmitBalancePatch(prev, {
+                currency: currencyCode,
+                deltas,
+              });
+              if (patched && patched !== prev) {
+                didPatch = true;
+                return patched;
+              }
+              return prev;
+            });
+            if (didPatch) setTablesVisible(true);
+          }
         }
       });
 
       setSearchLoading(true);
       try {
-        // forceRefresh already clears caches + invalidates; avoid a second round-trip here.
         await runSearch({
           forceRefresh: true,
           silent: true,
           typeSearchOverride: false,
+          ...(didJumpCaptureDate
+            ? { dateFromOverride: searchDateFrom, dateToOverride: searchDateTo }
+            : {}),
           ...currencyOverrides,
         });
       } finally {

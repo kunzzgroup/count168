@@ -470,6 +470,7 @@ export function useTransactionForm({
                       rateMiddlemanAccountId: rateMiddlemanAccount?.id,
                     }),
                     submitCurrency: rateCurrencyFrom,
+                    transactionDate: rateDate,
                   },
           });
           return;
@@ -598,6 +599,7 @@ export function useTransactionForm({
                   txType: payload.transaction_type,
                   toAccountId: toId,
                   fromAccountId: isAdjustment ? "" : fromId,
+                  transactionDate: txDate,
                 },
         });
         return;
