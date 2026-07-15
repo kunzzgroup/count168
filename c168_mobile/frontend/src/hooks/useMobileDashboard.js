@@ -56,8 +56,14 @@ function earningsRowsFromBootstrap(bootstrap, panelMetric, primaryCurrency) {
 export function useMobileDashboard() {
   const navigate = useNavigate();
   const defaults = defaultDashboardDateRange();
-  const [lang] = useState(() => localStorage.getItem("login_lang") || "en");
+  const [lang, setLangState] = useState(() => localStorage.getItem("login_lang") || "en");
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
+
+  const setLang = useCallback((next) => {
+    const normalized = next === "zh" ? "zh" : "en";
+    localStorage.setItem("login_lang", normalized);
+    setLangState(normalized);
+  }, []);
 
   const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
@@ -389,6 +395,20 @@ export function useMobileDashboard() {
     setDateTo(range.dateTo);
   }, []);
 
+  const setCustomDateRange = useCallback((nextFrom, nextTo) => {
+    const from = String(nextFrom || "").trim();
+    const to = String(nextTo || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return;
+    if (from > to) {
+      setDateFrom(to);
+      setDateTo(from);
+    } else {
+      setDateFrom(from);
+      setDateTo(to);
+    }
+    setActivePreset(null);
+  }, []);
+
   const syncCompanySession = useCallback(
     async (id, signal) => {
       const { res, json } = await fetchJson(
@@ -504,6 +524,7 @@ export function useMobileDashboard() {
   return {
     i18n,
     lang,
+    setLang,
     me,
     companies,
     groupIds,
@@ -524,10 +545,13 @@ export function useMobileDashboard() {
     exchangeRatesLoading,
     useConvertedEarnings,
     showMultiCurrencyNote,
+    dateFrom,
+    dateTo,
     dateRangeText,
     dateRangeShort,
     activePreset,
     applyPreset,
+    setCustomDateRange,
     resetFilters,
     kpi,
     compareLabel,

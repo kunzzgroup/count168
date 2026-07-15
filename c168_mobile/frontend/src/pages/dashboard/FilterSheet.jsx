@@ -30,6 +30,22 @@ function Section({ title, children }) {
   );
 }
 
+function DateField({ label, value, max, min, onChange }) {
+  return (
+    <label className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{label}</span>
+      <input
+        type="date"
+        value={value || ""}
+        min={min || undefined}
+        max={max || undefined}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[14px] font-semibold text-slate-800 outline-none transition-colors focus:border-[#2f6bf6] focus:bg-white focus:ring-2 focus:ring-[#2f6bf6]/20"
+      />
+    </label>
+  );
+}
+
 export default function FilterSheet({ open, onClose, dash }) {
   const { i18n } = dash;
   useOverlayLock(open, onClose);
@@ -37,6 +53,14 @@ export default function FilterSheet({ open, onClose, dash }) {
   const handleReset = () => {
     dash.resetFilters();
   };
+
+  const todayYmd = (() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  })();
 
   return (
     <div
@@ -78,6 +102,27 @@ export default function FilterSheet({ open, onClose, dash }) {
         </div>
 
         <div className="flex-1 space-y-6 overflow-y-auto px-5 pb-4">
+          <Section title={i18n.dateRange}>
+            <div className="flex gap-3">
+              <DateField
+                label={i18n.from}
+                value={dash.dateFrom}
+                max={dash.dateTo || todayYmd}
+                onChange={(from) => dash.setCustomDateRange(from, dash.dateTo || from)}
+              />
+              <DateField
+                label={i18n.toDate}
+                value={dash.dateTo}
+                min={dash.dateFrom || undefined}
+                max={todayYmd}
+                onChange={(to) => dash.setCustomDateRange(dash.dateFrom || to, to)}
+              />
+            </div>
+            {!dash.activePreset && (
+              <p className="text-[12px] font-semibold text-[#2f6bf6]">{i18n.customRange}</p>
+            )}
+          </Section>
+
           <Section title={i18n.quickSelect}>
             <div className="grid grid-cols-3 gap-2">
               {PERIOD_PRESET_KEYS.map((key) => (
@@ -91,7 +136,6 @@ export default function FilterSheet({ open, onClose, dash }) {
                 </Pill>
               ))}
             </div>
-            <p className="text-[12px] font-semibold text-slate-500">{dash.dateRangeText}</p>
           </Section>
 
           {dash.groupIds.length > 0 && (

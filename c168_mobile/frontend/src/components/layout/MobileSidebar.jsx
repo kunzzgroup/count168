@@ -18,7 +18,17 @@ function initials(name) {
  * dark shell, white logo, avatar + name/role, nav, logout.
  * Company switching stays in Filter (desktop does not list companies in sidebar).
  */
-export default function MobileSidebar({ open, onClose, i18n, me, companyCode, groupId, onLogout }) {
+export default function MobileSidebar({
+  open,
+  onClose,
+  i18n,
+  me,
+  companyCode,
+  groupId,
+  onLogout,
+  lang = "en",
+  onLangChange,
+}) {
   const navItems = mobileNavItems(me);
   const name = me?.nickname || me?.username || me?.name || "—";
   const role = String(me?.role || me?.user_type || "").toUpperCase();
@@ -116,6 +126,35 @@ export default function MobileSidebar({ open, onClose, i18n, me, companyCode, gr
           className="border-t border-white/15 px-3 pt-3"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)" }}
         >
+          {typeof onLangChange === "function" ? (
+            <div className="mb-3" role="group" aria-label={i18n?.language || "Language"}>
+              <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-white/55">
+                {i18n?.language || "Language"}
+              </p>
+              <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white/10 p-1">
+                <button
+                  type="button"
+                  onClick={() => onLangChange("en")}
+                  aria-pressed={lang !== "zh"}
+                  className={`tap-scale rounded-xl py-2.5 text-[13px] font-bold transition-colors ${
+                    lang !== "zh" ? "bg-white text-[#002d49]" : "text-white/80"
+                  }`}
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onLangChange("zh")}
+                  aria-pressed={lang === "zh"}
+                  className={`tap-scale rounded-xl py-2.5 text-[13px] font-bold transition-colors ${
+                    lang === "zh" ? "bg-white text-[#002d49]" : "text-white/80"
+                  }`}
+                >
+                  中文
+                </button>
+              </div>
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={() => {

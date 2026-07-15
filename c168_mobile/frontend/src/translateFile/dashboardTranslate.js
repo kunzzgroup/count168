@@ -62,6 +62,10 @@ export const DASHBOARD_I18N = {
     noNotifications: "No notifications",
     viewingCompany: "Viewing company",
     switchCompany: "Switch",
+    language: "Language",
+    from: "From",
+    toDate: "To",
+    customRange: "Custom",
   },
   zh: {
     dashboard: "仪表盘",
@@ -126,6 +130,10 @@ export const DASHBOARD_I18N = {
     noNotifications: "暂无通知",
     viewingCompany: "当前公司",
     switchCompany: "切换",
+    language: "语言",
+    from: "开始",
+    toDate: "结束",
+    customRange: "自定义",
   },
 };
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import MobileShell from "../components/layout/MobileShell.jsx";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
@@ -8,8 +8,14 @@ import "./stub.css";
 
 export default function StubPage({ title, backTo = "/dashboard" }) {
   const [me, setMe] = useState(null);
-  const lang = localStorage.getItem("login_lang") || "en";
-  const i18n = DASHBOARD_I18N[lang] || DASHBOARD_I18N.en;
+  const [lang, setLangState] = useState(() => localStorage.getItem("login_lang") || "en");
+  const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
+
+  const setLang = useCallback((next) => {
+    const normalized = next === "zh" ? "zh" : "en";
+    localStorage.setItem("login_lang", normalized);
+    setLangState(normalized);
+  }, []);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -29,7 +35,7 @@ export default function StubPage({ title, backTo = "/dashboard" }) {
   const companyCode = String(me?.company_code || me?.company_id || "").toUpperCase();
 
   return (
-    <MobileShell i18n={i18n} me={me} companyCode={companyCode} showBottomNav>
+    <MobileShell i18n={i18n} me={me} companyCode={companyCode} showBottomNav lang={lang} onLangChange={setLang}>
       <div className="mobile-stub">
         <h1>{title}</h1>
         <p>{lang === "zh" ? "此页面即将在 Mobile 版中实现。" : "Coming soon on mobile."}</p>

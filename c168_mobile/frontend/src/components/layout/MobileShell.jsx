@@ -35,6 +35,8 @@ export default function MobileShell({
   groupId = "",
   onLogout,
   showBottomNav = true,
+  lang = "en",
+  onLangChange,
 }) {
   const labels = i18n || {
     navHome: "Home",
@@ -134,6 +136,8 @@ export default function MobileShell({
         companyCode={companyCode}
         groupId={groupId}
         onLogout={onLogout}
+        lang={lang}
+        onLangChange={onLangChange}
       />
       <MobileNotifications
         open={notifyOpen}

@@ -69,6 +69,8 @@ export default function DashboardPage() {
       groupId={dash.groupsAllMode ? i18n.all : groupId}
       onLogout={dash.logout}
       stickyBar={stickyBar}
+      lang={dash.lang}
+      onLangChange={dash.setLang}
       overlay={<FilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} dash={dash} />}
     >
       <div className="relative w-full max-w-full overflow-x-hidden px-3.5 pb-3 pt-3">
