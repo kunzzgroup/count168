@@ -11,6 +11,7 @@ import {
 import { assertApiOk, fetchJson } from "./fetchJson.js";
 
 const MERGE_POOL = 5;
+const CURRENCY_FANOUT_POOL = 3;
 
 function isHistoricalOwnershipMonth(dateTo) {
   const m = String(dateTo || "").trim().match(/^(\d{4})-(\d{2})/);
@@ -88,11 +89,12 @@ function buildSingleCompanyBootstrapQuery({
   currencies,
   companyId,
   viewGroup,
+  bootstrapScope = "full",
 }) {
   const q = new URLSearchParams({
     date_from: dateFrom,
     date_to: dateTo,
-    bootstrap_scope: "full",
+    bootstrap_scope: bootstrapScope,
     company_id: String(companyId),
   });
   if (currency) q.set("currency", currency);
@@ -153,11 +155,111 @@ async function enrichWithGroupLedger(merged, previous, { dateFrom, dateTo, curre
   }
 }
 
+function resolveMergeViewGroup(companyRow, selectedGroup, groupsAllMode) {
+  return groupsAllMode
+    ? resolveViewGroupForCompany(companyRow, selectedGroup)
+    : normalizeGroupId(selectedGroup) || resolveViewGroupForCompany(companyRow, null);
+}
+
+/** Merge one currency across all companies in the All scope (kpi-scoped for non-primary). */
+async function mergeCompaniesForCurrency({
+  list,
+  currencyCode,
+  dateFrom,
+  dateTo,
+  selectedGroup,
+  groupsAllMode,
+  bootstrapScope,
+  signal,
+  loadError,
+}) {
+  const code = String(currencyCode || "").toUpperCase();
+  const settled = await mapPool(list, MERGE_POOL, async (companyRow) => {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const viewGroup = resolveMergeViewGroup(companyRow, selectedGroup, groupsAllMode);
+    const q = buildSingleCompanyBootstrapQuery({
+      dateFrom,
+      dateTo,
+      currency: code,
+      currencies: [code],
+      companyId: companyRow.id,
+      viewGroup,
+      bootstrapScope,
+    });
+    try {
+      const data = await fetchBootstrapData(q, signal, loadError);
+      const payload = data.current || null;
+      if (!payload) return null;
+      return applyLinkMultiplier(payload, companyRow, viewGroup, dateTo);
+    } catch (e) {
+      if (e?.name === "AbortError") throw e;
+      return null;
+    }
+  });
+  const payloads = settled.filter(Boolean);
+  if (!payloads.length) return null;
+  return mergeGroupData(payloads, { startDate: dateFrom, endDate: dateTo });
+}
+
+/**
+ * Build bootstrap.earnings.current like desktop group-All multi-currency merge.
+ * Primary currency reuses the already-merged KPI payload; others fan-out with kpi scope.
+ */
+async function buildMergedEarningsByCurrency({
+  list,
+  currencies,
+  primaryCurrency,
+  primaryMerged,
+  dateFrom,
+  dateTo,
+  selectedGroup,
+  groupsAllMode,
+  signal,
+  loadError,
+}) {
+  const primary = String(primaryCurrency || "MYR").toUpperCase();
+  const codes = [
+    ...new Set(
+      [primary, ...(currencies || [])]
+        .map((c) => String(c || "").trim().toUpperCase())
+        .filter((c) => /^[A-Z]{3}$/.test(c)),
+    ),
+  ];
+  if (!codes.length) {
+    return primaryMerged ? { current: [{ code: primary, payload: primaryMerged }], previous: [] } : null;
+  }
+
+  const entries = await mapPool(codes, CURRENCY_FANOUT_POOL, async (code) => {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    if (code === primary && primaryMerged) {
+      return { code, payload: primaryMerged };
+    }
+    const merged = await mergeCompaniesForCurrency({
+      list,
+      currencyCode: code,
+      dateFrom,
+      dateTo,
+      selectedGroup,
+      groupsAllMode,
+      bootstrapScope: "kpi",
+      signal,
+      loadError,
+    });
+    return { code, payload: merged };
+  });
+
+  return {
+    current: entries.filter((e) => e?.code),
+    previous: [],
+  };
+}
+
 /**
  * Load dashboard like desktop:
  * - single company → one bootstrap (with subsidiary scope when in a group)
  * - Company All / Groups All → parallel per-company bootstrap + mergeGroupData
  * - Group All (+ single group) → enrich with group_only ledger expenses/ownership
+ * - All modes → fan-out per-currency merge into earnings.current (hero / pie parity)
  */
 export async function loadMobileDashboardData(scopeState, { signal, loadError } = {}) {
   const {
@@ -191,6 +293,7 @@ export async function loadMobileDashboardData(scopeState, { signal, loadError } 
       currencies,
       companyId: cid,
       viewGroup: viewGroup && !isGroupEntityRow(row, viewGroup) ? viewGroup : null,
+      bootstrapScope: "full",
     });
     const data = await fetchBootstrapData(q, signal, loadError);
     return {
@@ -207,18 +310,19 @@ export async function loadMobileDashboardData(scopeState, { signal, loadError } 
 
   if (!list.length) throw new Error(loadError || "Failed to load dashboard");
 
+  const primaryCode = String(currency || (currencies && currencies[0]) || "MYR").toUpperCase();
+
   const settled = await mapPool(list, MERGE_POOL, async (companyRow) => {
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-    const viewGroup = groupsAllMode
-      ? resolveViewGroupForCompany(companyRow, selectedGroup)
-      : normalizeGroupId(selectedGroup) || resolveViewGroupForCompany(companyRow, null);
+    const viewGroup = resolveMergeViewGroup(companyRow, selectedGroup, groupsAllMode);
     const q = buildSingleCompanyBootstrapQuery({
       dateFrom,
       dateTo,
-      currency,
-      currencies: currency ? [currency] : currencies,
+      currency: primaryCode,
+      currencies: [primaryCode],
       companyId: companyRow.id,
       viewGroup,
+      bootstrapScope: "full",
     });
     try {
       const data = await fetchBootstrapData(q, signal, loadError);
@@ -255,7 +359,7 @@ export async function loadMobileDashboardData(scopeState, { signal, loadError } 
     const enriched = await enrichWithGroupLedger(current, previous, {
       dateFrom,
       dateTo,
-      currency,
+      currency: primaryCode,
       groupKey: selectedGroup,
       signal,
     });
@@ -265,16 +369,36 @@ export async function loadMobileDashboardData(scopeState, { signal, loadError } 
     ledgerApplied = !!enriched._ledger;
   }
 
+  let earnings = null;
+  try {
+    earnings = await buildMergedEarningsByCurrency({
+      list,
+      currencies,
+      primaryCurrency: primaryCode,
+      primaryMerged: current,
+      dateFrom,
+      dateTo,
+      selectedGroup,
+      groupsAllMode,
+      signal,
+      loadError,
+    });
+  } catch (e) {
+    if (e?.name === "AbortError") throw e;
+    earnings = { current: [{ code: primaryCode, payload: current }], previous: [] };
+  }
+
   return {
     current,
     previous,
     previous_date_range,
-    earnings: null,
+    earnings,
     _mobile_scope: {
       mode: groupsAllMode ? "groupsAll" : "groupAll",
       count: pairs.length,
       group: normalizeGroupId(selectedGroup),
       ledger: ledgerApplied,
+      currencies: (earnings?.current || []).map((e) => e.code),
     },
   };
 }

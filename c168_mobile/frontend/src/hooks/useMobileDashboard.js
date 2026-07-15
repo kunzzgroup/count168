@@ -35,25 +35,36 @@ function sameStringList(a, b) {
 }
 
 function earningsRowsFromBootstrap(bootstrap, panelMetric, primaryCurrency, kpiOpts = {}) {
+  // Group/Company All hero + breakdown match desktop Net Profit panel (not ownership earnings).
+  const preferNet =
+    !!kpiOpts.groupAllCompaniesEarningsSum || !!kpiOpts.groupsAllCompaniesAggregate;
+
   const entries = bootstrap?.earnings?.current;
   if (Array.isArray(entries) && entries.length) {
     return entries
       .map(({ code, payload }) => {
+        if (!payload) return null;
         const metrics = computeKpiMetrics(payload, kpiOpts);
         const normalized = String(code || "").trim().toUpperCase();
+        const fromMetrics = preferNet
+          ? metrics?.netProfit
+          : (metrics?.earnings ?? metrics?.netProfit);
         const earnings =
           normalized === String(primaryCurrency || "").toUpperCase() && panelMetric != null
             ? panelMetric
-            : metrics?.earnings ?? metrics?.netProfit;
+            : fromMetrics;
         return { code: normalized, earnings };
       })
-      .filter((row) => row.code);
+      .filter((row) => row?.code);
   }
 
   const current = bootstrap?.current;
   const metrics = computeKpiMetrics(current, kpiOpts);
   const code = String(current?.currency || current?.settlement_currency || primaryCurrency || "MYR").toUpperCase();
-  const earnings = panelMetric ?? metrics?.earnings ?? metrics?.netProfit ?? null;
+  const earnings =
+    panelMetric ??
+    (preferNet ? metrics?.netProfit : metrics?.earnings ?? metrics?.netProfit) ??
+    null;
   return earnings == null ? [] : [{ code, earnings }];
 }
 
