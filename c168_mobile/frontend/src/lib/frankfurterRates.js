@@ -11,7 +11,7 @@ function normalizeQuotes(baseCode, quoteCodes) {
   ];
 }
 
-export async function fetchFrankfurterRates(baseCode, quoteCodes) {
+export async function fetchFrankfurterRates(baseCode, quoteCodes, { signal } = {}) {
   const base = String(baseCode || "").trim().toUpperCase();
   const quotes = normalizeQuotes(base, quoteCodes);
   if (!base) return { rates: {}, date: null };
@@ -19,7 +19,17 @@ export async function fetchFrankfurterRates(baseCode, quoteCodes) {
 
   const params = new URLSearchParams({ base, quotes: quotes.join(",") });
   const url = `${FRANKFURTER_API}?${params}`;
-  const res = await fetch(url);
+  const timeoutSignal = typeof AbortSignal !== "undefined" && AbortSignal.timeout
+    ? AbortSignal.timeout(8000)
+    : null;
+  const combined =
+    signal && timeoutSignal
+      ? AbortSignal.any
+        ? AbortSignal.any([signal, timeoutSignal])
+        : signal
+      : signal || timeoutSignal;
+
+  const res = await fetch(url, { signal: combined, cache: "no-store" });
   if (!res.ok) throw new Error("Failed to load exchange rates");
   const json = await res.json();
   const rows = Array.isArray(json) ? json : Array.isArray(json.data) ? json.data : [];

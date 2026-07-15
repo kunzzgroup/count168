@@ -1,4 +1,4 @@
-import { formatCurrency, formatPercentMagnitude, formatSignedChange } from "../../lib/dashboardFormat.js";
+import { formatCurrencyHero, formatPercentMagnitude, formatSignedChange } from "../../lib/dashboardFormat.js";
 
 export default function HeroSummaryCard({
   i18n,
@@ -11,7 +11,6 @@ export default function HeroSummaryCard({
   sparklineValues = [],
 }) {
   const showCompare = !loading && compare && Number.isFinite(compare?.pct);
-  const trendUp = showCompare ? compare.isUp : true;
 
   const sparkPath = (() => {
     const vals = (sparklineValues || []).filter((v) => Number.isFinite(v));
@@ -50,32 +49,11 @@ export default function HeroSummaryCard({
         >
           <path d={sparkPath} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-      ) : (
-        <svg
-          className="pointer-events-none absolute bottom-3 right-3 h-16 w-28 text-white/35"
-          viewBox="0 0 120 60"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            d={
-              trendUp
-                ? "M2 50 L26 40 L46 44 L70 22 L92 28 L114 8"
-                : "M2 8 L26 18 L46 14 L70 36 L92 30 L114 50"
-            }
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      )}
+      ) : null}
 
-      <div className="relative flex items-start justify-between gap-3">
+      <div className={`relative flex items-start justify-between gap-3 ${sparkPath ? "pr-24" : ""}`}>
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/75">
-            {i18n.netProfit}
-          </p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/75">{i18n.netProfit}</p>
           <p className="mt-0.5 text-[13px] font-semibold text-white/90">{currency}</p>
         </div>
         {showCompare && (
@@ -84,27 +62,27 @@ export default function HeroSummaryCard({
               compare.isUp ? "bg-emerald-400/25 text-white" : "bg-rose-400/30 text-white"
             }`}
           >
-            <i
-              className={`fas fa-arrow-${compare.isUp ? "up" : "down"} text-[10px]`}
-              aria-hidden="true"
-            />
+            <i className={`fas fa-arrow-${compare.isUp ? "up" : "down"} text-[10px]`} aria-hidden="true" />
             {formatPercentMagnitude(compare.pct)}
           </span>
         )}
       </div>
 
-      <p className="relative mt-4 text-[40px] font-bold leading-none tracking-tight tabular-nums">
+      <p
+        className={`relative mt-4 truncate text-[clamp(28px,9vw,40px)] font-bold leading-none tracking-tight tabular-nums ${
+          sparkPath ? "pr-24" : ""
+        }`}
+      >
         {loading ? (
           <span className="inline-block h-10 w-40 animate-pulse rounded-xl bg-white/25" />
         ) : (
-          formatCurrency(value)
+          formatCurrencyHero(value)
         )}
       </p>
 
       {showCompare && (
         <p className="relative mt-3 max-w-[85%] text-[12px] font-medium leading-snug text-white/85">
-          {compareLabel}{" "}
-          <span className="font-bold">{formatSignedChange(compare.delta)}</span>
+          {compareLabel} <span className="font-bold">{formatSignedChange(compare.delta)}</span>
         </p>
       )}
 

@@ -78,13 +78,6 @@ export default function FilterSheet({ open, onClose, dash }) {
         </div>
 
         <div className="flex-1 space-y-6 overflow-y-auto px-5 pb-4">
-          <Section title={i18n.dateRange}>
-            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5">
-              <i className="fas fa-calendar-alt text-slate-400" aria-hidden="true" />
-              <span className="flex-1 text-[14px] font-semibold text-slate-700">{dash.dateRangeText}</span>
-            </div>
-          </Section>
-
           <Section title={i18n.quickSelect}>
             <div className="grid grid-cols-3 gap-2">
               {PERIOD_PRESET_KEYS.map((key) => (
@@ -98,6 +91,7 @@ export default function FilterSheet({ open, onClose, dash }) {
                 </Pill>
               ))}
             </div>
+            <p className="text-[12px] font-semibold text-slate-500">{dash.dateRangeText}</p>
           </Section>
 
           {dash.groupIds.length > 0 && (

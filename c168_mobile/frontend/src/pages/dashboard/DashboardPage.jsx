@@ -44,24 +44,21 @@ export default function DashboardPage() {
     .toUpperCase();
 
   const stickyBar = (
-    <div className="flex items-center gap-2.5">
-      <button
-        type="button"
-        onClick={() => setFilterOpen(true)}
-        className="tap-scale flex min-w-0 flex-1 items-center gap-2 rounded-2xl bg-white px-3.5 py-2.5 shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
-      >
-        <i className="far fa-calendar text-[#2f6bf6]" aria-hidden="true" />
-        <span className="truncate text-[13px] font-bold text-slate-700">{dash.dateRangeText}</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => setFilterOpen(true)}
-        className="tap-scale flex shrink-0 items-center gap-2 rounded-2xl bg-[#2f6bf6] px-3.5 py-2.5 text-white shadow-[0_10px_22px_-10px_rgba(47,107,246,0.65)]"
-      >
-        <i className="fas fa-filter text-[12px]" aria-hidden="true" />
-        <span className="text-[13px] font-bold">{i18n.filter}</span>
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={() => setFilterOpen(true)}
+      className="tap-scale flex w-full items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
+      aria-label={i18n.filter}
+    >
+      <i className="far fa-calendar text-[#2f6bf6]" aria-hidden="true" />
+      <span className="min-w-0 flex-1 truncate text-left text-[13px] font-bold text-slate-700">
+        {dash.dateRangeText}
+      </span>
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#2f6bf6] px-2.5 py-1.5 text-white">
+        <i className="fas fa-filter text-[11px]" aria-hidden="true" />
+        <span className="text-[12px] font-bold">{i18n.filter}</span>
+      </span>
+    </button>
   );
 
   return (
@@ -124,12 +121,11 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {(loading || dash.hasData) && (
+            <>
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-[15px] font-bold text-slate-900">{i18n.overview}</h2>
-              <span className="text-[12px] font-semibold text-slate-400">
-                {i18n.swipe} <i className="fas fa-arrow-right-long text-[10px]" aria-hidden="true" />
-              </span>
             </div>
             <div className="no-scrollbar -mx-3.5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-3.5 pb-1">
               {kpiCards.map((card) => (
@@ -175,10 +171,12 @@ export default function DashboardPage() {
             useConverted={dash.useConvertedEarnings}
             loading={loading}
           />
+            </>
+          )}
         </div>
 
-        {loading && (
-          <div className="pointer-events-none sticky bottom-4 z-30 flex justify-center" aria-live="polite">
+        {loading && !dash.hasData && (
+          <div className="pointer-events-none sticky bottom-4 z-30 flex justify-center pb-[calc(env(safe-area-inset-bottom,0px)+8px)]" aria-live="polite">
             <span className="inline-flex items-center gap-2 rounded-full bg-slate-900/90 px-4 py-2 text-[12px] font-bold text-white shadow-lg">
               <span className="size-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
               {i18n.loading}

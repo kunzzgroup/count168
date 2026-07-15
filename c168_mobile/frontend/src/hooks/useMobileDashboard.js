@@ -80,7 +80,9 @@ export function useMobileDashboard() {
   const [error, setError] = useState("");
   const [blocked, setBlocked] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [sessionNonce, setSessionNonce] = useState(0);
   const bootstrapSeq = useRef(0);
+  const scopeSeq = useRef(0);
 
   const groupIds = useMemo(() => sortedUniqueGroupIds(companies), [companies]);
 
@@ -162,13 +164,14 @@ export function useMobileDashboard() {
       }
     })();
     return () => ac.abort();
-  }, [navigate, i18n.loadError]);
+  }, [navigate, i18n.loadError, sessionNonce]);
 
   // Currencies before bootstrap — avoids first paint locked to MYR-only
   useEffect(() => {
     if (!companies.length || !companyId) return undefined;
     const ac = new AbortController();
-    setCurrenciesReady(false);
+    // Soft refresh: don't flip currenciesReady false if we already have data (avoids full-page spinner flash).
+    setCurrenciesReady((ready) => (ready ? ready : false));
     (async () => {
       try {
         const codes = await fetchMobileCurrencyCodes({
@@ -177,15 +180,15 @@ export function useMobileDashboard() {
           groupAllMode,
           groupsAllMode,
           companies,
+          signal: ac.signal,
         });
         if (ac.signal.aborted) return;
         const next = codes.length ? codes : ["MYR"];
         setCurrencies((prev) => (sameStringList(prev, next) ? prev : next));
         setCurrency((prev) => (next.includes(prev) ? prev : next[0] || "MYR"));
-      } catch {
-        if (!ac.signal.aborted) {
-          setCurrencies((prev) => (prev.length ? prev : ["MYR"]));
-        }
+      } catch (e) {
+        if (ac.signal.aborted || e?.name === "AbortError") return;
+        setCurrencies((prev) => (prev.length ? prev : ["MYR"]));
       } finally {
         if (!ac.signal.aborted) setCurrenciesReady(true);
       }
@@ -225,7 +228,7 @@ export function useMobileDashboard() {
         setBootstrap(finalData);
       } catch (e) {
         if (ac.signal.aborted || e?.name === "AbortError" || seq !== bootstrapSeq.current) return;
-        setBootstrap(null);
+        // Keep last good bootstrap so refresh failures don't blank the screen
         setError(e?.message || i18n.loadError);
       } finally {
         if (!ac.signal.aborted && seq === bootstrapSeq.current) setBootstrapping(false);
@@ -249,7 +252,8 @@ export function useMobileDashboard() {
   ]);
 
   const useConvertedEarnings = currencies.length > 1;
-  const showLoading = loading || bootstrapping || !currenciesReady;
+  // Gate first paint on currencies only until we have usable bootstrap.
+  const showLoading = loading || bootstrapping || (!bootstrap && !currenciesReady);
 
   useEffect(() => {
     if (!useConvertedEarnings || !currency) {
@@ -258,22 +262,26 @@ export function useMobileDashboard() {
       return undefined;
     }
 
-    let cancelled = false;
+    const ac = new AbortController();
     setExchangeRatesLoading(true);
     (async () => {
       try {
-        const payload = await fetchFrankfurterRates(currency, currencies);
-        if (!cancelled) setExchangeRates(payload);
-      } catch {
-        if (!cancelled) setExchangeRates({ rates: { [currency]: 1 }, date: null });
+        const payload = await fetchFrankfurterRates(currency, currencies, { signal: ac.signal });
+        if (!ac.signal.aborted) setExchangeRates(payload);
+      } catch (e) {
+        if (ac.signal.aborted || e?.name === "AbortError") return;
+        // Keep previous rates on failure to avoid undercounted totals flashing to identity.
+        setExchangeRates((prev) =>
+          prev?.rates && Object.keys(prev.rates).length
+            ? prev
+            : { rates: { [currency]: 1 }, date: null },
+        );
       } finally {
-        if (!cancelled) setExchangeRatesLoading(false);
+        if (!ac.signal.aborted) setExchangeRatesLoading(false);
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => ac.abort();
   }, [currency, currencies, useConvertedEarnings]);
 
   const kpi = useMemo(() => {
@@ -382,9 +390,10 @@ export function useMobileDashboard() {
   }, []);
 
   const syncCompanySession = useCallback(
-    async (id) => {
+    async (id, signal) => {
       const { res, json } = await fetchJson(
         buildApiUrl(`api/session/update_company_session_api.php?company_id=${id}`),
+        { signal },
       );
       assertApiOk(res, json, i18n.loadError);
     },
@@ -398,17 +407,21 @@ export function useMobileDashboard() {
       const sameCompany = Number(id) === Number(companyId);
       if (sameCompany && !groupAllMode && !groupsAllMode) return;
       const row = companies.find((c) => Number(c.id) === id);
+      const seq = ++scopeSeq.current;
+      const ac = new AbortController();
       setBootstrapping(true);
       setError("");
       try {
         if (!sameCompany) {
-          await syncCompanySession(id);
+          await syncCompanySession(id, ac.signal);
         }
+        if (seq !== scopeSeq.current) return;
         setCompanyId(id);
         setSelectedGroup(selectedGroup ? resolveViewGroupForCompany(row, selectedGroup) : selectedGroup);
         setGroupsAllMode(false);
         setGroupAllMode(false);
       } catch (e) {
+        if (e?.name === "AbortError" || seq !== scopeSeq.current) return;
         setError(e?.message || i18n.loadError);
         setBootstrapping(false);
       }
@@ -431,6 +444,7 @@ export function useMobileDashboard() {
     (gid) => {
       const group = String(gid || "").trim().toUpperCase();
       if (!group) return;
+      const seq = ++scopeSeq.current;
       setGroupsAllMode(false);
       setGroupAllMode(true);
       setSelectedGroup(group);
@@ -440,8 +454,12 @@ export function useMobileDashboard() {
       setBootstrapping(true);
       setError("");
       syncCompanySession(nextId)
-        .then(() => setCompanyId(nextId))
+        .then(() => {
+          if (seq !== scopeSeq.current) return;
+          setCompanyId(nextId);
+        })
         .catch((e) => {
+          if (seq !== scopeSeq.current || e?.name === "AbortError") return;
           setError(e?.message || i18n.loadError);
           setBootstrapping(false);
         });
@@ -476,8 +494,12 @@ export function useMobileDashboard() {
 
   const retry = useCallback(() => {
     setError("");
+    if (!companyId) {
+      setSessionNonce((n) => n + 1);
+      return;
+    }
     setReloadNonce((n) => n + 1);
-  }, []);
+  }, [companyId]);
 
   return {
     i18n,
