@@ -1,5 +1,5 @@
 /**
- * Local Bank Process Date Range visual + functional smoke (Vite must be on :5173).
+ * Bank Process Date Range visual + functional smoke (Vite on :5173).
  * node scripts/repro-bank-daterange.mjs
  */
 import { chromium } from "playwright";
@@ -8,11 +8,28 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OUT = path.resolve(__dirname, "../../verify-bank-daterange-fixed.png");
+const OUT_TRIGGER = path.resolve(__dirname, "../../verify-bank-daterange-fixed.png");
+const OUT_POPUP = path.resolve(__dirname, "../../verify-bank-daterange-popup.png");
 const BASE = process.env.VITE_BASE || "http://127.0.0.1:5173";
 const FIXTURE_DIR = path.resolve(__dirname, "../public/dev-fixtures");
 const FIXTURE_FILE = path.join(FIXTURE_DIR, "bank-daterange.html");
 const FIXTURE_URL = `${BASE}/dev-fixtures/bank-daterange.html`;
+
+const PRESETS = [
+  ["today", "Today"],
+  ["yesterday", "Yesterday"],
+  ["thisWeek", "This Week"],
+  ["lastWeek", "Last Week"],
+  ["thisMonth", "This Month"],
+  ["lastMonth", "Last Month"],
+  ["thisYear", "This Year"],
+  ["lastYear", "Last Year"],
+];
+
+const presetButtons = PRESETS.map(
+  ([key, label]) =>
+    `<button type="button" class="transaction-calendar-preset" data-period-key="${key}">${label}</button>`,
+).join("\n      ");
 
 const fixtureHtml = `<!DOCTYPE html>
 <html>
@@ -22,6 +39,7 @@ const fixtureHtml = `<!DOCTYPE html>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
   <link rel="stylesheet" href="/css/date-range-picker.css" />
   <link rel="stylesheet" href="/css/processCSS.css" />
+  <link rel="stylesheet" href="/css/processlist.css" />
 </head>
 <body class="process-page process-page--bank">
   <div class="action-controls-row bank-process-toolbar-primary" style="display:flex;align-items:center;gap:12px;padding:24px;background:#f8fafc">
@@ -36,11 +54,9 @@ const fixtureHtml = `<!DOCTYPE html>
       <input type="hidden" id="date_to" value="" />
     </div>
   </div>
-  <div class="calendar-popup calendar-popup--transaction-range" id="calendar-popup" style="display:none">
+  <div class="calendar-popup calendar-popup--transaction-range calendar-popup--bank-process-modal" id="calendar-popup" style="display:none">
     <div class="transaction-calendar-presets">
-      <button type="button" class="transaction-calendar-preset" data-period-key="today">Today</button>
-      <button type="button" class="transaction-calendar-preset" data-period-key="yesterday">Yesterday</button>
-      <button type="button" class="transaction-calendar-preset" data-period-key="this_month">This Month</button>
+      ${presetButtons}
     </div>
     <div class="transaction-calendar-panel">
       <div class="calendar-header">
@@ -64,6 +80,7 @@ const fixtureHtml = `<!DOCTYPE html>
       placeholder: "Select date range",
       selectEndDateHint: "Select end date",
       clearDateLabel: "Clear",
+      onChange: () => { window.__lastChange = Date.now(); },
     });
     window.__drpReady = true;
   </script>
@@ -77,31 +94,27 @@ let exitCode = 0;
 try {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  page.on("pageerror", (err) => console.error("pageerror", err.message));
-  page.on("console", (msg) => {
-    if (msg.type() === "error") console.error("console", msg.text());
-  });
 
   await page.goto(FIXTURE_URL, { waitUntil: "networkidle", timeout: 30000 });
   await page.waitForFunction(() => window.__drpReady === true, null, { timeout: 20000 });
   await page.waitForTimeout(200);
 
-  const styles = await page.evaluate(() => {
+  const triggerStyles = await page.evaluate(() => {
     const pick = document.querySelector("#date-range-picker");
     const icon = pick.querySelector("i.fa-calendar-alt");
+    const display = pick.querySelector("#date-range-display");
     const cs = getComputedStyle(pick);
     const ic = getComputedStyle(icon);
+    const ds = getComputedStyle(display);
     const pr = pick.getBoundingClientRect();
     const ir = icon.getBoundingClientRect();
     return {
       border: cs.border,
-      radius: cs.borderRadius,
       gap: cs.gap,
       overflow: cs.overflow,
-      pad: cs.padding,
       iconBg: ic.backgroundColor,
       iconRadius: ic.borderRadius,
-      iconH: ic.height,
+      displayPadLeft: ds.paddingLeft,
       flush: {
         top: Math.abs(ir.top - pr.top),
         bottom: Math.abs(ir.bottom - pr.bottom),
@@ -110,17 +123,46 @@ try {
     };
   });
 
-  await page.locator("#date-range-picker").screenshot({ path: OUT });
+  await page.locator("#date-range-picker").screenshot({ path: OUT_TRIGGER });
 
   await page.locator("#date-range-picker").click();
-  await page.waitForTimeout(200);
-  const opened = await page.evaluate(() => ({
-    display: getComputedStyle(document.getElementById("calendar-popup")).display,
-    days: document.querySelectorAll("#calendar-days .calendar-day").length,
-  }));
+  await page.waitForTimeout(250);
+
+  const popupOpen = await page.evaluate(() => {
+    const popup = document.getElementById("calendar-popup");
+    const cs = getComputedStyle(popup);
+    const presets = popup.querySelector(".transaction-calendar-presets");
+    const presetCs = getComputedStyle(presets);
+    const pr = popup.getBoundingClientRect();
+    return {
+      display: cs.display,
+      gridCols: cs.gridTemplateColumns,
+      width: pr.width,
+      hasNoPresets: popup.classList.contains("calendar-popup--no-presets"),
+      hasMatchAnchor: popup.classList.contains("calendar-popup--match-anchor"),
+      presetDisplay: presetCs.display,
+      presetCount: popup.querySelectorAll(".transaction-calendar-preset").length,
+      dayCount: document.querySelectorAll("#calendar-days .calendar-day").length,
+      headerMaxWidth: getComputedStyle(popup.querySelector(".calendar-header")).maxWidth,
+    };
+  });
+
+  await page.locator("#calendar-popup").screenshot({ path: OUT_POPUP });
+
   await page.locator('.transaction-calendar-preset[data-period-key="today"]').click();
   await page.waitForTimeout(200);
-  const today = await page.evaluate(() => ({
+  const afterToday = await page.evaluate(() => ({
+    display: document.getElementById("date-range-display").textContent,
+    from: document.getElementById("date_from").value,
+    to: document.getElementById("date_to").value,
+    popupClosed: getComputedStyle(document.getElementById("calendar-popup")).display === "none",
+  }));
+
+  await page.locator("#date-range-picker").click();
+  await page.waitForTimeout(150);
+  await page.locator('.transaction-calendar-preset[data-period-key="thisWeek"]').click();
+  await page.waitForTimeout(200);
+  const afterWeek = await page.evaluate(() => ({
     display: document.getElementById("date-range-display").textContent,
     from: document.getElementById("date_from").value,
     to: document.getElementById("date_to").value,
@@ -131,26 +173,33 @@ try {
   const days = page.locator("#calendar-days .calendar-day:not(.disabled)");
   await days.nth(2).click();
   await page.waitForTimeout(80);
-  await days.nth(4).click();
+  await days.nth(5).click();
   await page.waitForTimeout(200);
-  const rangePick = await page.evaluate(() => ({
+  const afterRange = await page.evaluate(() => ({
     display: document.getElementById("date-range-display").textContent,
     from: document.getElementById("date_from").value,
     to: document.getElementById("date_to").value,
   }));
 
   const pass = {
-    borderOk: styles.border.includes("1px") && styles.border.includes("148, 163, 184"),
-    gapZero: styles.gap === "0px",
-    overflowHidden: styles.overflow === "hidden",
-    iconBlue: styles.iconBg.includes("59, 130, 246"),
-    iconFlush: styles.flush.top <= 1.5 && styles.flush.bottom <= 1.5 && styles.flush.left <= 1.5,
-    calendarOpens: opened.display !== "none" && opened.days > 0,
-    todayWorks: !!(today.from && today.to && String(today.display).includes("/")),
-    rangeWorks: !!(rangePick.from && rangePick.to && rangePick.from !== rangePick.to),
+    triggerBorder: triggerStyles.border.includes("1px") && triggerStyles.border.includes("148, 163, 184"),
+    triggerGapZero: triggerStyles.gap === "0px",
+    triggerOverflowHidden: triggerStyles.overflow === "hidden",
+    triggerIconBlue: triggerStyles.iconBg.includes("59, 130, 246"),
+    triggerIconFlush: triggerStyles.flush.top <= 1.5 && triggerStyles.flush.bottom <= 1.5 && triggerStyles.flush.left <= 1.5,
+    triggerTextPad: parseFloat(triggerStyles.displayPadLeft) >= 6,
+    popupGrid: popupOpen.display === "grid",
+    popupWideEnough: popupOpen.width >= 300,
+    popupHasPresets: popupOpen.presetCount === 8 && popupOpen.presetDisplay !== "none",
+    popupNotNarrowMode: !popupOpen.hasNoPresets && !popupOpen.hasMatchAnchor,
+    popupDaysRender: popupOpen.dayCount >= 28,
+    popupHeaderCentered: popupOpen.headerMaxWidth !== "none" && parseFloat(popupOpen.headerMaxWidth) <= 260,
+    todayWorks: !!(afterToday.from && afterToday.to && afterToday.popupClosed),
+    weekWorks: !!(afterWeek.from && afterWeek.to && afterWeek.display.includes("-")),
+    rangeWorks: !!(afterRange.from && afterRange.to && afterRange.from !== afterRange.to),
   };
 
-  console.log(JSON.stringify({ styles, opened, today, rangePick, pass, shot: OUT }, null, 2));
+  console.log(JSON.stringify({ triggerStyles, popupOpen, afterToday, afterWeek, afterRange, pass }, null, 2));
   const failed = Object.entries(pass).filter(([, v]) => !v).map(([k]) => k);
   await browser.close();
   if (failed.length) {
