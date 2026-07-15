@@ -1030,8 +1030,7 @@ export function useTransactionSearch({
         setSubmitFocusRangeKey(rangeKey);
         submitFocusLeftRangeKeysRef.current.delete(rangeKey);
 
-        clearTxSearchCache();
-        await queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
+        // forceRefresh already clears caches + invalidates; avoid a second round-trip here.
         await runSearch({
           forceRefresh: true,
           silent: true,
@@ -1054,7 +1053,6 @@ export function useTransactionSearch({
       persistCurrencyFilter,
       transactionScope?.selectedGroup,
       notifySingleCurrencyIfNeeded,
-      queryClient,
       runSearch,
     ],
   );
