@@ -73,6 +73,21 @@ export default function FilterSheet({ open, onClose, dash }) {
     dash.resetFilters();
   };
 
+  const applyPresetAndClose = (key) => {
+    dash.applyPreset(key);
+    onClose?.();
+  };
+
+  const switchCompanyAndClose = (id) => {
+    void dash.switchCompany(id);
+    onClose?.();
+  };
+
+  const setCurrencyAndClose = (code) => {
+    dash.setCurrency(code);
+    onClose?.();
+  };
+
   const maxDay = todayYmd();
   const span = daysInclusive(dash.dateFrom, dash.dateTo);
   const daysLabel = (i18n.daysCount || "{n} days").replace("{n}", String(span));
@@ -156,7 +171,7 @@ export default function FilterSheet({ open, onClose, dash }) {
                 <Pill
                   key={key}
                   active={dash.activePreset === key}
-                  onClick={() => dash.applyPreset(key)}
+                  onClick={() => applyPresetAndClose(key)}
                   block
                 >
                   {dashboardLabel(i18n, key)}
@@ -199,7 +214,7 @@ export default function FilterSheet({ open, onClose, dash }) {
                 <Pill
                   key={c.id}
                   active={!dash.groupAllMode && Number(dash.companyId) === Number(c.id)}
-                  onClick={() => dash.switchCompany(c.id)}
+                  onClick={() => switchCompanyAndClose(c.id)}
                 >
                   {String(c.company_id || c.name || c.id).toUpperCase()}
                 </Pill>
@@ -211,7 +226,7 @@ export default function FilterSheet({ open, onClose, dash }) {
             <Section title={i18n.currency}>
               <div className="flex max-h-36 flex-wrap gap-2 overflow-y-auto">
                 {dash.currencies.map((code) => (
-                  <Pill key={code} active={dash.currency === code} onClick={() => dash.setCurrency(code)}>
+                  <Pill key={code} active={dash.currency === code} onClick={() => setCurrencyAndClose(code)}>
                     {code}
                   </Pill>
                 ))}
@@ -219,7 +234,6 @@ export default function FilterSheet({ open, onClose, dash }) {
             </Section>
           )}
         </div>
-
         <div
           className="flex gap-3 border-t border-slate-100 px-5 pt-3"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)" }}

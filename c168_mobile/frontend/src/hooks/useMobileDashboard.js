@@ -80,6 +80,7 @@ export function useMobileDashboard() {
   const [bootstrap, setBootstrap] = useState(null);
   const [exchangeRates, setExchangeRates] = useState({ rates: { MYR: 1 }, date: null });
   const [exchangeRatesLoading, setExchangeRatesLoading] = useState(false);
+  const [exchangeRatesError, setExchangeRatesError] = useState(false);
   const [chartVisible, setChartVisible] = useState({ 0: true, 1: true, 2: true, 3: true });
   const [loading, setLoading] = useState(true);
   const [bootstrapping, setBootstrapping] = useState(false);
@@ -268,15 +269,20 @@ export function useMobileDashboard() {
     if (!useConvertedEarnings || !currency) {
       setExchangeRates({ rates: { [currency]: 1 }, date: null });
       setExchangeRatesLoading(false);
+      setExchangeRatesError(false);
       return undefined;
     }
 
     const ac = new AbortController();
     setExchangeRatesLoading(true);
+    setExchangeRatesError(false);
     (async () => {
       try {
         const payload = await fetchFrankfurterRates(currency, currencies, { signal: ac.signal });
-        if (!ac.signal.aborted) setExchangeRates(payload);
+        if (!ac.signal.aborted) {
+          setExchangeRates(payload);
+          setExchangeRatesError(false);
+        }
       } catch (e) {
         if (ac.signal.aborted || e?.name === "AbortError") return;
         // Keep previous rates on failure to avoid undercounted totals flashing to identity.
@@ -285,6 +291,7 @@ export function useMobileDashboard() {
             ? prev
             : { rates: { [currency]: 1 }, date: null },
         );
+        setExchangeRatesError(true);
       } finally {
         if (!ac.signal.aborted) setExchangeRatesLoading(false);
       }
@@ -394,6 +401,23 @@ export function useMobileDashboard() {
     });
     return active.length > 1;
   }, [earningsCurrencyRows, useConvertedEarnings]);
+
+  const ratesWarning = useMemo(() => {
+    if (!useConvertedEarnings || exchangeRatesLoading) return "";
+    if (exchangeRatesError) return i18n.ratesUnavailable || "";
+    const missing = earningsCurrencyRows.some((row) => {
+      const raw = Number(row.earnings);
+      if (!Number.isFinite(raw) || Math.abs(raw) < 0.005) return false;
+      return row.earningsConverted == null;
+    });
+    return missing ? i18n.ratesUnavailable || "" : "";
+  }, [
+    useConvertedEarnings,
+    exchangeRatesLoading,
+    exchangeRatesError,
+    earningsCurrencyRows,
+    i18n.ratesUnavailable,
+  ]);
 
   const dateRangeText = useMemo(() => formatRangeLabel(dateFrom, dateTo), [dateFrom, dateTo]);
   const dateRangeShort = useMemo(
@@ -562,6 +586,7 @@ export function useMobileDashboard() {
     currencies,
     exchangeRates,
     exchangeRatesLoading,
+    ratesWarning,
     useConvertedEarnings,
     showMultiCurrencyNote,
     heroCompare,

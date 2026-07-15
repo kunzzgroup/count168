@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import MobileShell from "../../components/layout/MobileShell.jsx";
 import { useMobileDashboard } from "../../hooks/useMobileDashboard.js";
 import CurrencyDistributionCard from "./CurrencyDistributionCard.jsx";
@@ -12,6 +12,12 @@ export default function DashboardPage() {
   const dash = useMobileDashboard();
   const { i18n, kpi, loading, refreshing, error, me, blocked, compareLabel } = dash;
   const [filterOpen, setFilterOpen] = useState(false);
+  const [ratesHintDismissed, setRatesHintDismissed] = useState(false);
+  const ratesHint = dash.ratesWarning && !ratesHintDismissed ? dash.ratesWarning : "";
+
+  useEffect(() => {
+    if (!dash.ratesWarning) setRatesHintDismissed(false);
+  }, [dash.ratesWarning]);
 
   const sparklineValues = useMemo(() => {
     const rows = dash.chartRows || [];
@@ -94,6 +100,24 @@ export default function DashboardPage() {
               className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-[12px] font-bold text-rose-600 ring-1 ring-rose-200"
             >
               Retry
+            </button>
+          </div>
+        )}
+
+        {ratesHint && (
+          <div
+            className="relative mb-3 flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5"
+            role="status"
+          >
+            <i className="fas fa-exclamation-triangle mt-0.5 text-[12px] text-amber-600" aria-hidden="true" />
+            <p className="min-w-0 flex-1 text-[12px] font-semibold leading-snug text-amber-800">{ratesHint}</p>
+            <button
+              type="button"
+              onClick={() => setRatesHintDismissed(true)}
+              className="shrink-0 grid size-7 place-items-center rounded-full text-amber-700/70"
+              aria-label={i18n.closeMenu || "Close"}
+            >
+              <i className="fas fa-xmark text-[12px]" aria-hidden="true" />
             </button>
           </div>
         )}
