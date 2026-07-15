@@ -20,7 +20,7 @@ import { BankNoteModal, BankRemarkModal } from "./components/bankProcessTextModa
 import AccountingDueModal from "./components/AccountingDueModal.jsx";
 import ResendModal from "./components/ResendModal.jsx";
 import { DashboardCalendarPopup } from "../dashboard/components/DashboardCalendarPopup.jsx";
-import { bankProcessFrequencyNormalized, normalizeBankProcessStatus, isoToDmy } from "./lib/bankProcessHelpers.js";
+import { bankProcessFrequencyNormalized, normalizeBankProcessStatus } from "./lib/bankProcessHelpers.js";
 import { useBankProcessListPage } from "./hooks/useBankProcessListPage.js";
 import { useBankProcessFilterCollapse } from "./hooks/useBankProcessFilterCollapse.js";
 import { useC168ProcessRouteGuard } from "../processlist/useC168ProcessRouteGuard.js";
@@ -439,18 +439,8 @@ export default function BankProcessListPage() {
                       <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")}>&times;</button>
                       <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
                     </div>
-                    <input
-                      type="hidden"
-                      id="date_from"
-                      readOnly
-                      value={dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom) ? isoToDmy(dateFrom) : ""}
-                    />
-                    <input
-                      type="hidden"
-                      id="date_to"
-                      readOnly
-                      value={dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo) ? isoToDmy(dateTo) : ""}
-                    />
+                    <input type="hidden" id="date_from" readOnly />
+                    <input type="hidden" id="date_to" readOnly />
                   </div>
                   <div
                     ref={searchBarRef}

@@ -1121,7 +1121,11 @@ export function ensureMaintenanceDateRangePicker() {
     },
     /** Update the visible range text from DOM hidden inputs (e.g. after React writes #add_tx_date_*). */
     refreshInputsDisplay(binding) {
-      paintDisplayFromDomHiddens(binding || activeRangeBinding);
+      const b = binding || activeRangeBinding;
+      if (hasCommittedRangeInHidden(b)) {
+        syncRangeStateFromHiddenInputs();
+      }
+      updateDateRangeDisplay(b.displayId);
     },
     syncBankToolbarDatePillWidth,
     init(options) {

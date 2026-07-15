@@ -206,6 +206,29 @@ try {
     to: document.getElementById("date_to").value,
   }));
 
+  await page.locator("#date-range-picker").click();
+  await page.waitForTimeout(150);
+  await page.locator('.transaction-calendar-preset[data-period-key="thisYear"]').click();
+  await page.waitForTimeout(200);
+  const afterThisYear = await page.evaluate(() => ({
+    display: document.getElementById("date-range-display").textContent,
+    from: document.getElementById("date_from").value,
+    to: document.getElementById("date_to").value,
+    popupClosed: getComputedStyle(document.getElementById("calendar-popup")).display === "none",
+  }));
+
+  // Simulate React controlled hidden inputs wiping DOM before state commits (bank bug repro).
+  await page.evaluate(() => {
+    document.getElementById("date_from").value = "";
+    document.getElementById("date_to").value = "";
+    window.MaintenanceDateRangePicker.refreshInputsDisplay();
+  });
+  const afterControlledWipe = await page.evaluate(() => ({
+    display: document.getElementById("date-range-display").textContent,
+    from: document.getElementById("date_from").value,
+    to: document.getElementById("date_to").value,
+  }));
+
   const pass = {
     triggerBorder: triggerStyles.border.includes("1px") && triggerStyles.border.includes("148, 163, 184"),
     triggerGapZero: triggerStyles.gap === "0px",
@@ -224,10 +247,12 @@ try {
     popupHeaderCentered: popupOpen.headerMaxWidth !== "none" && parseFloat(popupOpen.headerMaxWidth) <= 260,
     todayWorks: !!(afterToday.from && afterToday.to && afterToday.popupClosed),
     weekWorks: !!(afterWeek.from && afterWeek.to && afterWeek.display.includes("-")),
+    thisYearWorks: !!(afterThisYear.from && afterThisYear.to && afterThisYear.display.includes("-") && afterThisYear.popupClosed),
+    controlledWipeKeepsDisplay: !!(afterControlledWipe.display && afterControlledWipe.display !== "Select date range" && afterControlledWipe.display.includes("/")),
     rangeWorks: !!(afterRange.from && afterRange.to && afterRange.from !== afterRange.to),
   };
 
-  console.log(JSON.stringify({ triggerStyles, triggerWhileOpen, popupOpen, afterToday, afterWeek, afterRange, pass }, null, 2));
+  console.log(JSON.stringify({ triggerStyles, triggerWhileOpen, popupOpen, afterToday, afterWeek, afterThisYear, afterControlledWipe, afterRange, pass }, null, 2));
   const failed = Object.entries(pass).filter(([, v]) => !v).map(([k]) => k);
   await browser.close();
   if (failed.length) {

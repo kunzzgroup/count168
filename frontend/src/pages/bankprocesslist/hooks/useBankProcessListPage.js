@@ -724,9 +724,16 @@ export function useBankProcessListPage() {
     });
   }, [lang, loading, cssReady, t, bpLocale.monthsShort]);
 
-  /* React state 为 date range 唯一来源；hidden input 受控同步，避免再次打开日历时丢失已选范围 */
+  /* React state 为 date range 唯一来源；hidden input 由 effect 写入 DOM，避免受控 input 覆盖 picker 刚提交的值 */
   useEffect(() => {
     if (loading || !cssReady || !bankDatePickerInitRef.current) return;
+    const df = document.getElementById("date_from");
+    const dt = document.getElementById("date_to");
+    if (!df || !dt) return;
+    const fromDmy = dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom) ? isoToDmy(dateFrom) : "";
+    const toDmy = dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo) ? isoToDmy(dateTo) : "";
+    if (df.value !== fromDmy) df.value = fromDmy;
+    if (dt.value !== toDmy) dt.value = toDmy;
     window.MaintenanceDateRangePicker?.refreshInputsDisplay?.();
   }, [dateFrom, dateTo, loading, cssReady, lang]);
 
