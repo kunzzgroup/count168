@@ -434,6 +434,7 @@ export function useMobileDashboard() {
     setActivePreset(preset);
     setDateFrom(range.dateFrom);
     setDateTo(range.dateTo);
+    setBootstrapping(true);
   }, []);
 
   const setCustomDateRange = useCallback((nextFrom, nextTo) => {
@@ -448,6 +449,7 @@ export function useMobileDashboard() {
       setDateTo(to);
     }
     setActivePreset(null);
+    setBootstrapping(true);
   }, []);
 
   const syncCompanySession = useCallback(
