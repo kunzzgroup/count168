@@ -82,7 +82,7 @@ export default function MobileShell({
   }, [notifyOpen]);
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#f2f5fb]">
+    <div className="relative flex h-dvh max-h-dvh min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#f2f5fb]">
       <MobileAppBar
         i18n={labels}
         notificationCount={announcements.length}
