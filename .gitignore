@@ -26,6 +26,10 @@ skills-lock.json
 # local scratch
 _php_subtotal_snip.txt
 
+# Playwright / agent verification artifacts
+verify-*/
+verify-*.png
+
 # database: regenerable import intermediates
 database/generated/*.sql
 !database/generated/.gitkeep
