@@ -34,14 +34,16 @@ export default function MobileAppBar({
                 onRefresh();
               }}
               disabled={refreshing}
-              className="tap-scale rounded-lg px-1 py-0.5 disabled:opacity-70"
+              className="tap-scale rounded-lg px-1 py-0.5 disabled:opacity-80"
               aria-label={i18n?.refresh || "Refresh"}
               title={i18n?.refresh || "Refresh"}
             >
               <img
                 src={brandWhiteLogoUrl()}
                 alt="EazyCount"
-                className={`h-7 max-w-[148px] object-contain ${refreshing ? "animate-pulse" : ""}`}
+                className={`h-7 max-w-[148px] object-contain transition-transform duration-300 ${
+                  refreshing ? "scale-[0.97] opacity-90" : ""
+                }`}
                 draggable={false}
                 data-logo-idx="0"
                 data-logo-kind="white"
@@ -74,6 +76,18 @@ export default function MobileAppBar({
             </span>
           ) : null}
         </button>
+      </div>
+
+      {/* iOS-style indeterminate bar while data reloads */}
+      <div
+        className="absolute inset-x-0 bottom-0 h-[2px] overflow-hidden bg-white/10"
+        aria-hidden={!refreshing}
+      >
+        <div
+          className={`h-full w-2/5 rounded-full bg-gradient-to-r from-transparent via-sky-300 to-transparent ${
+            refreshing ? "animate-[mAppBarRefresh_0.9s_ease-in-out_infinite]" : "opacity-0"
+          }`}
+        />
       </div>
     </header>
   );

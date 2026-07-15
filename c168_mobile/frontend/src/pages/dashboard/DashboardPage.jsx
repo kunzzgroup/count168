@@ -168,17 +168,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {refreshing && (
-          <div
-            className="relative mb-3 h-0.5 overflow-hidden rounded-full bg-slate-100"
-            aria-live="polite"
-            aria-label={i18n.loading}
-          >
-            <div className="h-full w-1/3 animate-[mDashRefresh_1.1s_ease-in-out_infinite] rounded-full bg-[#2f6bf6]" />
-          </div>
-        )}
-
-        <div className={`relative space-y-4 transition-opacity duration-200 ${refreshing ? "opacity-90" : ""}`}>
+        <div className="relative space-y-4">
           <HeroSummaryCard
             i18n={i18n}
             currency={dash.currency}

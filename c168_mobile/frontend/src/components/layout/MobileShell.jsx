@@ -6,62 +6,7 @@ import { mobileNavItems } from "../../utils/mobilePermissions.js";
 import MobileAppBar from "./MobileAppBar.jsx";
 import MobileNotifications, { fetchMobileAnnouncements } from "./MobileNotifications.jsx";
 import MobileSidebar from "./MobileSidebar.jsx";
-
-function PullRefreshIndicator({ pullPx, progress, phase, labels }) {
-  const spinning = phase === "refreshing";
-  const armed = phase === "armed";
-  const visible = phase !== "idle" || pullPx > 1;
-  if (!visible) return null;
-
-  const deg = spinning ? 0 : Math.round(progress * 280);
-  const label = spinning
-    ? labels.loading || "Loading…"
-    : armed
-      ? labels.releaseToRefresh || "Release to refresh"
-      : labels.pullToRefresh || "Pull to refresh";
-
-  return (
-    <div
-      className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center overflow-hidden"
-      style={{
-        height: Math.max(pullPx, spinning ? 52 : 0),
-        opacity: Math.min(1, 0.25 + progress * 0.85),
-        transition: spinning || phase === "idle" ? "height 240ms ease, opacity 200ms ease" : undefined,
-      }}
-      aria-hidden={phase === "idle"}
-    >
-      <div className="flex flex-col items-center justify-end gap-1 pb-2">
-        <span
-          className={`grid size-9 place-items-center rounded-full bg-white/95 shadow-[0_8px_18px_-10px_rgba(15,23,42,0.5)] ring-1 ring-slate-200/90 ${
-            spinning ? "animate-[mDashRefresh_0.85s_linear_infinite]" : ""
-          }`}
-          style={
-            spinning
-              ? undefined
-              : {
-                  transform: `rotate(${deg}deg) scale(${0.88 + Math.min(progress, 1) * 0.12})`,
-                }
-          }
-        >
-          <i
-            className={`fas ${spinning ? "fa-rotate-right" : "fa-arrow-down"} text-[13px] ${
-              armed || spinning ? "text-[#2f6bf6]" : "text-slate-400"
-            }`}
-            style={!spinning && armed ? { transform: "rotate(180deg)" } : undefined}
-            aria-hidden="true"
-          />
-        </span>
-        <span
-          className={`text-[11px] font-bold tracking-wide ${
-            armed || spinning ? "text-[#2f6bf6]" : "text-slate-400"
-          }`}
-        >
-          {label}
-        </span>
-      </div>
-    </div>
-  );
-}
+import PullRefreshIndicator from "./PullRefreshIndicator.jsx";
 
 export default function MobileShell({
   children,
@@ -106,7 +51,7 @@ export default function MobileShell({
     }
   }, [onRefresh]);
 
-  const { pullPx, progress, phase, active } = usePullToRefresh(mainRef, {
+  const { pullPx, progress, phase, active, isAnimating } = usePullToRefresh(mainRef, {
     onRefresh: refreshPage,
     enabled: typeof onRefresh === "function",
     refreshing,
@@ -162,15 +107,10 @@ export default function MobileShell({
     return () => ac.abort();
   }, [notifyOpen]);
 
-  // Reveal nav when pulling / opening chrome overlays.
-  useEffect(() => {
-    if (active || overlayOpen || sidebarOpen || notifyOpen) {
-      /* force visible via class override below */
-    }
-  }, [active, overlayOpen, sidebarOpen, notifyOpen]);
-
+  // Hide bottom nav while scrolling down; keep visible during pull / overlays.
   const hideNav = showBottomNav && navHidden && !active && !overlayOpen && !sidebarOpen && !notifyOpen;
-  const contentShift = active ? pullPx : 0;
+  const contentShift = pullPx > 0.5 ? pullPx : 0;
+  const contentTransition = isAnimating && phase !== "pulling" && phase !== "armed";
 
   return (
     <div className="relative flex h-dvh max-h-dvh min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#f2f5fb]">
@@ -201,15 +141,17 @@ export default function MobileShell({
           transition: "padding-bottom 220ms ease",
         }}
       >
-        <PullRefreshIndicator pullPx={pullPx} progress={progress} phase={phase} labels={labels} />
         <div
+          className="will-change-transform"
           style={{
             transform: contentShift ? `translate3d(0, ${contentShift}px, 0)` : undefined,
-            transition: active && phase !== "pulling" && phase !== "armed" ? "transform 240ms ease" : undefined,
-            willChange: active ? "transform" : undefined,
+            transition: contentTransition ? "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)" : undefined,
           }}
         >
-          {children}
+          <PullRefreshIndicator pullPx={pullPx} progress={progress} phase={phase} labels={labels} />
+          <div className={refreshing ? "pointer-events-none select-none opacity-[0.92] transition-opacity duration-200" : ""}>
+            {children}
+          </div>
         </div>
       </main>
 
