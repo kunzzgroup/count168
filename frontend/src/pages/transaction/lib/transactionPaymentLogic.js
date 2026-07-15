@@ -1,11 +1,26 @@
 import { parseBalanceValue } from "./transactionFormat.js";
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 import { resolveSavedCurrencyOrder } from "../../../utils/company/currencyDisplayOrder.js";
+import { clearTxSearchCache } from "../../../utils/transaction/transactionSearchCache.js";
 
 export const TRANSACTION_CURRENCY_FILTER_KEY_PREFIX = "transaction_currency_filter_v1_";
 export const TX_LIST_SESSION_PREFIX = "count168_txlist_v1_";
 export const TX_LIST_INVALIDATE_LS_KEY = "count168_tx_invalidate_ts";
+export const TX_LIST_INVALIDATE_HANDLED_KEY = "count168_tx_invalidate_handled";
 export const TX_DATA_CHANGED_EVENT = "tx-data-changed";
+
+/** Broadcast that transaction balances changed elsewhere (maintenance delete, process post, etc.). */
+export function notifyTransactionListInvalidated(source = "unknown") {
+  const ts = Date.now();
+  try {
+    localStorage.setItem(TX_LIST_INVALIDATE_LS_KEY, String(ts));
+  } catch {
+    /* ignore */
+  }
+  clearTxSearchCache();
+  window.dispatchEvent(new CustomEvent(TX_DATA_CHANGED_EVENT, { detail: { ts, source } }));
+  return ts;
+}
 
 /** @param {string|null|undefined} role */
 export function getRoleClass(role) {
