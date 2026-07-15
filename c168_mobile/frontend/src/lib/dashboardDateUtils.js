@@ -15,8 +15,10 @@ export function parseYmd(s) {
 export function defaultDashboardDateRange() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  // Live ops: YTD gives a useful first paint; This Month is often empty mid-month
+  // for companies that post later in the cycle.
   return {
-    dateFrom: formatYmd(new Date(today.getFullYear(), today.getMonth(), 1)),
+    dateFrom: formatYmd(new Date(today.getFullYear(), 0, 1)),
     dateTo: formatYmd(today),
   };
 }

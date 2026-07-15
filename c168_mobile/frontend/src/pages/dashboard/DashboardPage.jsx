@@ -113,10 +113,25 @@ export default function DashboardPage() {
             value={dash.summaryValue}
             compare={kpi?.comparisons?.netProfit}
             compareLabel={compareLabel}
-            multiCurrency={dash.useConvertedEarnings}
+            multiCurrency={dash.showMultiCurrencyNote}
             loading={loading}
             sparklineValues={sparklineValues}
           />
+
+          {!loading && !dash.hasData && (
+            <div className="rounded-[22px] border border-dashed border-slate-200 bg-white/80 px-4 py-4 text-center">
+              <p className="text-[13px] font-semibold text-slate-500">{i18n.noData}</p>
+              {dash.activePreset !== "thisYear" && (
+                <button
+                  type="button"
+                  className="mt-3 tap-scale rounded-xl bg-[#2f6bf6] px-4 py-2 text-[13px] font-bold text-white"
+                  onClick={() => dash.applyPreset("thisYear")}
+                >
+                  {i18n.thisYear}
+                </button>
+              )}
+            </div>
+          )}
 
           <section>
             <div className="mb-3 flex items-center justify-between">

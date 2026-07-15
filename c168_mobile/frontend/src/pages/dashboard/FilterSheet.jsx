@@ -141,7 +141,7 @@ export default function FilterSheet({ open, onClose, dash }) {
 
           {dash.currencies.length > 0 && (
             <Section title={i18n.currency}>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex max-h-36 flex-wrap gap-2 overflow-y-auto">
                 {dash.currencies.map((code) => (
                   <Pill key={code} active={dash.currency === code} onClick={() => dash.setCurrency(code)}>
                     {code}

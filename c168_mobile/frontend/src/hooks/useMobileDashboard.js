@@ -18,7 +18,7 @@ import {
 } from "../lib/dashboardScope.js";
 import { fetchMobileCurrencyCodes } from "../lib/dashboardCurrencies.js";
 import { computeDisplayConvertedAmount, fetchFrankfurterRates } from "../lib/frankfurterRates.js";
-import { DEMO_BOOTSTRAP, dashboardDataIsUsable } from "../lib/demoDashboard.js";
+import { dashboardDataIsUsable } from "../lib/demoDashboard.js";
 import { assertApiOk, fetchJson } from "../lib/fetchJson.js";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
 import { canAccessDashboard, resolveMobileLandingPath } from "../utils/mobilePermissions.js";
@@ -70,7 +70,7 @@ export function useMobileDashboard() {
   const [currenciesReady, setCurrenciesReady] = useState(false);
   const [dateFrom, setDateFrom] = useState(defaults.dateFrom);
   const [dateTo, setDateTo] = useState(defaults.dateTo);
-  const [activePreset, setActivePreset] = useState("thisMonth");
+  const [activePreset, setActivePreset] = useState("thisYear");
   const [bootstrap, setBootstrap] = useState(null);
   const [exchangeRates, setExchangeRates] = useState({ rates: { MYR: 1 }, date: null });
   const [exchangeRatesLoading, setExchangeRatesLoading] = useState(false);
@@ -217,8 +217,11 @@ export function useMobileDashboard() {
           ac.signal,
         );
         if (ac.signal.aborted || seq !== bootstrapSeq.current) return;
-        const finalData =
-          import.meta.env.DEV && !dashboardDataIsUsable(data) ? DEMO_BOOTSTRAP : data;
+        let finalData = data;
+        if (import.meta.env.DEV && !dashboardDataIsUsable(data)) {
+          const { DEMO_BOOTSTRAP } = await import("../lib/demoDashboard.js");
+          finalData = DEMO_BOOTSTRAP;
+        }
         setBootstrap(finalData);
       } catch (e) {
         if (ac.signal.aborted || e?.name === "AbortError" || seq !== bootstrapSeq.current) return;
@@ -355,6 +358,15 @@ export function useMobileDashboard() {
     return earningsCurrencyRows.reduce((sum, row) => sum + (Number(row.earningsConverted) || 0), 0);
   }, [earningsCurrencyRows, panelMetric, useConvertedEarnings]);
 
+  const showMultiCurrencyNote = useMemo(() => {
+    if (!useConvertedEarnings) return false;
+    const active = earningsCurrencyRows.filter((row) => {
+      const n = Number(row.earningsConverted ?? row.earnings);
+      return Number.isFinite(n) && Math.abs(n) >= 0.005;
+    });
+    return active.length > 1;
+  }, [earningsCurrencyRows, useConvertedEarnings]);
+
   const dateRangeText = useMemo(() => formatRangeLabel(dateFrom, dateTo), [dateFrom, dateTo]);
   const dateRangeShort = useMemo(
     () => formatRangeLabel(dateFrom, dateTo, { withYear: false }),
@@ -405,7 +417,7 @@ export function useMobileDashboard() {
   );
 
   const resetFilters = useCallback(() => {
-    applyPreset("thisMonth");
+    applyPreset("thisYear");
     setGroupsAllMode(false);
     setGroupAllMode(false);
     setSelectedGroup(null);
@@ -489,6 +501,7 @@ export function useMobileDashboard() {
     exchangeRates,
     exchangeRatesLoading,
     useConvertedEarnings,
+    showMultiCurrencyNote,
     dateRangeText,
     dateRangeShort,
     activePreset,
