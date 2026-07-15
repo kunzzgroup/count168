@@ -95,6 +95,16 @@ export default function FilterSheet({ open, onClose, dash }) {
     onClose?.();
   };
 
+  const pickAllGroupsAndClose = () => {
+    dash.pickAllGroups();
+    onClose?.();
+  };
+
+  const pickAllInGroupAndClose = () => {
+    dash.pickAllInGroup();
+    onClose?.();
+  };
+
   const maxDay = todayYmd();
   const span = daysInclusive(dash.dateFrom, dash.dateTo);
   const daysLabel = (i18n.daysCount || "{n} days").replace("{n}", String(span));
@@ -190,7 +200,7 @@ export default function FilterSheet({ open, onClose, dash }) {
           {dash.groupIds.length > 0 && (
             <Section title={i18n.groupId}>
               <div className="flex flex-wrap gap-2">
-                <Pill active={dash.groupsAllMode} onClick={dash.pickAllGroups}>
+                <Pill active={dash.groupsAllMode} onClick={pickAllGroupsAndClose}>
                   {i18n.all}
                 </Pill>
                 {dash.groupIds.map((gid) => (
@@ -212,7 +222,7 @@ export default function FilterSheet({ open, onClose, dash }) {
                 <Pill
                   active={dash.groupAllMode}
                   disabled={!dash.selectedGroup || dash.groupsAllMode}
-                  onClick={dash.pickAllInGroup}
+                  onClick={pickAllInGroupAndClose}
                 >
                   {i18n.all}
                 </Pill>

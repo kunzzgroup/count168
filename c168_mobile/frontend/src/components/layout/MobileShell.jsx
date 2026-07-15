@@ -7,6 +7,7 @@ import MobileSidebar from "./MobileSidebar.jsx";
 
 function CompanyScopeBar({ i18n, companyCode, groupId }) {
   if (!companyCode && !groupId) return null;
+  const isAll = String(companyCode || "").toLowerCase() === String(i18n?.all || "all").toLowerCase();
 
   return (
     <div className="shrink-0 border-b border-slate-200/60 bg-gradient-to-r from-[#eff4ff] to-white px-3.5 py-2">
@@ -14,7 +15,13 @@ function CompanyScopeBar({ i18n, companyCode, groupId }) {
         <p className="shrink-0 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
           {i18n?.viewingCompany || "Viewing company"}
         </p>
-        <p className="truncate text-[15px] font-bold tracking-tight text-slate-900">{companyCode || "—"}</p>
+        <p
+          className={`truncate text-[15px] font-bold tracking-tight ${
+            isAll ? "text-violet-700" : "text-slate-900"
+          }`}
+        >
+          {companyCode || "—"}
+        </p>
         {groupId ? (
           <span className="rounded-full bg-[#2f6bf6]/12 px-2 py-0.5 text-[11px] font-bold text-[#2f6bf6]">
             {groupId}
