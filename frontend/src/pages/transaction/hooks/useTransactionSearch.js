@@ -3,6 +3,7 @@ import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import {
   TRANSACTION_CURRENCY_FILTER_KEY_PREFIX,
   TX_LIST_INVALIDATE_LS_KEY,
+  TX_LIST_INVALIDATE_HANDLED_KEY,
   buildTransactionSearchQueryFilters,
   filterTransactionTableRows,
   applySummaryWinLossDisplayTolerance,
@@ -1489,7 +1490,12 @@ export function useTransactionSearch({
     if (lastInitialSearchKeyRef.current === initSearchKey) return;
 
     let hadReplay = false;
+    let pendingInvalidate = false;
     try {
+      const invalidateTs = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || "0", 10) || 0;
+      const handledTs = parseInt(sessionStorage.getItem(TX_LIST_INVALIDATE_HANDLED_KEY) || "0", 10) || 0;
+      pendingInvalidate = Boolean(invalidateTs && invalidateTs > handledTs);
+
       const queryFilters = buildTransactionSearchQueryFilters(searchState);
       const key = buildTxListSessionKey({
         companyId: scopeCacheCompanyKey,
@@ -1502,7 +1508,8 @@ export function useTransactionSearch({
         showAllCurrencies,
         selectedCurrencies,
       });
-      const replay = key ? readTxListFromSessionStorage(key) : null;
+      // Skip painting stale session rows when another page invalidated the list.
+      const replay = !pendingInvalidate && key ? readTxListFromSessionStorage(key) : null;
       if (replay) {
         setRawSearchData(replay);
         const replayRows = (replay.left_table?.length || 0) + (replay.right_table?.length || 0);
@@ -1521,12 +1528,23 @@ export function useTransactionSearch({
       showZeroBalance: searchState.showZeroBalance,
     };
     initialSearchDoneRef.current = true;
-    void runSearchRef.current?.({
-      isInitialLoad: true,
-      silent: hadReplay,
-      notifyErrors: !hadReplay,
-      // Never show blocking Loading overlay — keep prior/cached rows until replace.
-      showBlockingOverlay: false,
+    void Promise.resolve(
+      runSearchRef.current?.({
+        isInitialLoad: true,
+        silent: hadReplay && !pendingInvalidate,
+        notifyErrors: !(hadReplay && !pendingInvalidate),
+        // Never show blocking Loading overlay — keep prior/cached rows until replace.
+        showBlockingOverlay: false,
+        forceRefresh: pendingInvalidate,
+      }),
+    ).then(() => {
+      if (!pendingInvalidate) return;
+      try {
+        const invalidateTs = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || "0", 10) || 0;
+        if (invalidateTs) sessionStorage.setItem(TX_LIST_INVALIDATE_HANDLED_KEY, String(invalidateTs));
+      } catch {
+        /* ignore */
+      }
     });
   }, [
     scopeKey,
