@@ -155,7 +155,7 @@ export default function DashboardPage() {
           {!loading && !dash.hasData && (
             <div className="rounded-[22px] border border-dashed border-slate-200 bg-white/80 px-4 py-4 text-center">
               <p className="text-[13px] font-semibold text-slate-500">{i18n.noData}</p>
-              {dash.activePreset !== "thisYear" && (
+              {dash.activePreset !== "thisYear" ? (
                 <button
                   type="button"
                   className="mt-3 tap-scale rounded-xl bg-[#2f6bf6] px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
@@ -164,7 +164,12 @@ export default function DashboardPage() {
                 >
                   {refreshing ? i18n.loading : i18n.viewThisYear || i18n.thisYear}
                 </button>
-              )}
+              ) : refreshing ? (
+                <p className="mt-3 inline-flex items-center justify-center gap-2 text-[12px] font-bold text-slate-500">
+                  <span className="size-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-[#2f6bf6]" />
+                  {i18n.loading}
+                </p>
+              ) : null}
             </div>
           )}
 
