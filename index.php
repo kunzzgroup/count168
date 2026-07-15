@@ -110,6 +110,7 @@ if (isset($_GET['maintenance']) && $pdo instanceof PDO && maintenance_gate_is_en
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
     <title>EazyCount</title>
     <link rel="icon" type="image/png" href="/images/count_logo.png">
     <link rel="shortcut icon" href="/favicon.ico">

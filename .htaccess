@@ -25,3 +25,8 @@ php_value memory_limit 256M
 # 3. 如果这些设置不生效，可能需要通过 php.ini 或服务器配置来设置
 # 4. 修改后可能需要等待几分钟让配置生效
 
+# 阻止搜索引擎收录全站（需要 Apache mod_headers）
+<IfModule mod_headers.c>
+  Header set X-Robots-Tag "noindex, nofollow"
+</IfModule>
+
