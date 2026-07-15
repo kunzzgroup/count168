@@ -29,24 +29,15 @@ body.bg #root {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
 }
 
 html:has(body.bg) {
   scrollbar-gutter: stable;
-}
-
-/* Keyboard: avoid vertical centering that pushes focused fields off-screen */
-@media (max-width: 640px) {
-  body.bg {
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: max(20px, env(safe-area-inset-top));
-    padding-bottom: max(24px, env(safe-area-inset-bottom));
-  }
-
-  body.bg #root {
-    justify-content: flex-start;
-  }
 }
 
 body.bg::before {
@@ -69,7 +60,7 @@ body.bg::before {
   animation: sc-login-fade-in 0.6s ease-out;
 }
 
-/* Wrap + ios26 language switch (git e0f450c8 — glass track, blue gradient thumb, glow/shimmer) */
+/* Language switch */
 .sc-login-lang-switch-wrap,
 .sc-login-lang-ios-wrap {
   display: flex;
@@ -256,21 +247,6 @@ button.sc-login-lang-seg.active {
     transition: none;
     animation: none;
   }
-}
-
-.sc-login-brand {
-  display: flex;
-  justify-content: center;
-  margin: 0 0 14px;
-}
-
-.sc-login-brand img {
-  display: block;
-  height: 40px;
-  width: auto;
-  max-width: min(220px, 72vw);
-  object-fit: contain;
-  filter: drop-shadow(0 6px 14px rgba(0, 20, 60, 0.28));
 }
 
 .sc-login-card {

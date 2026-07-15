@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { brandLogoUrl, onBrandLogoError } from "../../lib/brandAssets.js";
 import { LOGIN_I18N, localizeAuthApiMessage } from "../../translateFile/authTranslate.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import { resolveMobileLandingPath } from "../../utils/mobilePermissions.js";
@@ -421,17 +420,6 @@ export default function LoginPage() {
               </div>
             </div>
           )}
-
-          <div className="sc-login-brand">
-            <img
-              src={brandLogoUrl()}
-              alt="EazyCount"
-              data-logo-idx="0"
-              data-logo-kind="color"
-              draggable={false}
-              onError={onBrandLogoError}
-            />
-          </div>
 
           <div className="sc-login-card">
             <div className="sc-login-role-tabs">
