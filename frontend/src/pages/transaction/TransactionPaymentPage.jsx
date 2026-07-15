@@ -21,7 +21,7 @@ import "../../../public/css/transaction.css";
 import "../../../public/css/userlist.css";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getTransactionText, TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
-import { transactionScopeApiParams, transactionScopeCacheKey } from "./lib/transactionScope.js";
+import { transactionScopeApiParams } from "./lib/transactionScope.js";
 import { clearInlineScrollLock } from "../../utils/layout/clearInlineScrollLock.js";
 import { spaPath } from "../../utils/routing/pageRoutes.js";
 
@@ -285,18 +285,12 @@ function TransactionPaymentPageMain() {
     return <Navigate to={spaPath("dashboard")} replace />;
   }
 
-  const booting = loading || !filterSnapshot;
-  const scopeCacheKey = transactionScopeCacheKey(transactionScope);
-  const scopeDataPending = Boolean(
-    filterSnapshot && scopeCacheKey && data.currencyScopeBundle?.scopeKey !== scopeCacheKey,
-  );
-  const tablesLoading = search.searchLoading || (scopeDataPending && !search.rawSearchData);
+  // Never paint Loading / empty chrome — tables appear when rows exist.
   const tablesVisible = shouldShowTransactionTablesSection({
     showAllCurrencies: search.showAllCurrencies,
     selectedCurrencies: search.selectedCurrencies,
     tablePresentation: search.tablePresentation,
-    searchLoading: tablesLoading,
-    hasCommittedSearch: search.rawSearchData != null,
+    searchLoading: false,
   });
 
   return (
@@ -315,12 +309,7 @@ function TransactionPaymentPageMain() {
         t={t}
       />
 
-      <main className={`transaction-main${booting && !search.rawSearchData ? " transaction-main--booting" : ""}`}>
-        {booting && !search.rawSearchData ? (
-          <div className="transaction-boot-loading" aria-live="polite" aria-busy="true">
-            {m.loadingData}
-          </div>
-        ) : null}
+      <main className="transaction-main">
         {txWlTolBannerActive ? (
           <div
             className="transaction-tx-wl-tol-banner"
@@ -432,7 +421,7 @@ function TransactionPaymentPageMain() {
 
         <TransactionTablesSection
           tablesVisible={tablesVisible}
-          searchLoading={tablesLoading}
+          searchLoading={false}
           tp={search.tablePresentation}
           searchState={search.searchState}
           getRoleClass={getRoleClass}

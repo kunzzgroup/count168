@@ -893,8 +893,7 @@ export function useTransactionSearch({
             setTypeSearchFormType(normalizedType);
             setTypeSearchAccountIds([]);
             setRawSearchData({ left_table: [], right_table: [], totals: null });
-            setTablesVisible(true);
-            if (!silent) pushToast(m.searchCompletedNoData, "info");
+            setTablesVisible(false);
             return;
           }
 
@@ -940,13 +939,9 @@ export function useTransactionSearch({
 
         const displayed =
           (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
-        setTablesVisible(true);
-        if (!silent) {
-          if (displayed > 0) {
-            pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
-          } else {
-            pushToast(m.searchCompletedNoData, "info");
-          }
+        setTablesVisible(displayed > 0);
+        if (!silent && displayed > 0) {
+          pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
         }
       } catch (e) {
         if (e?.name === "AbortError" || isCancelledError(e)) return;
@@ -1431,14 +1426,10 @@ export function useTransactionSearch({
         const replayRows =
           (instantReplay.left_table?.length || 0) + (instantReplay.right_table?.length || 0);
         setTablesVisible(replayRows > 0);
-        // Have paint-ready data — skip blocking overlay once.
         suppressBlockingOverlayOnceRef.current = true;
       } else {
-        // Cold scope: clear previous company rows but keep section visible.
-        // Next initial search must show tables-area loading (not a silent blank).
-        setRawSearchData(null);
-        setTablesVisible(true);
-        suppressBlockingOverlayOnceRef.current = false;
+        // Cold scope: keep previous rows painted (stale-while-revalidate) — no Loading chrome.
+        suppressBlockingOverlayOnceRef.current = true;
       }
 
       if (!currencyPrefs.showAll && currencyPrefs.currencies.length > 0) {
@@ -1536,8 +1527,8 @@ export function useTransactionSearch({
       isInitialLoad: true,
       silent: hadReplay,
       notifyErrors: !hadReplay,
-      // Cold (no session/memory paint): show tables loading. Warm replay: stay silent.
-      showBlockingOverlay: !hadReplay,
+      // Never show blocking Loading overlay — keep prior/cached rows until replace.
+      showBlockingOverlay: false,
     });
   }, [
     scopeKey,

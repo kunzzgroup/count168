@@ -14,7 +14,6 @@ export default function TransactionTablesSection({
   t,
 }) {
   const hasTableData = tp.mode !== "none";
-  const showTablesWhileLoading = searchLoading && hasTableData;
   const showNameColumn = Boolean(searchState.showName);
   const presentationRowCount =
     (tp.defaultLeft?.length || 0) +
@@ -25,38 +24,24 @@ export default function TransactionTablesSection({
           0,
         )
       : 0);
-  const showEmptyResult =
-    tablesVisible && !searchLoading && hasTableData && presentationRowCount === 0;
+  // Keep prior rows painted while refresh runs — never show Loading / empty-state chrome.
+  const showGrid = presentationRowCount > 0 && (!searchLoading || hasTableData);
 
   return (
     <>
       <div className="transaction-tables-section" style={{ display: tablesVisible ? "block" : "none" }}>
-        <div id="transaction-tables-loading" className="transaction-tables-loading" style={{ display: searchLoading && !hasTableData ? "flex" : "none" }} aria-live="polite">
-          {m.loadingData}
-        </div>
-        {showTablesWhileLoading ? (
-          <div className="transaction-tables-refreshing" aria-live="polite">
-            {m.loadingData}
-          </div>
-        ) : null}
-        {showEmptyResult ? (
-          <div className="transaction-tables-empty" role="status" aria-live="polite">
-            {m.searchCompletedNoData}
-          </div>
-        ) : null}
+        <div
+          id="transaction-tables-loading"
+          className="transaction-tables-loading"
+          style={{ display: "none" }}
+          aria-hidden="true"
+        />
         <div
           id="default-tables-container"
           style={{
-            display:
-              tp.mode === "default" &&
-              presentationRowCount > 0 &&
-              (!searchLoading || showTablesWhileLoading)
-                ? "flex"
-                : "none",
+            display: tp.mode === "default" && showGrid ? "flex" : "none",
             flexDirection: "column",
             width: "100%",
-            opacity: showTablesWhileLoading ? 0.55 : 1,
-            pointerEvents: showTablesWhileLoading ? "none" : "auto",
           }}
         >
           {tp.singleCurrencyTitle ? (
@@ -147,15 +132,8 @@ export default function TransactionTablesSection({
         <div
           id="currency-grouped-tables-container"
           style={{
-            display:
-              tp.mode === "grouped" &&
-              presentationRowCount > 0 &&
-              (!searchLoading || showTablesWhileLoading)
-                ? "block"
-                : "none",
+            display: tp.mode === "grouped" && showGrid ? "block" : "none",
             width: "100%",
-            opacity: showTablesWhileLoading ? 0.55 : 1,
-            pointerEvents: showTablesWhileLoading ? "none" : "auto",
           }}
         >
           {(tp.grouped || []).map((g) => (

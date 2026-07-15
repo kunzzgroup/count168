@@ -592,12 +592,10 @@ export function shouldShowTransactionTablesSection({
   selectedCurrencies,
   tablePresentation,
   searchLoading,
-  /** Keep section visible after a finished search (incl. 0 rows) so we never flash to a blank hole. */
-  hasCommittedSearch = false,
 }) {
   if (!hasTransactionCurrencyFilter(showAllCurrencies, selectedCurrencies)) return false;
   if (countTransactionPresentationRows(tablePresentation) > 0) return true;
-  return Boolean(searchLoading || hasCommittedSearch);
+  return Boolean(searchLoading);
 }
 
 export function buildTxListSessionKey({
