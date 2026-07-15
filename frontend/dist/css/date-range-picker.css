@@ -44,17 +44,21 @@
     font-weight: 500;
 }
 
-/* Outlined floating-label fields: border lives on .report-outlined-shell only.
-   Keep this in the shared sheet so maintenance/report avoid a double-border FOUC on refresh. */
-.report-outlined-inner .date-range-picker,
-.report-outlined-inner .date-range-picker:hover,
-.report-outlined-inner .date-range-picker:focus-visible {
+/* Outlined floating-label fields (Maintenance / Report only): border on .report-outlined-shell.
+   Do NOT apply on Dashboard home — dashboard date bar keeps its own picker border. */
+body.maintenance-page .report-outlined-inner .date-range-picker,
+body.maintenance-page .report-outlined-inner .date-range-picker:hover,
+body.maintenance-page .report-outlined-inner .date-range-picker:focus-visible,
+body.dashboard-page.report-page .report-outlined-inner .date-range-picker,
+body.dashboard-page.report-page .report-outlined-inner .date-range-picker:hover,
+body.dashboard-page.report-page .report-outlined-inner .date-range-picker:focus-visible {
     border: none !important;
     box-shadow: none !important;
     background: transparent !important;
 }
 
-.report-outlined-inner .date-range-picker i.fa-calendar-alt {
+body.maintenance-page .report-outlined-inner .date-range-picker i.fa-calendar-alt,
+body.dashboard-page.report-page .report-outlined-inner .date-range-picker i.fa-calendar-alt {
     margin: 0 !important;
 }
 
