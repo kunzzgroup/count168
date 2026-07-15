@@ -113,6 +113,8 @@ export default function DashboardPage() {
       companyCode={viewingCompanyCode}
       groupId={sidebarGroupId}
       onLogout={dash.logout}
+      onRefresh={dash.retry}
+      refreshing={Boolean(refreshing)}
       stickyBar={stickyBar}
       lang={dash.lang}
       onLangChange={dash.setLang}

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
+import { usePullToRefresh } from "../../hooks/usePullToRefresh.js";
 import { mobileNavItems } from "../../utils/mobilePermissions.js";
 import MobileAppBar from "./MobileAppBar.jsx";
 import MobileNotifications, { fetchMobileAnnouncements } from "./MobileNotifications.jsx";
@@ -14,6 +15,8 @@ export default function MobileShell({
   companyCode = "",
   groupId = "",
   onLogout,
+  onRefresh,
+  refreshing = false,
   showBottomNav = true,
   lang = "en",
   onLangChange,
@@ -31,6 +34,27 @@ export default function MobileShell({
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const [notifyLoading, setNotifyLoading] = useState(false);
+  const mainRef = useRef(null);
+
+  const refreshPage = useCallback(async () => {
+    if (typeof onRefresh === "function") {
+      await onRefresh();
+      return;
+    }
+    // Fallback: re-fetch announcements when page has no custom refresh.
+    try {
+      const rows = await fetchMobileAnnouncements();
+      setAnnouncements(rows);
+    } catch {
+      /* ignore */
+    }
+  }, [onRefresh]);
+
+  const { pullPx, pulling } = usePullToRefresh(mainRef, {
+    onRefresh: refreshPage,
+    enabled: typeof onRefresh === "function",
+    refreshing,
+  });
 
   const openSidebar = () => {
     onChromeOpen?.();
@@ -88,6 +112,8 @@ export default function MobileShell({
         notificationCount={announcements.length}
         onOpenSidebar={openSidebar}
         onOpenNotifications={openNotifications}
+        onRefresh={typeof onRefresh === "function" ? refreshPage : undefined}
+        refreshing={refreshing}
       />
 
       {/* Filter / date + scope chips stay pinned under the app bar */}
@@ -97,7 +123,31 @@ export default function MobileShell({
         </div>
       ) : null}
 
-      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-5">{children}</main>
+      <main
+        ref={mainRef}
+        className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain pb-5"
+      >
+        <div
+          className="pointer-events-none sticky top-0 z-10 flex justify-center overflow-hidden transition-[height] duration-150"
+          style={{ height: pulling || refreshing ? Math.max(pullPx, refreshing ? 36 : 0) : 0 }}
+          aria-hidden={!pulling && !refreshing}
+        >
+          <div className="flex items-center gap-2 pt-2 text-[12px] font-semibold text-slate-500">
+            <i
+              className={`fas fa-rotate-right text-[#2f6bf6] ${refreshing || pullPx > 24 ? "animate-spin" : ""}`}
+              aria-hidden="true"
+            />
+            <span>
+              {refreshing
+                ? labels.loading || "Loading…"
+                : pullPx >= 28
+                  ? labels.releaseToRefresh || "Release to refresh"
+                  : labels.pullToRefresh || "Pull to refresh"}
+            </span>
+          </div>
+        </div>
+        {children}
+      </main>
 
       {showBottomNav ? (
         <nav

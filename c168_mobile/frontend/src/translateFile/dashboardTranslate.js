@@ -69,6 +69,9 @@ export const DASHBOARD_I18N = {
     customRange: "Custom",
     daysCount: "{n} days",
     viewThisYear: "View this year",
+    refresh: "Refresh",
+    pullToRefresh: "Pull to refresh",
+    releaseToRefresh: "Release to refresh",
   },
   zh: {
     dashboard: "仪表盘",
@@ -140,6 +143,9 @@ export const DASHBOARD_I18N = {
     customRange: "自定义",
     daysCount: "{n} 天",
     viewThisYear: "查看今年",
+    refresh: "刷新",
+    pullToRefresh: "下拉刷新",
+    releaseToRefresh: "松开刷新",
   },
 };
 

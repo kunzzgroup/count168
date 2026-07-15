@@ -592,12 +592,15 @@ export function useMobileDashboard() {
 
   const retry = useCallback(() => {
     setError("");
-    if (!companyId) {
-      setSessionNonce((n) => n + 1);
+    const hasCompany = Number.isFinite(Number(companyId)) && Number(companyId) > 0;
+    const canSoftReload =
+      hasCompany || Boolean(selectedGroup) || groupsAllMode || groupAllMode;
+    if (canSoftReload) {
+      setReloadNonce((n) => n + 1);
       return;
     }
-    setReloadNonce((n) => n + 1);
-  }, [companyId]);
+    setSessionNonce((n) => n + 1);
+  }, [companyId, selectedGroup, groupsAllMode, groupAllMode]);
 
   const groupOnlyMode = Boolean(
     selectedGroup && !groupAllMode && !groupsAllMode && !(Number.isFinite(Number(companyId)) && Number(companyId) > 0),

@@ -4,6 +4,8 @@ export default function MobileAppBar({
   i18n,
   onOpenSidebar,
   onOpenNotifications,
+  onRefresh,
+  refreshing = false,
   notificationCount = 0,
 }) {
   const count = Number(notificationCount) || 0;
@@ -24,15 +26,39 @@ export default function MobileAppBar({
         </button>
 
         <div className="flex min-w-0 items-center justify-center">
-          <img
-            src={brandWhiteLogoUrl()}
-            alt="EazyCount"
-            className="h-7 max-w-[148px] object-contain"
-            draggable={false}
-            data-logo-idx="0"
-            data-logo-kind="white"
-            onError={onBrandLogoError}
-          />
+          {typeof onRefresh === "function" ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (refreshing) return;
+                onRefresh();
+              }}
+              disabled={refreshing}
+              className="tap-scale rounded-lg px-1 py-0.5 disabled:opacity-70"
+              aria-label={i18n?.refresh || "Refresh"}
+              title={i18n?.refresh || "Refresh"}
+            >
+              <img
+                src={brandWhiteLogoUrl()}
+                alt="EazyCount"
+                className={`h-7 max-w-[148px] object-contain ${refreshing ? "animate-pulse" : ""}`}
+                draggable={false}
+                data-logo-idx="0"
+                data-logo-kind="white"
+                onError={onBrandLogoError}
+              />
+            </button>
+          ) : (
+            <img
+              src={brandWhiteLogoUrl()}
+              alt="EazyCount"
+              className="h-7 max-w-[148px] object-contain"
+              draggable={false}
+              data-logo-idx="0"
+              data-logo-kind="white"
+              onError={onBrandLogoError}
+            />
+          )}
         </div>
 
         <button
