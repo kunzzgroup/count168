@@ -59,13 +59,16 @@ export default function DashboardPage() {
       : dash.groupOnlyMode
         ? groupId || i18n.all
         : companyCode;
-  const scopeGroupBadge = dash.groupsAllMode ? "" : dash.groupOnlyMode ? "" : groupId;
+  // Separate group pill (e.g. 95 + IG); skip when already encoded in scopeChip (All·IG / group-only).
+  const scopeGroupChip =
+    groupId && !dash.groupsAllMode && !dash.groupAllMode && !dash.groupOnlyMode ? groupId : "";
 
   const viewingCompanyCode = dash.groupsAllMode || dash.groupAllMode
     ? i18n.all
     : dash.groupOnlyMode
       ? groupId
       : companyCode;
+  const sidebarGroupId = dash.groupOnlyMode ? "" : groupId;
 
   const stickyBar = (
     <button
@@ -80,13 +83,18 @@ export default function DashboardPage() {
       </span>
       {scopeChip ? (
         <span
-          className={`max-w-[5.5rem] shrink-0 truncate rounded-lg px-1.5 py-1 text-[11px] font-bold tracking-wide ${
+          className={`max-w-[4.75rem] shrink-0 truncate rounded-lg px-1.5 py-1 text-[11px] font-bold tracking-wide ${
             dash.groupsAllMode || dash.groupAllMode || dash.groupOnlyMode
               ? "bg-violet-50 text-violet-700"
               : "bg-[#2f6bf6]/10 text-[#2f6bf6]"
           }`}
         >
           {scopeChip}
+        </span>
+      ) : null}
+      {scopeGroupChip ? (
+        <span className="max-w-[3.25rem] shrink-0 truncate rounded-lg bg-[#2f6bf6]/12 px-1.5 py-1 text-[11px] font-bold tracking-wide text-[#2f6bf6]">
+          {scopeGroupChip}
         </span>
       ) : null}
       <span className="shrink-0 rounded-lg bg-slate-100 px-1.5 py-1 text-[11px] font-bold tracking-wide text-slate-600">
@@ -103,7 +111,7 @@ export default function DashboardPage() {
       i18n={i18n}
       me={me}
       companyCode={viewingCompanyCode}
-      groupId={dash.groupOnlyMode ? "" : scopeGroupBadge}
+      groupId={sidebarGroupId}
       onLogout={dash.logout}
       stickyBar={stickyBar}
       lang={dash.lang}
