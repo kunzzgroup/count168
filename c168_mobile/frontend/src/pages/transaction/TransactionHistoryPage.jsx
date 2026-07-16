@@ -206,6 +206,7 @@ export default function TransactionHistoryPage() {
         />
       }
     >
+      <div className="m-tx-hist-page">
       <p className="m-tx-hist-count">{m.paymentHistoryShowingEntries.replace("{count}", String(displayRows.length))}</p>
       <p className="m-tx-hist-hint">{m.paymentHistoryBalanceHint}</p>
 
@@ -281,6 +282,7 @@ export default function TransactionHistoryPage() {
           })}
         </ul>
       )}
+      </div>
     </MobileShell>
   );
 }

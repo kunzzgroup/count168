@@ -9,6 +9,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  font-size: var(--m-text-compact);
 }
 
 .m-tx-sticky-row {
@@ -73,7 +74,7 @@
   flex-shrink: 0;
   border-radius: var(--m-radius-pill);
   padding: 0.375rem 0.75rem;
-  font-size: 0.6875rem;
+  font-size: var(--m-text-sub-ratio);
   font-weight: 700;
   transition: background-color 0.15s ease, color 0.15s ease;
   background: var(--m-color-surface-muted);
@@ -87,7 +88,7 @@
 
 .m-tx-type-hint {
   margin-top: 0.375rem;
-  font-size: 0.625rem;
+  font-size: var(--m-text-label-ratio);
   font-weight: 500;
   line-height: 1.375;
   color: var(--m-color-muted);
@@ -162,7 +163,7 @@
   border-radius: 0.75rem;
   background: var(--m-color-danger-soft);
   padding: 0.5rem 0.75rem;
-  font-size: 0.75rem;
+  font-size: 1em;
   font-weight: 600;
   color: var(--m-color-danger-text);
 }
@@ -286,11 +287,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.m-tx-side-tab-label--minus {
-  font-size: var(--m-text-tab-minus-ratio);
-  line-height: 1;
 }
 
 .m-tx-side-tab-count {

@@ -157,7 +157,7 @@ export default function AccountBalanceTables({
           className={`m-tx-side-tab tap-scale${!isLeft ? " m-tx-side-tab--active-right" : ""}`}
           onClick={() => setSideTab("right")}
         >
-          <span className="m-tx-side-tab-label m-tx-side-tab-label--minus">{m.rightBalanceTab || "−"}</span>
+          <span className="m-tx-side-tab-label">{m.rightBalanceTab || "Balance -"}</span>
           <span className={`m-tx-side-tab-count${!isLeft ? " m-tx-side-tab-count--right-active" : ""}`}>
             {right.length}
           </span>

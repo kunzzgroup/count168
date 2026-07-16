@@ -247,6 +247,7 @@ export default function TransactionPage() {
         </>
       }
     >
+      <div className="m-tx-page">
       {tx.toast ? (
         <div
           className={`m-tx-toast ${
@@ -295,6 +296,7 @@ export default function TransactionPage() {
           )}
         </>
       )}
+      </div>
     </MobileShell>
   );
 }
