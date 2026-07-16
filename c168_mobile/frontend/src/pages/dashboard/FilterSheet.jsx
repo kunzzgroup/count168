@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOverlayLock } from "../../hooks/useOverlayLock.js";
 import {
   PERIOD_PRESET_KEYS,
   daysInclusive,
+  defaultDashboardDateRange,
   formatDisplayDate,
   formatYmd,
   parseYmd,
+  periodPresetRange,
   todayYmd,
 } from "../../lib/dashboardDateUtils.js";
+import { companiesForPicker as resolveCompaniesForPicker, pickCompany, resolveCompanyPickForGroup } from "../../lib/dashboardScope.js";
 import { dashboardLabel } from "../../translateFile/dashboardTranslate.js";
 
 function Pill({ active, disabled, onClick, block, tone = "blue", children }) {
@@ -93,6 +96,41 @@ function inRangeYmd(day, from, to) {
   return cmpYmd(day, lo) >= 0 && cmpYmd(day, hi) <= 0;
 }
 
+function buildDraftFromDash(dash) {
+  return {
+    dateFrom: dash.dateFrom,
+    dateTo: dash.dateTo,
+    activePreset: dash.activePreset || "",
+    selectedGroup: dash.selectedGroup,
+    groupsAllMode: dash.groupsAllMode,
+    groupAllMode: dash.groupAllMode,
+    companyId: dash.companyId,
+    currency: dash.currency,
+    selectedCategories: Array.isArray(dash.selectedCategories) ? [...dash.selectedCategories] : [],
+  };
+}
+
+function buildDefaultDraft(dash) {
+  const range = periodPresetRange("thisYear") || defaultDashboardDateRange();
+  const fallback = pickCompany(dash.companies, dash.me?.company_id);
+  return {
+    dateFrom: range.dateFrom,
+    dateTo: range.dateTo,
+    activePreset: "thisYear",
+    selectedGroup: null,
+    groupsAllMode: false,
+    groupAllMode: false,
+    companyId: fallback?.id ?? null,
+    currency: dash.currencies?.[0] || dash.currency || "MYR",
+    selectedCategories: [],
+  };
+}
+
+function draftGroupOnlyMode(draft) {
+  const hasCompany = Number.isFinite(Number(draft.companyId)) && Number(draft.companyId) > 0;
+  return Boolean(draft.selectedGroup && !draft.groupAllMode && !draft.groupsAllMode && !hasCompany);
+}
+
 function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, labels, onApply }) {
   const [cursor, setCursor] = useState(() => parseYmd(dateFrom || maxYmd || todayYmd()));
   const [draftFrom, setDraftFrom] = useState(dateFrom || "");
@@ -112,6 +150,19 @@ function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, label
   const cells = useMemo(() => buildMonthCells(year, month), [year, month]);
   const monthLabel = cursor.toLocaleString("en", { month: "long", year: "numeric" });
 
+  const commitRange = (from, to) => {
+    if (!from || !to) return;
+    let lo = from;
+    let hi = to;
+    if (cmpYmd(hi, lo) < 0) {
+      const tmp = lo;
+      lo = hi;
+      hi = tmp;
+    }
+    onApply?.(lo, hi);
+    onClose?.();
+  };
+
   const pickDay = (dayNum) => {
     if (!dayNum) return;
     const ymd = formatYmd(new Date(year, month, dayNum));
@@ -124,18 +175,7 @@ function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, label
       return;
     }
 
-    let from = draftFrom;
-    let to = ymd;
-    if (cmpYmd(to, from) < 0) {
-      const tmp = from;
-      from = to;
-      to = tmp;
-    }
-    setDraftFrom(from);
-    setDraftTo(to);
-    setPicking("start");
-    onApply?.(from, to);
-    onClose?.();
+    commitRange(draftFrom, ymd);
   };
 
   const shiftMonth = (delta) => {
@@ -235,12 +275,7 @@ function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, label
             type="button"
             onClick={() => {
               const t = maxYmd || todayYmd();
-              setDraftFrom(t);
-              setDraftTo(t);
-              setPicking("start");
-              setCursor(parseYmd(t));
-              onApply?.(t, t);
-              onClose?.();
+              commitRange(t, t);
             }}
             className="m-filter-cal-footer-btn tap-scale"
           >
@@ -249,18 +284,7 @@ function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, label
           <button
             type="button"
             disabled={!draftFrom || !draftTo}
-            onClick={() => {
-              if (!draftFrom || !draftTo) return;
-              let from = draftFrom;
-              let to = draftTo;
-              if (cmpYmd(to, from) < 0) {
-                const tmp = from;
-                from = to;
-                to = tmp;
-              }
-              onApply?.(from, to);
-              onClose?.();
-            }}
+            onClick={() => commitRange(draftFrom, draftTo)}
             className="m-filter-cal-footer-btn m-filter-cal-footer-btn--primary tap-scale"
           >
             {labels.done}
@@ -275,6 +299,7 @@ export default function FilterSheet({ open, onClose, dash }) {
   const { i18n } = dash;
   const bodyRef = useRef(null);
   const [rangeOpen, setRangeOpen] = useState(false);
+  const [draft, setDraft] = useState(() => buildDraftFromDash(dash));
   useOverlayLock(open, onClose);
 
   useEffect(() => {
@@ -282,41 +307,54 @@ export default function FilterSheet({ open, onClose, dash }) {
       setRangeOpen(false);
       return;
     }
+    setDraft(buildDraftFromDash(dash));
     bodyRef.current?.scrollTo?.({ top: 0 });
   }, [open]);
 
+  const canUseGroupOnly = dash.canUseGroupOnlyForGroup || (() => false);
+
+  const companiesForPicker = useMemo(
+    () =>
+      resolveCompaniesForPicker(dash.companies, {
+        selectedGroup: draft.selectedGroup,
+        groupsAllMode: draft.groupsAllMode,
+      }),
+    [dash.companies, draft.selectedGroup, draft.groupsAllMode],
+  );
+
+  const pickDraftGroup = useCallback(
+    (gid) => {
+      const group = String(gid || "").trim().toUpperCase();
+      if (!group) return;
+      const allowGroupOnly = canUseGroupOnly(group);
+      const pick = allowGroupOnly ? null : resolveCompanyPickForGroup(dash.companies, group, draft.companyId);
+      setDraft((prev) => ({
+        ...prev,
+        selectedGroup: group,
+        groupsAllMode: false,
+        groupAllMode: false,
+        companyId: allowGroupOnly ? null : (pick?.id ?? prev.companyId),
+      }));
+    },
+    [canUseGroupOnly, dash.companies, draft.companyId],
+  );
+
   const handleReset = () => {
-    dash.resetFilters();
+    setDraft(buildDefaultDraft(dash));
   };
 
-  const applyPresetAndClose = (key) => {
-    dash.applyPreset(key);
-    onClose?.();
-  };
-
-  const switchCompanyAndClose = (id) => {
-    void dash.switchCompany(id);
-    onClose?.();
-  };
-
-  const setCurrencyAndClose = (code) => {
-    dash.setCurrency(code);
-    onClose?.();
-  };
-
-  const pickAllGroupsAndClose = () => {
-    dash.pickAllGroups();
-    onClose?.();
-  };
-
-  const pickAllInGroupAndClose = () => {
-    dash.pickAllInGroup();
+  const handleApply = () => {
+    if (typeof dash.applyFilters === "function") {
+      void dash.applyFilters(draft);
+    }
     onClose?.();
   };
 
   const maxDay = todayYmd();
-  const span = daysInclusive(dash.dateFrom, dash.dateTo);
+  const span = daysInclusive(draft.dateFrom, draft.dateTo);
   const daysLabel = (i18n.daysCount || "{n} days").replace("{n}", String(span));
+  const groupOnlyDraft = draftGroupOnlyMode(draft);
+  const showGroupOnlyHint = dash.groupIds?.some((gid) => canUseGroupOnly(gid));
 
   return (
     <div
@@ -350,10 +388,10 @@ export default function FilterSheet({ open, onClose, dash }) {
               span > 0 ? (
                 <span
                   className={`m-filter-span-badge${
-                    dash.activePreset ? " m-filter-span-badge--preset" : " m-filter-span-badge--custom"
+                    draft.activePreset ? " m-filter-span-badge--preset" : " m-filter-span-badge--custom"
                   }`}
                 >
-                  {dash.activePreset ? daysLabel : `${i18n.customRange} · ${daysLabel}`}
+                  {draft.activePreset ? daysLabel : `${i18n.customRange} · ${daysLabel}`}
                 </span>
               ) : null
             }
@@ -361,8 +399,8 @@ export default function FilterSheet({ open, onClose, dash }) {
             <DateRangeRow
               fromLabel={i18n.from}
               toLabel={i18n.toDate}
-              dateFrom={dash.dateFrom}
-              dateTo={dash.dateTo}
+              dateFrom={draft.dateFrom}
+              dateTo={draft.dateTo}
               active={rangeOpen}
               onOpen={() => setRangeOpen(true)}
             />
@@ -371,7 +409,21 @@ export default function FilterSheet({ open, onClose, dash }) {
           <Section title={i18n.quickSelect}>
             <div className="m-filter-pill-grid">
               {PERIOD_PRESET_KEYS.map((key) => (
-                <Pill key={key} active={dash.activePreset === key} onClick={() => applyPresetAndClose(key)} block>
+                <Pill
+                  key={key}
+                  active={draft.activePreset === key}
+                  onClick={() => {
+                    const range = periodPresetRange(key);
+                    if (!range) return;
+                    setDraft((prev) => ({
+                      ...prev,
+                      activePreset: key,
+                      dateFrom: range.dateFrom,
+                      dateTo: range.dateTo,
+                    }));
+                  }}
+                  block
+                >
                   {dashboardLabel(i18n, key)}
                 </Pill>
               ))}
@@ -381,44 +433,82 @@ export default function FilterSheet({ open, onClose, dash }) {
           {dash.groupIds.length > 0 && (
             <Section title={i18n.groupId}>
               <div className="m-filter-pill-wrap">
-                <Pill tone="violet" active={dash.groupsAllMode} onClick={pickAllGroupsAndClose}>
+                <Pill
+                  tone="violet"
+                  active={draft.groupsAllMode}
+                  onClick={() =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      groupsAllMode: true,
+                      groupAllMode: false,
+                      selectedGroup: null,
+                      companyId: null,
+                    }))
+                  }
+                >
                   {i18n.all}
                 </Pill>
                 {dash.groupIds.map((gid) => (
                   <Pill
                     key={gid}
                     tone="violet"
-                    active={dash.selectedGroup === gid && !dash.groupsAllMode}
-                    onClick={() => {
-                      dash.pickGroup(gid);
-                      onClose?.();
-                    }}
+                    active={draft.selectedGroup === gid && !draft.groupsAllMode}
+                    onClick={() => pickDraftGroup(gid)}
                   >
                     {gid}
                   </Pill>
                 ))}
               </div>
-              <p className="m-filter-hint">{i18n.groupHint || "Group only — or pick All under Company to aggregate"}</p>
+              <p className="m-filter-hint">
+                {showGroupOnlyHint
+                  ? i18n.groupHint || "Tap a group for group-only · Company All aggregates companies"
+                  : i18n.groupCompanyHint || "Pick a group, then choose a company"}
+              </p>
             </Section>
           )}
 
           <Section title={i18n.company}>
             <div className="m-filter-pill-wrap">
-              {(dash.companiesForPicker.length > 1 || dash.selectedGroup) && (
+              {(companiesForPicker.length > 1 || draft.selectedGroup) && (
                 <Pill
-                  active={dash.groupAllMode}
-                  disabled={!dash.selectedGroup || dash.groupsAllMode}
-                  onClick={pickAllInGroupAndClose}
+                  active={draft.groupAllMode}
+                  disabled={!draft.selectedGroup || draft.groupsAllMode}
+                  onClick={() =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      groupAllMode: true,
+                      groupsAllMode: false,
+                      companyId:
+                        Number.isFinite(Number(prev.companyId)) && Number(prev.companyId) > 0
+                          ? prev.companyId
+                          : (resolveCompanyPickForGroup(dash.companies, prev.selectedGroup, prev.companyId)?.id ??
+                            null),
+                    }))
+                  }
                 >
                   {i18n.all}
                 </Pill>
               )}
-              {dash.companiesForPicker.map((c) => {
+              {companiesForPicker.map((c) => {
                 const label = String(c.company_id || c.name || c.id).toUpperCase();
                 const active =
-                  !dash.groupAllMode && !dash.groupOnlyMode && Number(dash.companyId) === Number(c.id);
+                  !draft.groupAllMode && !groupOnlyDraft && Number(draft.companyId) === Number(c.id);
                 return (
-                  <Pill key={String(c.id)} active={active} onClick={() => switchCompanyAndClose(c.id)}>
+                  <Pill
+                    key={String(c.id)}
+                    active={active}
+                    onClick={() =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        groupAllMode: false,
+                        groupsAllMode: false,
+                        companyId: c.id,
+                        selectedGroup:
+                          prev.selectedGroup ||
+                          (c.group_id ? String(c.group_id).trim().toUpperCase() : null),
+                      }))
+                    }
+                  >
                     {label}
                   </Pill>
                 );
@@ -430,7 +520,11 @@ export default function FilterSheet({ open, onClose, dash }) {
             <Section title={i18n.currency}>
               <div className="m-filter-pill-scroll">
                 {dash.currencies.map((code) => (
-                  <Pill key={code} active={dash.currency === code} onClick={() => setCurrencyAndClose(code)}>
+                  <Pill
+                    key={code}
+                    active={draft.currency === code}
+                    onClick={() => setDraft((prev) => ({ ...prev, currency: code }))}
+                  >
                     {code}
                   </Pill>
                 ))}
@@ -442,11 +536,8 @@ export default function FilterSheet({ open, onClose, dash }) {
             <Section title={dash.m?.category || i18n.category || "Category"}>
               <div className="m-filter-pill-scroll">
                 <Pill
-                  active={!dash.selectedCategories?.length}
-                  onClick={() => {
-                    dash.setSelectedCategories?.([]);
-                    onClose?.();
-                  }}
+                  active={!draft.selectedCategories?.length}
+                  onClick={() => setDraft((prev) => ({ ...prev, selectedCategories: [] }))}
                 >
                   {dash.m?.selectAllCategories || i18n.all}
                 </Pill>
@@ -454,15 +545,20 @@ export default function FilterSheet({ open, onClose, dash }) {
                   const label = String(cat?.name || cat?.category || cat || "");
                   const value = String(cat?.name || cat?.category || cat || "");
                   if (!value) return null;
-                  const active = (dash.selectedCategories || []).includes(value);
+                  const active = (draft.selectedCategories || []).includes(value);
                   return (
                     <Pill
                       key={value}
                       active={active}
-                      onClick={() => {
-                        dash.toggleCategory?.(value);
-                        onClose?.();
-                      }}
+                      onClick={() =>
+                        setDraft((prev) => {
+                          const list = prev.selectedCategories || [];
+                          const next = list.includes(value)
+                            ? list.filter((v) => v !== value)
+                            : [...list, value];
+                          return { ...prev, selectedCategories: next };
+                        })
+                      }
                     >
                       {label}
                     </Pill>
@@ -477,7 +573,7 @@ export default function FilterSheet({ open, onClose, dash }) {
           <button type="button" onClick={handleReset} className="m-sheet-footer-btn m-sheet-footer-btn--muted tap-scale">
             {i18n.reset}
           </button>
-          <button type="button" onClick={onClose} className="m-sheet-footer-btn m-sheet-footer-btn--primary tap-scale">
+          <button type="button" onClick={handleApply} className="m-sheet-footer-btn m-sheet-footer-btn--primary tap-scale">
             {i18n.applyFilter}
           </button>
         </div>
@@ -486,8 +582,8 @@ export default function FilterSheet({ open, onClose, dash }) {
       <DateRangeCalendarSheet
         open={rangeOpen}
         onClose={() => setRangeOpen(false)}
-        dateFrom={dash.dateFrom}
-        dateTo={dash.dateTo}
+        dateFrom={draft.dateFrom}
+        dateTo={draft.dateTo}
         maxYmd={maxDay}
         labels={{
           selectDateRange: i18n.selectDateRange,
@@ -499,7 +595,14 @@ export default function FilterSheet({ open, onClose, dash }) {
           done: i18n.done,
           close: i18n.closeMenu || "Close",
         }}
-        onApply={(from, to) => dash.setCustomDateRange(from, to)}
+        onApply={(from, to) =>
+          setDraft((prev) => ({
+            ...prev,
+            dateFrom: from,
+            dateTo: to,
+            activePreset: "",
+          }))
+        }
       />
     </div>
   );

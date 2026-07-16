@@ -9,8 +9,11 @@ import {
 import {
   companiesForPicker as resolveCompaniesForPicker,
   pickCompany,
+  pickGroupAnchorCompany,
+  resolveCompanyPickForGroup,
   sortedUniqueGroupIds,
 } from "../lib/dashboardScope.js";
+import { canUseGroupOnlyMode } from "../lib/loginScope.js";
 import { assertApiOk, fetchJson } from "../lib/fetchJson.js";
 import {
   resolveMobileTransactionScope,
@@ -512,13 +515,22 @@ export function useMobileTransaction({ listPaused = false } = {}) {
     setGroupAllMode(false);
   }, []);
 
-  const pickGroup = useCallback((groupId) => {
-    const g = groupId ? String(groupId).trim().toUpperCase() : null;
-    setSelectedGroup(g);
-    setCompanyId(null);
-    setGroupsAllMode(false);
-    setGroupAllMode(false);
-  }, []);
+  const pickGroup = useCallback(
+    (groupId) => {
+      const g = groupId ? String(groupId).trim().toUpperCase() : null;
+      if (!g) return;
+      setGroupsAllMode(false);
+      setGroupAllMode(false);
+      setSelectedGroup(g);
+      if (canUseGroupOnlyMode(me, g, companies)) {
+        setCompanyId(null);
+        return;
+      }
+      const pick = resolveCompanyPickForGroup(companies, g, companyId);
+      if (pick?.id != null) setCompanyId(Number(pick.id));
+    },
+    [me, companies, companyId],
+  );
 
   const pickAllGroups = useCallback(() => {
     setSelectedGroup(null);
@@ -528,9 +540,106 @@ export function useMobileTransaction({ listPaused = false } = {}) {
   }, []);
 
   const pickAllInGroup = useCallback(() => {
-    setCompanyId(null);
+    if (!selectedGroup) return;
+    setGroupsAllMode(false);
     setGroupAllMode(true);
-  }, []);
+    if (!(Number.isFinite(Number(companyId)) && Number(companyId) > 0)) {
+      const first = resolveCompaniesForPicker(companies, {
+        selectedGroup,
+        groupsAllMode: false,
+      })[0];
+      if (first?.id != null) setCompanyId(Number(first.id));
+    }
+  }, [selectedGroup, companyId, companies]);
+
+  const applyFilters = useCallback(
+    (draft) => {
+      if (!draft) return;
+
+      if (draft.activePreset) {
+        const range = periodPresetRange(draft.activePreset);
+        if (range) {
+          setActivePreset(draft.activePreset);
+          setDateFrom(range.dateFrom);
+          setDateTo(range.dateTo);
+        }
+      } else if (draft.dateFrom && draft.dateTo) {
+        setDateFrom(draft.dateFrom);
+        setDateTo(draft.dateTo);
+        setActivePreset("");
+      }
+
+      if (draft.currency) setCurrency(draft.currency);
+      if (Array.isArray(draft.selectedCategories)) setSelectedCategories(draft.selectedCategories);
+
+      if (draft.groupsAllMode) {
+        setGroupsAllMode(true);
+        setGroupAllMode(false);
+        setSelectedGroup(null);
+        setCompanyId(null);
+        setReloadNonce((n) => n + 1);
+        return;
+      }
+
+      const group = draft.selectedGroup ? String(draft.selectedGroup).trim().toUpperCase() : null;
+
+      if (group && draft.groupAllMode) {
+        setGroupsAllMode(false);
+        setGroupAllMode(true);
+        setSelectedGroup(group);
+        let cid = Number(draft.companyId);
+        if (!Number.isFinite(cid) || cid <= 0) {
+          const anchor = pickGroupAnchorCompany(companies, group);
+          cid = anchor?.id != null ? Number(anchor.id) : null;
+        }
+        if (cid) setCompanyId(cid);
+        setReloadNonce((n) => n + 1);
+        return;
+      }
+
+      if (group) {
+        const allowGroupOnly = canUseGroupOnlyMode(me, group, companies);
+        const draftCid = Number(draft.companyId);
+        const hasCompany = Number.isFinite(draftCid) && draftCid > 0;
+
+        if (!hasCompany && allowGroupOnly) {
+          setGroupsAllMode(false);
+          setGroupAllMode(false);
+          setSelectedGroup(group);
+          setCompanyId(null);
+          setReloadNonce((n) => n + 1);
+          return;
+        }
+
+        const pick = hasCompany
+          ? companies.find((c) => Number(c.id) === draftCid)
+          : resolveCompanyPickForGroup(companies, group, companyId);
+        if (!pick?.id) return;
+
+        setGroupsAllMode(false);
+        setGroupAllMode(false);
+        setSelectedGroup(group);
+        setCompanyId(Number(pick.id));
+        setReloadNonce((n) => n + 1);
+        return;
+      }
+
+      const cid = Number(draft.companyId);
+      if (Number.isFinite(cid) && cid > 0) {
+        setGroupsAllMode(false);
+        setGroupAllMode(false);
+        setSelectedGroup(null);
+        setCompanyId(cid);
+        setReloadNonce((n) => n + 1);
+      }
+    },
+    [companies, companyId, me],
+  );
+
+  const canUseGroupOnlyForGroup = useCallback(
+    (gid) => canUseGroupOnlyMode(me, gid, companies),
+    [me, companies],
+  );
 
   const applyPreset = useCallback((key) => {
     const range = periodPresetRange(key);
@@ -753,6 +862,8 @@ export function useMobileTransaction({ listPaused = false } = {}) {
     pickGroup,
     pickAllGroups,
     pickAllInGroup,
+    applyFilters,
+    canUseGroupOnlyForGroup,
     currency,
     setCurrency,
     currencies,
