@@ -2,15 +2,16 @@ import { useState } from "react";
 import { parseBalanceValue, formatTransactionGridMoneyHalfUp } from "../../lib/transactionFormat.js";
 import { getRoleClass } from "../../lib/transactionPaymentLogic.js";
 
+/** Opaque tints — no bleed under overlapping columns (card layout has none). */
 const ROLE_ROW_BG = {
   "transaction-role-capital": "bg-rose-50",
-  "transaction-role-bank": "bg-sky-50/80",
-  "transaction-role-cash": "bg-emerald-50/80",
-  "transaction-role-profit": "bg-amber-50/80",
-  "transaction-role-expenses": "bg-orange-50/70",
-  "transaction-role-company": "bg-indigo-50/70",
-  "transaction-role-member": "bg-teal-50/70",
-  "transaction-role-agent": "bg-cyan-50/80",
+  "transaction-role-bank": "bg-sky-50",
+  "transaction-role-cash": "bg-emerald-50",
+  "transaction-role-profit": "bg-amber-50",
+  "transaction-role-expenses": "bg-orange-50",
+  "transaction-role-company": "bg-indigo-50",
+  "transaction-role-member": "bg-teal-50",
+  "transaction-role-agent": "bg-cyan-50",
 };
 
 function MoneyCell({ value, emphasize = false, forceTone = null }) {
@@ -26,7 +27,27 @@ function MoneyCell({ value, emphasize = false, forceTone = null }) {
   return <span className={`tabular-nums ${tone}`}>{display}</span>;
 }
 
-function AccountTable({ side, rows, showName, m, onOpenHistory, onPickBalance, balanceTone }) {
+function MetricCell({ label, value, emphasize = false, forceTone = null, onClick, title }) {
+  const interactive = typeof onClick === "function";
+  const Comp = interactive ? "button" : "div";
+  return (
+    <Comp
+      type={interactive ? "button" : undefined}
+      className={`min-w-0 px-1.5 py-1.5 text-right ${
+        interactive ? "tap-scale rounded-lg active:bg-slate-100/80" : ""
+      }`}
+      onClick={onClick}
+      title={title}
+    >
+      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className={`mt-0.5 truncate text-[11px] font-bold leading-tight ${emphasize ? "text-[12px]" : ""}`}>
+        <MoneyCell value={value} emphasize={emphasize} forceTone={forceTone} />
+      </p>
+    </Comp>
+  );
+}
+
+function AccountCardList({ side, rows, showName, m, onOpenHistory, onPickBalance, balanceTone }) {
   if (rows.length === 0) {
     return (
       <p className="px-3 py-8 text-center text-[12px] font-medium text-slate-400">{m.noAccountsFound}</p>
@@ -34,64 +55,52 @@ function AccountTable({ side, rows, showName, m, onOpenHistory, onPickBalance, b
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] border-collapse text-left">
-        <thead>
-          <tr className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-            <th className="sticky left-0 z-[1] bg-slate-50 px-2.5 py-2">{m.accountTable}</th>
-            {showName ? <th className="px-2 py-2">{m.nameTable}</th> : null}
-            <th className="px-2 py-2 text-right">{m.bfTable}</th>
-            <th className="px-2 py-2 text-right">{m.winLossTableCompact}</th>
-            <th className="px-2 py-2 text-right">{m.crDrTable}</th>
-            <th className="px-2.5 py-2 text-right">{m.balanceTableCompact}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const roleCls = getRoleClass(row?.role);
-            const rowBg = ROLE_ROW_BG[roleCls] || "bg-white";
-            const code = String(row?.account_id || "").toUpperCase();
-            const name = String(row?.account_name || "").trim();
-            const key = `${row.account_db_id || row.account_id}-${row.currency}-${row.transaction_id || ""}`;
-            return (
-              <tr key={key} className={`border-t border-slate-100/90 ${rowBg}`}>
-                <td
-                  className={`sticky left-0 z-[1] cursor-pointer px-2.5 py-2 text-[12px] font-bold text-slate-900 active:brightness-95 ${rowBg}`}
-                  onClick={() => onOpenHistory?.(row)}
-                  title={m.tapForHistory}
-                >
-                  <span className="block max-w-[7.5rem] truncate underline decoration-slate-300 underline-offset-2">
-                    {code}
-                  </span>
-                  <span className="block text-[9px] font-bold tracking-wide text-slate-400">
-                    {String(row?.currency || "").toUpperCase()}
-                  </span>
-                </td>
-                {showName ? (
-                  <td className="max-w-[7rem] truncate px-2 py-2 text-[11px] text-slate-500">{name || "—"}</td>
+    <ul className="divide-y divide-slate-100">
+      {rows.map((row) => {
+        const roleCls = getRoleClass(row?.role);
+        const rowBg = ROLE_ROW_BG[roleCls] || "bg-white";
+        const code = String(row?.account_id || "").toUpperCase();
+        const name = String(row?.account_name || "").trim();
+        const cur = String(row?.currency || "").toUpperCase();
+        const key = `${row.account_db_id || row.account_id}-${row.currency}-${row.transaction_id || ""}`;
+        return (
+          <li key={key} className={`${rowBg}`}>
+            <button
+              type="button"
+              className="tap-scale flex w-full items-center gap-2 px-3 py-2.5 text-left active:brightness-95"
+              onClick={() => onOpenHistory?.(row)}
+              title={m.tapForHistory}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-bold text-slate-900 underline decoration-slate-300 underline-offset-2">
+                  {code}
+                </span>
+                {showName && name ? (
+                  <span className="mt-0.5 block truncate text-[11px] font-medium text-slate-500">{name}</span>
                 ) : null}
-                <td className="px-2 py-2 text-right text-[11px] font-semibold">
-                  <MoneyCell value={row?.bf} />
-                </td>
-                <td className="px-2 py-2 text-right text-[11px] font-semibold">
-                  <MoneyCell value={row?.win_loss} />
-                </td>
-                <td className="px-2 py-2 text-right text-[11px] font-semibold">
-                  <MoneyCell value={row?.cr_dr} />
-                </td>
-                <td
-                  className="cursor-pointer px-2.5 py-2 text-right text-[12px] font-bold active:brightness-95"
-                  onClick={() => onPickBalance?.(row, side)}
-                  title={m.tapBalanceToFill || m.balanceTable}
-                >
-                  <MoneyCell value={row?.balance} emphasize forceTone={balanceTone} />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+              </span>
+              <span className="shrink-0 rounded-md bg-white/70 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-slate-500 ring-1 ring-slate-200/80">
+                {cur}
+              </span>
+            </button>
+
+            <div className="grid grid-cols-4 gap-0 border-t border-slate-100/80 px-1.5 pb-2 pt-0.5">
+              <MetricCell label={m.bfTable} value={row?.bf} />
+              <MetricCell label={m.winLossTableCompact} value={row?.win_loss} />
+              <MetricCell label={m.crDrTable} value={row?.cr_dr} />
+              <MetricCell
+                label={m.balanceTableCompact}
+                value={row?.balance}
+                emphasize
+                forceTone={balanceTone}
+                onClick={() => onPickBalance?.(row, side)}
+                title={m.tapBalanceToFill || m.balanceTable}
+              />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -175,12 +184,13 @@ export default function AccountBalanceTables({
       </div>
 
       <p className="text-[11px] leading-snug text-slate-500">
-        {m.tableClickHint ||
-          "Tap account → history · Tap balance → fill form field for this side"}
+        {m.cardClickHint ||
+          m.tableClickHint ||
+          "Tap account → history · Tap balance → fill form (left→To, right→From)"}
       </p>
 
       <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
-        <AccountTable
+        <AccountCardList
           side={isLeft ? "left" : "right"}
           rows={activeRows}
           showName={showName}
