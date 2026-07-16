@@ -1,0 +1,128 @@
+/**
+ * Payment History row type tint — badge + card shell (B/F + 7 TX types).
+ * Modifiers pair with m-tx-hist-card / m-tx-hist-type-badge from transaction-history.css.
+ */
+
+.m-tx-hist-card[class*="m-tx-hist-card--"] {
+  box-shadow: none;
+}
+
+/* B/F opening balance */
+.m-tx-hist-card--bf {
+  background: #fffbeb;
+  outline: 2px solid #fcd34d;
+}
+
+.m-tx-hist-card--bf .m-tx-hist-type-badge {
+  background: #fef3c7;
+  color: #92400e;
+  outline-color: #fcd34d;
+}
+
+/* CONTRA */
+.m-tx-hist-card--contra {
+  background: #f5f3ff;
+  outline: 2px solid #c4b5fd;
+}
+
+.m-tx-hist-card--contra .m-tx-hist-type-badge {
+  background: #ede9fe;
+  color: #5b21b6;
+  outline-color: #c4b5fd;
+}
+
+/* PAYMENT */
+.m-tx-hist-card--payment {
+  background: #f0f9ff;
+  outline: 2px solid #7dd3fc;
+}
+
+.m-tx-hist-card--payment .m-tx-hist-type-badge {
+  background: #e0f2fe;
+  color: #075985;
+  outline-color: #7dd3fc;
+}
+
+/* RECEIVE */
+.m-tx-hist-card--receive {
+  background: #ecfeff;
+  outline: 2px solid #67e8f9;
+}
+
+.m-tx-hist-card--receive .m-tx-hist-type-badge {
+  background: #cffafe;
+  color: #164e63;
+  outline-color: #67e8f9;
+}
+
+/* CLAIM */
+.m-tx-hist-card--claim {
+  background: #fffbeb;
+  outline: 2px solid #fcd34d;
+}
+
+.m-tx-hist-card--claim .m-tx-hist-type-badge {
+  background: #fef3c7;
+  color: #92400e;
+  outline-color: #fcd34d;
+}
+
+/* PROFIT / WIN / LOSE */
+.m-tx-hist-card--profit {
+  background: #ecfdf5;
+  outline: 2px solid #6ee7b7;
+}
+
+.m-tx-hist-card--profit .m-tx-hist-type-badge {
+  background: #d1fae5;
+  color: #065f46;
+  outline-color: #6ee7b7;
+}
+
+/* RATE */
+.m-tx-hist-card--rate {
+  background: #eef2ff;
+  outline: 2px solid #a5b4fc;
+}
+
+.m-tx-hist-card--rate .m-tx-hist-type-badge {
+  background: #e0e7ff;
+  color: #3730a3;
+  outline-color: #a5b4fc;
+}
+
+/* ADJUSTMENT */
+.m-tx-hist-card--adjustment {
+  background: #fff7ed;
+  outline: 2px solid #fdba74;
+}
+
+.m-tx-hist-card--adjustment .m-tx-hist-type-badge {
+  background: #ffedd5;
+  color: #9a3412;
+  outline-color: #fdba74;
+}
+
+/* CLEAR */
+.m-tx-hist-card--clear {
+  background: #f1f5f9;
+  outline: 2px solid #cbd5e1;
+}
+
+.m-tx-hist-card--clear .m-tx-hist-type-badge {
+  background: #e2e8f0;
+  color: #334155;
+  outline-color: #94a3b8;
+}
+
+/* Bank process / unknown */
+.m-tx-hist-card--default {
+  background: var(--m-color-surface);
+  outline: 2px solid #e2e8f0;
+}
+
+.m-tx-hist-card--default .m-tx-hist-type-badge {
+  background: #f1f5f9;
+  color: #475569;
+  outline-color: #cbd5e1;
+}

@@ -17,9 +17,10 @@ import {
   resolveHistoryAccountName,
   resolvePaymentHistoryScope,
 } from "../../lib/transactionHistoryScope.js";
-import { historyTypeBadgeClass, historyTypeCardClass, historyTypeLabel } from "../../lib/transactionTypeStyles.js";
+import { historyTypeCardClass, historyTypeLabel } from "../../lib/transactionTypeStyles.js";
 import ExportPdfSheet from "./ExportPdfSheet.jsx";
 import "./transaction-history.css";
+import "./transaction-history-types.css";
 
 /** Stable id from history API rows (field is transaction_id, not id). */
 function historyRowId(row) {
@@ -220,7 +221,6 @@ export default function TransactionHistoryPage() {
         <ul className="m-tx-hist-list">
           {displayRows.map((row, idx) => {
             const typeLabel = historyTypeLabel(row);
-            const badgeCls = historyTypeBadgeClass(row);
             const cardCls = historyTypeCardClass(row);
             const createdRaw = row.created_by;
             const createdBy =
@@ -239,7 +239,7 @@ export default function TransactionHistoryPage() {
                 className={`m-tx-hist-card ${cardCls}`}
               >
                 <div className="m-tx-hist-card-head">
-                  <span className={`m-tx-hist-type-badge ${badgeCls}`}>{typeLabel}</span>
+                  <span className="m-tx-hist-type-badge">{typeLabel}</span>
                   <span className="m-tx-hist-date">{row.date || "—"}</span>
                   <span className="m-tx-hist-currency">{cur || "—"}</span>
                 </div>
