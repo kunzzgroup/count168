@@ -1,21 +1,11 @@
 import { useState } from "react";
 import { parseBalanceValue, formatTransactionGridMoneyHalfUp } from "../../lib/transactionFormat.js";
+import { moneyToneClass } from "../../lib/money/moneyToneClass.js";
 import { getRoleClass } from "../../lib/transactionPaymentLogic.js";
 
-function moneyToneClass({ emphasize = false, forceTone = null, value }) {
-  if (forceTone === "pos") return "m-money m-money--pos";
-  if (forceTone === "neg") return "m-money m-money--neg";
-  if (emphasize) {
-    const n = parseBalanceValue(String(value ?? "").replace(/,/g, ""));
-    if (n != null && n < 0) return "m-money m-money--neg";
-    if (n != null && n > 0) return "m-money m-money--pos";
-  }
-  return "m-money m-money--neutral";
-}
-
-function MoneyCell({ value, emphasize = false, forceTone = null }) {
+function MoneyCell({ value }) {
   return (
-    <span className={moneyToneClass({ emphasize, forceTone, value })}>
+    <span className={moneyToneClass(value)}>
       {formatTransactionGridMoneyHalfUp(value)}
     </span>
   );
@@ -24,8 +14,6 @@ function MoneyCell({ value, emphasize = false, forceTone = null }) {
 function MetricCell({
   label,
   value,
-  emphasize = false,
-  forceTone = null,
   onClick,
   title,
   ariaLabel,
@@ -43,13 +31,13 @@ function MetricCell({
     >
       <p className="m-tx-metric-label">{label}</p>
       <p className="m-tx-metric-value">
-        <MoneyCell value={value} emphasize={emphasize} forceTone={forceTone} />
+        <MoneyCell value={value} />
       </p>
     </Comp>
   );
 }
 
-function AccountCardList({ side, rows, showName, m, onOpenHistory, onPickBalance, balanceTone }) {
+function AccountCardList({ side, rows, showName, m, onOpenHistory, onPickBalance }) {
   if (rows.length === 0) {
     return <p className="m-tx-card-empty">{m.noAccountsFound}</p>;
   }
@@ -85,8 +73,6 @@ function AccountCardList({ side, rows, showName, m, onOpenHistory, onPickBalance
               <MetricCell
                 label={m.balanceTableCompact}
                 value={row?.balance}
-                emphasize
-                forceTone={balanceTone}
                 onClick={() => onPickBalance?.(row, side)}
                 title={m.tapBalanceToFill || m.balanceTable}
                 ariaLabel={
@@ -178,7 +164,6 @@ export default function AccountBalanceTables({
           m={m}
           onOpenHistory={onOpenHistory}
           onPickBalance={onPickBalance}
-          balanceTone={isLeft ? "pos" : "neg"}
         />
       </section>
     </div>

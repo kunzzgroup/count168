@@ -18,6 +18,7 @@ import {
   resolvePaymentHistoryScope,
 } from "../../lib/transactionHistoryScope.js";
 import { historyTypeCardClass, historyTypeLabel } from "../../lib/transactionTypeStyles.js";
+import { moneyToneClass } from "../../lib/money/moneyToneClass.js";
 import ExportPdfSheet from "./ExportPdfSheet.jsx";
 import "./transaction-history.css";
 import "./transaction-history-types.css";
@@ -52,13 +53,7 @@ function sortHistoryNewestFirst(rows) {
 }
 
 function MoneyTone({ value, children }) {
-  const n = parseBalanceValue(String(value ?? "").replace(/,/g, ""));
-  let tone = "";
-  if (n != null) {
-    if (n < 0) tone = " m-money--neg";
-    else if (n > 0) tone = " m-money--pos";
-  }
-  return <span className={`tabular-nums${tone}`}>{children}</span>;
+  return <span className={moneyToneClass(value)}>{children}</span>;
 }
 
 function HistMetric({ label, rawValue, display }) {

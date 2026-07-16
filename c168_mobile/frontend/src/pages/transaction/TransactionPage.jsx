@@ -5,6 +5,7 @@ import { buildPaymentHistoryScope, persistPaymentHistoryScope } from "../../lib/
 import { persistMobileTxListSnapshot } from "../../lib/mobileTxListSnapshot.js";
 import { formatTransactionGridMoneyHalfUp, parseBalanceValue } from "../../lib/transactionFormat.js";
 import MoneyDecimal from "../../lib/money/moneyDecimal.js";
+import { moneyToneClass } from "../../lib/money/moneyToneClass.js";
 import { resolveGridRowToAccountOption } from "../../lib/transactionPaymentLogic.js";
 import FilterSheet from "../dashboard/FilterSheet.jsx";
 import ScopeBreadcrumb from "../dashboard/ScopeBreadcrumb.jsx";
@@ -276,7 +277,7 @@ export default function TransactionPage() {
               <TotalCell label={tx.m.bfTable} value={tx.totals.bf} />
               <TotalCell label={tx.m.winLossTableCompact} value={tx.totals.win_loss} />
               <TotalCell label={tx.m.crDrTable} value={tx.totals.cr_dr} />
-              <TotalCell label={tx.m.balanceTableCompact} value={tx.totals.balance} highlight />
+              <TotalCell label={tx.m.balanceTableCompact} value={tx.totals.balance} />
             </div>
           ) : null}
 
@@ -301,11 +302,11 @@ export default function TransactionPage() {
   );
 }
 
-function TotalCell({ label, value, highlight = false }) {
+function TotalCell({ label, value }) {
   return (
     <div className="m-tx-total-cell">
       <p className="m-tx-total-label">{label}</p>
-      <p className={`m-tx-total-value m-money${highlight ? " m-tx-total-value--highlight" : " m-money--neutral"}`}>
+      <p className={`m-tx-total-value ${moneyToneClass(value)}`}>
         {formatTransactionGridMoneyHalfUp(value)}
       </p>
     </div>
