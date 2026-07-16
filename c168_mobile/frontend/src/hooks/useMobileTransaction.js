@@ -43,7 +43,7 @@ import {
   buildOptimisticSubmitDeltas,
 } from "../lib/transactionSubmitHelpers.js";
 import { isPartnershipAuditReadOnlyLocked } from "../lib/partnershipAuditReadOnly.js";
-import { readMobileTxListSnapshot } from "../lib/mobileTxListSnapshot.js";
+import { clearMobileTxListSnapshot, readMobileTxListSnapshot } from "../lib/mobileTxListSnapshot.js";
 import { TRANSACTION_I18N, getTransactionText } from "../translateFile/transactionTranslate.js";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
 import { canAccessTransaction, resolveMobileLandingPath } from "../utils/mobilePermissions.js";
@@ -580,6 +580,7 @@ export function useMobileTransaction() {
   );
 
   const exitTypeSearch = useCallback(() => {
+    clearMobileTxListSnapshot();
     setTypeSearchActive(false);
     setTypeSearchFormType("");
     setReloadNonce((n) => n + 1);
@@ -622,8 +623,13 @@ export function useMobileTransaction() {
   );
 
   const retry = useCallback(() => {
+    // Pull-to-refresh while in type search → exit to default list (same as Exit Search chip).
+    if (typeSearchActive) {
+      exitTypeSearch();
+      return;
+    }
     setReloadNonce((n) => n + 1);
-  }, []);
+  }, [typeSearchActive, exitTypeSearch]);
 
   const logout = useCallback(async () => {
     try {
