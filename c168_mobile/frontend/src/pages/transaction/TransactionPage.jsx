@@ -105,6 +105,10 @@ export default function TransactionPage() {
     setAddOpen(true);
   }, []);
 
+  const closeFabOnScroll = useCallback(() => {
+    setFabOpen((open) => (open ? false : open));
+  }, []);
+
   if (tx.blocked) return null;
 
   const companyCode = String(tx.selectedCompany?.company_id || "").toUpperCase();
@@ -206,9 +210,7 @@ export default function TransactionPage() {
       lang={tx.lang}
       onLangChange={tx.setLang}
       overlayOpen={overlayOpen}
-      onMainScrollStart={() => {
-        setFabOpen((open) => (open ? false : open));
-      }}
+      onMainScrollStart={closeFabOnScroll}
       floatingAction={
         <>
           {fabOpen ? (

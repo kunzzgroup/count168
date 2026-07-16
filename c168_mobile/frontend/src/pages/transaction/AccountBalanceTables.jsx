@@ -42,7 +42,7 @@ function MetricCell({
   return (
     <Comp
       type={interactive ? "button" : undefined}
-      className={`min-w-0 overflow-x-auto px-1 py-1 text-right [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+      className={`min-w-0 px-1 py-1 text-right ${
         interactive ? "tap-scale rounded-md active:bg-slate-100/80" : ""
       }`}
       onClick={onClick}

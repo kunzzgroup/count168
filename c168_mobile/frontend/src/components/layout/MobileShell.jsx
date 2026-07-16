@@ -141,7 +141,8 @@ export default function MobileShell({
   const hideNav = showBottomNav && hideChrome;
   const contentShift = pullPx > 0.5 ? pullPx : 0;
   const contentTransition = isAnimating && phase !== "pulling" && phase !== "armed";
-  const mainPadTop = hideChrome ? 0 : topChromeH;
+  // Keep top padding stable while chrome slides away — animating padding during scroll causes jank.
+  const mainPadTop = topChromeH;
 
   return (
     <div className="relative flex h-dvh max-h-dvh min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#f2f5fb]">
@@ -174,15 +175,11 @@ export default function MobileShell({
         style={{
           paddingTop: mainPadTop,
           paddingBottom: showBottomNav
-            ? hideNav
-              ? "calc(env(safe-area-inset-bottom, 0px) + 12px)"
-              : "calc(env(safe-area-inset-bottom, 0px) + 72px)"
+            ? "calc(env(safe-area-inset-bottom, 0px) + 72px)"
             : "calc(env(safe-area-inset-bottom, 0px) + 12px)",
-          transition: "padding-top 300ms ease, padding-bottom 220ms ease",
         }}
       >
         <div
-          className="will-change-transform"
           style={{
             transform: contentShift ? `translate3d(0, ${contentShift}px, 0)` : undefined,
             transition: contentTransition ? "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)" : undefined,
@@ -197,7 +194,7 @@ export default function MobileShell({
 
       {showBottomNav ? (
         <nav
-          className={`absolute inset-x-0 bottom-0 z-20 border-t border-slate-200/70 bg-white/92 px-2 pt-1.5 shadow-[0_-8px_24px_-16px_rgba(15,23,42,0.25)] backdrop-blur-xl transition-transform duration-300 ease-out ${
+          className={`absolute inset-x-0 bottom-0 z-20 border-t border-slate-200/70 bg-white px-2 pt-1.5 shadow-[0_-8px_24px_-16px_rgba(15,23,42,0.25)] transition-transform duration-300 ease-out ${
             hideNav ? "translate-y-[110%] pointer-events-none" : "translate-y-0"
           }`}
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)" }}
@@ -227,10 +224,8 @@ export default function MobileShell({
 
       {floatingAction ? (
         <div
-          className={`fixed bottom-0 left-0 z-50 transition-[opacity,transform] duration-200 ease-out will-change-transform ${
-            showFloating
-              ? "translate-y-0 opacity-100"
-              : "pointer-events-none translate-y-2 opacity-0"
+          className={`fixed bottom-0 left-0 z-50 transition-transform duration-150 ease-out ${
+            showFloating ? "translate-y-0" : "pointer-events-none translate-y-[120%]"
           }`}
           aria-hidden={!showFloating}
         >
