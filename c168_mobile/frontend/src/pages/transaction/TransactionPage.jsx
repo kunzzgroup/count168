@@ -6,7 +6,7 @@ import { buildPaymentHistoryScope, persistPaymentHistoryScope } from "../../lib/
 import { formatTransactionGridMoneyHalfUp } from "../../lib/transactionFormat.js";
 import FilterSheet from "../dashboard/FilterSheet.jsx";
 import ScopeBreadcrumb from "../dashboard/ScopeBreadcrumb.jsx";
-import AccountCard from "./AccountCard.jsx";
+import AccountBalanceTables from "./AccountBalanceTables.jsx";
 import AddTransactionSheet from "./AddTransactionSheet.jsx";
 import ContraInboxSheet from "./ContraInboxSheet.jsx";
 
@@ -212,32 +212,23 @@ export default function TransactionPage() {
             </div>
           ) : null}
 
-          <p className="mb-2 text-[12px] font-bold uppercase tracking-wide text-slate-400">
-            {tx.m.accountList} ({tx.displayRows.length})
-            {tx.typeSearchActive ? ` · ${tx.typeSearchFormType}` : ""}
-          </p>
-
           {tx.searchError ? (
             <p className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-semibold text-rose-700">
               {tx.searchError}
             </p>
           ) : null}
 
-          <div className="space-y-3 pb-24">
-            {tx.displayRows.length === 0 ? (
-              <p className="py-8 text-center text-[13px] font-medium text-slate-500">{tx.m.noAccountsFound}</p>
-            ) : (
-              tx.displayRows.map((row) => (
-                <AccountCard
-                  key={`${row.account_db_id || row.account_id}-${row.currency}-${row.transaction_id || ""}`}
-                  row={row}
-                  showName={tx.showName}
-                  m={tx.m}
-                  onOpenHistory={openHistory}
-                />
-              ))
-            )}
-          </div>
+          {tx.displayRows.length === 0 ? (
+            <p className="py-8 text-center text-[13px] font-medium text-slate-500">{tx.m.noAccountsFound}</p>
+          ) : (
+            <AccountBalanceTables
+              rows={tx.displayRows}
+              showName={tx.showName}
+              m={tx.m}
+              currency={tx.currency}
+              onOpenHistory={openHistory}
+            />
+          )}
         </>
       )}
 
