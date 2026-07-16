@@ -551,6 +551,23 @@ export default function AddTransactionSheet({
                 onChange={setRateFromAccount}
                 disabled={mutationsBlocked}
               />
+              <button
+                type="button"
+                disabled={mutationsBlocked}
+                title={m.reverseAccounts}
+                aria-label={m.reverseAccounts}
+                onClick={() => {
+                  setRateToAccount(rateFromAccount);
+                  setRateFromAccount(rateToAccount);
+                  const tmpAmt = rateCurrencyFromAmount;
+                  setRateCurrencyFromAmount(rateCurrencyToAmount);
+                  setRateCurrencyToAmount(tmpAmt);
+                  setRateToAmountGrossStr(tmpAmt ? String(tmpAmt).replace(/,/g, "") : "");
+                }}
+                className="tap-scale w-full rounded-xl border border-slate-200 bg-white py-2.5 text-[12px] font-bold text-slate-700 disabled:opacity-40"
+              >
+                {m.reverse}
+              </button>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.from}</label>
@@ -594,20 +611,40 @@ export default function AddTransactionSheet({
                   disabled={mutationsBlocked}
                   onChange={(e) => setRateCurrencyFromAmount(sanitizeAmountInput(e.target.value))}
                   className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-[14px] font-semibold"
+                  aria-label={m.fromAccount}
                 />
               </div>
               <div>
-                <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.rateMultiplier}</label>
+                <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.rate}</label>
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={rateExchangeRateRaw}
                   disabled={mutationsBlocked}
                   onChange={(e) => setRateExchangeRateRaw(e.target.value)}
                   className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-[14px] font-semibold"
+                  aria-label={m.rate}
                 />
               </div>
-              <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-[13px] text-slate-600">
-                <span className="font-semibold">{m.to}:</span> {rateCurrencyToAmount || "—"}
+              <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-[13px] text-slate-600">
+                <span>
+                  <span className="font-semibold">{m.amount}</span> ({m.to}): {rateCurrencyToAmount || "—"}
+                </span>
+                <button
+                  type="button"
+                  disabled={mutationsBlocked || !rateCurrencyToAmount}
+                  title={m.reverseAccounts}
+                  aria-label={m.reverseAccounts}
+                  onClick={() => {
+                    const tmpAmt = rateCurrencyFromAmount;
+                    setRateCurrencyFromAmount(rateCurrencyToAmount);
+                    setRateCurrencyToAmount(tmpAmt);
+                    setRateToAmountGrossStr(tmpAmt ? String(tmpAmt).replace(/,/g, "") : "");
+                  }}
+                  className="tap-scale shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 disabled:opacity-40"
+                >
+                  {m.reverse}
+                </button>
               </div>
             </>
           )}
@@ -615,7 +652,46 @@ export default function AddTransactionSheet({
           {isRate && rateStep === 2 && (
             <>
               <p className="text-[13px] font-semibold text-[#2f6bf6]">{m.rateStep2}</p>
+              <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-[12px] text-slate-600">
+                <p>
+                  <span className="font-semibold">{m.from}</span>: {rateCurrencyFrom || "—"}{" "}
+                  {rateCurrencyFromAmount || "—"} → <span className="font-semibold">{m.to}</span>:{" "}
+                  {rateCurrencyTo || "—"} {rateCurrencyToAmount || "—"}
+                </p>
+                <p className="mt-1">
+                  <span className="font-semibold">{m.rate}</span>: {rateExchangeRateRaw || "—"}
+                </p>
+              </div>
               <p className="text-[11px] text-slate-400">{m.optional}</p>
+              <AccountPicker
+                label={m.toAccount}
+                placeholder={m.selectToAccount}
+                options={accountOptions}
+                value={rateTransferToAccount}
+                onChange={setRateTransferToAccount}
+                disabled={mutationsBlocked}
+              />
+              <AccountPicker
+                label={m.fromAccount}
+                placeholder={m.selectFromAccount}
+                options={accountOptions}
+                value={rateTransferFromAccount}
+                onChange={setRateTransferFromAccount}
+                disabled={mutationsBlocked}
+              />
+              <button
+                type="button"
+                disabled={mutationsBlocked}
+                title={m.reverseAccounts}
+                aria-label={m.reverseAccounts}
+                onClick={() => {
+                  setRateTransferToAccount(rateTransferFromAccount);
+                  setRateTransferFromAccount(rateTransferToAccount);
+                }}
+                className="tap-scale w-full rounded-xl border border-slate-200 bg-white py-2.5 text-[12px] font-bold text-slate-700 disabled:opacity-40"
+              >
+                {m.reverse}
+              </button>
               <AccountPicker
                 label={m.middleMan}
                 placeholder={m.selectMiddleManAccount}
@@ -633,6 +709,7 @@ export default function AddTransactionSheet({
                   disabled={mutationsBlocked}
                   onChange={(e) => setRateMiddlemanRate(e.target.value)}
                   className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-[14px] font-semibold"
+                  aria-label={m.rateMultiplier}
                 />
               </div>
               <div>
@@ -644,53 +721,44 @@ export default function AddTransactionSheet({
                   disabled={mutationsBlocked}
                   onChange={(e) => setRateMiddlemanInputAmount(sanitizeAmountInput(e.target.value))}
                   className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-[14px] font-semibold"
+                  aria-label={m.fee}
                 />
               </div>
-              {rateMiddlemanAmount ? (
-                <p className="text-[12px] text-slate-500">
-                  {m.fee}: {rateMiddlemanAmount}
-                </p>
-              ) : null}
-              <AccountPicker
-                label={`${m.toAccount} (${m.optional})`}
-                placeholder={m.selectToAccount}
-                options={accountOptions}
-                value={rateTransferToAccount}
-                onChange={setRateTransferToAccount}
-                disabled={mutationsBlocked}
-              />
-              <AccountPicker
-                label={`${m.fromAccount} (${m.optional})`}
-                placeholder={m.selectFromAccount}
-                options={accountOptions}
-                value={rateTransferFromAccount}
-                onChange={setRateTransferFromAccount}
-                disabled={mutationsBlocked}
-              />
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-700">
+                <span className="font-semibold">{m.amount}</span> ({m.middleMan}):{" "}
+                {rateMiddlemanAmount || "—"}
+              </div>
+              <div className="rounded-xl bg-sky-50 px-3 py-2.5 text-[13px] text-sky-900">
+                <span className="font-semibold">{m.amount}</span> ({m.to}): {rateCurrencyToAmount || "—"}
+              </div>
             </>
           )}
 
-          <div>
-            <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.remark}</label>
-            <textarea
-              value={txRemark}
-              disabled={mutationsBlocked}
-              onChange={(e) => setTxRemark(e.target.value)}
-              rows={2}
-              className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-[14px] outline-none focus:border-[#2f6bf6]"
-            />
-          </div>
+          {!isRate ? (
+            <div>
+              <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.remark}</label>
+              <textarea
+                value={txRemark}
+                disabled={mutationsBlocked}
+                onChange={(e) => setTxRemark(e.target.value.toUpperCase())}
+                rows={2}
+                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-[14px] uppercase outline-none focus:border-[#2f6bf6]"
+              />
+            </div>
+          ) : null}
 
-          <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-            <input
-              type="checkbox"
-              checked={txConfirm}
-              disabled={mutationsBlocked}
-              onChange={(e) => setTxConfirm(e.target.checked)}
-              className="size-5 rounded border-slate-300 text-[#2f6bf6]"
-            />
-            <span className="text-[13px] font-semibold text-slate-800">{m.confirmSubmit}</span>
-          </label>
+          {!isRate || rateStep === 2 ? (
+            <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+              <input
+                type="checkbox"
+                checked={txConfirm}
+                disabled={mutationsBlocked}
+                onChange={(e) => setTxConfirm(e.target.checked)}
+                className="size-5 rounded border-slate-300 text-[#2f6bf6]"
+              />
+              <span className="text-[13px] font-semibold text-slate-800">{m.confirmSubmit}</span>
+            </label>
+          ) : null}
             </>
           )}
         </div>
