@@ -774,3 +774,69 @@ body.bg .sc-login-input::placeholder {
   }
 }
 
+/* Secondary password verify (owner / user) */
+.sc-login-card--secondary {
+  min-height: auto;
+}
+
+.sc-secondary-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, var(--login-bg-start), var(--login-bg-end));
+  color: #fff;
+}
+
+.sc-secondary-back {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.sc-secondary-back:active {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.sc-secondary-title {
+  margin: 0;
+  font-size: clamp(1.6rem, 0.4vw + 1.4rem, 1.8rem);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.sc-secondary-lead {
+  margin: 0 0 16px;
+  font-size: clamp(1.3rem, 0.2vw + 1.2rem, 1.4rem);
+  line-height: 1.45;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.sc-secondary-error {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sc-secondary-checking {
+  margin: 24px 0;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+}
+

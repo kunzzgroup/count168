@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import DashboardPage from "./pages/dashboard/DashboardPage.jsx";
 import LoginPage from "./pages/login/LoginPage.jsx";
+import SecondaryPasswordPage from "./pages/login/SecondaryPasswordPage.jsx";
 import StubPage from "./pages/StubPage.jsx";
 import TransactionPage from "./pages/transaction/TransactionPage.jsx";
 import TransactionHistoryPage from "./pages/transaction/TransactionHistoryPage.jsx";
@@ -19,11 +20,11 @@ export default function App() {
       <Route path="/reset-password" element={<StubPage title="重置密码" />} />
       <Route
         path="/owner-secondary-password"
-        element={<StubPage title="业主二级密码" backTo="/login" />}
+        element={<SecondaryPasswordPage variant="owner" />}
       />
       <Route
         path="/user-secondary-password"
-        element={<StubPage title="用户二级密码" backTo="/login" />}
+        element={<SecondaryPasswordPage variant="user" />}
       />
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
