@@ -136,6 +136,16 @@
   }
 }
 
+/** FAB speed-dial labels: fade only (no fly-up). */
+@keyframes ecFabFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .tap-scale {
   transition: transform 0.12s ease;
 }

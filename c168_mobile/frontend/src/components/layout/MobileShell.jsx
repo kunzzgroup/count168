@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { usePullToRefresh } from "../../hooks/usePullToRefresh.js";
-import { useScrollHideChrome } from "../../hooks/useScrollHideChrome.js";
+import { useScrollChromeOffset } from "../../hooks/useScrollChromeOffset.js";
 import { useScrollIdleVisible } from "../../hooks/useScrollIdleVisible.js";
 import { mobileNavItems } from "../../utils/mobilePermissions.js";
 import MobileAppBar from "./MobileAppBar.jsx";
@@ -62,7 +62,6 @@ export default function MobileShell({
     refreshing,
   });
 
-  const chromeHidden = useScrollHideChrome(mainRef, { threshold: 8, topReveal: 16 });
   const floatingIdleVisible = useScrollIdleVisible(mainRef, {
     idleMs: 320,
     onScrollStart: onMainScrollStart,
@@ -85,6 +84,11 @@ export default function MobileShell({
       window.removeEventListener("resize", measure);
     };
   }, [stickyBar, refreshing]);
+
+  const chromeOffsetRaw = useScrollChromeOffset(mainRef, {
+    maxOffset: Math.max(topChromeH, 1),
+    topReveal: 12,
+  });
 
   const openSidebar = () => {
     onChromeOpen?.();
@@ -134,24 +138,22 @@ export default function MobileShell({
     return () => ac.abort();
   }, [notifyOpen]);
 
-  // Hide top + bottom chrome on scroll-down; keep during pull / overlays / refresh.
   const forceChrome =
     active || isAnimating || overlayOpen || sidebarOpen || notifyOpen || refreshing;
-  const hideChrome = chromeHidden && !forceChrome;
-  const hideNav = showBottomNav && hideChrome;
+  const chromeOffset = forceChrome ? 0 : chromeOffsetRaw;
+  const chromeProgress = topChromeH > 0 ? Math.min(1, chromeOffset / topChromeH) : 0;
+  const navHidden = showBottomNav && chromeProgress > 0.88;
   const contentShift = pullPx > 0.5 ? pullPx : 0;
   const contentTransition = isAnimating && phase !== "pulling" && phase !== "armed";
-  // Keep top padding stable while chrome slides away — animating padding during scroll causes jank.
   const mainPadTop = topChromeH;
 
   return (
     <div className="relative flex h-dvh max-h-dvh min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#f2f5fb]">
       <div
         ref={topChromeRef}
-        className={`fixed inset-x-0 top-0 z-30 transition-transform duration-300 ease-out ${
-          hideChrome ? "-translate-y-full pointer-events-none" : "translate-y-0"
-        }`}
-        aria-hidden={hideChrome}
+        className="fixed inset-x-0 top-0 z-30 will-change-transform"
+        style={{ transform: `translate3d(0, ${-chromeOffset}px, 0)` }}
+        aria-hidden={chromeProgress > 0.95}
       >
         <MobileAppBar
           i18n={labels}
@@ -194,12 +196,16 @@ export default function MobileShell({
 
       {showBottomNav ? (
         <nav
-          className={`absolute inset-x-0 bottom-0 z-20 border-t border-slate-200/70 bg-white px-2 pt-1.5 shadow-[0_-8px_24px_-16px_rgba(15,23,42,0.25)] transition-transform duration-300 ease-out ${
-            hideNav ? "translate-y-[110%] pointer-events-none" : "translate-y-0"
+          className={`absolute inset-x-0 bottom-0 z-20 border-t border-slate-200/70 bg-white px-2 pt-1.5 shadow-[0_-8px_24px_-16px_rgba(15,23,42,0.25)] will-change-transform ${
+            navHidden ? "pointer-events-none" : ""
           }`}
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)" }}
+          style={{
+            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+            transform: `translate3d(0, ${chromeProgress * 110}%, 0)`,
+            opacity: Math.max(0, 1 - chromeProgress * 1.15),
+          }}
           aria-label="Main"
-          aria-hidden={hideNav}
+          aria-hidden={navHidden}
         >
           <div className="mx-auto flex max-w-lg items-stretch justify-around">
             {navItems.map((item) => (
@@ -207,7 +213,7 @@ export default function MobileShell({
                 key={item.to}
                 to={item.to}
                 end={item.to === "/dashboard"}
-                tabIndex={hideNav ? -1 : undefined}
+                tabIndex={navHidden ? -1 : undefined}
                 className={({ isActive }) =>
                   `flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-semibold transition-colors ${
                     isActive ? "text-[#2f80ed]" : "text-slate-400"
@@ -224,8 +230,8 @@ export default function MobileShell({
 
       {floatingAction ? (
         <div
-          className={`fixed bottom-0 left-0 z-50 transition-transform duration-150 ease-out ${
-            showFloating ? "translate-y-0" : "pointer-events-none translate-y-[120%]"
+          className={`fixed bottom-0 left-0 z-50 transition-opacity duration-300 ease-out ${
+            showFloating ? "opacity-100" : "pointer-events-none opacity-0"
           }`}
           aria-hidden={!showFloating}
         >

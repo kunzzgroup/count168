@@ -216,7 +216,7 @@ export default function TransactionPage() {
           {fabOpen ? (
             <button
               type="button"
-              className="fixed inset-0 z-40 bg-slate-900/25"
+              className="fixed inset-0 z-40 bg-slate-900/30"
               aria-label={tx.m.fabCloseMenu}
               onClick={() => setFabOpen(false)}
             />
@@ -246,7 +246,7 @@ export default function TransactionPage() {
                   type="button"
                   onClick={openAddSheet}
                   disabled={tx.mutationsBlocked}
-                  className="tap-scale flex items-center gap-2 rounded-full border border-white/50 bg-white/85 py-2 pl-2 pr-3.5 text-[12px] font-bold text-slate-800 shadow-lg disabled:opacity-40"
+                  className="tap-scale flex animate-[ecFabFade_280ms_ease-out_both] items-center gap-2 rounded-full border border-white/50 bg-white/90 py-2 pl-2 pr-3.5 text-[12px] font-bold text-slate-800 shadow-lg disabled:opacity-40"
                   aria-label={tx.m.fabAddPayment || tx.m.addTransaction}
                 >
                   <span className="grid size-10 place-items-center rounded-full bg-[#2f6bf6] text-white">
@@ -257,7 +257,7 @@ export default function TransactionPage() {
                 <button
                   type="button"
                   onClick={openSearchSheet}
-                  className="tap-scale flex items-center gap-2 rounded-full border border-white/50 bg-white/85 py-2 pl-2 pr-3.5 text-[12px] font-bold text-slate-800 shadow-lg"
+                  className="tap-scale flex animate-[ecFabFade_280ms_ease-out_60ms_both] items-center gap-2 rounded-full border border-white/50 bg-white/90 py-2 pl-2 pr-3.5 text-[12px] font-bold text-slate-800 shadow-lg"
                   aria-label={tx.m.fabSearchPayment || tx.m.search}
                 >
                   <span className="grid size-10 place-items-center rounded-full bg-slate-800 text-white">
