@@ -285,7 +285,7 @@
 }
 
 .m-dash-hero-top--spark {
-  padding-right: 6rem;
+  padding-right: 0;
 }
 
 .m-dash-hero-label {
@@ -305,8 +305,10 @@
 
 .m-dash-hero-compare-badge {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.25rem;
+  margin-bottom: 0.2rem;
   border-radius: var(--m-radius-pill);
   padding: 0.25rem 0.625rem;
   font-size: 0.75rem;
@@ -326,9 +328,27 @@
   font-size: 0.625rem;
 }
 
+.m-dash-hero-value-row {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.625rem;
+  margin-top: 1rem;
+}
+
+.m-dash-hero-value-row--spark {
+  padding-right: 5.5rem;
+}
+
+.m-dash-hero-value-row .m-dash-hero-value {
+  margin-top: 0;
+  flex: 1;
+  min-width: 0;
+}
+
 .m-dash-hero-value {
   position: relative;
-  margin-top: 1rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -337,10 +357,6 @@
   line-height: 1;
   letter-spacing: -0.025em;
   font-variant-numeric: tabular-nums;
-}
-
-.m-dash-hero-value--spark {
-  padding-right: 6rem;
 }
 
 .m-dash-hero-skeleton {

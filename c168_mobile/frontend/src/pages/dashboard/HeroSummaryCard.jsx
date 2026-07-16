@@ -47,6 +47,18 @@ export default function HeroSummaryCard({
           <p className="m-dash-hero-label">{i18n.netProfit}</p>
           <p className="m-dash-hero-currency">{currency}</p>
         </div>
+      </div>
+
+      <div className={`m-dash-hero-value-row${sparkPath ? " m-dash-hero-value-row--spark" : ""}`}>
+        <p className="m-dash-hero-value">
+          {loading ? (
+            <span className="m-dash-hero-skeleton" />
+          ) : empty ? (
+            <span className="m-dash-hero-empty-value">—</span>
+          ) : (
+            formatCurrencyHero(value)
+          )}
+        </p>
         {showCompare && (
           <span
             className={`m-dash-hero-compare-badge ${
@@ -58,16 +70,6 @@ export default function HeroSummaryCard({
           </span>
         )}
       </div>
-
-      <p className={`m-dash-hero-value${sparkPath ? " m-dash-hero-value--spark" : ""}`}>
-        {loading ? (
-          <span className="m-dash-hero-skeleton" />
-        ) : empty ? (
-          <span className="m-dash-hero-empty-value">—</span>
-        ) : (
-          formatCurrencyHero(value)
-        )}
-      </p>
 
       {showCompare && (
         <p className="m-dash-hero-delta">
