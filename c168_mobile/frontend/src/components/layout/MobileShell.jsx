@@ -162,7 +162,7 @@ export default function MobileShell({
         />
 
         {stickyBar ? (
-          <div className="border-b border-slate-200/50 bg-[#f2f5fb]/95 px-3.5 py-2 backdrop-blur-md">
+          <div className="border-b border-slate-200/50 bg-[#f2f5fb] px-3.5 py-2">
             <div className="mx-auto max-w-lg">{stickyBar}</div>
           </div>
         ) : null}
@@ -227,14 +227,14 @@ export default function MobileShell({
 
       {floatingAction ? (
         <div
-          className={`fixed inset-0 z-50 transition-opacity duration-300 ease-out ${
-            showFloating ? "pointer-events-none opacity-100" : "pointer-events-none opacity-0"
+          className={`fixed bottom-0 left-0 z-50 transition-[opacity,transform] duration-200 ease-out will-change-transform ${
+            showFloating
+              ? "translate-y-0 opacity-100"
+              : "pointer-events-none translate-y-2 opacity-0"
           }`}
           aria-hidden={!showFloating}
         >
-          <div className={showFloating ? "pointer-events-auto contents" : "pointer-events-none contents"}>
-            {floatingAction}
-          </div>
+          {floatingAction}
         </div>
       ) : null}
 
