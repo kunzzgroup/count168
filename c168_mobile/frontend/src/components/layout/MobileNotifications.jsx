@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AnnouncementUpdateCard from "../announcements/AnnouncementUpdateCard.jsx";
 import { useOverlayLock } from "../../hooks/useOverlayLock.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import { fetchJson } from "../../lib/fetchJson.js";
@@ -20,6 +21,14 @@ export default function MobileNotifications({ open, onClose, i18n, items = [], l
     if (!open) setActive(null);
   }, [open]);
 
+  const panelTitle = i18n?.announcements || i18n?.notifications || "Announcements";
+  const emptyText = i18n?.noAnnouncements || i18n?.noNotifications || "No announcements";
+  const cardLabels = {
+    updateIncludes: i18n?.updateIncludes,
+    versionUpdated: i18n?.versionUpdated,
+    teamName: i18n?.announcementTeam,
+  };
+
   return (
     <div
       className={`fixed inset-0 z-[70] transition-opacity duration-300 ${
@@ -30,7 +39,7 @@ export default function MobileNotifications({ open, onClose, i18n, items = [], l
     >
       <button
         type="button"
-        aria-label={i18n?.dismissMenu || "Dismiss notifications"}
+        aria-label={i18n?.dismissMenu || "Dismiss announcements"}
         onClick={onClose}
         className="absolute inset-0 size-full border-0 bg-slate-900/35 backdrop-blur-[2px]"
       />
@@ -38,7 +47,7 @@ export default function MobileNotifications({ open, onClose, i18n, items = [], l
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={i18n?.notifications || "Notifications"}
+        aria-label={panelTitle}
         className={`absolute inset-x-0 bottom-0 flex max-h-[78%] flex-col rounded-t-3xl bg-white shadow-[0_-12px_40px_-12px_rgba(15,23,42,0.35)] transition-transform duration-300 ease-out ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
@@ -48,7 +57,7 @@ export default function MobileNotifications({ open, onClose, i18n, items = [], l
         </div>
 
         <div className="flex items-center justify-between px-5 pb-2 pt-2">
-          <h2 className="text-[18px] font-bold text-slate-900">{i18n?.notifications || "Notifications"}</h2>
+          <h2 className="text-[18px] font-bold text-slate-900">{panelTitle}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -64,11 +73,11 @@ export default function MobileNotifications({ open, onClose, i18n, items = [], l
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }}
         >
           {loading ? (
-            <p className="py-10 text-center text-[13px] font-semibold text-slate-400">{i18n?.loading}</p>
-          ) : items.length === 0 ? (
             <p className="py-10 text-center text-[13px] font-semibold text-slate-400">
-              {i18n?.noNotifications || "No notifications"}
+              {i18n?.loadingAnnouncements || i18n?.loading}
             </p>
+          ) : items.length === 0 ? (
+            <p className="py-10 text-center text-[13px] font-semibold text-slate-400">{emptyText}</p>
           ) : (
             items.map((item) => {
               const isOpen = Number(active) === Number(item.id);
@@ -79,24 +88,11 @@ export default function MobileNotifications({ open, onClose, i18n, items = [], l
                   onClick={() => setActive(isOpen ? null : item.id)}
                   className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-left ring-1 ring-slate-100"
                 >
-                  <div className="flex items-start gap-2">
-                    <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-blue-50 text-[#2f6bf6]">
-                      <i className="fas fa-bullhorn text-[12px]" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[14px] font-bold text-slate-900">{item.title || "—"}</p>
-                      <p className="mt-0.5 text-[11px] font-medium text-slate-400">{item.created_at}</p>
-                      {isOpen ? (
-                        <p className="mt-2 whitespace-pre-wrap text-[13px] font-medium leading-relaxed text-slate-600">
-                          {item.content}
-                        </p>
-                      ) : (
-                        <p className="mt-1 line-clamp-2 text-[12px] font-medium text-slate-500">
-                          {item.content}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                  <AnnouncementUpdateCard
+                    announcement={item}
+                    labels={cardLabels}
+                    collapsed={!isOpen}
+                  />
                 </button>
               );
             })
