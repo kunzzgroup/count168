@@ -1,9 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useOverlayLock } from "../../hooks/useOverlayLock.js";
 import {
   PERIOD_PRESET_KEYS,
   daysInclusive,
   formatDisplayDate,
+  formatYmd,
+  parseYmd,
   todayYmd,
 } from "../../lib/dashboardDateUtils.js";
 import { dashboardLabel } from "../../translateFile/dashboardTranslate.js";
@@ -41,40 +43,292 @@ function Section({ title, trailing, children }) {
   );
 }
 
-/** Large phone-friendly date row — display formatted date, native picker overlays the row. */
-function DateTapRow({ label, value, min, max, onChange }) {
+function DateRangeRow({ fromLabel, toLabel, dateFrom, dateTo, active, onOpen }) {
   return (
-    <label className="relative flex min-h-[56px] cursor-pointer items-center gap-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3 transition-colors focus-within:border-[#2f6bf6] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#2f6bf6]/20 active:bg-slate-100">
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-[#2f6bf6] shadow-sm ring-1 ring-slate-100">
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`tap-scale flex w-full items-stretch gap-2 rounded-2xl border bg-slate-50 p-1.5 text-left transition-colors ${
+        active
+          ? "border-[#2f6bf6] ring-2 ring-[#2f6bf6]/20"
+          : "border-slate-200 active:bg-slate-100"
+      }`}
+      aria-label={`${fromLabel} ${dateFrom ? formatDisplayDate(dateFrom) : "—"} · ${toLabel} ${dateTo ? formatDisplayDate(dateTo) : "—"}`}
+    >
+      <span className="grid size-11 shrink-0 place-items-center self-center rounded-xl bg-white text-[#2f6bf6] shadow-sm ring-1 ring-slate-100">
         <i className="far fa-calendar text-[15px]" aria-hidden="true" />
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-400">{label}</span>
-        <span className="mt-0.5 block truncate text-[16px] font-bold tabular-nums text-slate-900">
-          {value ? formatDisplayDate(value) : "—"}
+      <span className="min-w-0 flex-1 space-y-1 py-1 pr-1">
+        <span className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-slate-100">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{fromLabel}</span>
+          <span className="truncate text-[14px] font-bold tabular-nums text-slate-900">
+            {dateFrom ? formatDisplayDate(dateFrom) : "—"}
+          </span>
+        </span>
+        <span className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-slate-100">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{toLabel}</span>
+          <span className="truncate text-[14px] font-bold tabular-nums text-slate-900">
+            {dateTo ? formatDisplayDate(dateTo) : "—"}
+          </span>
         </span>
       </span>
-      <i className="fas fa-chevron-right text-[11px] text-slate-300" aria-hidden="true" />
-      <input
-        type="date"
-        value={value || ""}
-        min={min || undefined}
-        max={max || undefined}
-        onChange={(e) => onChange(e.target.value)}
-        className="absolute inset-0 z-10 cursor-pointer opacity-0"
-        aria-label={label}
-      />
-    </label>
+      <span className="grid shrink-0 place-items-center self-center pr-2 text-slate-300">
+        <i className="fas fa-chevron-right text-[11px]" aria-hidden="true" />
+      </span>
+    </button>
+  );
+}
+
+const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+function buildMonthCells(year, month) {
+  const first = new Date(year, month, 1);
+  const startPad = (first.getDay() + 6) % 7; // Mon=0
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startPad; i += 1) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d += 1) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
+function cmpYmd(a, b) {
+  if (!a || !b) return 0;
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+}
+
+function inRangeYmd(day, from, to) {
+  if (!day || !from || !to) return false;
+  const lo = cmpYmd(from, to) <= 0 ? from : to;
+  const hi = cmpYmd(from, to) <= 0 ? to : from;
+  return cmpYmd(day, lo) >= 0 && cmpYmd(day, hi) <= 0;
+}
+
+/**
+ * Same range picker for From/To — first tap = start, second tap = end (auto-swap if needed).
+ */
+function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, labels, onApply }) {
+  const [cursor, setCursor] = useState(() => parseYmd(dateFrom || maxYmd || todayYmd()));
+  const [draftFrom, setDraftFrom] = useState(dateFrom || "");
+  const [draftTo, setDraftTo] = useState(dateTo || "");
+  const [picking, setPicking] = useState("start"); // start | end
+
+  useEffect(() => {
+    if (!open) return;
+    setDraftFrom(dateFrom || "");
+    setDraftTo(dateTo || "");
+    setPicking("start");
+    setCursor(parseYmd(dateFrom || maxYmd || todayYmd()));
+  }, [open, dateFrom, dateTo, maxYmd]);
+
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const cells = useMemo(() => buildMonthCells(year, month), [year, month]);
+  const monthLabel = cursor.toLocaleString("en", { month: "long", year: "numeric" });
+
+  const pickDay = (dayNum) => {
+    if (!dayNum) return;
+    const ymd = formatYmd(new Date(year, month, dayNum));
+    if (maxYmd && cmpYmd(ymd, maxYmd) > 0) return;
+
+    if (picking === "start" || !draftFrom) {
+      setDraftFrom(ymd);
+      setDraftTo("");
+      setPicking("end");
+      return;
+    }
+
+    let from = draftFrom;
+    let to = ymd;
+    if (cmpYmd(to, from) < 0) {
+      const tmp = from;
+      from = to;
+      to = tmp;
+    }
+    setDraftFrom(from);
+    setDraftTo(to);
+    setPicking("start");
+    onApply?.(from, to);
+    onClose?.();
+  };
+
+  const shiftMonth = (delta) => {
+    setCursor(new Date(year, month + delta, 1));
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[80] flex flex-col justify-end">
+      <button type="button" className="absolute inset-0 bg-slate-900/40" aria-label={labels.close} onClick={onClose} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={labels.selectDateRange}
+        className="relative z-10 max-h-[88dvh] overflow-hidden rounded-t-3xl bg-white shadow-2xl"
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[15px] font-bold text-slate-900">{labels.selectDateRange}</p>
+            <p className="mt-0.5 text-[11px] font-medium text-slate-500">{labels.rangePickHint}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid size-9 place-items-center rounded-xl bg-slate-100 text-slate-500"
+            aria-label={labels.close}
+          >
+            <i className="fas fa-times" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="space-y-3 px-4 py-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div
+              className={`rounded-xl px-3 py-2 ring-1 ${
+                picking === "start" ? "bg-sky-50 ring-[#2f6bf6]" : "bg-slate-50 ring-slate-200"
+              }`}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{labels.from}</p>
+              <p className="mt-0.5 text-[14px] font-bold tabular-nums text-slate-900">
+                {draftFrom ? formatDisplayDate(draftFrom) : "—"}
+              </p>
+            </div>
+            <div
+              className={`rounded-xl px-3 py-2 ring-1 ${
+                picking === "end" ? "bg-sky-50 ring-[#2f6bf6]" : "bg-slate-50 ring-slate-200"
+              }`}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{labels.toDate}</p>
+              <p className="mt-0.5 text-[14px] font-bold tabular-nums text-slate-900">
+                {draftTo ? formatDisplayDate(draftTo) : "—"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => shiftMonth(-1)}
+              className="tap-scale grid size-9 place-items-center rounded-xl bg-slate-100 text-slate-600"
+              aria-label="Previous month"
+            >
+              <i className="fas fa-chevron-left text-[12px]" aria-hidden="true" />
+            </button>
+            <p className="text-[14px] font-bold text-slate-900">{monthLabel}</p>
+            <button
+              type="button"
+              onClick={() => shiftMonth(1)}
+              className="tap-scale grid size-9 place-items-center rounded-xl bg-slate-100 text-slate-600"
+              aria-label="Next month"
+            >
+              <i className="fas fa-chevron-right text-[12px]" aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {WEEKDAYS.map((w) => (
+              <span key={w} className="py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                {w}
+              </span>
+            ))}
+            {cells.map((dayNum, idx) => {
+              if (!dayNum) return <span key={`e-${idx}`} />;
+              const ymd = formatYmd(new Date(year, month, dayNum));
+              const disabled = Boolean(maxYmd && cmpYmd(ymd, maxYmd) > 0);
+              const isStart = draftFrom && ymd === draftFrom;
+              const isEnd = draftTo && ymd === draftTo;
+              const inMid = draftFrom && draftTo && inRangeYmd(ymd, draftFrom, draftTo) && !isStart && !isEnd;
+              return (
+                <button
+                  key={ymd}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => pickDay(dayNum)}
+                  className={`tap-scale aspect-square rounded-xl text-[13px] font-semibold tabular-nums transition-colors ${
+                    disabled
+                      ? "cursor-not-allowed text-slate-300"
+                      : isStart || isEnd
+                        ? "bg-[#2f6bf6] text-white shadow-sm"
+                        : inMid
+                          ? "bg-[#2f6bf6]/15 text-[#2f6bf6]"
+                          : "text-slate-800 active:bg-slate-100"
+                  }`}
+                >
+                  {dayNum}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div
+          className="flex gap-2 border-t border-slate-100 px-4 pt-3"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setDraftFrom("");
+              setDraftTo("");
+              setPicking("start");
+            }}
+            className="tap-scale flex-1 rounded-2xl bg-slate-100 py-3 text-[13px] font-bold text-slate-600"
+          >
+            {labels.clear}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const t = maxYmd || todayYmd();
+              setDraftFrom(t);
+              setDraftTo(t);
+              setPicking("start");
+              setCursor(parseYmd(t));
+              onApply?.(t, t);
+              onClose?.();
+            }}
+            className="tap-scale flex-1 rounded-2xl bg-slate-100 py-3 text-[13px] font-bold text-slate-600"
+          >
+            {labels.today}
+          </button>
+          <button
+            type="button"
+            disabled={!draftFrom || !draftTo}
+            onClick={() => {
+              if (!draftFrom || !draftTo) return;
+              let from = draftFrom;
+              let to = draftTo;
+              if (cmpYmd(to, from) < 0) {
+                const tmp = from;
+                from = to;
+                to = tmp;
+              }
+              onApply?.(from, to);
+              onClose?.();
+            }}
+            className="tap-scale flex-[1.4] rounded-2xl bg-[#2f6bf6] py-3 text-[13px] font-bold text-white disabled:opacity-40"
+          >
+            {labels.done}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
 export default function FilterSheet({ open, onClose, dash }) {
   const { i18n } = dash;
   const bodyRef = useRef(null);
+  const [rangeOpen, setRangeOpen] = useState(false);
   useOverlayLock(open, onClose);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setRangeOpen(false);
+      return;
+    }
     bodyRef.current?.scrollTo?.({ top: 0 });
   }, [open]);
 
@@ -167,21 +421,14 @@ export default function FilterSheet({ open, onClose, dash }) {
               ) : null
             }
           >
-            <div className="space-y-2.5">
-              <DateTapRow
-                label={i18n.from}
-                value={dash.dateFrom}
-                max={dash.dateTo || maxDay}
-                onChange={(from) => dash.setCustomDateRange(from, dash.dateTo || from)}
-              />
-              <DateTapRow
-                label={i18n.toDate}
-                value={dash.dateTo}
-                min={dash.dateFrom || undefined}
-                max={maxDay}
-                onChange={(to) => dash.setCustomDateRange(dash.dateFrom || to, to)}
-              />
-            </div>
+            <DateRangeRow
+              fromLabel={i18n.from}
+              toLabel={i18n.toDate}
+              dateFrom={dash.dateFrom}
+              dateTo={dash.dateTo}
+              active={rangeOpen}
+              onOpen={() => setRangeOpen(true)}
+            />
           </Section>
 
           <Section title={i18n.quickSelect}>
@@ -297,6 +544,7 @@ export default function FilterSheet({ open, onClose, dash }) {
             </Section>
           )}
         </div>
+
         <div
           className="flex gap-3 border-t border-slate-100 px-5 pt-3"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)" }}
@@ -317,6 +565,25 @@ export default function FilterSheet({ open, onClose, dash }) {
           </button>
         </div>
       </div>
+
+      <DateRangeCalendarSheet
+        open={rangeOpen}
+        onClose={() => setRangeOpen(false)}
+        dateFrom={dash.dateFrom}
+        dateTo={dash.dateTo}
+        maxYmd={maxDay}
+        labels={{
+          selectDateRange: i18n.selectDateRange,
+          rangePickHint: i18n.rangePickHint,
+          from: i18n.from,
+          toDate: i18n.toDate,
+          today: i18n.today,
+          clear: i18n.clear,
+          done: i18n.done,
+          close: i18n.closeMenu || "Close",
+        }}
+        onApply={(from, to) => dash.setCustomDateRange(from, to)}
+      />
     </div>
   );
 }
