@@ -46,6 +46,11 @@ import { buildApiUrl } from "../utils/apiUrl.js";
 
 const COMPANIES_API = "api/transactions/get_owner_companies_api.php";
 
+function isManagerOrAbove(me) {
+  const role = String(me?.role || "").trim().toLowerCase();
+  return role === "manager" || role === "admin" || role === "owner";
+}
+
 function mergeDisplayRows(rawSearchData) {
   if (!rawSearchData) return [];
   const left = Array.isArray(rawSearchData.left_table) ? rawSearchData.left_table : [];
@@ -465,7 +470,10 @@ export function useMobileTransaction() {
 
   const refreshContraInboxBadge = useCallback(
     async (api = scopeApi) => {
-      if (!scopeReady || !api) return;
+      if (!scopeReady || !api || !isManagerOrAbove(me)) {
+        setContraInbox((s) => ({ ...s, items: [], loading: false }));
+        return;
+      }
       setContraInbox((s) => ({ ...s, loading: true }));
       try {
         const res = await loadContraInbox({ ...api });
@@ -475,7 +483,7 @@ export function useMobileTransaction() {
         setContraInbox((s) => ({ ...s, loading: false }));
       }
     },
-    [scopeReady, scopeApi],
+    [scopeReady, scopeApi, me],
   );
 
   useEffect(() => {
@@ -653,6 +661,7 @@ export function useMobileTransaction() {
     exitTypeSearch,
     contraInbox,
     setContraInbox,
+    canUseContraInbox: isManagerOrAbove(me),
     refreshContraInboxBadge,
     onApproveContra,
     onRejectContra,

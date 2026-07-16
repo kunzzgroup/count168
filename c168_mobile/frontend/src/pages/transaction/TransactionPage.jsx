@@ -69,7 +69,7 @@ export default function TransactionPage() {
         <button
           type="button"
           onClick={() => setFilterOpen(true)}
-          className="tap-scale min-w-0 flex-1 rounded-2xl bg-white px-3 py-2 text-left shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
+          className={`tap-scale min-w-0 flex-1 rounded-2xl bg-white px-3 py-2 text-left shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100`}
         >
           <div className="flex items-center gap-2">
             <i className="far fa-calendar shrink-0 text-[#2f6bf6]" aria-hidden="true" />
@@ -92,19 +92,21 @@ export default function TransactionPage() {
             />
           </div>
         </button>
-        <button
-          type="button"
-          onClick={() => tx.setContraInbox((s) => ({ ...s, open: true }))}
-          className="tap-scale relative flex w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-white text-slate-700 shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
-          aria-label={tx.m.contraInbox}
-        >
-          <i className="fas fa-inbox text-[16px]" aria-hidden="true" />
-          {inboxCount > 0 ? (
-            <span className="absolute right-1.5 top-1.5 grid min-w-[16px] place-items-center rounded-full bg-rose-600 px-1 text-[9px] font-bold text-white">
-              {inboxCount}
-            </span>
-          ) : null}
-        </button>
+        {tx.canUseContraInbox ? (
+          <button
+            type="button"
+            onClick={() => tx.setContraInbox((s) => ({ ...s, open: true }))}
+            className="tap-scale relative flex w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-white text-slate-700 shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
+            aria-label={tx.m.contraInbox}
+          >
+            <i className="fas fa-inbox text-[16px]" aria-hidden="true" />
+            {inboxCount > 0 ? (
+              <span className="absolute right-1.5 top-1.5 grid min-w-[16px] place-items-center rounded-full bg-rose-600 px-1 text-[9px] font-bold text-white">
+                {inboxCount}
+              </span>
+            ) : null}
+          </button>
+        ) : null}
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
