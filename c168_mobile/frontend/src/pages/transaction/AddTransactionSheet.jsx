@@ -67,25 +67,10 @@ function DateTapRow({ label, value, onChange, disabled, badge }) {
   );
 }
 
-function AccountPicker({ label, placeholder, searchPlaceholder, options, value, onChange, disabled }) {
-  const [q, setQ] = useState("");
-  const filtered = useMemo(() => {
-    const needle = q.trim().toUpperCase();
-    if (!needle) return options;
-    return options.filter((o) => String(o.display_text || o.account_id || "").toUpperCase().includes(needle));
-  }, [options, q]);
-
+function AccountPicker({ label, placeholder, options, value, onChange, disabled }) {
   return (
     <div className="space-y-1.5">
       <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{label}</label>
-      <input
-        type="search"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder={searchPlaceholder || placeholder}
-        disabled={disabled}
-        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#2f6bf6] focus:ring-2 focus:ring-[#2f6bf6]/20"
-      />
       <select
         value={value?.id ? String(value.id) : ""}
         disabled={disabled}
@@ -96,7 +81,7 @@ function AccountPicker({ label, placeholder, searchPlaceholder, options, value, 
         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[14px] font-semibold outline-none focus:border-[#2f6bf6]"
       >
         <option value="">{placeholder}</option>
-        {filtered.map((o) => (
+        {(options || []).map((o) => (
           <option key={String(o.id)} value={String(o.id)}>
             {o.display_text || o.account_id}
           </option>
@@ -502,7 +487,6 @@ export default function AddTransactionSheet({
               <AccountPicker
                 label={m.toAccount}
                 placeholder={m.selectToAccount}
-                searchPlaceholder={m.searchAccount}
                 options={accountOptions}
                 value={txToAccount}
                 onChange={setTxToAccount}
@@ -512,7 +496,6 @@ export default function AddTransactionSheet({
                 <AccountPicker
                   label={m.fromAccount}
                   placeholder={m.selectFromAccount}
-                  searchPlaceholder={m.searchAccount}
                   options={accountOptions}
                   value={txFromAccount}
                   onChange={setTxFromAccount}
@@ -555,7 +538,6 @@ export default function AddTransactionSheet({
               <AccountPicker
                 label={m.toAccount}
                 placeholder={m.selectToAccount}
-                searchPlaceholder={m.searchAccount}
                 options={accountOptions}
                 value={rateToAccount}
                 onChange={setRateToAccount}
@@ -564,7 +546,6 @@ export default function AddTransactionSheet({
               <AccountPicker
                 label={m.fromAccount}
                 placeholder={m.selectFromAccount}
-                searchPlaceholder={m.searchAccount}
                 options={accountOptions}
                 value={rateFromAccount}
                 onChange={setRateFromAccount}
@@ -638,7 +619,6 @@ export default function AddTransactionSheet({
               <AccountPicker
                 label={m.middleMan}
                 placeholder={m.selectMiddleManAccount}
-                searchPlaceholder={m.searchAccount}
                 options={accountOptions}
                 value={rateMiddlemanAccount}
                 onChange={setRateMiddlemanAccount}
@@ -674,7 +654,6 @@ export default function AddTransactionSheet({
               <AccountPicker
                 label={`${m.toAccount} (${m.optional})`}
                 placeholder={m.selectToAccount}
-                searchPlaceholder={m.searchAccount}
                 options={accountOptions}
                 value={rateTransferToAccount}
                 onChange={setRateTransferToAccount}
@@ -683,7 +662,6 @@ export default function AddTransactionSheet({
               <AccountPicker
                 label={`${m.fromAccount} (${m.optional})`}
                 placeholder={m.selectFromAccount}
-                searchPlaceholder={m.searchAccount}
                 options={accountOptions}
                 value={rateTransferFromAccount}
                 onChange={setRateTransferFromAccount}
