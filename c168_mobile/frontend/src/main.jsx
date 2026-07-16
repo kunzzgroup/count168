@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import DevPhoneFrame from "./components/dev/DevPhoneFrame.jsx";
 import "./styles/tokens.css";
+import "./styles/page-body.css";
 import "./styles/account-roles.css";
 import "./styles/money.css";
 import "./styles/filter-bar.css";

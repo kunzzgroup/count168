@@ -1,9 +1,5 @@
 /* Transaction list page — import via TransactionLayout.jsx */
 
-.m-tx-page {
-  font-size: var(--m-text-compact);
-}
-
 /* --- Sticky filter bar --- */
 .m-tx-sticky {
   display: flex;

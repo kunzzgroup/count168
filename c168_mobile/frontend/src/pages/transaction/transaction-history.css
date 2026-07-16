@@ -1,9 +1,5 @@
 /* Payment history page — import via TransactionHistoryPage.jsx */
 
-.m-tx-hist-page {
-  font-size: var(--m-text-compact);
-}
-
 .m-tx-hist-sticky {
   display: flex;
   align-items: center;
@@ -142,7 +138,6 @@
   font-size: var(--m-text-badge-ratio);
   font-weight: 700;
   letter-spacing: 0.025em;
-  outline: 1px solid transparent;
 }
 
 .m-tx-hist-date {

@@ -27,12 +27,12 @@
 .m-shell-sticky-wrap {
   border-bottom: 1px solid rgba(226, 232, 240, 0.5);
   background: var(--m-shell-bg);
-  padding: 0.5rem 0.875rem;
+  padding: 0.5rem var(--m-page-gutter);
 }
 
 .m-shell-sticky-inner {
   margin-inline: auto;
-  max-width: 32rem;
+  max-width: var(--m-page-max-width);
 }
 
 .m-shell-main {
@@ -67,7 +67,7 @@
 .m-shell-nav-pill {
   margin-inline: auto;
   display: flex;
-  max-width: 32rem;
+  max-width: var(--m-page-max-width);
   align-items: stretch;
   gap: 0.125rem;
   border-radius: 1.75rem;

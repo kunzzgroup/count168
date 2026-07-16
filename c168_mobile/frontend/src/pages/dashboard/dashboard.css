@@ -5,7 +5,7 @@
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
-  padding: 0.75rem 0.875rem;
+  padding: 0.75rem var(--m-page-gutter);
 }
 
 .m-dash-glow {
@@ -197,12 +197,12 @@
 }
 
 .m-dash-kpi-scroller {
-  margin-inline: -0.875rem;
+  margin-inline: calc(-1 * var(--m-page-gutter));
   display: flex;
   gap: 0.75rem;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  padding-inline: 0.875rem;
+  padding-inline: var(--m-page-gutter);
   padding-bottom: 0.25rem;
 }
 

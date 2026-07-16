@@ -11,7 +11,7 @@
   margin-inline: auto;
   display: grid;
   height: 3rem;
-  max-width: 32rem;
+  max-width: var(--m-page-max-width);
   grid-template-columns: 44px 1fr 44px;
   align-items: center;
   padding-inline: 0.625rem;
