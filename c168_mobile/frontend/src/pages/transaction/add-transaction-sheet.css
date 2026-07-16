@@ -69,6 +69,7 @@
 }
 
 .m-add-tx-footer {
+  display: flex;
   flex-shrink: 0;
   border-top: 1px solid var(--m-color-ring-soft);
   padding: 0.75rem 1rem 0;
@@ -85,7 +86,11 @@
 }
 
 .m-add-tx-submit {
+  display: inline-flex;
   flex: 1;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--m-radius-card-lg);
   padding: 0.875rem 0;
   font-size: 0.875rem;
