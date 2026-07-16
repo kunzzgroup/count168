@@ -80,8 +80,10 @@ export default function AddTransactionSheet({
   onExitTypeSearch,
   prefill = null,
   onPrefillConsumed,
+  entryIntent = "add",
 }) {
   const bodyRef = useRef(null);
+  const typeBlockRef = useRef(null);
   useOverlayLock(open, onClose);
 
   const [txType, setTxType] = useState("PAYMENT");
@@ -147,6 +149,14 @@ export default function AddTransactionSheet({
   useEffect(() => {
     if (!open) resetForm();
   }, [open, resetForm]);
+
+  useEffect(() => {
+    if (!open || entryIntent !== "search") return;
+    const t = window.setTimeout(() => {
+      typeBlockRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [open, entryIntent]);
 
   useEffect(() => {
     if (!open || !prefill) return;
@@ -375,11 +385,11 @@ export default function AddTransactionSheet({
         </div>
 
         <div ref={bodyRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-          <div>
+          <div ref={typeBlockRef}>
             <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.type}</label>
             <select
               value={txType}
-              disabled={mutationsBlocked}
+              disabled={mutationsBlocked && entryIntent !== "search"}
               onChange={(e) => {
                 setTxType(e.target.value);
                 setRateStep(1);
@@ -395,9 +405,13 @@ export default function AddTransactionSheet({
             <div className="mt-2 flex gap-2">
               <button
                 type="button"
-                disabled={mutationsBlocked || !txType}
+                disabled={!txType}
                 onClick={() => onTypeSearch?.(txType)}
-                className="tap-scale flex-1 rounded-xl border border-slate-200 bg-white py-2 text-[12px] font-bold text-slate-700 disabled:opacity-40"
+                className={`tap-scale flex-1 rounded-xl py-2 text-[12px] font-bold disabled:opacity-40 ${
+                  entryIntent === "search"
+                    ? "bg-[#2f6bf6] text-white shadow-sm"
+                    : "border border-slate-200 bg-white text-slate-700"
+                }`}
               >
                 {m.search}
               </button>
@@ -412,6 +426,11 @@ export default function AddTransactionSheet({
                 </button>
               ) : null}
             </div>
+            {entryIntent === "search" ? (
+              <p className="mt-2 text-[11px] font-medium leading-snug text-[#2f6bf6]">
+                {m.fabSearchHint || m.fabSearchPayment || m.search}
+              </p>
+            ) : null}
           </div>
 
           <div>

@@ -32,6 +32,8 @@ export default function TransactionPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addPrefill, setAddPrefill] = useState(null);
+  const [fabOpen, setFabOpen] = useState(false);
+  const [addEntryIntent, setAddEntryIntent] = useState("add");
 
   const openHistory = useCallback(
     (row) => {
@@ -82,10 +84,26 @@ export default function TransactionPage() {
         amount,
         currency,
       });
+      setFabOpen(false);
+      setAddEntryIntent("add");
       setAddOpen(true);
     },
     [tx],
   );
+
+  const openAddSheet = useCallback(() => {
+    setFabOpen(false);
+    setAddPrefill(null);
+    setAddEntryIntent("add");
+    setAddOpen(true);
+  }, []);
+
+  const openSearchSheet = useCallback(() => {
+    setFabOpen(false);
+    setAddPrefill(null);
+    setAddEntryIntent("search");
+    setAddOpen(true);
+  }, []);
 
   if (tx.blocked) return null;
 
@@ -196,6 +214,7 @@ export default function TransactionPage() {
             onClose={() => {
               setAddOpen(false);
               setAddPrefill(null);
+              setAddEntryIntent("add");
             }}
             m={tx.m}
             accountOptions={tx.accountOptions}
@@ -211,6 +230,7 @@ export default function TransactionPage() {
             onExitTypeSearch={tx.exitTypeSearch}
             prefill={addPrefill}
             onPrefillConsumed={() => setAddPrefill(null)}
+            entryIntent={addEntryIntent}
           />
           <ContraInboxSheet
             open={Boolean(tx.contraInbox?.open)}
@@ -280,15 +300,56 @@ export default function TransactionPage() {
         </>
       )}
 
-      <button
-        type="button"
-        onClick={() => setAddOpen(true)}
-        disabled={tx.mutationsBlocked}
-        className="tap-scale fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-50 grid size-14 place-items-center rounded-full bg-[#2f6bf6] text-white shadow-[0_12px_28px_-8px_rgba(47,107,246,0.65)] disabled:opacity-40"
-        aria-label={tx.m.addTransaction}
-      >
-        <i className="fas fa-plus text-lg" aria-hidden="true" />
-      </button>
+      {fabOpen ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-[48] bg-slate-900/25"
+          aria-label={tx.m.fabCloseMenu}
+          onClick={() => setFabOpen(false)}
+        />
+      ) : null}
+
+      <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] left-4 z-50 flex flex-col-reverse items-start gap-3">
+        <button
+          type="button"
+          onClick={() => setFabOpen((v) => !v)}
+          className={`tap-scale grid size-14 place-items-center rounded-full text-white shadow-[0_12px_28px_-8px_rgba(47,107,246,0.65)] transition ${
+            fabOpen ? "bg-slate-700" : "bg-[#2f6bf6]"
+          }`}
+          aria-label={fabOpen ? tx.m.fabCloseMenu : tx.m.fabMenu}
+          aria-expanded={fabOpen}
+        >
+          <i className={`fas ${fabOpen ? "fa-xmark" : "fa-plus"} text-lg`} aria-hidden="true" />
+        </button>
+
+        {fabOpen ? (
+          <>
+            <button
+              type="button"
+              onClick={openAddSheet}
+              disabled={tx.mutationsBlocked}
+              className="tap-scale flex items-center gap-2 rounded-full bg-white py-2 pl-2 pr-3.5 text-[12px] font-bold text-slate-800 shadow-lg ring-1 ring-slate-200 disabled:opacity-40"
+              aria-label={tx.m.fabAddPayment || tx.m.addTransaction}
+            >
+              <span className="grid size-10 place-items-center rounded-full bg-[#2f6bf6] text-white">
+                <i className="fas fa-file-invoice-dollar text-sm" aria-hidden="true" />
+              </span>
+              <span>{tx.m.fabAddPayment || tx.m.addTransaction}</span>
+            </button>
+            <button
+              type="button"
+              onClick={openSearchSheet}
+              className="tap-scale flex items-center gap-2 rounded-full bg-white py-2 pl-2 pr-3.5 text-[12px] font-bold text-slate-800 shadow-lg ring-1 ring-slate-200"
+              aria-label={tx.m.fabSearchPayment || tx.m.search}
+            >
+              <span className="grid size-10 place-items-center rounded-full bg-slate-800 text-white">
+                <i className="fas fa-magnifying-glass text-sm" aria-hidden="true" />
+              </span>
+              <span>{tx.m.fabSearchPayment || tx.m.search}</span>
+            </button>
+          </>
+        ) : null}
+      </div>
     </MobileShell>
   );
 }
