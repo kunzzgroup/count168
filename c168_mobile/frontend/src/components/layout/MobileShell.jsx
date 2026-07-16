@@ -177,7 +177,7 @@ export default function MobileShell({
         style={{
           paddingTop: mainPadTop,
           paddingBottom: showBottomNav
-            ? "calc(env(safe-area-inset-bottom, 0px) + 72px)"
+            ? "calc(env(safe-area-inset-bottom, 0px) + 88px)"
             : "calc(env(safe-area-inset-bottom, 0px) + 12px)",
         }}
       >
@@ -196,18 +196,20 @@ export default function MobileShell({
 
       {showBottomNav ? (
         <nav
-          className={`absolute inset-x-0 bottom-0 z-20 border-t border-slate-200/70 bg-white px-2 pt-1.5 shadow-[0_-8px_24px_-16px_rgba(15,23,42,0.25)] will-change-transform ${
+          className={`absolute inset-x-0 bottom-0 z-20 px-3 will-change-transform ${
             navHidden ? "pointer-events-none" : ""
           }`}
           style={{
-            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
-            transform: `translate3d(0, ${chromeProgress * 110}%, 0)`,
+            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)",
+            transform: `translate3d(0, ${chromeProgress * 120}%, 0)`,
             opacity: Math.max(0, 1 - chromeProgress * 1.15),
           }}
           aria-label="Main"
           aria-hidden={navHidden}
         >
-          <div className="mx-auto flex max-w-lg items-stretch justify-around">
+          <div
+            className="mx-auto flex max-w-lg items-stretch gap-0.5 rounded-[1.75rem] border border-white/70 bg-white/55 p-1.5 shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35),inset_0_1px_0_rgba(255,255,255,0.75)] backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-slate-900/[0.06]"
+          >
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -215,13 +217,16 @@ export default function MobileShell({
                 end={item.to === "/dashboard"}
                 tabIndex={navHidden ? -1 : undefined}
                 className={({ isActive }) =>
-                  `flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-semibold transition-colors ${
-                    isActive ? "text-[#2f80ed]" : "text-slate-400"
-                  }`
+                  [
+                    "flex min-h-[52px] flex-1 touch-manipulation flex-col items-center justify-center gap-1 rounded-[1.25rem] px-1 py-2 text-[10px] font-semibold leading-none tracking-wide transition-[background-color,color,transform,box-shadow] duration-200 [-webkit-tap-highlight-color:transparent] active:scale-[0.97]",
+                    isActive
+                      ? "bg-[#2f6bf6]/14 text-[#2f6bf6] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                      : "text-slate-500 active:bg-white/50",
+                  ].join(" ")
                 }
               >
-                <i className={`fas ${item.icon} text-[18px]`} aria-hidden="true" />
-                <span>{labels[item.key]}</span>
+                <i className={`fas ${item.icon} text-[20px]`} aria-hidden="true" />
+                <span className="max-w-full truncate px-0.5">{labels[item.key]}</span>
               </NavLink>
             ))}
           </div>
