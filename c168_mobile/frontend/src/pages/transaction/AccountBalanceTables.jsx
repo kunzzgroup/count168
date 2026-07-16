@@ -42,19 +42,15 @@ function MetricCell({
   return (
     <Comp
       type={interactive ? "button" : undefined}
-      className={`min-w-0 overflow-x-auto px-1.5 py-1.5 text-right [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
-        interactive ? "tap-scale rounded-lg active:bg-slate-100/80" : ""
+      className={`min-w-0 overflow-x-auto px-1 py-1 text-right [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+        interactive ? "tap-scale rounded-md active:bg-slate-100/80" : ""
       }`}
       onClick={onClick}
       title={title}
       aria-label={interactive ? ariaLabel || title || `${label} ${display}` : undefined}
     >
       <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-      <p
-        className={`mt-0.5 whitespace-nowrap text-[clamp(1.0rem,0.15vw+0.85rem,1.2rem)] font-bold leading-tight ${
-          emphasize ? "text-[clamp(1.1rem,0.2vw+0.9rem,1.3rem)]" : ""
-        }`}
-      >
+      <p className="mt-0.5 whitespace-nowrap text-[clamp(1.1rem,0.1vw+1.0rem,1.2rem)] font-semibold leading-snug">
         <MoneyCell value={value} emphasize={emphasize} forceTone={forceTone} />
       </p>
     </Comp>
@@ -64,12 +60,14 @@ function MetricCell({
 function AccountCardList({ side, rows, showName, m, onOpenHistory, onPickBalance, balanceTone }) {
   if (rows.length === 0) {
     return (
-      <p className="px-3 py-8 text-center text-[12px] font-medium text-slate-400">{m.noAccountsFound}</p>
+      <p className="rounded-2xl bg-white px-3 py-8 text-center text-[12px] font-medium text-slate-400 shadow-sm ring-1 ring-slate-100">
+        {m.noAccountsFound}
+      </p>
     );
   }
 
   return (
-    <ul className="divide-y divide-slate-100">
+    <ul className="space-y-2.5">
       {rows.map((row) => {
         const roleCls = getRoleClass(row?.role);
         const rowBg = ROLE_ROW_BG[roleCls] || "bg-white";
@@ -78,28 +76,31 @@ function AccountCardList({ side, rows, showName, m, onOpenHistory, onPickBalance
         const cur = String(row?.currency || "").toUpperCase();
         const key = `${row.account_db_id || row.account_id}-${row.currency}-${row.transaction_id || ""}`;
         return (
-          <li key={key} className={`${rowBg}`}>
+          <li
+            key={key}
+            className={`overflow-hidden rounded-xl shadow-sm ring-1 ring-slate-200/90 ${rowBg}`}
+          >
             <button
               type="button"
-              className="tap-scale flex w-full items-center gap-2 px-3 py-2.5 text-left active:brightness-95"
+              className="tap-scale flex w-full items-center gap-2 border-b border-slate-200/70 bg-white/55 px-3 py-2 text-left active:brightness-95"
               onClick={() => onOpenHistory?.(row)}
               title={m.tapForHistory}
               aria-label={`${m.tapForHistory}: ${code}`}
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-bold text-slate-900 underline decoration-slate-300 underline-offset-2">
+                <span className="block truncate text-[clamp(1.2rem,0.15vw+1.0rem,1.3rem)] font-bold text-slate-900 underline decoration-slate-300 underline-offset-2">
                   {code}
                 </span>
                 {showName && name ? (
                   <span className="mt-0.5 block truncate text-[11px] font-medium text-slate-500">{name}</span>
                 ) : null}
               </span>
-              <span className="shrink-0 rounded-md bg-white/70 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-slate-500 ring-1 ring-slate-200/80">
+              <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-slate-500 ring-1 ring-slate-200/80">
                 {cur}
               </span>
             </button>
 
-            <div className="grid grid-cols-4 gap-0 border-t border-slate-100/80 px-1.5 pb-2 pt-0.5">
+            <div className="grid grid-cols-4 gap-0 px-1.5 py-1.5">
               <MetricCell label={m.bfTable} value={row?.bf} />
               <MetricCell label={m.winLossTableCompact} value={row?.win_loss} />
               <MetricCell label={m.crDrTable} value={row?.cr_dr} />
@@ -211,7 +212,7 @@ export default function AccountBalanceTables({
           "Tap account → history · Tap balance → fill form (left→To, right→From)"}
       </p>
 
-      <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
+      <section>
         <AccountCardList
           side={isLeft ? "left" : "right"}
           rows={activeRows}
