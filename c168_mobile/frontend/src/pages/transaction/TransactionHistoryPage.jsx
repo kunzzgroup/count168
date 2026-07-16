@@ -228,6 +228,7 @@ export default function TransactionHistoryPage() {
                 ? "-"
                 : String(createdRaw);
             const remark = getHistoryRemark(row);
+            const description = toUpperDisplay(row.description);
             const cur = toUpperDisplay(row.currency);
 
             return (
@@ -267,21 +268,23 @@ export default function TransactionHistoryPage() {
                   />
                 </div>
 
-                {(row.rate && row.rate !== "-") || remark || createdBy !== "-" ? (
-                  <div className="space-y-0.5 border-t border-black/5 px-3 py-2">
-                    {row.rate && row.rate !== "-" ? (
-                      <p className="text-[10px] font-medium text-slate-500">
-                        {m.rate}: {formatRateForHistoryDisplay(row.rate)}
-                      </p>
-                    ) : null}
-                    {remark && remark !== "-" ? (
-                      <p className="truncate text-[10px] text-slate-500">{remark}</p>
-                    ) : null}
-                    <p className="text-[10px] font-medium text-slate-400">
-                      {m.createdByCompact}: {createdBy}
+                <div className="space-y-0.5 border-t border-black/5 px-3 py-2">
+                  <p className="text-[10px] font-medium leading-snug text-slate-600">
+                    <span className="text-slate-400">{m.descriptionCompact}: </span>
+                    {description}
+                  </p>
+                  {row.rate && row.rate !== "-" ? (
+                    <p className="text-[10px] font-medium text-slate-500">
+                      {m.rate}: {formatRateForHistoryDisplay(row.rate)}
                     </p>
-                  </div>
-                ) : null}
+                  ) : null}
+                  {remark && remark !== "-" ? (
+                    <p className="truncate text-[10px] text-slate-500">{remark}</p>
+                  ) : null}
+                  <p className="text-[10px] font-medium text-slate-400">
+                    {m.createdByCompact}: {createdBy}
+                  </p>
+                </div>
               </li>
             );
           })}
