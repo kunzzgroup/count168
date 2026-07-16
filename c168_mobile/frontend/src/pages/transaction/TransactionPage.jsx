@@ -62,7 +62,7 @@ export default function TransactionPage() {
   );
 
   const pickBalanceForForm = useCallback(
-    (row, side) => {
+    (row) => {
       if (tx.mutationsBlocked) {
         tx.pushToast(tx.m.readOnlyModeCannotSubmit, "error");
         return;
@@ -90,7 +90,6 @@ export default function TransactionPage() {
 
       setAddPrefill({
         id: Date.now(),
-        side: side === "right" ? "right" : "left",
         account,
         amount,
         currency,

@@ -181,27 +181,19 @@ export default function AddTransactionSheet({
     const account = prefill.account || null;
     const amount = prefill.amount != null ? String(prefill.amount) : "";
     const currency = prefill.currency ? String(prefill.currency).toUpperCase() : "";
-    const side = prefill.side === "right" ? "right" : "left";
-    const fillTo = side === "left";
 
     if (txType === "RATE") {
-      if (fillTo) {
-        setRateToAccount(account);
-        setRateTransferFromAccount(account);
-      } else {
-        setRateFromAccount(account);
-        setRateTransferToAccount(account);
-      }
+      setRateFromAccount(account);
+      setRateTransferToAccount(account);
       if (amount) setRateCurrencyFromAmount(amount);
       if (currency) setRateCurrencyFrom(currency);
     } else {
-      if (fillTo) setTxToAccount(account);
-      else setTxFromAccount(account);
+      setTxFromAccount(account);
       if (amount) setTxAmount(amount);
       if (currency) setTxCurrency(currency);
     }
 
-    const label = fillTo ? m.toAccount : m.fromAccount;
+    const label = m.fromAccount;
     const parts = [];
     if (account?.account_id) parts.push(`${label}: ${account.account_id}`);
     if (amount) parts.push(`${m.amount}: ${amount}`);
