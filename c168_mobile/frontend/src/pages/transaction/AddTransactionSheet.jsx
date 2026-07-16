@@ -70,7 +70,9 @@ function DateTapRow({ label, value, onChange, disabled, badge }) {
 function AccountPicker({ label, placeholder, options, value, onChange, disabled }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{label}</label>
+      {label ? (
+        <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{label}</label>
+      ) : null}
       <select
         value={value?.id ? String(value.id) : ""}
         disabled={disabled}
@@ -79,6 +81,7 @@ function AccountPicker({ label, placeholder, options, value, onChange, disabled 
           onChange(options.find((o) => String(o.id) === id) || null);
         }}
         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[14px] font-semibold outline-none focus:border-[#2f6bf6]"
+        aria-label={label || placeholder}
       >
         <option value="">{placeholder}</option>
         {(options || []).map((o) => (
@@ -120,7 +123,6 @@ export default function AddTransactionSheet({
   const [txRemark, setTxRemark] = useState("");
   const [txConfirm, setTxConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [rateStep, setRateStep] = useState(1);
 
   const [rateToAccount, setRateToAccount] = useState(null);
   const [rateFromAccount, setRateFromAccount] = useState(null);
@@ -154,7 +156,6 @@ export default function AddTransactionSheet({
     setTxAmount("");
     setTxRemark("");
     setTxConfirm(false);
-    setRateStep(1);
     setRateToAccount(null);
     setRateFromAccount(null);
     setRateCurrencyFrom("");
@@ -219,6 +220,12 @@ export default function AddTransactionSheet({
     onPrefillConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- apply once per prefill payload
   }, [open, prefill]);
+
+  useEffect(() => {
+    if (!open || !isRate) return;
+    if (!rateCurrencyFrom && currencyOptions.includes("MYR")) setRateCurrencyFrom("MYR");
+    if (!rateCurrencyTo && currencyOptions.includes("MYR")) setRateCurrencyTo("MYR");
+  }, [open, isRate, currencyOptions, rateCurrencyFrom, rateCurrencyTo]);
 
   useEffect(() => {
     if (!isRate) return;
@@ -432,7 +439,6 @@ export default function AddTransactionSheet({
               disabled={mutationsBlocked && !isSearchMode}
               onChange={(e) => {
                 setTxType(e.target.value);
-                setRateStep(1);
               }}
               className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[14px] font-bold outline-none"
             >
@@ -532,104 +538,109 @@ export default function AddTransactionSheet({
             </>
           )}
 
-          {isRate && rateStep === 1 && (
+          {isRate ? (
             <>
-              <p className="text-[13px] font-semibold text-[#2f6bf6]">{m.rateStep1}</p>
-              <AccountPicker
-                label={m.toAccount}
-                placeholder={m.selectToAccount}
-                options={accountOptions}
-                value={rateToAccount}
-                onChange={setRateToAccount}
-                disabled={mutationsBlocked}
-              />
-              <AccountPicker
-                label={m.fromAccount}
-                placeholder={m.selectFromAccount}
-                options={accountOptions}
-                value={rateFromAccount}
-                onChange={setRateFromAccount}
-                disabled={mutationsBlocked}
-              />
-              <button
-                type="button"
-                disabled={mutationsBlocked}
-                title={m.reverseAccounts}
-                aria-label={m.reverseAccounts}
-                onClick={() => {
-                  setRateToAccount(rateFromAccount);
-                  setRateFromAccount(rateToAccount);
-                  const tmpAmt = rateCurrencyFromAmount;
-                  setRateCurrencyFromAmount(rateCurrencyToAmount);
-                  setRateCurrencyToAmount(tmpAmt);
-                  setRateToAmountGrossStr(tmpAmt ? String(tmpAmt).replace(/,/g, "") : "");
-                }}
-                className="tap-scale w-full rounded-xl border border-slate-200 bg-white py-2.5 text-[12px] font-bold text-slate-700 disabled:opacity-40"
-              >
-                {m.reverse}
-              </button>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.from}</label>
+              <div className="space-y-1.5">
+                <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.account}</p>
+                <AccountPicker
+                  label=""
+                  placeholder={m.selectToAccount}
+                  options={accountOptions}
+                  value={rateToAccount}
+                  onChange={setRateToAccount}
+                  disabled={mutationsBlocked}
+                />
+                <AccountPicker
+                  label=""
+                  placeholder={m.selectFromAccount}
+                  options={accountOptions}
+                  value={rateFromAccount}
+                  onChange={setRateFromAccount}
+                  disabled={mutationsBlocked}
+                />
+                <button
+                  type="button"
+                  disabled={mutationsBlocked}
+                  title={m.reverseAccounts}
+                  aria-label={m.reverseAccounts}
+                  onClick={() => {
+                    setRateToAccount(rateFromAccount);
+                    setRateFromAccount(rateToAccount);
+                    const tmpAmt = rateCurrencyFromAmount;
+                    setRateCurrencyFromAmount(rateCurrencyToAmount);
+                    setRateCurrencyToAmount(tmpAmt);
+                    setRateToAmountGrossStr(tmpAmt ? String(tmpAmt).replace(/,/g, "") : "");
+                  }}
+                  className="tap-scale w-full rounded-xl border border-slate-200 bg-white py-2.5 text-[12px] font-bold text-slate-700 disabled:opacity-40"
+                >
+                  {m.reverse}
+                </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.currency}</p>
+                <div className="grid grid-cols-2 gap-2">
                   <select
                     value={rateCurrencyFrom}
                     disabled={mutationsBlocked}
                     onChange={(e) => setRateCurrencyFrom(e.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-[14px] font-semibold"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[13px] font-semibold"
+                    aria-label={m.from}
                   >
                     <option value="">{m.selectCurrency}</option>
                     {currencyOptions.map((c) => (
-                      <option key={`f-${c}`} value={c}>
+                      <option key={`rf-${c}`} value={c}>
                         {c}
                       </option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.to}</label>
-                  <select
-                    value={rateCurrencyTo}
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={rateCurrencyFromAmount}
                     disabled={mutationsBlocked}
-                    onChange={(e) => setRateCurrencyTo(e.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-[14px] font-semibold"
-                  >
-                    <option value="">{m.selectCurrency}</option>
-                    {currencyOptions.map((c) => (
-                      <option key={`t-${c}`} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(e) => setRateCurrencyFromAmount(sanitizeAmountInput(e.target.value))}
+                    placeholder={m.amount}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-[13px] font-semibold tabular-nums"
+                    aria-label={m.fromAccount}
+                  />
                 </div>
-              </div>
-              <div>
-                <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.amount}</label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={rateCurrencyFromAmount}
-                  disabled={mutationsBlocked}
-                  onChange={(e) => setRateCurrencyFromAmount(sanitizeAmountInput(e.target.value))}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-[14px] font-semibold"
-                  aria-label={m.fromAccount}
-                />
-              </div>
-              <div>
-                <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.rate}</label>
                 <input
                   type="text"
                   inputMode="decimal"
                   value={rateExchangeRateRaw}
                   disabled={mutationsBlocked}
                   onChange={(e) => setRateExchangeRateRaw(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-[14px] font-semibold"
+                  placeholder={m.rate}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-3 text-[13px] font-semibold"
                   aria-label={m.rate}
                 />
-              </div>
-              <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-[13px] text-slate-600">
-                <span>
-                  <span className="font-semibold">{m.amount}</span> ({m.to}): {rateCurrencyToAmount || "—"}
-                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={rateCurrencyTo}
+                    disabled={mutationsBlocked}
+                    onChange={(e) => setRateCurrencyTo(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[13px] font-semibold"
+                    aria-label={m.to}
+                  >
+                    <option value="">{m.selectCurrency}</option>
+                    {currencyOptions.map((c) => (
+                      <option key={`rt-${c}`} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={rateCurrencyToAmount}
+                    readOnly
+                    disabled={mutationsBlocked}
+                    placeholder={m.amount}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[13px] font-semibold tabular-nums text-slate-700"
+                    aria-label={m.toAccount}
+                  />
+                </div>
                 <button
                   type="button"
                   disabled={mutationsBlocked || !rateCurrencyToAmount}
@@ -641,98 +652,92 @@ export default function AddTransactionSheet({
                     setRateCurrencyToAmount(tmpAmt);
                     setRateToAmountGrossStr(tmpAmt ? String(tmpAmt).replace(/,/g, "") : "");
                   }}
-                  className="tap-scale shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 disabled:opacity-40"
+                  className="tap-scale w-full rounded-xl border border-slate-200 bg-white py-2.5 text-[12px] font-bold text-slate-700 disabled:opacity-40"
                 >
                   {m.reverse}
                 </button>
               </div>
-            </>
-          )}
 
-          {isRate && rateStep === 2 && (
-            <>
-              <p className="text-[13px] font-semibold text-[#2f6bf6]">{m.rateStep2}</p>
-              <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-[12px] text-slate-600">
-                <p>
-                  <span className="font-semibold">{m.from}</span>: {rateCurrencyFrom || "—"}{" "}
-                  {rateCurrencyFromAmount || "—"} → <span className="font-semibold">{m.to}</span>:{" "}
-                  {rateCurrencyTo || "—"} {rateCurrencyToAmount || "—"}
+              <div className="space-y-1.5">
+                <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500">
+                  {m.account} <span className="font-medium normal-case text-slate-400">({m.optional})</span>
                 </p>
-                <p className="mt-1">
-                  <span className="font-semibold">{m.rate}</span>: {rateExchangeRateRaw || "—"}
-                </p>
+                <AccountPicker
+                  label=""
+                  placeholder={m.selectToAccount}
+                  options={accountOptions}
+                  value={rateTransferToAccount}
+                  onChange={setRateTransferToAccount}
+                  disabled={mutationsBlocked}
+                />
+                <AccountPicker
+                  label=""
+                  placeholder={m.selectFromAccount}
+                  options={accountOptions}
+                  value={rateTransferFromAccount}
+                  onChange={setRateTransferFromAccount}
+                  disabled={mutationsBlocked}
+                />
+                <button
+                  type="button"
+                  disabled={mutationsBlocked}
+                  title={m.reverseAccounts}
+                  aria-label={m.reverseAccounts}
+                  onClick={() => {
+                    setRateTransferToAccount(rateTransferFromAccount);
+                    setRateTransferFromAccount(rateTransferToAccount);
+                  }}
+                  className="tap-scale w-full rounded-xl border border-slate-200 bg-white py-2.5 text-[12px] font-bold text-slate-700 disabled:opacity-40"
+                >
+                  {m.reverse}
+                </button>
               </div>
-              <p className="text-[11px] text-slate-400">{m.optional}</p>
-              <AccountPicker
-                label={m.toAccount}
-                placeholder={m.selectToAccount}
-                options={accountOptions}
-                value={rateTransferToAccount}
-                onChange={setRateTransferToAccount}
-                disabled={mutationsBlocked}
-              />
-              <AccountPicker
-                label={m.fromAccount}
-                placeholder={m.selectFromAccount}
-                options={accountOptions}
-                value={rateTransferFromAccount}
-                onChange={setRateTransferFromAccount}
-                disabled={mutationsBlocked}
-              />
-              <button
-                type="button"
-                disabled={mutationsBlocked}
-                title={m.reverseAccounts}
-                aria-label={m.reverseAccounts}
-                onClick={() => {
-                  setRateTransferToAccount(rateTransferFromAccount);
-                  setRateTransferFromAccount(rateTransferToAccount);
-                }}
-                className="tap-scale w-full rounded-xl border border-slate-200 bg-white py-2.5 text-[12px] font-bold text-slate-700 disabled:opacity-40"
-              >
-                {m.reverse}
-              </button>
-              <AccountPicker
-                label={m.middleMan}
-                placeholder={m.selectMiddleManAccount}
-                options={accountOptions}
-                value={rateMiddlemanAccount}
-                onChange={setRateMiddlemanAccount}
-                disabled={mutationsBlocked}
-              />
-              <div>
-                <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.rateMultiplier}</label>
+
+              <div className="space-y-1.5">
+                <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.middleMan}</p>
+                <AccountPicker
+                  label=""
+                  placeholder={m.selectMiddleManAccount}
+                  options={accountOptions}
+                  value={rateMiddlemanAccount}
+                  onChange={setRateMiddlemanAccount}
+                  disabled={mutationsBlocked}
+                />
                 <input
                   type="text"
                   inputMode="decimal"
                   value={rateMiddlemanRate}
                   disabled={mutationsBlocked}
                   onChange={(e) => setRateMiddlemanRate(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-[14px] font-semibold"
+                  placeholder={m.rateMultiplier}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-3 text-[13px] font-semibold"
                   aria-label={m.rateMultiplier}
                 />
-              </div>
-              <div>
-                <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.fee}</label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={rateMiddlemanInputAmount}
-                  disabled={mutationsBlocked}
-                  onChange={(e) => setRateMiddlemanInputAmount(sanitizeAmountInput(e.target.value))}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-[14px] font-semibold"
-                  aria-label={m.fee}
-                />
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-700">
-                <span className="font-semibold">{m.amount}</span> ({m.middleMan}):{" "}
-                {rateMiddlemanAmount || "—"}
-              </div>
-              <div className="rounded-xl bg-sky-50 px-3 py-2.5 text-[13px] text-sky-900">
-                <span className="font-semibold">{m.amount}</span> ({m.to}): {rateCurrencyToAmount || "—"}
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={rateMiddlemanInputAmount}
+                    disabled={mutationsBlocked}
+                    onChange={(e) => setRateMiddlemanInputAmount(sanitizeAmountInput(e.target.value))}
+                    placeholder={m.fee}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-[13px] font-semibold"
+                    aria-label={m.fee}
+                  />
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={rateMiddlemanAmount}
+                    readOnly
+                    disabled={mutationsBlocked}
+                    placeholder={m.amount}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[13px] font-semibold tabular-nums text-slate-700"
+                    aria-label={m.middleMan}
+                  />
+                </div>
               </div>
             </>
-          )}
+          ) : null}
 
           {!isRate ? (
             <div>
@@ -747,18 +752,16 @@ export default function AddTransactionSheet({
             </div>
           ) : null}
 
-          {!isRate || rateStep === 2 ? (
-            <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-              <input
-                type="checkbox"
-                checked={txConfirm}
-                disabled={mutationsBlocked}
-                onChange={(e) => setTxConfirm(e.target.checked)}
-                className="size-5 rounded border-slate-300 text-[#2f6bf6]"
-              />
-              <span className="text-[13px] font-semibold text-slate-800">{m.confirmSubmit}</span>
-            </label>
-          ) : null}
+          <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+            <input
+              type="checkbox"
+              checked={txConfirm}
+              disabled={mutationsBlocked}
+              onChange={(e) => setTxConfirm(e.target.checked)}
+              className="size-5 rounded border-slate-300 text-[#2f6bf6]"
+            />
+            <span className="text-[13px] font-semibold text-slate-800">{m.confirmSubmit}</span>
+          </label>
             </>
           )}
         </div>
@@ -782,48 +785,14 @@ export default function AddTransactionSheet({
           className="flex shrink-0 gap-2 border-t border-slate-100 px-4 pt-3"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
         >
-          {isRate && rateStep === 2 && (
-            <button
-              type="button"
-              onClick={() => setRateStep(1)}
-              className="tap-scale flex-1 rounded-2xl bg-slate-100 py-3.5 text-[14px] font-bold text-slate-600"
-            >
-              {m.prevStep}
-            </button>
-          )}
-          {isRate && rateStep === 1 ? (
-            <button
-              type="button"
-              onClick={() => {
-                const toId = rateToAccount?.id ? String(rateToAccount.id) : "";
-                const fromId = rateFromAccount?.id ? String(rateFromAccount.id) : "";
-                if (!toId) return pushToast(m.pleaseSelectToAccount, "error");
-                if (!fromId) return pushToast(m.rateTransactionNeedFromAccount, "error");
-                if (!rateCurrencyFrom || !rateCurrencyTo) {
-                  return pushToast(m.pleaseSelectBothCurrencies, "error");
-                }
-                const fromAmt = toNumberLike(rateCurrencyFromAmount);
-                if (!Number.isFinite(fromAmt) || fromAmt <= 0) {
-                  return pushToast(m.pleaseEnterValidCurrencyAmounts, "error");
-                }
-                const parsedRate = parseRateExpression(rateExchangeRateRaw);
-                if (!parsedRate.valid) return pushToast(m.pleaseEnterValidRateValue, "error");
-                setRateStep(2);
-              }}
-              className="tap-scale flex-[2] rounded-2xl bg-[#2f6bf6] py-3.5 text-[14px] font-bold text-white"
-            >
-              {m.nextStep}
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={!txConfirm || submitting || mutationsBlocked}
-              onClick={handleSubmit}
-              className="tap-scale flex-[2] rounded-2xl bg-[#2f6bf6] py-3.5 text-[14px] font-bold text-white disabled:opacity-50"
-            >
-              {submitting ? m.submitting : m.submit}
-            </button>
-          )}
+          <button
+            type="button"
+            disabled={!txConfirm || submitting || mutationsBlocked}
+            onClick={handleSubmit}
+            className="tap-scale flex-1 rounded-2xl bg-[#2f6bf6] py-3.5 text-[14px] font-bold text-white disabled:opacity-50"
+          >
+            {submitting ? m.submitting : m.submit}
+          </button>
         </div>
         )}
       </div>
