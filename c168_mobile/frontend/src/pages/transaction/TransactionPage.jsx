@@ -32,8 +32,6 @@ export default function TransactionPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addPrefill, setAddPrefill] = useState(null);
-  const [fabOpen, setFabOpen] = useState(false);
-  const [addEntryIntent, setAddEntryIntent] = useState("add");
 
   const openHistory = useCallback(
     (row) => {
@@ -84,29 +82,14 @@ export default function TransactionPage() {
         amount,
         currency,
       });
-      setFabOpen(false);
-      setAddEntryIntent("add");
       setAddOpen(true);
     },
     [tx],
   );
 
   const openAddSheet = useCallback(() => {
-    setFabOpen(false);
     setAddPrefill(null);
-    setAddEntryIntent("add");
     setAddOpen(true);
-  }, []);
-
-  const openSearchSheet = useCallback(() => {
-    setFabOpen(false);
-    setAddPrefill(null);
-    setAddEntryIntent("search");
-    setAddOpen(true);
-  }, []);
-
-  const closeFabOnScroll = useCallback(() => {
-    setFabOpen((open) => (open ? false : open));
   }, []);
 
   if (tx.blocked) return null;
@@ -210,65 +193,18 @@ export default function TransactionPage() {
       lang={tx.lang}
       onLangChange={tx.setLang}
       overlayOpen={overlayOpen}
-      onMainScrollStart={closeFabOnScroll}
       floatingAction={
-        <>
-          {fabOpen ? (
-            <button
-              type="button"
-              className="fixed inset-0 z-40 bg-slate-900/30"
-              aria-label={tx.m.fabCloseMenu}
-              onClick={() => setFabOpen(false)}
-            />
-          ) : null}
-
-          <div className="relative z-50 mb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] ml-4 flex flex-col-reverse items-start gap-3">
-            <button
-              type="button"
-              onClick={() => setFabOpen((v) => !v)}
-              className={`tap-scale grid size-14 place-items-center rounded-full border text-white shadow-[0_10px_28px_-10px_rgba(47,107,246,0.55)] transition ${
-                fabOpen
-                  ? "border-white/40 bg-slate-800/80"
-                  : "border-[#6b9bff]/80 bg-[#2f6bf6]"
-              }`}
-              aria-label={fabOpen ? tx.m.fabCloseMenu : tx.m.fabMenu}
-              aria-expanded={fabOpen}
-            >
-              <i
-                className={`fas ${fabOpen ? "fa-xmark" : "fa-money-bill-transfer"} text-lg`}
-                aria-hidden="true"
-              />
-            </button>
-
-            {fabOpen ? (
-              <>
-                <button
-                  type="button"
-                  onClick={openAddSheet}
-                  disabled={tx.mutationsBlocked}
-                  className="tap-scale flex animate-[ecFabFade_280ms_ease-out_both] items-center gap-2 rounded-full border border-white/50 bg-white/90 py-2 pl-2 pr-3.5 text-[12px] font-bold text-slate-800 shadow-lg disabled:opacity-40"
-                  aria-label={tx.m.fabAddPayment || tx.m.addTransaction}
-                >
-                  <span className="grid size-10 place-items-center rounded-full bg-[#2f6bf6] text-white">
-                    <i className="fas fa-plus text-sm" aria-hidden="true" />
-                  </span>
-                  <span>{tx.m.fabAddPayment || tx.m.addTransaction}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={openSearchSheet}
-                  className="tap-scale flex animate-[ecFabFade_280ms_ease-out_60ms_both] items-center gap-2 rounded-full border border-white/50 bg-white/90 py-2 pl-2 pr-3.5 text-[12px] font-bold text-slate-800 shadow-lg"
-                  aria-label={tx.m.fabSearchPayment || tx.m.search}
-                >
-                  <span className="grid size-10 place-items-center rounded-full bg-slate-800 text-white">
-                    <i className="fas fa-filter text-sm" aria-hidden="true" />
-                  </span>
-                  <span>{tx.m.fabSearchPayment || tx.m.search}</span>
-                </button>
-              </>
-            ) : null}
-          </div>
-        </>
+        <div className="mb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] ml-4">
+          <button
+            type="button"
+            onClick={openAddSheet}
+            disabled={tx.mutationsBlocked}
+            className="tap-scale grid size-14 place-items-center rounded-full border border-[#6b9bff]/80 bg-[#2f6bf6] text-white shadow-[0_10px_28px_-10px_rgba(47,107,246,0.55)] disabled:opacity-40"
+            aria-label={tx.m.fabAddPayment || tx.m.addTransaction}
+          >
+            <i className="fas fa-plus text-lg" aria-hidden="true" />
+          </button>
+        </div>
       }
       overlay={
         <>
@@ -278,7 +214,6 @@ export default function TransactionPage() {
             onClose={() => {
               setAddOpen(false);
               setAddPrefill(null);
-              setAddEntryIntent("add");
             }}
             m={tx.m}
             accountOptions={tx.accountOptions}
@@ -294,7 +229,7 @@ export default function TransactionPage() {
             onExitTypeSearch={tx.exitTypeSearch}
             prefill={addPrefill}
             onPrefillConsumed={() => setAddPrefill(null)}
-            entryIntent={addEntryIntent}
+            entryIntent="add"
           />
           <ContraInboxSheet
             open={Boolean(tx.contraInbox?.open)}
