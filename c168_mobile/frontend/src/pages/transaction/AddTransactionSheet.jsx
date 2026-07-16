@@ -408,18 +408,16 @@ export default function AddTransactionSheet({
               ))}
             </select>
             <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                disabled={!txType}
-                onClick={() => onTypeSearch?.(txType)}
-                className={`tap-scale flex-1 rounded-xl py-2.5 text-[12px] font-bold disabled:opacity-40 ${
-                  isSearchMode
-                    ? "bg-[#2f6bf6] text-white shadow-sm"
-                    : "border border-slate-200 bg-white text-slate-700"
-                }`}
-              >
-                {m.search}
-              </button>
+              {isSearchMode ? null : (
+                <button
+                  type="button"
+                  disabled={!txType}
+                  onClick={() => onTypeSearch?.(txType)}
+                  className="tap-scale flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-[12px] font-bold text-slate-700 disabled:opacity-40"
+                >
+                  {m.search}
+                </button>
+              )}
               {typeSearchActive ? (
                 <button
                   type="button"
