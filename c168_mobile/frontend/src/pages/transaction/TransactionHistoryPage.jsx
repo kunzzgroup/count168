@@ -18,7 +18,7 @@ import {
   resolveHistoryAccountName,
   resolvePaymentHistoryScope,
 } from "../../lib/transactionHistoryScope.js";
-import { historyTypeBadgeClass, historyTypeLabel } from "../../lib/transactionTypeStyles.js";
+import { historyTypeBadgeClass, historyTypeCardClass, historyTypeLabel } from "../../lib/transactionTypeStyles.js";
 import ExportPdfSheet from "./ExportPdfSheet.jsx";
 
 function MoneyTone({ value, children }) {
@@ -192,9 +192,9 @@ export default function TransactionHistoryPage() {
       ) : (
         <ul className="space-y-2.5 pb-8">
           {rows.map((row, idx) => {
-            const isBf = row.row_type === "bf";
             const typeLabel = historyTypeLabel(row);
             const badgeCls = historyTypeBadgeClass(row);
+            const cardCls = historyTypeCardClass(row);
             const createdRaw = row.created_by;
             const createdBy =
               createdRaw == null ||
@@ -208,22 +208,18 @@ export default function TransactionHistoryPage() {
             return (
               <li
                 key={row.id ?? `${idx}-${row.date || ""}-${row.balance || ""}`}
-                className={`overflow-hidden rounded-xl shadow-sm ring-1 ${
-                  isBf
-                    ? "bg-amber-50 ring-amber-200/90"
-                    : "bg-white ring-slate-200/90"
-                }`}
+                className={`overflow-hidden rounded-xl shadow-sm ${cardCls}`}
               >
-                <div className="flex items-center gap-2 border-b border-slate-200/70 bg-white/55 px-3 py-2">
+                <div className="flex items-center gap-2 border-b border-black/5 bg-white/50 px-3 py-2">
                   <span
                     className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide ring-1 ${badgeCls}`}
                   >
                     {typeLabel}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-slate-600">
+                  <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-slate-700">
                     {row.date || "—"}
                   </span>
-                  <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-slate-500 ring-1 ring-slate-200/80">
+                  <span className="shrink-0 rounded-md bg-white/80 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-slate-600 ring-1 ring-slate-200/80">
                     {cur || "—"}
                   </span>
                 </div>
@@ -247,7 +243,7 @@ export default function TransactionHistoryPage() {
                 </div>
 
                 {(row.rate && row.rate !== "-") || remark || createdBy !== "-" ? (
-                  <div className="space-y-0.5 border-t border-slate-100 px-3 py-2">
+                  <div className="space-y-0.5 border-t border-black/5 px-3 py-2">
                     {row.rate && row.rate !== "-" ? (
                       <p className="text-[10px] font-medium text-slate-500">
                         {m.rate}: {formatRateForHistoryDisplay(row.rate)}
