@@ -369,12 +369,17 @@ export default function AddTransactionSheet({
 
   if (!open) return null;
 
+  const isSearchMode = entryIntent === "search";
+  const sheetTitle = isSearchMode
+    ? m.searchTypeTitle || m.fabSearchPayment || m.search
+    : m.addTransaction;
+
   return (
     <div className="fixed inset-0 z-[90] flex flex-col justify-end bg-slate-900/45 backdrop-blur-[2px]">
       <button type="button" className="min-h-0 flex-1" aria-label={m.close} onClick={onClose} />
       <div className="flex max-h-[90dvh] flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-          <p className="text-[15px] font-bold text-slate-900">{m.addTransaction}</p>
+          <p className="text-[15px] font-bold text-slate-900">{sheetTitle}</p>
           <button
             type="button"
             onClick={onClose}
@@ -389,7 +394,7 @@ export default function AddTransactionSheet({
             <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.type}</label>
             <select
               value={txType}
-              disabled={mutationsBlocked && entryIntent !== "search"}
+              disabled={mutationsBlocked && !isSearchMode}
               onChange={(e) => {
                 setTxType(e.target.value);
                 setRateStep(1);
@@ -407,8 +412,8 @@ export default function AddTransactionSheet({
                 type="button"
                 disabled={!txType}
                 onClick={() => onTypeSearch?.(txType)}
-                className={`tap-scale flex-1 rounded-xl py-2 text-[12px] font-bold disabled:opacity-40 ${
-                  entryIntent === "search"
+                className={`tap-scale flex-1 rounded-xl py-2.5 text-[12px] font-bold disabled:opacity-40 ${
+                  isSearchMode
                     ? "bg-[#2f6bf6] text-white shadow-sm"
                     : "border border-slate-200 bg-white text-slate-700"
                 }`}
@@ -419,20 +424,23 @@ export default function AddTransactionSheet({
                 <button
                   type="button"
                   onClick={() => onExitTypeSearch?.()}
-                  className="tap-scale flex-1 rounded-xl bg-amber-100 py-2 text-[12px] font-bold text-amber-800"
+                  className="tap-scale flex-1 rounded-xl bg-amber-100 py-2.5 text-[12px] font-bold text-amber-800"
                   title={m.exitTypeSearchAndRefreshTitle}
                 >
                   {m.exitTypeSearchAndRefresh}
                 </button>
               ) : null}
             </div>
-            {entryIntent === "search" ? (
-              <p className="mt-2 text-[11px] font-medium leading-snug text-[#2f6bf6]">
-                {m.fabSearchHint || m.fabSearchPayment || m.search}
+            {isSearchMode ? (
+              <p className="mt-2 text-[11px] font-medium leading-snug text-slate-500">
+                {m.fabSearchHint ||
+                  "Pick a transaction type, then Search to filter accounts by that type."}
               </p>
             ) : null}
           </div>
 
+          {isSearchMode ? null : (
+            <>
           <div>
             <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.transactionDate}</label>
             <input
@@ -654,8 +662,25 @@ export default function AddTransactionSheet({
             />
             <span className="text-[13px] font-semibold text-slate-800">{m.confirmSubmit}</span>
           </label>
+            </>
+          )}
         </div>
 
+        {isSearchMode ? (
+          <div
+            className="border-t border-slate-100 px-4 pt-3"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
+          >
+            <button
+              type="button"
+              disabled={!txType}
+              onClick={() => onTypeSearch?.(txType)}
+              className="tap-scale w-full rounded-2xl bg-[#2f6bf6] py-3.5 text-[14px] font-bold text-white disabled:opacity-50"
+            >
+              {m.search}
+            </button>
+          </div>
+        ) : (
         <div
           className="flex gap-2 border-t border-slate-100 px-4 pt-3"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
@@ -703,6 +728,7 @@ export default function AddTransactionSheet({
             </button>
           )}
         </div>
+        )}
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { NavLink } from "react-router-dom";
 import { usePullToRefresh } from "../../hooks/usePullToRefresh.js";
 import { useScrollHideChrome } from "../../hooks/useScrollHideChrome.js";
+import { useScrollIdleVisible } from "../../hooks/useScrollIdleVisible.js";
 import { mobileNavItems } from "../../utils/mobilePermissions.js";
 import MobileAppBar from "./MobileAppBar.jsx";
 import MobileNotifications, { fetchMobileAnnouncements } from "./MobileNotifications.jsx";
@@ -12,6 +13,8 @@ export default function MobileShell({
   children,
   overlay = null,
   stickyBar = null,
+  floatingAction = null,
+  onMainScrollStart,
   i18n,
   me,
   companyCode = "",
@@ -60,6 +63,11 @@ export default function MobileShell({
   });
 
   const chromeHidden = useScrollHideChrome(mainRef, { threshold: 8, topReveal: 16 });
+  const floatingIdleVisible = useScrollIdleVisible(mainRef, {
+    idleMs: 320,
+    onScrollStart: onMainScrollStart,
+  });
+  const showFloating = Boolean(floatingAction) && floatingIdleVisible && !overlayOpen;
 
   useLayoutEffect(() => {
     const el = topChromeRef.current;
@@ -215,6 +223,19 @@ export default function MobileShell({
             ))}
           </div>
         </nav>
+      ) : null}
+
+      {floatingAction ? (
+        <div
+          className={`fixed inset-0 z-50 transition-opacity duration-300 ease-out ${
+            showFloating ? "pointer-events-none opacity-100" : "pointer-events-none opacity-0"
+          }`}
+          aria-hidden={!showFloating}
+        >
+          <div className={showFloating ? "pointer-events-auto contents" : "pointer-events-none contents"}>
+            {floatingAction}
+          </div>
+        </div>
       ) : null}
 
       {overlay}

@@ -206,6 +206,66 @@ export default function TransactionPage() {
       lang={tx.lang}
       onLangChange={tx.setLang}
       overlayOpen={overlayOpen}
+      onMainScrollStart={() => setFabOpen(false)}
+      floatingAction={
+        <>
+          {fabOpen ? (
+            <button
+              type="button"
+              className="fixed inset-0 z-[48] bg-slate-900/20 backdrop-blur-[1px]"
+              aria-label={tx.m.fabCloseMenu}
+              onClick={() => setFabOpen(false)}
+            />
+          ) : null}
+
+          <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] left-4 z-50 flex flex-col-reverse items-start gap-3">
+            <button
+              type="button"
+              onClick={() => setFabOpen((v) => !v)}
+              className={`tap-scale grid size-14 place-items-center rounded-full border text-white shadow-[0_12px_40px_-12px_rgba(47,107,246,0.55)] backdrop-blur-2xl transition ${
+                fabOpen
+                  ? "border-white/35 bg-slate-800/55"
+                  : "border-white/45 bg-[#2f6bf6]/70"
+              }`}
+              aria-label={fabOpen ? tx.m.fabCloseMenu : tx.m.fabMenu}
+              aria-expanded={fabOpen}
+            >
+              <i
+                className={`fas ${fabOpen ? "fa-xmark" : "fa-money-bill-transfer"} text-lg`}
+                aria-hidden="true"
+              />
+            </button>
+
+            {fabOpen ? (
+              <>
+                <button
+                  type="button"
+                  onClick={openAddSheet}
+                  disabled={tx.mutationsBlocked}
+                  className="tap-scale flex items-center gap-2 rounded-full border border-white/55 bg-white/40 py-2 pl-2 pr-3.5 text-[12px] font-bold text-slate-800 shadow-[0_10px_30px_-12px_rgba(15,23,42,0.35)] backdrop-blur-2xl disabled:opacity-40"
+                  aria-label={tx.m.fabAddPayment || tx.m.addTransaction}
+                >
+                  <span className="grid size-10 place-items-center rounded-full border border-white/40 bg-[#2f6bf6]/85 text-white backdrop-blur-md">
+                    <i className="fas fa-plus text-sm" aria-hidden="true" />
+                  </span>
+                  <span>{tx.m.fabAddPayment || tx.m.addTransaction}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={openSearchSheet}
+                  className="tap-scale flex items-center gap-2 rounded-full border border-white/55 bg-white/40 py-2 pl-2 pr-3.5 text-[12px] font-bold text-slate-800 shadow-[0_10px_30px_-12px_rgba(15,23,42,0.35)] backdrop-blur-2xl"
+                  aria-label={tx.m.fabSearchPayment || tx.m.search}
+                >
+                  <span className="grid size-10 place-items-center rounded-full border border-white/40 bg-slate-900/70 text-white backdrop-blur-md">
+                    <i className="fas fa-filter text-sm" aria-hidden="true" />
+                  </span>
+                  <span>{tx.m.fabSearchPayment || tx.m.search}</span>
+                </button>
+              </>
+            ) : null}
+          </div>
+        </>
+      }
       overlay={
         <>
           <FilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} dash={tx} />
@@ -299,57 +359,6 @@ export default function TransactionPage() {
           )}
         </>
       )}
-
-      {fabOpen ? (
-        <button
-          type="button"
-          className="fixed inset-0 z-[48] bg-slate-900/25"
-          aria-label={tx.m.fabCloseMenu}
-          onClick={() => setFabOpen(false)}
-        />
-      ) : null}
-
-      <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] left-4 z-50 flex flex-col-reverse items-start gap-3">
-        <button
-          type="button"
-          onClick={() => setFabOpen((v) => !v)}
-          className={`tap-scale grid size-14 place-items-center rounded-full text-white shadow-[0_12px_28px_-8px_rgba(47,107,246,0.65)] transition ${
-            fabOpen ? "bg-slate-700" : "bg-[#2f6bf6]"
-          }`}
-          aria-label={fabOpen ? tx.m.fabCloseMenu : tx.m.fabMenu}
-          aria-expanded={fabOpen}
-        >
-          <i className={`fas ${fabOpen ? "fa-xmark" : "fa-plus"} text-lg`} aria-hidden="true" />
-        </button>
-
-        {fabOpen ? (
-          <>
-            <button
-              type="button"
-              onClick={openAddSheet}
-              disabled={tx.mutationsBlocked}
-              className="tap-scale flex items-center gap-2 rounded-full bg-white py-2 pl-2 pr-3.5 text-[12px] font-bold text-slate-800 shadow-lg ring-1 ring-slate-200 disabled:opacity-40"
-              aria-label={tx.m.fabAddPayment || tx.m.addTransaction}
-            >
-              <span className="grid size-10 place-items-center rounded-full bg-[#2f6bf6] text-white">
-                <i className="fas fa-file-invoice-dollar text-sm" aria-hidden="true" />
-              </span>
-              <span>{tx.m.fabAddPayment || tx.m.addTransaction}</span>
-            </button>
-            <button
-              type="button"
-              onClick={openSearchSheet}
-              className="tap-scale flex items-center gap-2 rounded-full bg-white py-2 pl-2 pr-3.5 text-[12px] font-bold text-slate-800 shadow-lg ring-1 ring-slate-200"
-              aria-label={tx.m.fabSearchPayment || tx.m.search}
-            >
-              <span className="grid size-10 place-items-center rounded-full bg-slate-800 text-white">
-                <i className="fas fa-magnifying-glass text-sm" aria-hidden="true" />
-              </span>
-              <span>{tx.m.fabSearchPayment || tx.m.search}</span>
-            </button>
-          </>
-        ) : null}
-      </div>
     </MobileShell>
   );
 }
