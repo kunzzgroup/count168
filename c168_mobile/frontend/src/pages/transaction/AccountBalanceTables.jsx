@@ -50,7 +50,7 @@ function MetricCell({
       aria-label={interactive ? ariaLabel || title || `${label} ${display}` : undefined}
     >
       <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-0.5 whitespace-nowrap text-[clamp(1.1rem,0.1vw+1.0rem,1.2rem)] font-semibold leading-snug">
+      <p className="mt-0.5 whitespace-nowrap text-[11px] font-semibold leading-snug">
         <MoneyCell value={value} emphasize={emphasize} forceTone={forceTone} />
       </p>
     </Comp>
@@ -88,7 +88,7 @@ function AccountCardList({ side, rows, showName, m, onOpenHistory, onPickBalance
               aria-label={`${m.tapForHistory}: ${code}`}
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[clamp(1.2rem,0.15vw+1.0rem,1.3rem)] font-bold text-slate-900 underline decoration-slate-300 underline-offset-2">
+                <span className="block truncate text-[12px] font-bold text-slate-900 underline decoration-slate-300 underline-offset-2">
                   {code}
                 </span>
                 {showName && name ? (
