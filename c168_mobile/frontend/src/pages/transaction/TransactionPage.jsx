@@ -216,13 +216,13 @@ export default function TransactionPage() {
           {fabOpen ? (
             <button
               type="button"
-              className="fixed inset-0 z-[48] bg-slate-900/25"
+              className="fixed inset-0 z-40 bg-slate-900/25"
               aria-label={tx.m.fabCloseMenu}
               onClick={() => setFabOpen(false)}
             />
           ) : null}
 
-          <div className="mb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] ml-4 flex flex-col-reverse items-start gap-3">
+          <div className="relative z-50 mb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] ml-4 flex flex-col-reverse items-start gap-3">
             <button
               type="button"
               onClick={() => setFabOpen((v) => !v)}
