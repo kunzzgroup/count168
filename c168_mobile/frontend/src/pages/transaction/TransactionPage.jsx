@@ -323,7 +323,7 @@ export default function TransactionPage() {
 
 function TotalCell({ label, value, highlight = false }) {
   return (
-    <div className="text-center text-[1.4rem]">
+    <div className="text-center text-[0.75rem]">
       <p className="text-[0.78em] font-bold uppercase tracking-wide text-slate-400">{label}</p>
       <p className={`mt-0.5 font-bold tabular-nums ${highlight ? "text-[#2f6bf6]" : "text-slate-800"}`}>
         {formatTransactionGridMoneyHalfUp(value)}

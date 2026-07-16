@@ -55,7 +55,7 @@ function MetricCell({
       aria-label={interactive ? ariaLabel || title || `${label} ${display}` : undefined}
     >
       <p className="text-[0.78em] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-0.5 whitespace-nowrap text-[1.4rem] font-semibold leading-snug">
+      <p className="mt-0.5 whitespace-nowrap font-semibold leading-snug">
         <MoneyCell value={value} emphasize={emphasize} forceTone={forceTone} />
       </p>
     </Comp>
@@ -65,7 +65,7 @@ function MetricCell({
 function AccountCardList({ side, rows, showName, m, onOpenHistory, onPickBalance, balanceTone }) {
   if (rows.length === 0) {
     return (
-      <p className="rounded-2xl bg-white px-3 py-8 text-center text-[1.4rem] font-medium text-slate-400 shadow-sm ring-1 ring-slate-100">
+      <p className="rounded-2xl bg-white px-3 py-8 text-center font-medium text-slate-400 shadow-sm ring-1 ring-slate-100">
         {m.noAccountsFound}
       </p>
     );
@@ -93,11 +93,11 @@ function AccountCardList({ side, rows, showName, m, onOpenHistory, onPickBalance
               aria-label={`${m.tapForHistory}: ${code}`}
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[1.4rem] font-bold underline decoration-current/35 underline-offset-2">
+                <span className="block truncate font-bold underline decoration-current/35 underline-offset-2">
                   {code}
                 </span>
                 {showName && name ? (
-                  <span className="mt-0.5 block truncate text-[1.1rem] font-medium opacity-80">{name}</span>
+                  <span className="mt-0.5 block truncate text-[0.9em] font-medium opacity-80">{name}</span>
                 ) : null}
               </span>
               <span className="shrink-0 rounded-md bg-white/70 px-1.5 py-0.5 text-[0.78em] font-bold tracking-wide text-slate-600 ring-1 ring-slate-200/80">
@@ -158,7 +158,7 @@ export default function AccountBalanceTables({
   const activeRows = isLeft ? left : right;
 
   return (
-    <div className="space-y-3 pb-24 text-[1.4rem]">
+    <div className="space-y-3 pb-24 text-[0.75rem]">
       <p className="text-[0.78em] font-bold uppercase tracking-wide text-slate-400">
         {m.currencyLabel} {String(currency || "").toUpperCase()}
         {rows?.length ? ` · ${rows.length}` : ""}
@@ -173,7 +173,7 @@ export default function AccountBalanceTables({
           type="button"
           role="tab"
           aria-selected={isLeft}
-          className={`tap-scale flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-[1.4rem] font-bold transition ${
+          className={`tap-scale flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 font-bold transition ${
             isLeft
               ? "bg-white text-[#2f6bf6] shadow-sm ring-1 ring-slate-200/80"
               : "text-slate-500"
@@ -193,14 +193,14 @@ export default function AccountBalanceTables({
           type="button"
           role="tab"
           aria-selected={!isLeft}
-          className={`tap-scale flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-[1.4rem] font-bold transition ${
+          className={`tap-scale flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 font-bold transition ${
             !isLeft
               ? "bg-white text-rose-600 shadow-sm ring-1 ring-slate-200/80"
               : "text-slate-500"
           }`}
           onClick={() => setSideTab("right")}
         >
-          <span className="truncate text-[1.6rem] leading-none">{m.rightBalanceTab || "−"}</span>
+          <span className="truncate text-[1.15em] leading-none">{m.rightBalanceTab || "−"}</span>
           <span
             className={`shrink-0 rounded-md px-1.5 py-0.5 text-[0.72em] font-bold tabular-nums ${
               !isLeft ? "bg-rose-100 text-rose-700" : "bg-slate-200/80 text-slate-500"
