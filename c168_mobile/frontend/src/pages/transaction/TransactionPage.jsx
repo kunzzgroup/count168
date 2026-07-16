@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import MobileShell from "../../components/layout/MobileShell.jsx";
 import { useMobileTransaction } from "../../hooks/useMobileTransaction.js";
 import { buildPaymentHistoryScope, persistPaymentHistoryScope } from "../../lib/transactionHistoryScope.js";
-import { formatTransactionGridMoneyHalfUp } from "../../lib/transactionFormat.js";
+import { formatTransactionGridMoneyHalfUp, parseBalanceValue } from "../../lib/transactionFormat.js";
+import MoneyDecimal from "../../lib/money/moneyDecimal.js";
+import { resolveGridRowToAccountOption } from "../../lib/transactionPaymentLogic.js";
 import FilterSheet from "../dashboard/FilterSheet.jsx";
 import ScopeBreadcrumb from "../dashboard/ScopeBreadcrumb.jsx";
 import AccountBalanceTables from "./AccountBalanceTables.jsx";
@@ -29,6 +31,7 @@ export default function TransactionPage() {
   const navigate = useNavigate();
   const [filterOpen, setFilterOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [addPrefill, setAddPrefill] = useState(null);
 
   const openHistory = useCallback(
     (row) => {
@@ -43,6 +46,45 @@ export default function TransactionPage() {
       navigate("/transaction/history");
     },
     [navigate, tx.dateFrom, tx.dateTo, tx.scopeApi, tx.currency],
+  );
+
+  const pickBalanceForForm = useCallback(
+    (row, side) => {
+      if (tx.mutationsBlocked) {
+        tx.pushToast(tx.m.readOnlyModeCannotSubmit, "error");
+        return;
+      }
+      const account = resolveGridRowToAccountOption(row, tx.accountOptions);
+      if (!account) {
+        tx.pushToast(tx.m.couldNotResolveAccount, "error");
+        return;
+      }
+
+      const rowCurrency = String(row?.currency || "").trim().toUpperCase();
+      const accountCurrency = account.currency ? String(account.currency).trim().toUpperCase() : "";
+      const currency = rowCurrency || accountCurrency || "";
+
+      let amount = "";
+      const balRaw = row?.balance;
+      const parsed = parseBalanceValue(String(balRaw ?? "").replace(/,/g, ""));
+      if (parsed !== null) {
+        try {
+          amount = MoneyDecimal.formatFixedHalfUp(MoneyDecimal.abs(String(balRaw)).toString(), 2);
+        } catch {
+          amount = MoneyDecimal.formatFixedHalfUp(String(Math.abs(parsed)), 2);
+        }
+      }
+
+      setAddPrefill({
+        id: Date.now(),
+        side: side === "right" ? "right" : "left",
+        account,
+        amount,
+        currency,
+      });
+      setAddOpen(true);
+    },
+    [tx],
   );
 
   if (tx.blocked) return null;
@@ -151,7 +193,10 @@ export default function TransactionPage() {
           <FilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} dash={tx} />
           <AddTransactionSheet
             open={addOpen}
-            onClose={() => setAddOpen(false)}
+            onClose={() => {
+              setAddOpen(false);
+              setAddPrefill(null);
+            }}
             m={tx.m}
             accountOptions={tx.accountOptions}
             currencyOptions={tx.formCurrencies}
@@ -164,6 +209,8 @@ export default function TransactionPage() {
             }}
             typeSearchActive={tx.typeSearchActive}
             onExitTypeSearch={tx.exitTypeSearch}
+            prefill={addPrefill}
+            onPrefillConsumed={() => setAddPrefill(null)}
           />
           <ContraInboxSheet
             open={Boolean(tx.contraInbox?.open)}
@@ -227,6 +274,7 @@ export default function TransactionPage() {
               m={tx.m}
               currency={tx.currency}
               onOpenHistory={openHistory}
+              onPickBalance={pickBalanceForForm}
             />
           )}
         </>

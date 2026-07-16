@@ -78,6 +78,8 @@ export default function AddTransactionSheet({
   onTypeSearch,
   typeSearchActive = false,
   onExitTypeSearch,
+  prefill = null,
+  onPrefillConsumed,
 }) {
   const bodyRef = useRef(null);
   useOverlayLock(open, onClose);
@@ -145,6 +147,43 @@ export default function AddTransactionSheet({
   useEffect(() => {
     if (!open) resetForm();
   }, [open, resetForm]);
+
+  useEffect(() => {
+    if (!open || !prefill) return;
+
+    const account = prefill.account || null;
+    const amount = prefill.amount != null ? String(prefill.amount) : "";
+    const currency = prefill.currency ? String(prefill.currency).toUpperCase() : "";
+    const side = prefill.side === "right" ? "right" : "left";
+    const fillTo = side === "left";
+
+    if (txType === "RATE") {
+      if (fillTo) {
+        setRateToAccount(account);
+        setRateTransferFromAccount(account);
+      } else {
+        setRateFromAccount(account);
+        setRateTransferToAccount(account);
+      }
+      if (amount) setRateCurrencyFromAmount(amount);
+      if (currency) setRateCurrencyFrom(currency);
+    } else {
+      if (fillTo) setTxToAccount(account);
+      else setTxFromAccount(account);
+      if (amount) setTxAmount(amount);
+      if (currency) setTxCurrency(currency);
+    }
+
+    const label = fillTo ? m.toAccount : m.fromAccount;
+    const parts = [];
+    if (account?.account_id) parts.push(`${label}: ${account.account_id}`);
+    if (amount) parts.push(`${m.amount}: ${amount}`);
+    if (currency) parts.push(`${m.currency}: ${currency}`);
+    if (parts.length) pushToast?.(parts.join(", "), "success");
+
+    onPrefillConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- apply once per prefill payload
+  }, [open, prefill]);
 
   useEffect(() => {
     if (!isRate) return;

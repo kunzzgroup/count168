@@ -25,7 +25,17 @@ function MoneyCell({ value, emphasize = false, forceTone = null }) {
   return <span className={`tabular-nums ${tone}`}>{display}</span>;
 }
 
-function AccountTable({ title, badge, rows, showName, m, onOpenHistory, balanceTone }) {
+function AccountTable({
+  title,
+  badge,
+  side,
+  rows,
+  showName,
+  m,
+  onOpenHistory,
+  onPickBalance,
+  balanceTone,
+}) {
   return (
     <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
       <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
@@ -67,13 +77,15 @@ function AccountTable({ title, badge, rows, showName, m, onOpenHistory, balanceT
                 const name = String(row?.account_name || "").trim();
                 const key = `${row.account_db_id || row.account_id}-${row.currency}-${row.transaction_id || ""}`;
                 return (
-                  <tr
-                    key={key}
-                    className={`tap-scale cursor-pointer border-t border-slate-100/90 ${rowBg} active:brightness-95`}
-                    onClick={() => onOpenHistory?.(row)}
-                  >
-                    <td className={`sticky left-0 z-[1] px-2.5 py-2 text-[12px] font-bold text-slate-900 ${rowBg}`}>
-                      <span className="block max-w-[7.5rem] truncate">{code}</span>
+                  <tr key={key} className={`border-t border-slate-100/90 ${rowBg}`}>
+                    <td
+                      className={`sticky left-0 z-[1] cursor-pointer px-2.5 py-2 text-[12px] font-bold text-slate-900 active:brightness-95 ${rowBg}`}
+                      onClick={() => onOpenHistory?.(row)}
+                      title={m.tapForHistory}
+                    >
+                      <span className="block max-w-[7.5rem] truncate underline decoration-slate-300 underline-offset-2">
+                        {code}
+                      </span>
                       <span className="block text-[9px] font-bold tracking-wide text-slate-400">
                         {String(row?.currency || "").toUpperCase()}
                       </span>
@@ -90,7 +102,11 @@ function AccountTable({ title, badge, rows, showName, m, onOpenHistory, balanceT
                     <td className="px-2 py-2 text-right text-[11px] font-semibold">
                       <MoneyCell value={row?.cr_dr} />
                     </td>
-                    <td className="px-2.5 py-2 text-right text-[12px] font-bold">
+                    <td
+                      className="cursor-pointer px-2.5 py-2 text-right text-[12px] font-bold active:brightness-95"
+                      onClick={() => onPickBalance?.(row, side)}
+                      title={m.tapBalanceToFill || m.balanceTable}
+                    >
                       <MoneyCell value={row?.balance} emphasize forceTone={balanceTone} />
                     </td>
                   </tr>
@@ -121,33 +137,44 @@ export default function AccountBalanceTables({
   m,
   currency,
   onOpenHistory,
+  onPickBalance,
 }) {
   const { fromPositive, toNegative } = splitAccountRowsByBalance(rows);
 
   return (
     <div className="space-y-4 pb-24">
-      <p className="text-[12px] font-bold uppercase tracking-wide text-slate-400">
-        {m.currencyLabel} {String(currency || "").toUpperCase()}
-        {rows?.length ? ` · ${rows.length}` : ""}
-      </p>
+      <div className="space-y-1">
+        <p className="text-[12px] font-bold uppercase tracking-wide text-slate-400">
+          {m.currencyLabel} {String(currency || "").toUpperCase()}
+          {rows?.length ? ` · ${rows.length}` : ""}
+        </p>
+        <p className="text-[11px] leading-snug text-slate-500">
+          {m.tableClickHint ||
+            "Tap account → history · Tap balance → fill To (+) / From (−)"}
+        </p>
+      </div>
 
       <AccountTable
         title={m.fromAccountPositive || m.fromAccount}
         badge="+"
+        side="left"
         rows={fromPositive}
         showName={showName}
         m={m}
         onOpenHistory={onOpenHistory}
+        onPickBalance={onPickBalance}
         balanceTone="pos"
       />
 
       <AccountTable
         title={m.toAccountNegative || m.toAccount}
         badge="−"
+        side="right"
         rows={toNegative}
         showName={showName}
         m={m}
         onOpenHistory={onOpenHistory}
+        onPickBalance={onPickBalance}
         balanceTone="neg"
       />
     </div>
