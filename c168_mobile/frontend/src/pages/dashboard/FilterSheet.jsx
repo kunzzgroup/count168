@@ -262,6 +262,40 @@ export default function FilterSheet({ open, onClose, dash }) {
               </div>
             </Section>
           )}
+
+          {Array.isArray(dash.categories) && dash.categories.length > 0 && (
+            <Section title={dash.m?.category || i18n.category || "Category"}>
+              <div className="flex max-h-36 flex-wrap gap-2 overflow-y-auto">
+                <Pill
+                  active={!dash.selectedCategories?.length}
+                  onClick={() => {
+                    dash.setSelectedCategories?.([]);
+                    onClose?.();
+                  }}
+                >
+                  {dash.m?.selectAllCategories || i18n.all}
+                </Pill>
+                {dash.categories.map((cat) => {
+                  const label = String(cat?.name || cat?.category || cat || "");
+                  const value = String(cat?.name || cat?.category || cat || "");
+                  if (!value) return null;
+                  const active = (dash.selectedCategories || []).includes(value);
+                  return (
+                    <Pill
+                      key={value}
+                      active={active}
+                      onClick={() => {
+                        dash.toggleCategory?.(value);
+                        onClose?.();
+                      }}
+                    >
+                      {label}
+                    </Pill>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
         </div>
         <div
           className="flex gap-3 border-t border-slate-100 px-5 pt-3"

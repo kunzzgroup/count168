@@ -8,6 +8,7 @@ import FilterSheet from "../dashboard/FilterSheet.jsx";
 import ScopeBreadcrumb from "../dashboard/ScopeBreadcrumb.jsx";
 import AccountCard from "./AccountCard.jsx";
 import AddTransactionSheet from "./AddTransactionSheet.jsx";
+import ContraInboxSheet from "./ContraInboxSheet.jsx";
 
 function ToggleChip({ active, onClick, children }) {
   return (
@@ -59,26 +60,28 @@ export default function TransactionPage() {
       ? groupId
       : companyCode;
   const sidebarGroupId = tx.groupOnlyMode ? "" : groupId;
+  const inboxCount = tx.contraInbox?.items?.length || 0;
+  const overlayOpen = filterOpen || addOpen || Boolean(tx.contraInbox?.open);
 
   const stickyBar = (
     <div className="space-y-2">
-      <button
-        type="button"
-        onClick={() => setFilterOpen(true)}
-        className="tap-scale w-full rounded-2xl bg-white px-3 py-2 text-left shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
-      >
-        <div className="flex items-center gap-2">
-          <i className="far fa-calendar shrink-0 text-[#2f6bf6]" aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-slate-700">{tx.dateRangeText}</span>
-          <span className="shrink-0 rounded-lg bg-slate-100 px-1.5 py-1 text-[11px] font-bold tracking-wide text-slate-600">
-            {tx.currency}
-          </span>
-          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-xl bg-[#2f6bf6] text-white">
-            <i className="fas fa-filter text-[11px]" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="mt-1.5 flex items-center gap-2 border-t border-slate-100/90 pt-1.5">
-          <div className="min-w-0 flex-1 overflow-hidden">
+      <div className="flex items-stretch gap-2">
+        <button
+          type="button"
+          onClick={() => setFilterOpen(true)}
+          className="tap-scale min-w-0 flex-1 rounded-2xl bg-white px-3 py-2 text-left shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
+        >
+          <div className="flex items-center gap-2">
+            <i className="far fa-calendar shrink-0 text-[#2f6bf6]" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-slate-700">{tx.dateRangeText}</span>
+            <span className="shrink-0 rounded-lg bg-slate-100 px-1.5 py-1 text-[11px] font-bold tracking-wide text-slate-600">
+              {tx.currency}
+            </span>
+            <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-xl bg-[#2f6bf6] text-white">
+              <i className="fas fa-filter text-[11px]" aria-hidden="true" />
+            </span>
+          </div>
+          <div className="mt-1.5 border-t border-slate-100/90 pt-1.5">
             <ScopeBreadcrumb
               i18n={tx.i18n}
               groupId={groupId}
@@ -88,8 +91,21 @@ export default function TransactionPage() {
               groupOnlyMode={tx.groupOnlyMode}
             />
           </div>
-        </div>
-      </button>
+        </button>
+        <button
+          type="button"
+          onClick={() => tx.setContraInbox((s) => ({ ...s, open: true }))}
+          className="tap-scale relative flex w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-white text-slate-700 shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
+          aria-label={tx.m.contraInbox}
+        >
+          <i className="fas fa-inbox text-[16px]" aria-hidden="true" />
+          {inboxCount > 0 ? (
+            <span className="absolute right-1.5 top-1.5 grid min-w-[16px] place-items-center rounded-full bg-rose-600 px-1 text-[9px] font-bold text-white">
+              {inboxCount}
+            </span>
+          ) : null}
+        </button>
+      </div>
 
       <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <ToggleChip active={tx.showName} onClick={() => tx.setShowName(!tx.showName)}>
@@ -104,6 +120,11 @@ export default function TransactionPage() {
         <ToggleChip active={tx.showZeroBalance} onClick={() => tx.setShowZeroBalance(!tx.showZeroBalance)}>
           {tx.m.showZeroBalance}
         </ToggleChip>
+        {tx.typeSearchActive ? (
+          <ToggleChip active onClick={() => tx.exitTypeSearch()}>
+            {tx.typeSearchFormType || tx.m.search}
+          </ToggleChip>
+        ) : null}
       </div>
     </div>
   );
@@ -122,7 +143,7 @@ export default function TransactionPage() {
       stickyBar={stickyBar}
       lang={tx.lang}
       onLangChange={tx.setLang}
-      overlayOpen={filterOpen || addOpen}
+      overlayOpen={overlayOpen}
       overlay={
         <>
           <FilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} dash={tx} />
@@ -135,6 +156,22 @@ export default function TransactionPage() {
             mutationsBlocked={tx.mutationsBlocked}
             onSubmit={tx.submitTx}
             pushToast={tx.pushToast}
+            onTypeSearch={(t) => {
+              tx.runTypeSearch(t);
+              setAddOpen(false);
+            }}
+            typeSearchActive={tx.typeSearchActive}
+            onExitTypeSearch={tx.exitTypeSearch}
+          />
+          <ContraInboxSheet
+            open={Boolean(tx.contraInbox?.open)}
+            onClose={() => tx.setContraInbox((s) => ({ ...s, open: false }))}
+            m={tx.m}
+            items={tx.contraInbox?.items || []}
+            loading={tx.contraInbox?.loading}
+            mutationsBlocked={tx.mutationsBlocked}
+            onApprove={tx.onApproveContra}
+            onReject={tx.onRejectContra}
           />
         </>
       }
@@ -175,6 +212,7 @@ export default function TransactionPage() {
 
           <p className="mb-2 text-[12px] font-bold uppercase tracking-wide text-slate-400">
             {tx.m.accountList} ({tx.displayRows.length})
+            {tx.typeSearchActive ? ` · ${tx.typeSearchFormType}` : ""}
           </p>
 
           {tx.searchError ? (
@@ -189,7 +227,7 @@ export default function TransactionPage() {
             ) : (
               tx.displayRows.map((row) => (
                 <AccountCard
-                  key={`${row.account_db_id || row.account_id}-${row.currency}`}
+                  key={`${row.account_db_id || row.account_id}-${row.currency}-${row.transaction_id || ""}`}
                   row={row}
                   showName={tx.showName}
                   m={tx.m}

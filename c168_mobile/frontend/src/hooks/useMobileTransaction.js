@@ -19,19 +19,26 @@ import {
   resolveTransactionCurrencyOrderCompanyId,
 } from "../lib/mobileTransactionScope.js";
 import {
+  applySummaryWinLossDisplayTolerance,
+  applyTransactionDisplayFilters,
   buildTransactionSearchQueryFilters,
+  calculateTotals,
   mergeSearchApiDataList,
   sanitizeSearchApiData,
   sortByRole,
-  applyTransactionDisplayFilters,
 } from "../lib/transactionPaymentLogic.js";
 import {
+  approveContra,
   getAccounts,
   getCategories,
   getCompanyCurrencies,
+  loadContraInbox,
+  rejectContra,
   searchTransactions,
   submitTransaction,
+  fetchTypeAccountSearch,
 } from "../lib/transactionApi.js";
+import { isPartnershipAuditReadOnlyLocked } from "../lib/partnershipAuditReadOnly.js";
 import { TRANSACTION_I18N, getTransactionText } from "../translateFile/transactionTranslate.js";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
 import { canAccessTransaction, resolveMobileLandingPath } from "../utils/mobilePermissions.js";
@@ -85,6 +92,9 @@ export function useMobileTransaction() {
   const [showZeroBalance, setShowZeroBalance] = useState(false);
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [typeSearchActive, setTypeSearchActive] = useState(false);
+  const [typeSearchFormType, setTypeSearchFormType] = useState("");
+  const [contraInbox, setContraInbox] = useState({ open: false, items: [], loading: false });
 
   const [rawSearchData, setRawSearchData] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -129,7 +139,10 @@ export function useMobileTransaction() {
     selectedGroup && !groupAllMode && !groupsAllMode && !(Number.isFinite(Number(companyId)) && Number(companyId) > 0),
   );
 
-  const mutationsBlocked = Boolean(transactionScope?.groupsAllMode && !transactionScope?.groupAllMode);
+  const mutationsBlocked = Boolean(
+    isPartnershipAuditReadOnlyLocked(me) ||
+      (transactionScope?.groupsAllMode && !transactionScope?.groupAllMode),
+  );
 
   const pushToast = useCallback((message, tone = "info") => {
     setToast({ message, tone, id: Date.now() });
@@ -145,12 +158,12 @@ export function useMobileTransaction() {
     });
   }, [rawSearchData, showZeroBalance, showPaymentOnly, showCaptureOnly]);
 
-  const totals = rawSearchData?.totals?.summary || null;
+  const totals = useMemo(() => {
+    if (!displayRows.length) return rawSearchData?.totals?.summary || null;
+    return applySummaryWinLossDisplayTolerance(calculateTotals(displayRows));
+  }, [displayRows, rawSearchData]);
 
-  const dateRangeText = useMemo(
-    () => formatRangeLabel(dateFrom, dateTo, lang),
-    [dateFrom, dateTo, lang],
-  );
+  const dateRangeText = useMemo(() => formatRangeLabel(dateFrom, dateTo), [dateFrom, dateTo]);
 
   const currencyCodesForSearch = useMemo(() => {
     if (!currency || currency === "ALL") return currencies.filter((c) => c !== "ALL");
@@ -179,7 +192,23 @@ export function useMobileTransaction() {
           hideZeroBalance: queryFilters.hideZeroBalanceForQuery,
           currencyCodes: currencyCodesForSearch,
           categories: selectedCategories,
+          typeSearch: typeSearchActive,
+          typeSearchFormType: typeSearchActive ? typeSearchFormType : undefined,
         };
+
+        if (typeSearchActive && typeSearchFormType) {
+          try {
+            const ids = await fetchTypeAccountSearch({
+              ...scopeApi,
+              transactionType: typeSearchFormType,
+              signal,
+            });
+            if (signal?.aborted) return;
+            paramsBase.typeAccountIds = ids;
+          } catch {
+            /* still run search without ids */
+          }
+        }
 
         let currentData = null;
         if (transactionScope?.mode === "aggregate" && transactionScope.mergeCompanyIds?.length) {
@@ -230,6 +259,8 @@ export function useMobileTransaction() {
       showCaptureOnly,
       currencyCodesForSearch,
       selectedCategories,
+      typeSearchActive,
+      typeSearchFormType,
       m.searchFailed,
     ],
   );
@@ -427,8 +458,84 @@ export function useMobileTransaction() {
     setShowPaymentOnly(false);
     setShowZeroBalance(false);
     setSelectedCategories([]);
+    setTypeSearchActive(false);
+    setTypeSearchFormType("");
     setReloadNonce((n) => n + 1);
   }, []);
+
+  const refreshContraInboxBadge = useCallback(
+    async (api = scopeApi) => {
+      if (!scopeReady || !api) return;
+      setContraInbox((s) => ({ ...s, loading: true }));
+      try {
+        const res = await loadContraInbox({ ...api });
+        const items = Array.isArray(res?.data) ? res.data : [];
+        setContraInbox((s) => ({ ...s, items, loading: false }));
+      } catch {
+        setContraInbox((s) => ({ ...s, loading: false }));
+      }
+    },
+    [scopeReady, scopeApi],
+  );
+
+  useEffect(() => {
+    if (!scopeReady || !currenciesReady) return undefined;
+    void refreshContraInboxBadge();
+    return undefined;
+  }, [scopeReady, currenciesReady, reloadNonce, refreshContraInboxBadge]);
+
+  const runTypeSearch = useCallback(
+    (txType) => {
+      const tType = String(txType || "").toUpperCase().trim();
+      if (!tType) return;
+      setTypeSearchActive(true);
+      setTypeSearchFormType(tType);
+      setReloadNonce((n) => n + 1);
+    },
+    [],
+  );
+
+  const exitTypeSearch = useCallback(() => {
+    setTypeSearchActive(false);
+    setTypeSearchFormType("");
+    setReloadNonce((n) => n + 1);
+  }, []);
+
+  const onApproveContra = useCallback(
+    async (transactionId) => {
+      if (mutationsBlocked) {
+        pushToast(m.readOnlyModeCannotSubmit, "error");
+        return;
+      }
+      const res = await approveContra({ transactionId, ...scopeApi });
+      if (res?.success) {
+        pushToast(res.message || m.approve, "success");
+        void refreshContraInboxBadge();
+        setReloadNonce((n) => n + 1);
+      } else {
+        pushToast(res?.message || m.submitFailed, "error");
+      }
+    },
+    [mutationsBlocked, scopeApi, pushToast, m, refreshContraInboxBadge],
+  );
+
+  const onRejectContra = useCallback(
+    async (transactionId) => {
+      if (mutationsBlocked) {
+        pushToast(m.readOnlyModeCannotSubmit, "error");
+        return;
+      }
+      const res = await rejectContra({ transactionId, ...scopeApi });
+      if (res?.success) {
+        pushToast(res.message || m.reject, "success");
+        void refreshContraInboxBadge();
+        setReloadNonce((n) => n + 1);
+      } else {
+        pushToast(res?.message || m.submitFailed, "error");
+      }
+    },
+    [mutationsBlocked, scopeApi, pushToast, m, refreshContraInboxBadge],
+  );
 
   const retry = useCallback(() => {
     setReloadNonce((n) => n + 1);
@@ -533,6 +640,22 @@ export function useMobileTransaction() {
     categories,
     selectedCategories,
     setSelectedCategories,
+    toggleCategory: (cat) => {
+      setSelectedCategories((prev) => {
+        const c = String(cat || "");
+        if (!c) return prev;
+        return prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c];
+      });
+    },
+    typeSearchActive,
+    typeSearchFormType,
+    runTypeSearch,
+    exitTypeSearch,
+    contraInbox,
+    setContraInbox,
+    refreshContraInboxBadge,
+    onApproveContra,
+    onRejectContra,
     displayRows,
     totals,
     rawSearchData,

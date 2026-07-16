@@ -75,6 +75,9 @@ export default function AddTransactionSheet({
   mutationsBlocked = false,
   onSubmit,
   pushToast,
+  onTypeSearch,
+  typeSearchActive = false,
+  onExitTypeSearch,
 }) {
   const bodyRef = useRef(null);
   useOverlayLock(open, onClose);
@@ -350,6 +353,26 @@ export default function AddTransactionSheet({
                 </option>
               ))}
             </select>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                disabled={mutationsBlocked || !txType}
+                onClick={() => onTypeSearch?.(txType)}
+                className="tap-scale flex-1 rounded-xl border border-slate-200 bg-white py-2 text-[12px] font-bold text-slate-700 disabled:opacity-40"
+              >
+                {m.search}
+              </button>
+              {typeSearchActive ? (
+                <button
+                  type="button"
+                  onClick={() => onExitTypeSearch?.()}
+                  className="tap-scale flex-1 rounded-xl bg-amber-100 py-2 text-[12px] font-bold text-amber-800"
+                  title={m.exitTypeSearchAndRefreshTitle}
+                >
+                  {m.exitTypeSearchAndRefresh}
+                </button>
+              ) : null}
+            </div>
           </div>
 
           <div>
@@ -591,7 +614,22 @@ export default function AddTransactionSheet({
           {isRate && rateStep === 1 ? (
             <button
               type="button"
-              onClick={() => setRateStep(2)}
+              onClick={() => {
+                const toId = rateToAccount?.id ? String(rateToAccount.id) : "";
+                const fromId = rateFromAccount?.id ? String(rateFromAccount.id) : "";
+                if (!toId) return pushToast(m.pleaseSelectToAccount, "error");
+                if (!fromId) return pushToast(m.rateTransactionNeedFromAccount, "error");
+                if (!rateCurrencyFrom || !rateCurrencyTo) {
+                  return pushToast(m.pleaseSelectBothCurrencies, "error");
+                }
+                const fromAmt = toNumberLike(rateCurrencyFromAmount);
+                if (!Number.isFinite(fromAmt) || fromAmt <= 0) {
+                  return pushToast(m.pleaseEnterValidCurrencyAmounts, "error");
+                }
+                const parsedRate = parseRateExpression(rateExchangeRateRaw);
+                if (!parsedRate.valid) return pushToast(m.pleaseEnterValidRateValue, "error");
+                setRateStep(2);
+              }}
               className="tap-scale flex-[2] rounded-2xl bg-[#2f6bf6] py-3.5 text-[14px] font-bold text-white"
             >
               {m.nextStep}
