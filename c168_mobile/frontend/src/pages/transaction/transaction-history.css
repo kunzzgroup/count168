@@ -28,7 +28,7 @@
 }
 
 .m-tx-hist-back i {
-  font-size: 1.077em;
+  font-size: 1em;
 }
 
 .m-tx-hist-head {
@@ -49,7 +49,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--m-text-sub-ratio);
+  font-size: 1em;
+  font-weight: 500;
   color: var(--m-color-muted);
 }
 
@@ -65,7 +66,7 @@
 }
 
 .m-tx-hist-export i {
-  font-size: 1.077em;
+  font-size: 1em;
 }
 
 .m-tx-hist-count {
@@ -77,7 +78,7 @@
 
 .m-tx-hist-hint {
   margin-bottom: 0.75rem;
-  font-size: var(--m-text-label-ratio);
+  font-size: 1em;
   font-weight: 500;
   line-height: 1.375;
   color: var(--m-color-label);
@@ -122,6 +123,7 @@
   overflow: hidden;
   border-radius: 0.75rem;
   box-shadow: var(--m-shadow-card);
+  font-size: var(--m-text-compact);
 }
 
 .m-tx-hist-card-head {
@@ -137,7 +139,7 @@
   flex-shrink: 0;
   border-radius: 0.375rem;
   padding: 0.125rem 0.375rem;
-  font-size: var(--m-text-badge-ratio);
+  font-size: 1em;
   font-weight: 700;
   letter-spacing: 0.025em;
   outline: 1px solid transparent;
@@ -159,65 +161,34 @@
   border-radius: 0.375rem;
   background: rgba(255, 255, 255, 0.8);
   padding: 0.125rem 0.375rem;
-  font-size: var(--m-text-badge-ratio);
+  font-size: 1em;
   font-weight: 700;
   letter-spacing: 0.025em;
   color: var(--m-color-text-secondary);
   outline: 1px solid rgba(226, 232, 240, 0.8);
 }
 
-.m-tx-hist-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  padding: 0.375rem 0.375rem;
-}
-
-.m-tx-hist-metric {
-  min-width: 0;
-  padding: 0.25rem 0.25rem;
-  text-align: right;
-}
-
-.m-tx-hist-metric-label {
-  font-size: var(--m-text-label-ratio);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--m-color-label);
-}
-
-.m-tx-hist-metric-value {
-  margin-top: 0.125rem;
-  white-space: nowrap;
-  font-size: var(--m-text-sub-ratio);
-  font-weight: 600;
-  line-height: 1.375;
-}
-
 .m-tx-hist-footer {
   border-top: 1px solid rgba(0, 0, 0, 0.05);
   padding: 0.5rem 0.75rem;
+  font-size: 1em;
+  font-weight: 500;
+  line-height: 1.375;
+  color: var(--m-color-text-secondary);
 }
 
 .m-tx-hist-footer > * + * {
   margin-top: 0.125rem;
 }
 
-.m-tx-hist-desc {
-  font-size: var(--m-text-label-ratio);
-  font-weight: 500;
-  line-height: 1.375;
-  color: var(--m-color-text-secondary);
-}
-
-.m-tx-hist-desc-label {
+.m-tx-hist-desc-label,
+.m-tx-hist-created-label {
   color: var(--m-color-label);
 }
 
-.m-tx-hist-meta {
-  font-size: var(--m-text-label-ratio);
-  font-weight: 500;
+.m-tx-hist-meta,
+.m-tx-hist-remark,
+.m-tx-hist-created {
   color: var(--m-color-muted);
 }
 
@@ -225,12 +196,4 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--m-text-label-ratio);
-  color: var(--m-color-muted);
-}
-
-.m-tx-hist-created {
-  font-size: var(--m-text-label-ratio);
-  font-weight: 500;
-  color: var(--m-color-label);
 }

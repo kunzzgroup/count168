@@ -63,9 +63,9 @@ function MoneyTone({ value, children }) {
 
 function HistMetric({ label, rawValue, display }) {
   return (
-    <div className="m-tx-hist-metric">
-      <p className="m-tx-hist-metric-label">{label}</p>
-      <p className="m-tx-hist-metric-value">
+    <div className="m-tx-metric">
+      <p className="m-tx-metric-label">{label}</p>
+      <p className="m-tx-metric-value">
         <MoneyTone value={rawValue}>{display}</MoneyTone>
       </p>
     </div>
@@ -244,7 +244,7 @@ export default function TransactionHistoryPage() {
                   <span className="m-tx-hist-currency">{cur || "—"}</span>
                 </div>
 
-                <div className="m-tx-hist-metrics">
+                <div className="m-tx-card-metrics">
                   <HistMetric
                     label={m.winLossTableCompact}
                     rawValue={row.win_loss}
@@ -274,7 +274,8 @@ export default function TransactionHistoryPage() {
                   ) : null}
                   {remark && remark !== "-" ? <p className="m-tx-hist-remark">{remark}</p> : null}
                   <p className="m-tx-hist-created">
-                    {m.createdByCompact}: {createdBy}
+                    <span className="m-tx-hist-created-label">{m.createdByCompact}: </span>
+                    {createdBy}
                   </p>
                 </div>
               </li>
