@@ -27,20 +27,34 @@ function MoneyCell({ value, emphasize = false, forceTone = null }) {
   return <span className={`tabular-nums ${tone}`}>{display}</span>;
 }
 
-function MetricCell({ label, value, emphasize = false, forceTone = null, onClick, title }) {
+function MetricCell({
+  label,
+  value,
+  emphasize = false,
+  forceTone = null,
+  onClick,
+  title,
+  ariaLabel,
+}) {
   const interactive = typeof onClick === "function";
   const Comp = interactive ? "button" : "div";
+  const display = formatTransactionGridMoneyHalfUp(value);
   return (
     <Comp
       type={interactive ? "button" : undefined}
-      className={`min-w-0 px-1.5 py-1.5 text-right ${
+      className={`min-w-0 overflow-x-auto px-1.5 py-1.5 text-right [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
         interactive ? "tap-scale rounded-lg active:bg-slate-100/80" : ""
       }`}
       onClick={onClick}
       title={title}
+      aria-label={interactive ? ariaLabel || title || `${label} ${display}` : undefined}
     >
       <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-0.5 truncate text-[11px] font-bold leading-tight ${emphasize ? "text-[12px]" : ""}`}>
+      <p
+        className={`mt-0.5 whitespace-nowrap text-[clamp(1.0rem,0.15vw+0.85rem,1.2rem)] font-bold leading-tight ${
+          emphasize ? "text-[clamp(1.1rem,0.2vw+0.9rem,1.3rem)]" : ""
+        }`}
+      >
         <MoneyCell value={value} emphasize={emphasize} forceTone={forceTone} />
       </p>
     </Comp>
@@ -70,6 +84,7 @@ function AccountCardList({ side, rows, showName, m, onOpenHistory, onPickBalance
               className="tap-scale flex w-full items-center gap-2 px-3 py-2.5 text-left active:brightness-95"
               onClick={() => onOpenHistory?.(row)}
               title={m.tapForHistory}
+              aria-label={`${m.tapForHistory}: ${code}`}
             >
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-bold text-slate-900 underline decoration-slate-300 underline-offset-2">
@@ -95,6 +110,13 @@ function AccountCardList({ side, rows, showName, m, onOpenHistory, onPickBalance
                 forceTone={balanceTone}
                 onClick={() => onPickBalance?.(row, side)}
                 title={m.tapBalanceToFill || m.balanceTable}
+                ariaLabel={
+                  m.tapBalanceAria
+                    ? m.tapBalanceAria
+                        .replace("{account}", code)
+                        .replace("{amount}", formatTransactionGridMoneyHalfUp(row?.balance))
+                    : `${m.tapBalanceToFill || m.balanceTable}: ${code} ${formatTransactionGridMoneyHalfUp(row?.balance)}`
+                }
               />
             </div>
           </li>
