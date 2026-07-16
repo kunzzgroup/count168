@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { useMobileTransaction } from "../../hooks/useMobileTransaction.js";
 
 /**
@@ -6,6 +6,8 @@ import { useMobileTransaction } from "../../hooks/useMobileTransaction.js";
  * so Back returns to the same Search results without remounting the hook.
  */
 export default function TransactionLayout() {
-  const tx = useMobileTransaction();
+  const { pathname } = useLocation();
+  const listPaused = pathname.includes("/history");
+  const tx = useMobileTransaction({ listPaused });
   return <Outlet context={{ tx }} />;
 }

@@ -63,7 +63,7 @@ function mergeDisplayRows(rawSearchData) {
   return sortByRole([...left, ...right]);
 }
 
-export function useMobileTransaction() {
+export function useMobileTransaction({ listPaused = false } = {}) {
   const navigate = useNavigate();
   const defaults = defaultDashboardDateRange();
   const [lang, setLangState] = useState(() => localStorage.getItem("login_lang") || "en");
@@ -121,6 +121,10 @@ export function useMobileTransaction() {
   const searchSeq = useRef(0);
   /** After restoring a list snapshot (Back from history), skip the next auto search once. */
   const skipNextSearchRef = useRef(false);
+  /** Track Payment History pause so Back does not auto re-search. */
+  const listPausedRef = useRef(listPaused);
+  const rawSearchDataRef = useRef(rawSearchData);
+  rawSearchDataRef.current = rawSearchData;
 
   const groupIds = useMemo(() => sortedUniqueGroupIds(companies), [companies]);
   const companiesForPicker = useMemo(
@@ -430,6 +434,20 @@ export function useMobileTransaction() {
 
   useEffect(() => {
     if (!scopeReady || !currenciesReady) return undefined;
+
+    const wasPaused = listPausedRef.current;
+    listPausedRef.current = listPaused;
+
+    // On Payment History: do not run list search (and abort any in-flight via cleanup).
+    if (listPaused) {
+      return undefined;
+    }
+
+    // Back from History: keep existing rows — no auto pull/re-search.
+    if (wasPaused && rawSearchDataRef.current) {
+      return undefined;
+    }
+
     const ac = new AbortController();
     if (skipNextSearchRef.current) {
       skipNextSearchRef.current = false;
@@ -443,6 +461,7 @@ export function useMobileTransaction() {
     scopeReady,
     currenciesReady,
     reloadNonce,
+    listPaused,
     runSearch,
     loadAccountsAndCurrencies,
   ]);

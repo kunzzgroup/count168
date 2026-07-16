@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import MobileShell from "../../components/layout/MobileShell.jsx";
 import { buildPaymentHistoryScope, persistPaymentHistoryScope } from "../../lib/transactionHistoryScope.js";
@@ -32,6 +32,19 @@ export default function TransactionPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addPrefill, setAddPrefill] = useState(null);
+  /** Only drive pull-to-refresh chrome for user-initiated refresh (not Back remount). */
+  const [pullRefreshActive, setPullRefreshActive] = useState(false);
+
+  useEffect(() => {
+    if (pullRefreshActive && !tx.searchLoading) {
+      setPullRefreshActive(false);
+    }
+  }, [pullRefreshActive, tx.searchLoading]);
+
+  const onPullRefresh = useCallback(() => {
+    setPullRefreshActive(true);
+    tx.retry();
+  }, [tx]);
 
   const openHistory = useCallback(
     (row) => {
@@ -193,8 +206,8 @@ export default function TransactionPage() {
       companyCode={viewingCompanyCode}
       groupId={sidebarGroupId}
       onLogout={tx.logout}
-      onRefresh={tx.retry}
-      refreshing={tx.searchLoading}
+      onRefresh={onPullRefresh}
+      refreshing={pullRefreshActive && tx.searchLoading}
       stickyBar={stickyBar}
       lang={tx.lang}
       onLangChange={tx.setLang}
