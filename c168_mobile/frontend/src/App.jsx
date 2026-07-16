@@ -1,14 +1,29 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import DashboardPage from "./pages/dashboard/DashboardPage.jsx";
 import LoginPage from "./pages/login/LoginPage.jsx";
 import SecondaryPasswordPage from "./pages/login/SecondaryPasswordPage.jsx";
 import StubPage from "./pages/StubPage.jsx";
+import { clearMobileTxListSnapshot } from "./lib/mobileTxListSnapshot.js";
 import TransactionPage from "./pages/transaction/TransactionPage.jsx";
 import TransactionHistoryPage from "./pages/transaction/TransactionHistoryPage.jsx";
 
+/** Drop list snapshot when leaving Transaction so bottom-nav re-entry stays default. */
+function ClearTxListSnapshotOutsideTransaction() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (!pathname.startsWith("/transaction")) {
+      clearMobileTxListSnapshot();
+    }
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   return (
-    <Routes>
+    <>
+      <ClearTxListSnapshotOutsideTransaction />
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/home" element={<Navigate to="/dashboard" replace />} />
@@ -29,5 +44,6 @@ export default function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
+    </>
   );
 }

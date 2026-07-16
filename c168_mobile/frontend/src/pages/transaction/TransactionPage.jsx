@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import MobileShell from "../../components/layout/MobileShell.jsx";
 import { useMobileTransaction } from "../../hooks/useMobileTransaction.js";
 import { buildPaymentHistoryScope, persistPaymentHistoryScope } from "../../lib/transactionHistoryScope.js";
+import { persistMobileTxListSnapshot } from "../../lib/mobileTxListSnapshot.js";
 import { formatTransactionGridMoneyHalfUp, parseBalanceValue } from "../../lib/transactionFormat.js";
 import MoneyDecimal from "../../lib/money/moneyDecimal.js";
 import { resolveGridRowToAccountOption } from "../../lib/transactionPaymentLogic.js";
@@ -43,9 +44,10 @@ export default function TransactionPage() {
         currency: tx.currency,
       });
       persistPaymentHistoryScope(scope);
+      persistMobileTxListSnapshot(tx.captureListSnapshot());
       navigate("/transaction/history");
     },
-    [navigate, tx.dateFrom, tx.dateTo, tx.scopeApi, tx.currency],
+    [navigate, tx],
   );
 
   const pickBalanceForForm = useCallback(

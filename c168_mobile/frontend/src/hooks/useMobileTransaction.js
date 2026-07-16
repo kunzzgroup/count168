@@ -43,6 +43,7 @@ import {
   buildOptimisticSubmitDeltas,
 } from "../lib/transactionSubmitHelpers.js";
 import { isPartnershipAuditReadOnlyLocked } from "../lib/partnershipAuditReadOnly.js";
+import { readMobileTxListSnapshot } from "../lib/mobileTxListSnapshot.js";
 import { TRANSACTION_I18N, getTransactionText } from "../translateFile/transactionTranslate.js";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
 import { canAccessTransaction, resolveMobileLandingPath } from "../utils/mobilePermissions.js";
@@ -118,6 +119,8 @@ export function useMobileTransaction() {
   const [sessionNonce, setSessionNonce] = useState(0);
   const [reloadNonce, setReloadNonce] = useState(0);
   const searchSeq = useRef(0);
+  /** After restoring a list snapshot (Back from history), skip the next auto search once. */
+  const skipNextSearchRef = useRef(false);
 
   const groupIds = useMemo(() => sortedUniqueGroupIds(companies), [companies]);
   const companiesForPicker = useMemo(
@@ -347,14 +350,39 @@ export function useMobileTransaction() {
         if (ac.signal.aborted) return;
         assertApiOk(coRes, coJson, i18n.loadError);
         const list = Array.isArray(coJson?.data) ? coJson.data : [];
-        const picked = pickCompany(list, user.company_id);
-        if (!picked) throw new Error(i18n.loadError);
+        const snap = readMobileTxListSnapshot();
+        if (snap) {
+          setCompanies(list);
+          const snapCid = snap.companyId != null ? Number(snap.companyId) : null;
+          setCompanyId(Number.isFinite(snapCid) && snapCid > 0 ? snapCid : null);
+          setSelectedGroup(snap.selectedGroup ? String(snap.selectedGroup) : null);
+          setGroupsAllMode(Boolean(snap.groupsAllMode));
+          setGroupAllMode(Boolean(snap.groupAllMode));
+          if (snap.currency) setCurrency(String(snap.currency));
+          if (snap.dateFrom) setDateFrom(String(snap.dateFrom));
+          if (snap.dateTo) setDateTo(String(snap.dateTo));
+          if (snap.activePreset != null) setActivePreset(String(snap.activePreset));
+          setShowName(Boolean(snap.showName));
+          setShowCaptureOnly(Boolean(snap.showCaptureOnly));
+          setShowPaymentOnly(Boolean(snap.showPaymentOnly));
+          setShowZeroBalance(Boolean(snap.showZeroBalance));
+          setSelectedCategories(Array.isArray(snap.selectedCategories) ? snap.selectedCategories : []);
+          setTypeSearchActive(Boolean(snap.typeSearchActive));
+          setTypeSearchFormType(snap.typeSearchFormType ? String(snap.typeSearchFormType) : "");
+          if (snap.rawSearchData && typeof snap.rawSearchData === "object") {
+            setRawSearchData(sanitizeSearchApiData(snap.rawSearchData));
+            skipNextSearchRef.current = true;
+          }
+        } else {
+          const picked = pickCompany(list, user.company_id);
+          if (!picked) throw new Error(i18n.loadError);
 
-        setCompanies(list);
-        setCompanyId(Number(picked.id));
-        setSelectedGroup(null);
-        setGroupsAllMode(false);
-        setGroupAllMode(false);
+          setCompanies(list);
+          setCompanyId(Number(picked.id));
+          setSelectedGroup(null);
+          setGroupsAllMode(false);
+          setGroupAllMode(false);
+        }
 
         const catRes = await getCategories();
         if (!ac.signal.aborted && catRes?.success && Array.isArray(catRes.data)) {
@@ -403,6 +431,11 @@ export function useMobileTransaction() {
   useEffect(() => {
     if (!scopeReady || !currenciesReady) return undefined;
     const ac = new AbortController();
+    if (skipNextSearchRef.current) {
+      skipNextSearchRef.current = false;
+      void loadAccountsAndCurrencies(ac.signal);
+      return () => ac.abort();
+    }
     void runSearch(ac.signal);
     void loadAccountsAndCurrencies(ac.signal);
     return () => ac.abort();
@@ -413,6 +446,45 @@ export function useMobileTransaction() {
     runSearch,
     loadAccountsAndCurrencies,
   ]);
+
+  const captureListSnapshot = useCallback(
+    () => ({
+      companyId,
+      selectedGroup,
+      groupsAllMode,
+      groupAllMode,
+      currency,
+      dateFrom,
+      dateTo,
+      activePreset,
+      showName,
+      showCaptureOnly,
+      showPaymentOnly,
+      showZeroBalance,
+      selectedCategories,
+      typeSearchActive,
+      typeSearchFormType,
+      rawSearchData,
+    }),
+    [
+      companyId,
+      selectedGroup,
+      groupsAllMode,
+      groupAllMode,
+      currency,
+      dateFrom,
+      dateTo,
+      activePreset,
+      showName,
+      showCaptureOnly,
+      showPaymentOnly,
+      showZeroBalance,
+      selectedCategories,
+      typeSearchActive,
+      typeSearchFormType,
+      rawSearchData,
+    ],
+  );
 
   const switchCompany = useCallback(async (id) => {
     const cid = Number(id);
@@ -712,6 +784,7 @@ export function useMobileTransaction() {
     toast,
     pushToast,
     submitTx,
+    captureListSnapshot,
     retry,
     logout,
   };
