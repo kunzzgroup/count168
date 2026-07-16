@@ -5,6 +5,7 @@ import LoginPage from "./pages/login/LoginPage.jsx";
 import SecondaryPasswordPage from "./pages/login/SecondaryPasswordPage.jsx";
 import StubPage from "./pages/StubPage.jsx";
 import { clearMobileTxListSnapshot } from "./lib/mobileTxListSnapshot.js";
+import TransactionLayout from "./pages/transaction/TransactionLayout.jsx";
 import TransactionPage from "./pages/transaction/TransactionPage.jsx";
 import TransactionHistoryPage from "./pages/transaction/TransactionHistoryPage.jsx";
 
@@ -24,26 +25,28 @@ export default function App() {
     <>
       <ClearTxListSnapshotOutsideTransaction />
       <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/dashboard" element={<DashboardPage />} />
-      <Route path="/home" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/member" element={<StubPage title="会员 Win/Loss" backTo="/login" />} />
-      <Route path="/report" element={<StubPage title="报表 Report" backTo="/dashboard" />} />
-      <Route path="/transaction" element={<TransactionPage />} />
-      <Route path="/transaction/history" element={<TransactionHistoryPage />} />
-      <Route path="/more" element={<StubPage title="更多功能" backTo="/dashboard" />} />
-      <Route path="/reset-password" element={<StubPage title="重置密码" />} />
-      <Route
-        path="/owner-secondary-password"
-        element={<SecondaryPasswordPage variant="owner" />}
-      />
-      <Route
-        path="/user-secondary-password"
-        element={<SecondaryPasswordPage variant="user" />}
-      />
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/home" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/member" element={<StubPage title="会员 Win/Loss" backTo="/login" />} />
+        <Route path="/report" element={<StubPage title="报表 Report" backTo="/dashboard" />} />
+        <Route path="/transaction" element={<TransactionLayout />}>
+          <Route index element={<TransactionPage />} />
+          <Route path="history" element={<TransactionHistoryPage />} />
+        </Route>
+        <Route path="/more" element={<StubPage title="更多功能" backTo="/dashboard" />} />
+        <Route path="/reset-password" element={<StubPage title="重置密码" />} />
+        <Route
+          path="/owner-secondary-password"
+          element={<SecondaryPasswordPage variant="owner" />}
+        />
+        <Route
+          path="/user-secondary-password"
+          element={<SecondaryPasswordPage variant="user" />}
+        />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
     </>
   );
 }

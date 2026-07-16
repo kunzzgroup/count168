@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useOutletContext, useSearchParams } from "react-router-dom";
 import MobileShell from "../../components/layout/MobileShell.jsx";
-import { useMobileTransaction } from "../../hooks/useMobileTransaction.js";
 import {
   formatHistoryBalanceMoney,
   formatHistoryMoney,
@@ -20,6 +19,12 @@ import {
 } from "../../lib/transactionHistoryScope.js";
 import { historyTypeBadgeClass, historyTypeCardClass, historyTypeLabel } from "../../lib/transactionTypeStyles.js";
 import ExportPdfSheet from "./ExportPdfSheet.jsx";
+
+/** Stable id from history API rows (field is transaction_id, not id). */
+function historyRowId(row) {
+  const n = Number(row?.transaction_id ?? row?.id ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
 
 /** Sort key for history row dates (supports DD/MM/YYYY and YYYY-MM-DD). */
 function historyDateSortKey(row) {
@@ -40,7 +45,7 @@ function sortHistoryNewestFirst(rows) {
     if (aBf !== bBf) return aBf - bBf;
     const byDate = historyDateSortKey(b).localeCompare(historyDateSortKey(a));
     if (byDate !== 0) return byDate;
-    return Number(b?.id || 0) - Number(a?.id || 0);
+    return historyRowId(b) - historyRowId(a);
   });
 }
 
@@ -66,7 +71,7 @@ function HistMetric({ label, rawValue, display }) {
 }
 
 export default function TransactionHistoryPage() {
-  const tx = useMobileTransaction();
+  const { tx } = useOutletContext();
   const [searchParams] = useSearchParams();
   const scope = useMemo(() => resolvePaymentHistoryScope(searchParams), [searchParams]);
   const scopeApi = useMemo(() => paymentHistoryScopeApiParams(scope), [scope]);
@@ -204,8 +209,11 @@ export default function TransactionHistoryPage() {
         />
       }
     >
-      <p className="mb-3 text-[12px] font-medium text-slate-500">
+      <p className="mb-1 text-[12px] font-medium text-slate-500">
         {m.paymentHistoryShowingEntries.replace("{count}", String(displayRows.length))}
+      </p>
+      <p className="mb-3 text-[10px] font-medium leading-snug text-slate-400">
+        {m.paymentHistoryBalanceHint}
       </p>
 
       {loading ? (
@@ -233,7 +241,7 @@ export default function TransactionHistoryPage() {
 
             return (
               <li
-                key={row.id ?? `${idx}-${row.date || ""}-${row.balance || ""}`}
+                key={historyRowId(row) || `${idx}-${row.date || ""}-${row.balance || ""}`}
                 className={`overflow-hidden rounded-xl shadow-sm ${cardCls}`}
               >
                 <div className="flex items-center gap-2 border-b border-black/5 bg-white/50 px-3 py-2">

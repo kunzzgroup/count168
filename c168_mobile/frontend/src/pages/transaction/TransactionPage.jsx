@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import MobileShell from "../../components/layout/MobileShell.jsx";
-import { useMobileTransaction } from "../../hooks/useMobileTransaction.js";
 import { buildPaymentHistoryScope, persistPaymentHistoryScope } from "../../lib/transactionHistoryScope.js";
 import { persistMobileTxListSnapshot } from "../../lib/mobileTxListSnapshot.js";
 import { formatTransactionGridMoneyHalfUp, parseBalanceValue } from "../../lib/transactionFormat.js";
@@ -28,7 +27,7 @@ function ToggleChip({ active, onClick, children }) {
 }
 
 export default function TransactionPage() {
-  const tx = useMobileTransaction();
+  const { tx } = useOutletContext();
   const navigate = useNavigate();
   const [filterOpen, setFilterOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -177,6 +176,11 @@ export default function TransactionPage() {
           </ToggleChip>
         ) : null}
       </div>
+      {tx.typeSearchActive ? (
+        <p className="mt-1.5 text-[10px] font-medium leading-snug text-slate-500">
+          {tx.m.pullToExitTypeSearch}
+        </p>
+      ) : null}
     </div>
   );
 

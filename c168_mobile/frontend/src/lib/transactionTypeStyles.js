@@ -5,6 +5,7 @@
 const TYPE_BADGE = {
   CONTRA: "bg-violet-100 text-violet-800 ring-violet-300",
   PAYMENT: "bg-sky-100 text-sky-800 ring-sky-300",
+  RECEIVE: "bg-cyan-100 text-cyan-900 ring-cyan-300",
   CLAIM: "bg-amber-100 text-amber-900 ring-amber-300",
   PROFIT: "bg-emerald-100 text-emerald-800 ring-emerald-300",
   WIN: "bg-emerald-100 text-emerald-800 ring-emerald-300",
@@ -18,6 +19,7 @@ const TYPE_BADGE = {
 const TYPE_CARD = {
   CONTRA: "bg-violet-50 ring-2 ring-violet-300",
   PAYMENT: "bg-sky-50 ring-2 ring-sky-300",
+  RECEIVE: "bg-cyan-50 ring-2 ring-cyan-300",
   CLAIM: "bg-amber-50 ring-2 ring-amber-300",
   PROFIT: "bg-emerald-50 ring-2 ring-emerald-300",
   WIN: "bg-emerald-50 ring-2 ring-emerald-300",
