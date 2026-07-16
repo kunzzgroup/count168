@@ -32,11 +32,11 @@ function historyDateSortKey(row) {
   return raw;
 }
 
-/** Newest date first; B/F (period opening) stays at the bottom. */
+/** Newest date first; B/F (period opening) always stays on top. */
 function sortHistoryNewestFirst(rows) {
   return [...(rows || [])].sort((a, b) => {
-    const aBf = a?.row_type === "bf" ? 1 : 0;
-    const bBf = b?.row_type === "bf" ? 1 : 0;
+    const aBf = a?.row_type === "bf" ? 0 : 1;
+    const bBf = b?.row_type === "bf" ? 0 : 1;
     if (aBf !== bBf) return aBf - bBf;
     const byDate = historyDateSortKey(b).localeCompare(historyDateSortKey(a));
     if (byDate !== 0) return byDate;
