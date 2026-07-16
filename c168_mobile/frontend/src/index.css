@@ -1,4 +1,7 @@
-/* Tailwind v4 — utilities only (preflight disabled to avoid affecting login/other pages) */
+/* Tailwind v4 — utilities only (preflight disabled to avoid affecting login/other pages).
+ * Page styles: dedicated CSS per domain (e.g. pages/transaction/transaction.css).
+ * Shared tokens / roles / money: src/styles/*.css via main.jsx.
+ */
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);

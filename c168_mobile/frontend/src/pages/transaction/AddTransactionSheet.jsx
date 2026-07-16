@@ -10,6 +10,7 @@ import {
 } from "../../lib/transactionFormat.js";
 import { buildRatePayload, toNumberLike } from "../../lib/transactionSubmitHelpers.js";
 import { formatYmd, parseYmd, formatDisplayDate } from "../../lib/dashboardDateUtils.js";
+import "./add-transaction-sheet.css";
 
 const TX_TYPES = ["CONTRA", "PAYMENT", "CLAIM", "PROFIT", "RATE", "ADJUSTMENT", "CLEAR"];
 
@@ -34,33 +35,25 @@ function sanitizeAmountInput(value) {
 function DateTapRow({ label, value, onChange, disabled, badge }) {
   return (
     <label
-      className={`relative flex min-h-[56px] items-center gap-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3 transition-colors focus-within:border-[#2f6bf6] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#2f6bf6]/20 ${
-        disabled ? "opacity-50" : "cursor-pointer active:bg-slate-100"
-      }`}
+      className={`m-tx-date-row${disabled ? " m-tx-date-row--disabled" : ""}`}
     >
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-[#2f6bf6] shadow-sm ring-1 ring-slate-100">
-        <i className="far fa-calendar text-[15px]" aria-hidden="true" />
+      <span className="m-tx-date-icon">
+        <i className="far fa-calendar" aria-hidden="true" />
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-400">{label}</span>
-        <span className="mt-0.5 flex min-w-0 items-center gap-2">
-          <span className="truncate text-[16px] font-bold tabular-nums text-slate-900">
-            {value ? formatDisplayDate(value) : "—"}
-          </span>
-          {badge ? (
-            <span className="shrink-0 rounded-md bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700">
-              {badge}
-            </span>
-          ) : null}
+      <span className="m-tx-date-main">
+        <span className="m-tx-date-label">{label}</span>
+        <span className="m-tx-date-value-row">
+          <span className="m-tx-date-value">{value ? formatDisplayDate(value) : "—"}</span>
+          {badge ? <span className="m-tx-date-badge">{badge}</span> : null}
         </span>
       </span>
-      <i className="fas fa-chevron-right text-[11px] text-slate-300" aria-hidden="true" />
+      <i className="fas fa-chevron-right m-tx-date-chevron" aria-hidden="true" />
       <input
         type="date"
         value={value || ""}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="absolute inset-0 z-10 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+        className="m-tx-date-input"
         aria-label={label}
       />
     </label>
@@ -69,10 +62,8 @@ function DateTapRow({ label, value, onChange, disabled, badge }) {
 
 function AccountPicker({ label, placeholder, options, value, onChange, disabled }) {
   return (
-    <div className="space-y-1.5">
-      {label ? (
-        <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{label}</label>
-      ) : null}
+    <div className="m-tx-account-field">
+      {label ? <label className="m-tx-form-label">{label}</label> : null}
       <select
         value={value?.id ? String(value.id) : ""}
         disabled={disabled}
@@ -80,7 +71,7 @@ function AccountPicker({ label, placeholder, options, value, onChange, disabled 
           const id = e.target.value;
           onChange(options.find((o) => String(o.id) === id) || null);
         }}
-        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[14px] font-semibold outline-none focus:border-[#2f6bf6]"
+        className="m-tx-form-select"
         aria-label={label || placeholder}
       >
         <option value="">{placeholder}</option>
@@ -407,40 +398,27 @@ export default function AddTransactionSheet({
     : m.addTransaction;
 
   return (
-    <div className="fixed inset-0 z-[90]">
-      <button
-        type="button"
-        className="absolute inset-0 size-full border-0 bg-slate-900/45 backdrop-blur-[2px]"
-        aria-label={m.close}
-        onClick={onClose}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={sheetTitle}
-        className="absolute inset-x-0 bottom-0 flex max-h-[min(90dvh,100%)] min-h-0 flex-col overflow-hidden rounded-t-3xl bg-white shadow-[0_-12px_40px_-12px_rgba(15,23,42,0.35)]"
-      >
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3">
-          <p className="text-[15px] font-bold text-slate-900">{sheetTitle}</p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="tap-scale grid size-9 place-items-center rounded-xl bg-slate-100 text-slate-500"
-          >
+    <div className="m-add-tx-host">
+      <button type="button" className="m-add-tx-backdrop" aria-label={m.close} onClick={onClose} />
+      <div role="dialog" aria-modal="true" aria-label={sheetTitle} className="m-add-tx-panel">
+        <div className="m-add-tx-header">
+          <p className="m-add-tx-title">{sheetTitle}</p>
+          <button type="button" onClick={onClose} className="m-add-tx-close tap-scale">
             <i className="fas fa-times" aria-hidden="true" />
           </button>
         </div>
 
-        <div ref={bodyRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
+        <div ref={bodyRef} className="m-add-tx-body">
           <div ref={typeBlockRef}>
-            <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.type}</label>
+            <label className="m-tx-form-label">{m.type}</label>
             <select
               value={txType}
               disabled={mutationsBlocked && !isSearchMode}
               onChange={(e) => {
                 setTxType(e.target.value);
               }}
-              className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[14px] font-bold outline-none"
+              className="m-tx-form-select m-tx-form-select--bold"
+              style={{ marginTop: "0.375rem" }}
             >
               {TX_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -448,13 +426,13 @@ export default function AddTransactionSheet({
                 </option>
               ))}
             </select>
-            <div className="mt-2 flex gap-2">
+            <div className="m-tx-form-actions">
               {isSearchMode ? null : (
                 <button
                   type="button"
                   disabled={!txType}
                   onClick={() => onTypeSearch?.(txType)}
-                  className="tap-scale flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-[12px] font-bold text-slate-700 disabled:opacity-40"
+                  className="m-tx-form-btn m-tx-form-btn--outline tap-scale"
                 >
                   {m.search}
                 </button>
@@ -463,7 +441,7 @@ export default function AddTransactionSheet({
                 <button
                   type="button"
                   onClick={() => onExitTypeSearch?.()}
-                  className="tap-scale flex-1 rounded-xl bg-amber-100 py-2.5 text-[12px] font-bold text-amber-800"
+                  className="m-tx-form-btn m-tx-form-btn--warn tap-scale"
                   title={m.exitTypeSearchAndRefreshTitle}
                 >
                   {m.exitTypeSearchAndRefresh}
@@ -471,7 +449,7 @@ export default function AddTransactionSheet({
               ) : null}
             </div>
             {isSearchMode ? (
-              <p className="mt-2 text-[11px] font-medium leading-snug text-slate-500">
+              <p className="m-tx-form-hint">
                 {m.fabSearchHint ||
                   "Pick a transaction type, then Search to filter accounts by that type."}
               </p>
@@ -508,13 +486,13 @@ export default function AddTransactionSheet({
                   disabled={mutationsBlocked}
                 />
               )}
-              <div>
-                <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.currency}</label>
+              <div className="m-tx-form-field">
+                <label className="m-tx-form-label">{m.currency}</label>
                 <select
                   value={txCurrency}
                   disabled={mutationsBlocked}
                   onChange={(e) => setTxCurrency(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[14px] font-semibold"
+                  className="m-tx-form-select"
                 >
                   <option value="">{m.selectCurrency}</option>
                   {currencyOptions.map((c) => (
@@ -524,15 +502,15 @@ export default function AddTransactionSheet({
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.amount}</label>
+              <div className="m-tx-form-field">
+                <label className="m-tx-form-label">{m.amount}</label>
                 <input
                   type="text"
                   inputMode="decimal"
                   value={txAmount}
                   disabled={mutationsBlocked}
                   onChange={(e) => setTxAmount(sanitizeAmountInput(e.target.value))}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-[14px] font-semibold tabular-nums"
+                  className="m-tx-form-input"
                 />
               </div>
             </>
@@ -540,8 +518,8 @@ export default function AddTransactionSheet({
 
           {isRate ? (
             <>
-              <div className="space-y-1.5">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.account}</p>
+              <div className="m-tx-form-section">
+                <p className="m-tx-form-label">{m.account}</p>
                 <AccountPicker
                   label=""
                   placeholder={m.selectToAccount}
@@ -571,20 +549,20 @@ export default function AddTransactionSheet({
                     setRateCurrencyToAmount(tmpAmt);
                     setRateToAmountGrossStr(tmpAmt ? String(tmpAmt).replace(/,/g, "") : "");
                   }}
-                  className="tap-scale w-full rounded-xl border border-slate-200 bg-white py-2.5 text-[12px] font-bold text-slate-700 disabled:opacity-40"
+                  className="m-tx-form-btn m-tx-form-btn--outline tap-scale"
                 >
                   {m.reverse}
                 </button>
               </div>
 
-              <div className="space-y-1.5">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.currency}</p>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="m-tx-form-section">
+                <p className="m-tx-form-label">{m.currency}</p>
+                <div className="m-tx-form-grid-2">
                   <select
                     value={rateCurrencyFrom}
                     disabled={mutationsBlocked}
                     onChange={(e) => setRateCurrencyFrom(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[13px] font-semibold"
+                    className="m-tx-form-select"
                     aria-label={m.from}
                   >
                     <option value="">{m.selectCurrency}</option>
@@ -601,7 +579,7 @@ export default function AddTransactionSheet({
                     disabled={mutationsBlocked}
                     onChange={(e) => setRateCurrencyFromAmount(sanitizeAmountInput(e.target.value))}
                     placeholder={m.amount}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-[13px] font-semibold tabular-nums"
+                    className="m-tx-form-input"
                     aria-label={m.fromAccount}
                   />
                 </div>
@@ -612,15 +590,15 @@ export default function AddTransactionSheet({
                   disabled={mutationsBlocked}
                   onChange={(e) => setRateExchangeRateRaw(e.target.value)}
                   placeholder={m.rate}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-3 text-[13px] font-semibold"
+                  className="m-tx-form-input"
                   aria-label={m.rate}
                 />
-                <div className="grid grid-cols-2 gap-2">
+                <div className="m-tx-form-grid-2">
                   <select
                     value={rateCurrencyTo}
                     disabled={mutationsBlocked}
                     onChange={(e) => setRateCurrencyTo(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[13px] font-semibold"
+                    className="m-tx-form-select"
                     aria-label={m.to}
                   >
                     <option value="">{m.selectCurrency}</option>
@@ -637,7 +615,7 @@ export default function AddTransactionSheet({
                     readOnly
                     disabled={mutationsBlocked}
                     placeholder={m.amount}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[13px] font-semibold tabular-nums text-slate-700"
+                    className="m-tx-form-input m-tx-form-input--readonly"
                     aria-label={m.toAccount}
                   />
                 </div>
@@ -652,15 +630,15 @@ export default function AddTransactionSheet({
                     setRateCurrencyToAmount(tmpAmt);
                     setRateToAmountGrossStr(tmpAmt ? String(tmpAmt).replace(/,/g, "") : "");
                   }}
-                  className="tap-scale w-full rounded-xl border border-slate-200 bg-white py-2.5 text-[12px] font-bold text-slate-700 disabled:opacity-40"
+                  className="m-tx-form-btn m-tx-form-btn--outline tap-scale"
                 >
                   {m.reverse}
                 </button>
               </div>
 
-              <div className="space-y-1.5">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500">
-                  {m.account} <span className="font-medium normal-case text-slate-400">({m.optional})</span>
+              <div className="m-tx-form-section">
+                <p className="m-tx-form-label m-tx-form-label--optional">
+                  {m.account} <span>({m.optional})</span>
                 </p>
                 <AccountPicker
                   label=""
@@ -687,14 +665,14 @@ export default function AddTransactionSheet({
                     setRateTransferToAccount(rateTransferFromAccount);
                     setRateTransferFromAccount(rateTransferToAccount);
                   }}
-                  className="tap-scale w-full rounded-xl border border-slate-200 bg-white py-2.5 text-[12px] font-bold text-slate-700 disabled:opacity-40"
+                  className="m-tx-form-btn m-tx-form-btn--outline tap-scale"
                 >
                   {m.reverse}
                 </button>
               </div>
 
-              <div className="space-y-1.5">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.middleMan}</p>
+              <div className="m-tx-form-section">
+                <p className="m-tx-form-label">{m.middleMan}</p>
                 <AccountPicker
                   label=""
                   placeholder={m.selectMiddleManAccount}
@@ -710,10 +688,10 @@ export default function AddTransactionSheet({
                   disabled={mutationsBlocked}
                   onChange={(e) => setRateMiddlemanRate(e.target.value)}
                   placeholder={m.rateMultiplier}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-3 text-[13px] font-semibold"
+                  className="m-tx-form-input"
                   aria-label={m.rateMultiplier}
                 />
-                <div className="grid grid-cols-2 gap-2">
+                <div className="m-tx-form-grid-2">
                   <input
                     type="text"
                     inputMode="decimal"
@@ -721,7 +699,7 @@ export default function AddTransactionSheet({
                     disabled={mutationsBlocked}
                     onChange={(e) => setRateMiddlemanInputAmount(sanitizeAmountInput(e.target.value))}
                     placeholder={m.fee}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-3 text-[13px] font-semibold"
+                    className="m-tx-form-input"
                     aria-label={m.fee}
                   />
                   <input
@@ -731,7 +709,7 @@ export default function AddTransactionSheet({
                     readOnly
                     disabled={mutationsBlocked}
                     placeholder={m.amount}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[13px] font-semibold tabular-nums text-slate-700"
+                    className="m-tx-form-input m-tx-form-input--readonly"
                     aria-label={m.middleMan}
                   />
                 </div>
@@ -740,60 +718,53 @@ export default function AddTransactionSheet({
           ) : null}
 
           {!isRate ? (
-            <div>
-              <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.remark}</label>
+            <div className="m-tx-form-field">
+              <label className="m-tx-form-label">{m.remark}</label>
               <textarea
                 value={txRemark}
                 disabled={mutationsBlocked}
                 onChange={(e) => setTxRemark(e.target.value.toUpperCase())}
                 rows={2}
-                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-[14px] uppercase outline-none focus:border-[#2f6bf6]"
+                className="m-tx-form-textarea"
               />
             </div>
           ) : null}
 
-          <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+          <label className="m-tx-form-checkbox">
             <input
               type="checkbox"
               checked={txConfirm}
               disabled={mutationsBlocked}
               onChange={(e) => setTxConfirm(e.target.checked)}
-              className="size-5 rounded border-slate-300 text-[#2f6bf6]"
             />
-            <span className="text-[13px] font-semibold text-slate-800">{m.confirmSubmit}</span>
+            <span>{m.confirmSubmit}</span>
           </label>
             </>
           )}
         </div>
 
         {isSearchMode ? (
-          <div
-            className="shrink-0 border-t border-slate-100 px-4 pt-3"
-            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
-          >
+          <div className="m-add-tx-footer m-add-tx-footer--single">
             <button
               type="button"
               disabled={!txType}
               onClick={() => onTypeSearch?.(txType)}
-              className="tap-scale w-full rounded-2xl bg-[#2f6bf6] py-3.5 text-[14px] font-bold text-white disabled:opacity-50"
+              className="m-add-tx-submit tap-scale"
             >
               {m.search}
             </button>
           </div>
         ) : (
-        <div
-          className="flex shrink-0 gap-2 border-t border-slate-100 px-4 pt-3"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
-        >
-          <button
-            type="button"
-            disabled={!txConfirm || submitting || mutationsBlocked}
-            onClick={handleSubmit}
-            className="tap-scale flex-1 rounded-2xl bg-[#2f6bf6] py-3.5 text-[14px] font-bold text-white disabled:opacity-50"
-          >
-            {submitting ? m.submitting : m.submit}
-          </button>
-        </div>
+          <div className="m-add-tx-footer">
+            <button
+              type="button"
+              disabled={!txConfirm || submitting || mutationsBlocked}
+              onClick={handleSubmit}
+              className="m-add-tx-submit tap-scale"
+            >
+              {submitting ? m.submitting : m.submit}
+            </button>
+          </div>
         )}
       </div>
     </div>

@@ -1,0 +1,231 @@
+/* Payment history page — import via TransactionHistoryPage.jsx */
+
+.m-tx-hist-sticky {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: var(--m-radius-card-lg);
+  background: var(--m-color-surface);
+  padding: 0.625rem 0.75rem;
+  box-shadow: var(--m-shadow-card);
+  outline: 1px solid var(--m-color-ring-soft);
+}
+
+.m-tx-hist-back {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 0.75rem;
+  background: var(--m-color-surface-muted);
+  color: var(--m-color-text-secondary);
+}
+
+.m-tx-hist-back i {
+  font-size: 0.875rem;
+}
+
+.m-tx-hist-head {
+  min-width: 0;
+  flex: 1;
+}
+
+.m-tx-hist-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--m-text-body);
+  font-weight: 700;
+  color: var(--m-color-text);
+}
+
+.m-tx-hist-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.6875rem;
+  color: var(--m-color-muted);
+}
+
+.m-tx-hist-export {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 0.75rem;
+  background: var(--m-color-primary);
+  color: #fff;
+}
+
+.m-tx-hist-export i {
+  font-size: 0.875rem;
+}
+
+.m-tx-hist-count {
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--m-color-muted);
+}
+
+.m-tx-hist-hint {
+  margin-bottom: 0.75rem;
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.375;
+  color: var(--m-color-label);
+}
+
+.m-tx-hist-loading {
+  padding: 4rem 0;
+  text-align: center;
+  font-size: var(--m-text-body);
+  font-weight: 600;
+  color: var(--m-color-muted);
+}
+
+.m-tx-hist-error {
+  border-radius: var(--m-radius-card-lg);
+  background: #fff1f2;
+  padding: 0.75rem 1rem;
+  font-size: var(--m-text-body);
+  font-weight: 600;
+  color: #be123c;
+}
+
+.m-tx-hist-empty {
+  padding: 3rem 0;
+  text-align: center;
+  font-size: var(--m-text-body);
+  font-weight: 500;
+  color: var(--m-color-muted);
+}
+
+.m-tx-hist-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 2rem;
+}
+
+.m-tx-hist-list > li + li {
+  margin-top: 0.625rem;
+}
+
+.m-tx-hist-card {
+  overflow: hidden;
+  border-radius: 0.75rem;
+  box-shadow: var(--m-shadow-card);
+}
+
+.m-tx-hist-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.5);
+  padding: 0.5rem 0.75rem;
+}
+
+.m-tx-hist-type-badge {
+  flex-shrink: 0;
+  border-radius: 0.375rem;
+  padding: 0.125rem 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  outline: 1px solid transparent;
+}
+
+.m-tx-hist-date {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--m-color-text-secondary);
+}
+
+.m-tx-hist-currency {
+  flex-shrink: 0;
+  border-radius: 0.375rem;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 0.125rem 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  color: var(--m-color-text-secondary);
+  outline: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.m-tx-hist-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 0.375rem 0.375rem;
+}
+
+.m-tx-hist-metric {
+  min-width: 0;
+  padding: 0.25rem 0.25rem;
+  text-align: right;
+}
+
+.m-tx-hist-metric-label {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--m-color-label);
+}
+
+.m-tx-hist-metric-value {
+  margin-top: 0.125rem;
+  white-space: nowrap;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.375;
+}
+
+.m-tx-hist-footer {
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 0.5rem 0.75rem;
+}
+
+.m-tx-hist-footer > * + * {
+  margin-top: 0.125rem;
+}
+
+.m-tx-hist-desc {
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.375;
+  color: var(--m-color-text-secondary);
+}
+
+.m-tx-hist-desc-label {
+  color: var(--m-color-label);
+}
+
+.m-tx-hist-meta {
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--m-color-muted);
+}
+
+.m-tx-hist-remark {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.625rem;
+  color: var(--m-color-muted);
+}
+
+.m-tx-hist-created {
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--m-color-label);
+}

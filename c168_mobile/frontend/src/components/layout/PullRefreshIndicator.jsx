@@ -1,3 +1,5 @@
+import "./pull-refresh.css";
+
 /** Circular pull / refresh indicator — moves with content, no layout jump. */
 export default function PullRefreshIndicator({ pullPx, progress, phase, labels }) {
   const spinning = phase === "refreshing";
@@ -22,7 +24,7 @@ export default function PullRefreshIndicator({ pullPx, progress, phase, labels }
 
   return (
     <div
-      className="flex flex-col items-center justify-end overflow-hidden"
+      className="m-pull-refresh"
       style={{
         height: Math.max(pullPx, spinning || settling ? 46 : 0),
         opacity,
@@ -31,23 +33,17 @@ export default function PullRefreshIndicator({ pullPx, progress, phase, labels }
       aria-live={spinning ? "polite" : undefined}
       aria-hidden={!pulling && !spinning && !settling}
     >
-      <div className="flex flex-col items-center gap-1 pb-1">
-        <div className="relative grid size-8 place-items-center">
+      <div className="m-pull-refresh-inner">
+        <div className="m-pull-refresh-icon-wrap">
           <svg
             width={size}
             height={size}
             viewBox={`0 0 ${size} ${size}`}
-            className={spinning ? "animate-[mPullSpin_0.75s_linear_infinite]" : ""}
+            className={spinning ? "svg--spinning" : ""}
+            style={spinning ? { animation: "mPullSpin 0.75s linear infinite" } : undefined}
             aria-hidden="true"
           >
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={r}
-              fill="none"
-              stroke="#e2e8f0"
-              strokeWidth={stroke}
-            />
+            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e2e8f0" strokeWidth={stroke} />
             {!spinning ? (
               <circle
                 cx={size / 2}
@@ -77,21 +73,17 @@ export default function PullRefreshIndicator({ pullPx, progress, phase, labels }
           </svg>
           {!spinning && (
             <i
-              className={`fas fa-arrow-down absolute text-[9px] ${
-                armed ? "text-[#2f6bf6]" : "text-slate-400"
+              className={`fas fa-arrow-down m-pull-refresh-arrow ${
+                armed ? "m-pull-refresh-arrow--armed" : "m-pull-refresh-arrow--idle"
               }`}
-              style={{
-                transform: armed ? "rotate(180deg)" : undefined,
-                transition: "transform 180ms ease, color 180ms ease",
-              }}
               aria-hidden="true"
             />
           )}
         </div>
         {(pulling || spinning) && (
           <span
-            className={`text-[10px] font-bold tracking-wide ${
-              armed || spinning ? "text-[#2f6bf6]" : "text-slate-400"
+            className={`m-pull-refresh-label ${
+              armed || spinning ? "m-pull-refresh-label--active" : "m-pull-refresh-label--idle"
             }`}
           >
             {label}

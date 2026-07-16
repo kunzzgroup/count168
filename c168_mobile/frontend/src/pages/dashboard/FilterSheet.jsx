@@ -11,19 +11,15 @@ import {
 import { dashboardLabel } from "../../translateFile/dashboardTranslate.js";
 
 function Pill({ active, disabled, onClick, block, tone = "blue", children }) {
-  const activeCls =
-    tone === "violet"
-      ? "border-transparent bg-violet-600 text-white shadow-[0_6px_14px_-4px_rgba(124,58,237,0.45)]"
-      : "border-transparent bg-[#2f6bf6] text-white shadow-[0_6px_14px_-4px_rgba(47,107,246,0.5)]";
+  const activeMod =
+    tone === "violet" ? "m-filter-pill--active-violet" : "m-filter-pill--active-blue";
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`tap-scale rounded-xl border px-3 py-2.5 text-[13px] font-semibold transition-colors ${
-        block ? "w-full text-center" : "shrink-0"
-      } ${active ? activeCls : "border-slate-200 bg-white text-slate-600"} ${
-        disabled ? "cursor-not-allowed opacity-40" : ""
+      className={`m-filter-pill tap-scale${block ? " m-filter-pill--block" : " m-filter-pill--inline"}${
+        active ? ` ${activeMod}` : ""
       }`}
     >
       {children}
@@ -33,9 +29,9 @@ function Pill({ active, disabled, onClick, block, tone = "blue", children }) {
 
 function Section({ title, trailing, children }) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[13px] font-semibold text-slate-900">{title}</p>
+    <div className="m-filter-section">
+      <div className="m-filter-section-head">
+        <p className="m-filter-section-title">{title}</p>
         {trailing}
       </div>
       {children}
@@ -48,32 +44,24 @@ function DateRangeRow({ fromLabel, toLabel, dateFrom, dateTo, active, onOpen }) 
     <button
       type="button"
       onClick={onOpen}
-      className={`tap-scale flex w-full items-stretch gap-2 rounded-2xl border bg-slate-50 p-1.5 text-left transition-colors ${
-        active
-          ? "border-[#2f6bf6] ring-2 ring-[#2f6bf6]/20"
-          : "border-slate-200 active:bg-slate-100"
-      }`}
+      className={`m-filter-range-row tap-scale${active ? " m-filter-range-row--active" : ""}`}
       aria-label={`${fromLabel} ${dateFrom ? formatDisplayDate(dateFrom) : "—"} · ${toLabel} ${dateTo ? formatDisplayDate(dateTo) : "—"}`}
     >
-      <span className="grid size-11 shrink-0 place-items-center self-center rounded-xl bg-white text-[#2f6bf6] shadow-sm ring-1 ring-slate-100">
-        <i className="far fa-calendar text-[15px]" aria-hidden="true" />
+      <span className="m-filter-range-icon">
+        <i className="far fa-calendar" aria-hidden="true" />
       </span>
-      <span className="min-w-0 flex-1 space-y-1 py-1 pr-1">
-        <span className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-slate-100">
-          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{fromLabel}</span>
-          <span className="truncate text-[14px] font-bold tabular-nums text-slate-900">
-            {dateFrom ? formatDisplayDate(dateFrom) : "—"}
-          </span>
+      <span className="m-filter-range-fields">
+        <span className="m-filter-range-field">
+          <span className="m-filter-range-label">{fromLabel}</span>
+          <span className="m-filter-range-value">{dateFrom ? formatDisplayDate(dateFrom) : "—"}</span>
         </span>
-        <span className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-slate-100">
-          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{toLabel}</span>
-          <span className="truncate text-[14px] font-bold tabular-nums text-slate-900">
-            {dateTo ? formatDisplayDate(dateTo) : "—"}
-          </span>
+        <span className="m-filter-range-field">
+          <span className="m-filter-range-label">{toLabel}</span>
+          <span className="m-filter-range-value">{dateTo ? formatDisplayDate(dateTo) : "—"}</span>
         </span>
       </span>
-      <span className="grid shrink-0 place-items-center self-center pr-2 text-slate-300">
-        <i className="fas fa-chevron-right text-[11px]" aria-hidden="true" />
+      <span className="m-filter-range-chevron">
+        <i className="fas fa-chevron-right" aria-hidden="true" />
       </span>
     </button>
   );
@@ -83,7 +71,7 @@ const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 function buildMonthCells(year, month) {
   const first = new Date(year, month, 1);
-  const startPad = (first.getDay() + 6) % 7; // Mon=0
+  const startPad = (first.getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells = [];
   for (let i = 0; i < startPad; i += 1) cells.push(null);
@@ -105,14 +93,11 @@ function inRangeYmd(day, from, to) {
   return cmpYmd(day, lo) >= 0 && cmpYmd(day, hi) <= 0;
 }
 
-/**
- * Same range picker for From/To — first tap = start, second tap = end (auto-swap if needed).
- */
 function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, labels, onApply }) {
   const [cursor, setCursor] = useState(() => parseYmd(dateFrom || maxYmd || todayYmd()));
   const [draftFrom, setDraftFrom] = useState(dateFrom || "");
   const [draftTo, setDraftTo] = useState(dateTo || "");
-  const [picking, setPicking] = useState("start"); // start | end
+  const [picking, setPicking] = useState("start");
 
   useEffect(() => {
     if (!open) return;
@@ -160,79 +145,54 @@ function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, label
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col justify-end">
-      <button type="button" className="absolute inset-0 bg-slate-900/40" aria-label={labels.close} onClick={onClose} />
+    <div className="m-sheet-host-flex">
+      <button type="button" className="m-sheet-backdrop m-sheet-backdrop--light" aria-label={labels.close} onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
         aria-label={labels.selectDateRange}
-        className="relative z-10 max-h-[88dvh] overflow-hidden rounded-t-3xl bg-white shadow-2xl"
+        className="m-sheet-panel m-sheet-panel--calendar"
       >
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+        <div className="m-filter-cal-header">
           <div className="min-w-0">
-            <p className="text-[15px] font-bold text-slate-900">{labels.selectDateRange}</p>
-            <p className="mt-0.5 text-[11px] font-medium text-slate-500">{labels.rangePickHint}</p>
+            <p className="m-filter-cal-title">{labels.selectDateRange}</p>
+            <p className="m-filter-cal-hint">{labels.rangePickHint}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="grid size-9 place-items-center rounded-xl bg-slate-100 text-slate-500"
-            aria-label={labels.close}
-          >
+          <button type="button" onClick={onClose} className="m-sheet-close m-sheet-close--square tap-scale" aria-label={labels.close}>
             <i className="fas fa-times" aria-hidden="true" />
           </button>
         </div>
 
-        <div className="space-y-3 px-4 py-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div
-              className={`rounded-xl px-3 py-2 ring-1 ${
-                picking === "start" ? "bg-sky-50 ring-[#2f6bf6]" : "bg-slate-50 ring-slate-200"
-              }`}
-            >
-              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{labels.from}</p>
-              <p className="mt-0.5 text-[14px] font-bold tabular-nums text-slate-900">
-                {draftFrom ? formatDisplayDate(draftFrom) : "—"}
-              </p>
+        <div className="m-filter-cal-body">
+          <div className="m-filter-cal-draft-grid">
+            <div className={`m-filter-cal-draft${picking === "start" ? " m-filter-cal-draft--active" : ""}`}>
+              <p className="m-filter-cal-draft-label">{labels.from}</p>
+              <p className="m-filter-cal-draft-value">{draftFrom ? formatDisplayDate(draftFrom) : "—"}</p>
             </div>
-            <div
-              className={`rounded-xl px-3 py-2 ring-1 ${
-                picking === "end" ? "bg-sky-50 ring-[#2f6bf6]" : "bg-slate-50 ring-slate-200"
-              }`}
-            >
-              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{labels.toDate}</p>
-              <p className="mt-0.5 text-[14px] font-bold tabular-nums text-slate-900">
-                {draftTo ? formatDisplayDate(draftTo) : "—"}
-              </p>
+            <div className={`m-filter-cal-draft${picking === "end" ? " m-filter-cal-draft--active" : ""}`}>
+              <p className="m-filter-cal-draft-label">{labels.toDate}</p>
+              <p className="m-filter-cal-draft-value">{draftTo ? formatDisplayDate(draftTo) : "—"}</p>
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => shiftMonth(-1)}
-              className="tap-scale grid size-9 place-items-center rounded-xl bg-slate-100 text-slate-600"
-              aria-label="Previous month"
-            >
-              <i className="fas fa-chevron-left text-[12px]" aria-hidden="true" />
+          <div className="m-filter-cal-nav">
+            <button type="button" onClick={() => shiftMonth(-1)} className="m-filter-cal-nav-btn tap-scale" aria-label="Previous month">
+              <i className="fas fa-chevron-left" aria-hidden="true" />
             </button>
-            <p className="text-[14px] font-bold text-slate-900">{monthLabel}</p>
-            <button
-              type="button"
-              onClick={() => shiftMonth(1)}
-              className="tap-scale grid size-9 place-items-center rounded-xl bg-slate-100 text-slate-600"
-              aria-label="Next month"
-            >
-              <i className="fas fa-chevron-right text-[12px]" aria-hidden="true" />
+            <p className="m-filter-cal-month">{monthLabel}</p>
+            <button type="button" onClick={() => shiftMonth(1)} className="m-filter-cal-nav-btn tap-scale" aria-label="Next month">
+              <i className="fas fa-chevron-right" aria-hidden="true" />
             </button>
           </div>
 
-          <div className="grid grid-cols-7 gap-1 text-center">
+          <div className="m-filter-cal-weekdays">
             {WEEKDAYS.map((w) => (
-              <span key={w} className="py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              <span key={w} className="m-filter-cal-weekday">
                 {w}
               </span>
             ))}
+          </div>
+          <div className="m-filter-cal-grid">
             {cells.map((dayNum, idx) => {
               if (!dayNum) return <span key={`e-${idx}`} />;
               const ymd = formatYmd(new Date(year, month, dayNum));
@@ -240,21 +200,17 @@ function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, label
               const isStart = draftFrom && ymd === draftFrom;
               const isEnd = draftTo && ymd === draftTo;
               const inMid = draftFrom && draftTo && inRangeYmd(ymd, draftFrom, draftTo) && !isStart && !isEnd;
+              let dayMod = "";
+              if (disabled) dayMod = " m-filter-cal-day--disabled";
+              else if (isStart || isEnd) dayMod = " m-filter-cal-day--edge";
+              else if (inMid) dayMod = " m-filter-cal-day--mid";
               return (
                 <button
                   key={ymd}
                   type="button"
                   disabled={disabled}
                   onClick={() => pickDay(dayNum)}
-                  className={`tap-scale aspect-square rounded-xl text-[13px] font-semibold tabular-nums transition-colors ${
-                    disabled
-                      ? "cursor-not-allowed text-slate-300"
-                      : isStart || isEnd
-                        ? "bg-[#2f6bf6] text-white shadow-sm"
-                        : inMid
-                          ? "bg-[#2f6bf6]/15 text-[#2f6bf6]"
-                          : "text-slate-800 active:bg-slate-100"
-                  }`}
+                  className={`m-filter-cal-day tap-scale${dayMod}`}
                 >
                   {dayNum}
                 </button>
@@ -263,10 +219,7 @@ function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, label
           </div>
         </div>
 
-        <div
-          className="flex gap-2 border-t border-slate-100 px-4 pt-3"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
-        >
+        <div className="m-filter-cal-footer">
           <button
             type="button"
             onClick={() => {
@@ -274,7 +227,7 @@ function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, label
               setDraftTo("");
               setPicking("start");
             }}
-            className="tap-scale flex-1 rounded-2xl bg-slate-100 py-3 text-[13px] font-bold text-slate-600"
+            className="m-filter-cal-footer-btn tap-scale"
           >
             {labels.clear}
           </button>
@@ -289,7 +242,7 @@ function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, label
               onApply?.(t, t);
               onClose?.();
             }}
-            className="tap-scale flex-1 rounded-2xl bg-slate-100 py-3 text-[13px] font-bold text-slate-600"
+            className="m-filter-cal-footer-btn tap-scale"
           >
             {labels.today}
           </button>
@@ -308,7 +261,7 @@ function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, label
               onApply?.(from, to);
               onClose?.();
             }}
-            className="tap-scale flex-[1.4] rounded-2xl bg-[#2f6bf6] py-3 text-[13px] font-bold text-white disabled:opacity-40"
+            className="m-filter-cal-footer-btn m-filter-cal-footer-btn--primary tap-scale"
           >
             {labels.done}
           </button>
@@ -367,53 +320,37 @@ export default function FilterSheet({ open, onClose, dash }) {
 
   return (
     <div
-      className={`fixed inset-0 z-[60] transition-opacity duration-300 ${
-        open ? "opacity-100" : "pointer-events-none opacity-0"
-      }`}
+      className={`m-sheet-overlay${open ? " m-sheet-overlay--open" : " m-sheet-overlay--closed"}`}
       aria-hidden={!open}
       inert={open ? undefined : true}
     >
-      <button
-        type="button"
-        aria-label="Close filter"
-        onClick={onClose}
-        className="absolute inset-0 size-full border-0 bg-slate-900/30 backdrop-blur-sm"
-      />
+      <button type="button" aria-label="Close filter" onClick={onClose} className="m-sheet-backdrop" />
 
       <div
         role="dialog"
         aria-modal="true"
         aria-label={i18n.filter}
-        className={`absolute inset-x-0 bottom-0 flex max-h-[82%] flex-col rounded-t-3xl bg-white shadow-[0_-12px_40px_-12px_rgba(15,23,42,0.35)] transition-transform duration-300 ease-out ${
-          open ? "translate-y-0" : "translate-y-full"
-        }`}
+        className={`m-sheet-panel${open ? " m-sheet-panel--open" : " m-sheet-panel--closed"}`}
       >
-        <div className="flex justify-center pt-3" aria-hidden="true">
-          <span className="h-1.5 w-10 rounded-full bg-slate-300" />
+        <div className="m-sheet-handle-wrap" aria-hidden="true">
+          <span className="m-sheet-handle" />
         </div>
 
-        <div className="flex items-center justify-between px-5 pb-3 pt-2">
-          <h2 className="text-[18px] font-semibold text-slate-900">{i18n.filter}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="grid size-9 place-items-center rounded-full bg-slate-100 text-slate-500"
-          >
+        <div className="m-sheet-header">
+          <h2 className="m-sheet-title">{i18n.filter}</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="m-sheet-close tap-scale">
             <i className="fas fa-xmark" aria-hidden="true" />
           </button>
         </div>
 
-        <div ref={bodyRef} className="flex-1 space-y-6 overflow-y-auto px-5 pb-4">
+        <div ref={bodyRef} className="m-sheet-body m-sheet-body--spaced">
           <Section
             title={i18n.dateRange}
             trailing={
               span > 0 ? (
                 <span
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                    dash.activePreset
-                      ? "bg-slate-100 text-slate-500"
-                      : "bg-[#2f6bf6]/12 text-[#2f6bf6]"
+                  className={`m-filter-span-badge${
+                    dash.activePreset ? " m-filter-span-badge--preset" : " m-filter-span-badge--custom"
                   }`}
                 >
                   {dash.activePreset ? daysLabel : `${i18n.customRange} · ${daysLabel}`}
@@ -432,14 +369,9 @@ export default function FilterSheet({ open, onClose, dash }) {
           </Section>
 
           <Section title={i18n.quickSelect}>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="m-filter-pill-grid">
               {PERIOD_PRESET_KEYS.map((key) => (
-                <Pill
-                  key={key}
-                  active={dash.activePreset === key}
-                  onClick={() => applyPresetAndClose(key)}
-                  block
-                >
+                <Pill key={key} active={dash.activePreset === key} onClick={() => applyPresetAndClose(key)} block>
                   {dashboardLabel(i18n, key)}
                 </Pill>
               ))}
@@ -448,7 +380,7 @@ export default function FilterSheet({ open, onClose, dash }) {
 
           {dash.groupIds.length > 0 && (
             <Section title={i18n.groupId}>
-              <div className="flex flex-wrap gap-2">
+              <div className="m-filter-pill-wrap">
                 <Pill tone="violet" active={dash.groupsAllMode} onClick={pickAllGroupsAndClose}>
                   {i18n.all}
                 </Pill>
@@ -466,14 +398,12 @@ export default function FilterSheet({ open, onClose, dash }) {
                   </Pill>
                 ))}
               </div>
-              <p className="text-[11px] font-medium leading-snug text-slate-400">
-                {i18n.groupHint || "Group only — or pick All under Company to aggregate"}
-              </p>
+              <p className="m-filter-hint">{i18n.groupHint || "Group only — or pick All under Company to aggregate"}</p>
             </Section>
           )}
 
           <Section title={i18n.company}>
-            <div className="flex flex-wrap gap-2">
+            <div className="m-filter-pill-wrap">
               {(dash.companiesForPicker.length > 1 || dash.selectedGroup) && (
                 <Pill
                   active={dash.groupAllMode}
@@ -486,9 +416,7 @@ export default function FilterSheet({ open, onClose, dash }) {
               {dash.companiesForPicker.map((c) => {
                 const label = String(c.company_id || c.name || c.id).toUpperCase();
                 const active =
-                  !dash.groupAllMode &&
-                  !dash.groupOnlyMode &&
-                  Number(dash.companyId) === Number(c.id);
+                  !dash.groupAllMode && !dash.groupOnlyMode && Number(dash.companyId) === Number(c.id);
                 return (
                   <Pill key={String(c.id)} active={active} onClick={() => switchCompanyAndClose(c.id)}>
                     {label}
@@ -500,7 +428,7 @@ export default function FilterSheet({ open, onClose, dash }) {
 
           {dash.currencies.length > 0 && (
             <Section title={i18n.currency}>
-              <div className="flex max-h-36 flex-wrap gap-2 overflow-y-auto">
+              <div className="m-filter-pill-scroll">
                 {dash.currencies.map((code) => (
                   <Pill key={code} active={dash.currency === code} onClick={() => setCurrencyAndClose(code)}>
                     {code}
@@ -512,7 +440,7 @@ export default function FilterSheet({ open, onClose, dash }) {
 
           {Array.isArray(dash.categories) && dash.categories.length > 0 && (
             <Section title={dash.m?.category || i18n.category || "Category"}>
-              <div className="flex max-h-36 flex-wrap gap-2 overflow-y-auto">
+              <div className="m-filter-pill-scroll">
                 <Pill
                   active={!dash.selectedCategories?.length}
                   onClick={() => {
@@ -545,22 +473,11 @@ export default function FilterSheet({ open, onClose, dash }) {
           )}
         </div>
 
-        <div
-          className="flex gap-3 border-t border-slate-100 px-5 pt-3"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)" }}
-        >
-          <button
-            type="button"
-            onClick={handleReset}
-            className="tap-scale flex-1 rounded-2xl bg-slate-100 py-3.5 text-[14px] font-semibold text-slate-600"
-          >
+        <div className="m-sheet-footer">
+          <button type="button" onClick={handleReset} className="m-sheet-footer-btn m-sheet-footer-btn--muted tap-scale">
             {i18n.reset}
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="tap-scale flex-[2] rounded-2xl bg-[#2f6bf6] py-3.5 text-[14px] font-semibold text-white shadow-[0_8px_18px_-6px_rgba(47,107,246,0.6)]"
-          >
+          <button type="button" onClick={onClose} className="m-sheet-footer-btn m-sheet-footer-btn--primary tap-scale">
             {i18n.applyFilter}
           </button>
         </div>

@@ -19,6 +19,7 @@ import {
 } from "../../lib/transactionHistoryScope.js";
 import { historyTypeBadgeClass, historyTypeCardClass, historyTypeLabel } from "../../lib/transactionTypeStyles.js";
 import ExportPdfSheet from "./ExportPdfSheet.jsx";
+import "./transaction-history.css";
 
 /** Stable id from history API rows (field is transaction_id, not id). */
 function historyRowId(row) {
@@ -51,19 +52,19 @@ function sortHistoryNewestFirst(rows) {
 
 function MoneyTone({ value, children }) {
   const n = parseBalanceValue(String(value ?? "").replace(/,/g, ""));
-  let tone = "text-slate-800";
+  let tone = "";
   if (n != null) {
-    if (n < 0) tone = "text-rose-600";
-    else if (n > 0) tone = "text-[#2f6bf6]";
+    if (n < 0) tone = " m-money--neg";
+    else if (n > 0) tone = " m-money--pos";
   }
-  return <span className={`tabular-nums ${tone}`}>{children}</span>;
+  return <span className={`tabular-nums${tone}`}>{children}</span>;
 }
 
 function HistMetric({ label, rawValue, display }) {
   return (
-    <div className="min-w-0 px-1 py-1 text-right">
-      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-0.5 whitespace-nowrap text-[11px] font-semibold leading-snug">
+    <div className="m-tx-hist-metric">
+      <p className="m-tx-hist-metric-label">{label}</p>
+      <p className="m-tx-hist-metric-value">
         <MoneyTone value={rawValue}>{display}</MoneyTone>
       </p>
     </div>
@@ -160,17 +161,13 @@ export default function TransactionHistoryPage() {
   }
 
   const stickyBar = (
-    <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-100">
-      <Link
-        to="/transaction"
-        className="tap-scale grid size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600"
-        aria-label={m.backToList}
-      >
-        <i className="fas fa-arrow-left text-sm" aria-hidden="true" />
+    <div className="m-tx-hist-sticky">
+      <Link to="/transaction" className="m-tx-hist-back tap-scale" aria-label={m.backToList}>
+        <i className="fas fa-arrow-left" aria-hidden="true" />
       </Link>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-bold text-slate-900">{title}</p>
-        <p className="truncate text-[11px] text-slate-500">
+      <div className="m-tx-hist-head">
+        <p className="m-tx-hist-title">{title}</p>
+        <p className="m-tx-hist-sub">
           {scope.dateFrom} — {scope.dateTo}
           {scope.currency ? ` · ${scope.currency}` : ""}
         </p>
@@ -178,11 +175,11 @@ export default function TransactionHistoryPage() {
       <button
         type="button"
         onClick={() => setExportOpen(true)}
-        className="tap-scale grid size-9 shrink-0 place-items-center rounded-xl bg-[#2f6bf6] text-white"
+        className="m-tx-hist-export tap-scale"
         aria-label={m.exportPdf}
         title={m.exportPdf}
       >
-        <i className="fas fa-file-pdf text-sm" aria-hidden="true" />
+        <i className="fas fa-file-pdf" aria-hidden="true" />
       </button>
     </div>
   );
@@ -209,21 +206,17 @@ export default function TransactionHistoryPage() {
         />
       }
     >
-      <p className="mb-1 text-[12px] font-medium text-slate-500">
-        {m.paymentHistoryShowingEntries.replace("{count}", String(displayRows.length))}
-      </p>
-      <p className="mb-3 text-[10px] font-medium leading-snug text-slate-400">
-        {m.paymentHistoryBalanceHint}
-      </p>
+      <p className="m-tx-hist-count">{m.paymentHistoryShowingEntries.replace("{count}", String(displayRows.length))}</p>
+      <p className="m-tx-hist-hint">{m.paymentHistoryBalanceHint}</p>
 
       {loading ? (
-        <div className="py-16 text-center text-[13px] font-semibold text-slate-500">{m.loadingHistory}</div>
+        <div className="m-tx-hist-loading">{m.loadingHistory}</div>
       ) : error ? (
-        <div className="rounded-2xl bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-700">{error}</div>
+        <div className="m-tx-hist-error">{error}</div>
       ) : displayRows.length === 0 ? (
-        <p className="py-12 text-center text-[13px] font-medium text-slate-500">{m.searchCompletedNoData}</p>
+        <p className="m-tx-hist-empty">{m.searchCompletedNoData}</p>
       ) : (
-        <ul className="space-y-2.5 pb-8">
+        <ul className="m-tx-hist-list">
           {displayRows.map((row, idx) => {
             const typeLabel = historyTypeLabel(row);
             const badgeCls = historyTypeBadgeClass(row);
@@ -242,23 +235,15 @@ export default function TransactionHistoryPage() {
             return (
               <li
                 key={historyRowId(row) || `${idx}-${row.date || ""}-${row.balance || ""}`}
-                className={`overflow-hidden rounded-xl shadow-sm ${cardCls}`}
+                className={`m-tx-hist-card ${cardCls}`}
               >
-                <div className="flex items-center gap-2 border-b border-black/5 bg-white/50 px-3 py-2">
-                  <span
-                    className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide ring-1 ${badgeCls}`}
-                  >
-                    {typeLabel}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-slate-700">
-                    {row.date || "—"}
-                  </span>
-                  <span className="shrink-0 rounded-md bg-white/80 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-slate-600 ring-1 ring-slate-200/80">
-                    {cur || "—"}
-                  </span>
+                <div className="m-tx-hist-card-head">
+                  <span className={`m-tx-hist-type-badge ${badgeCls}`}>{typeLabel}</span>
+                  <span className="m-tx-hist-date">{row.date || "—"}</span>
+                  <span className="m-tx-hist-currency">{cur || "—"}</span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-0 px-1.5 py-1.5">
+                <div className="m-tx-hist-metrics">
                   <HistMetric
                     label={m.winLossTableCompact}
                     rawValue={row.win_loss}
@@ -276,20 +261,18 @@ export default function TransactionHistoryPage() {
                   />
                 </div>
 
-                <div className="space-y-0.5 border-t border-black/5 px-3 py-2">
-                  <p className="text-[10px] font-medium leading-snug text-slate-600">
-                    <span className="text-slate-400">{m.descriptionCompact}: </span>
+                <div className="m-tx-hist-footer">
+                  <p className="m-tx-hist-desc">
+                    <span className="m-tx-hist-desc-label">{m.descriptionCompact}: </span>
                     {description}
                   </p>
                   {row.rate && row.rate !== "-" ? (
-                    <p className="text-[10px] font-medium text-slate-500">
+                    <p className="m-tx-hist-meta">
                       {m.rate}: {formatRateForHistoryDisplay(row.rate)}
                     </p>
                   ) : null}
-                  {remark && remark !== "-" ? (
-                    <p className="truncate text-[10px] text-slate-500">{remark}</p>
-                  ) : null}
-                  <p className="text-[10px] font-medium text-slate-400">
+                  {remark && remark !== "-" ? <p className="m-tx-hist-remark">{remark}</p> : null}
+                  <p className="m-tx-hist-created">
                     {m.createdByCompact}: {createdBy}
                   </p>
                 </div>

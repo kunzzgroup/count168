@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { useMobileTransaction } from "../../hooks/useMobileTransaction.js";
+import "./transaction.css";
 
 /**
  * Keeps transaction list state mounted while navigating to Payment History,

@@ -8,6 +8,7 @@ import MobileAppBar from "./MobileAppBar.jsx";
 import MobileNotifications, { fetchMobileAnnouncements } from "./MobileNotifications.jsx";
 import MobileSidebar from "./MobileSidebar.jsx";
 import PullRefreshIndicator from "./PullRefreshIndicator.jsx";
+import "./mobile-shell.css";
 
 export default function MobileShell({
   children,
@@ -148,10 +149,10 @@ export default function MobileShell({
   const mainPadTop = topChromeH;
 
   return (
-    <div className="relative flex h-dvh max-h-dvh min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#f2f5fb]">
+    <div className="m-shell">
       <div
         ref={topChromeRef}
-        className="fixed inset-x-0 top-0 z-30 will-change-transform"
+        className="m-shell-chrome"
         style={{ transform: `translate3d(0, ${-chromeOffset}px, 0)` }}
         aria-hidden={chromeProgress > 0.95}
       >
@@ -165,15 +166,15 @@ export default function MobileShell({
         />
 
         {stickyBar ? (
-          <div className="border-b border-slate-200/50 bg-[#f2f5fb] px-3.5 py-2">
-            <div className="mx-auto max-w-lg">{stickyBar}</div>
+          <div className="m-shell-sticky-wrap">
+            <div className="m-shell-sticky-inner">{stickyBar}</div>
           </div>
         ) : null}
       </div>
 
       <main
         ref={mainRef}
-        className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        className="m-shell-main"
         style={{
           paddingTop: mainPadTop,
           paddingBottom: showBottomNav
@@ -188,28 +189,21 @@ export default function MobileShell({
           }}
         >
           <PullRefreshIndicator pullPx={pullPx} progress={progress} phase={phase} labels={labels} />
-          <div className={refreshing ? "pointer-events-none select-none opacity-[0.92] transition-opacity duration-200" : ""}>
-            {children}
-          </div>
+          <div className={refreshing ? "m-shell-main--refreshing" : ""}>{children}</div>
         </div>
       </main>
 
       {showBottomNav ? (
         <nav
-          className={`absolute inset-x-0 bottom-0 z-20 px-3 will-change-transform ${
-            navHidden ? "pointer-events-none" : ""
-          }`}
+          className={`m-shell-nav${navHidden ? " m-shell-nav--hidden" : ""}`}
           style={{
-            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)",
             transform: `translate3d(0, ${chromeProgress * 120}%, 0)`,
             opacity: Math.max(0, 1 - chromeProgress * 1.15),
           }}
           aria-label="Main"
           aria-hidden={navHidden}
         >
-          <div
-            className="mx-auto flex max-w-lg items-stretch gap-0.5 rounded-[1.75rem] border border-white/70 bg-white/55 p-1.5 shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35),inset_0_1px_0_rgba(255,255,255,0.75)] backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-slate-900/[0.06]"
-          >
+          <div className="m-shell-nav-pill">
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -217,16 +211,11 @@ export default function MobileShell({
                 end={item.to === "/dashboard"}
                 tabIndex={navHidden ? -1 : undefined}
                 className={({ isActive }) =>
-                  [
-                    "flex min-h-[52px] flex-1 touch-manipulation flex-col items-center justify-center gap-1 rounded-[1.25rem] px-1 py-2 text-[10px] font-semibold leading-none tracking-wide transition-[background-color,color,transform,box-shadow] duration-200 [-webkit-tap-highlight-color:transparent] active:scale-[0.97]",
-                    isActive
-                      ? "bg-[#2f6bf6]/14 text-[#2f6bf6] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
-                      : "text-slate-500 active:bg-white/50",
-                  ].join(" ")
+                  `m-shell-nav-link tap-scale${isActive ? " m-shell-nav-link--active" : ""}`
                 }
               >
-                <i className={`fas ${item.icon} text-[20px]`} aria-hidden="true" />
-                <span className="max-w-full truncate px-0.5">{labels[item.key]}</span>
+                <i className={`fas ${item.icon}`} aria-hidden="true" />
+                <span>{labels[item.key]}</span>
               </NavLink>
             ))}
           </div>
@@ -235,9 +224,7 @@ export default function MobileShell({
 
       {floatingAction ? (
         <div
-          className={`fixed bottom-0 left-0 z-50 transition-opacity duration-300 ease-out ${
-            showFloating ? "opacity-100" : "pointer-events-none opacity-0"
-          }`}
+          className={`m-shell-fab-slot ${showFloating ? "m-shell-fab-slot--visible" : "m-shell-fab-slot--hidden"}`}
           aria-hidden={!showFloating}
         >
           {floatingAction}

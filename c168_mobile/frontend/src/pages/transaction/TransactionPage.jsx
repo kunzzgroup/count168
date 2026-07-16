@@ -17,9 +17,7 @@ function ToggleChip({ active, onClick, children }) {
     <button
       type="button"
       onClick={onClick}
-      className={`tap-scale shrink-0 rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors ${
-        active ? "bg-[#2f6bf6] text-white" : "bg-slate-100 text-slate-600"
-      }`}
+      className={`m-tx-chip tap-scale${active ? " m-tx-chip--active" : ""}`}
     >
       {children}
     </button>
@@ -125,24 +123,18 @@ export default function TransactionPage() {
   const overlayOpen = filterOpen || addOpen || Boolean(tx.contraInbox?.open);
 
   const stickyBar = (
-    <div className="space-y-2">
-      <div className="flex items-stretch gap-2">
-        <button
-          type="button"
-          onClick={() => setFilterOpen(true)}
-          className={`tap-scale min-w-0 flex-1 rounded-2xl bg-white px-3 py-2 text-left shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100`}
-        >
-          <div className="flex items-center gap-2">
-            <i className="far fa-calendar shrink-0 text-[#2f6bf6]" aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-slate-700">{tx.dateRangeText}</span>
-            <span className="shrink-0 rounded-lg bg-slate-100 px-1.5 py-1 text-[11px] font-bold tracking-wide text-slate-600">
-              {tx.currency}
-            </span>
-            <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-xl bg-[#2f6bf6] text-white">
-              <i className="fas fa-filter text-[11px]" aria-hidden="true" />
+    <div className="m-tx-sticky">
+      <div className="m-tx-sticky-row">
+        <button type="button" onClick={() => setFilterOpen(true)} className="m-filter-bar tap-scale">
+          <div className="m-filter-bar-row">
+            <i className="far fa-calendar m-filter-bar-icon" aria-hidden="true" />
+            <span className="m-filter-bar-dates">{tx.dateRangeText}</span>
+            <span className="m-filter-bar-currency">{tx.currency}</span>
+            <span className="m-filter-bar-action">
+              <i className="fas fa-filter" aria-hidden="true" />
             </span>
           </div>
-          <div className="mt-1.5 border-t border-slate-100/90 pt-1.5">
+          <div className="m-filter-bar-scope">
             <ScopeBreadcrumb
               i18n={tx.i18n}
               groupId={groupId}
@@ -157,20 +149,16 @@ export default function TransactionPage() {
           <button
             type="button"
             onClick={() => tx.setContraInbox((s) => ({ ...s, open: true }))}
-            className="tap-scale relative flex w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-white text-slate-700 shadow-[0_8px_20px_-12px_rgba(15,23,42,0.2)] ring-1 ring-slate-100"
+            className="m-tx-inbox-btn tap-scale"
             aria-label={tx.m.contraInbox}
           >
-            <i className="fas fa-inbox text-[16px]" aria-hidden="true" />
-            {inboxCount > 0 ? (
-              <span className="absolute right-1.5 top-1.5 grid min-w-[16px] place-items-center rounded-full bg-rose-600 px-1 text-[9px] font-bold text-white">
-                {inboxCount}
-              </span>
-            ) : null}
+            <i className="fas fa-inbox" aria-hidden="true" />
+            {inboxCount > 0 ? <span className="m-tx-inbox-badge">{inboxCount}</span> : null}
           </button>
         ) : null}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="m-tx-chips">
         <ToggleChip active={tx.showName} onClick={() => tx.setShowName(!tx.showName)}>
           {tx.m.showName}
         </ToggleChip>
@@ -189,11 +177,7 @@ export default function TransactionPage() {
           </ToggleChip>
         ) : null}
       </div>
-      {tx.typeSearchActive ? (
-        <p className="mt-1.5 text-[10px] font-medium leading-snug text-slate-500">
-          {tx.m.pullToExitTypeSearch}
-        </p>
-      ) : null}
+      {tx.typeSearchActive ? <p className="m-tx-type-hint">{tx.m.pullToExitTypeSearch}</p> : null}
     </div>
   );
 
@@ -213,15 +197,15 @@ export default function TransactionPage() {
       onLangChange={tx.setLang}
       overlayOpen={overlayOpen}
       floatingAction={
-        <div className="mb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] ml-4">
+        <div className="m-tx-fab-wrap">
           <button
             type="button"
             onClick={openAddSheet}
             disabled={tx.mutationsBlocked}
-            className="tap-scale grid size-14 place-items-center rounded-full border border-[#6b9bff]/80 bg-[#2f6bf6] text-white shadow-[0_10px_28px_-10px_rgba(47,107,246,0.55)] disabled:opacity-40"
+            className="m-tx-fab tap-scale"
             aria-label={tx.m.fabAddPayment || tx.m.addTransaction}
           >
-            <i className="fas fa-plus text-lg" aria-hidden="true" />
+            <i className="fas fa-plus" aria-hidden="true" />
           </button>
         </div>
       }
@@ -265,31 +249,29 @@ export default function TransactionPage() {
     >
       {tx.toast ? (
         <div
-          className={`fixed left-4 right-4 top-24 z-[70] rounded-2xl px-4 py-3 text-[13px] font-semibold shadow-lg ${
+          className={`m-tx-toast ${
             tx.toast.tone === "error"
-              ? "bg-rose-600 text-white"
+              ? "m-tx-toast--error"
               : tx.toast.tone === "success"
-                ? "bg-emerald-600 text-white"
-                : "bg-slate-800 text-white"
+                ? "m-tx-toast--success"
+                : "m-tx-toast--info"
           }`}
         >
           {tx.toast.message}
         </div>
       ) : null}
 
-      {tx.error ? (
-        <div className="rounded-2xl bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-700">{tx.error}</div>
-      ) : null}
+      {tx.error ? <div className="m-tx-error-banner">{tx.error}</div> : null}
 
       {showLoading ? (
-        <div className="flex flex-col items-center gap-3 py-16 text-slate-500">
-          <i className="fas fa-spinner fa-spin text-2xl text-[#2f6bf6]" aria-hidden="true" />
-          <p className="text-[13px] font-semibold">{tx.m.loadingData}</p>
+        <div className="m-tx-loading">
+          <i className="fas fa-spinner fa-spin" aria-hidden="true" />
+          <p>{tx.m.loadingData}</p>
         </div>
       ) : (
         <>
           {tx.totals ? (
-            <div className="mb-3 grid grid-cols-4 gap-2 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
+            <div className="m-tx-totals">
               <TotalCell label={tx.m.bfTable} value={tx.totals.bf} />
               <TotalCell label={tx.m.winLossTableCompact} value={tx.totals.win_loss} />
               <TotalCell label={tx.m.crDrTable} value={tx.totals.cr_dr} />
@@ -297,14 +279,10 @@ export default function TransactionPage() {
             </div>
           ) : null}
 
-          {tx.searchError ? (
-            <p className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-semibold text-rose-700">
-              {tx.searchError}
-            </p>
-          ) : null}
+          {tx.searchError ? <p className="m-tx-search-error">{tx.searchError}</p> : null}
 
           {tx.displayRows.length === 0 ? (
-            <p className="py-8 text-center text-[13px] font-medium text-slate-500">{tx.m.noAccountsFound}</p>
+            <p className="m-tx-empty">{tx.m.noAccountsFound}</p>
           ) : (
             <AccountBalanceTables
               rows={tx.displayRows}
@@ -323,9 +301,9 @@ export default function TransactionPage() {
 
 function TotalCell({ label, value, highlight = false }) {
   return (
-    <div className="text-center text-[0.75rem]">
-      <p className="text-[0.78em] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-0.5 font-bold tabular-nums ${highlight ? "text-[#2f6bf6]" : "text-slate-800"}`}>
+    <div className="m-tx-total-cell">
+      <p className="m-tx-total-label">{label}</p>
+      <p className={`m-tx-total-value m-money${highlight ? " m-tx-total-value--highlight" : " m-money--neutral"}`}>
         {formatTransactionGridMoneyHalfUp(value)}
       </p>
     </div>
