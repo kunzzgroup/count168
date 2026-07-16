@@ -95,16 +95,16 @@ function AccountTable({ side, rows, showName, m, onOpenHistory, onPickBalance, b
   );
 }
 
-/** Desktop parity: left = balance ≥ 0 (To), right = balance < 0 (From). */
+/** Desktop parity: left = balance ≥ 0, right = balance < 0 (sign only — not From/To role). */
 export function splitAccountRowsByBalance(rows) {
-  const leftTo = [];
-  const rightFrom = [];
+  const left = [];
+  const right = [];
   for (const row of rows || []) {
     const bal = parseBalanceValue(String(row?.balance ?? "").replace(/,/g, ""));
-    if (bal != null && bal < 0) rightFrom.push(row);
-    else leftTo.push(row);
+    if (bal != null && bal < 0) right.push(row);
+    else left.push(row);
   }
-  return { leftTo, rightFrom };
+  return { left, right };
 }
 
 export default function AccountBalanceTables({
@@ -115,10 +115,10 @@ export default function AccountBalanceTables({
   onOpenHistory,
   onPickBalance,
 }) {
-  const { leftTo, rightFrom } = splitAccountRowsByBalance(rows);
+  const { left, right } = splitAccountRowsByBalance(rows);
   const [sideTab, setSideTab] = useState("left");
   const isLeft = sideTab === "left";
-  const activeRows = isLeft ? leftTo : rightFrom;
+  const activeRows = isLeft ? left : right;
 
   return (
     <div className="space-y-3 pb-24">
@@ -130,7 +130,7 @@ export default function AccountBalanceTables({
       <div
         className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100/90 p-1 ring-1 ring-slate-200/80"
         role="tablist"
-        aria-label={m.accountSideTabs || "Account sides"}
+        aria-label={m.accountSideTabs || "Account balance sides"}
       >
         <button
           type="button"
@@ -143,13 +143,13 @@ export default function AccountBalanceTables({
           }`}
           onClick={() => setSideTab("left")}
         >
-          <span className="truncate">{m.toAccountLeftTab || m.toAccount}</span>
+          <span className="truncate">{m.leftBalanceTab || "Balance ≥ 0"}</span>
           <span
             className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
               isLeft ? "bg-sky-100 text-sky-700" : "bg-slate-200/80 text-slate-500"
             }`}
           >
-            {leftTo.length}
+            {left.length}
           </span>
         </button>
         <button
@@ -163,13 +163,13 @@ export default function AccountBalanceTables({
           }`}
           onClick={() => setSideTab("right")}
         >
-          <span className="truncate">{m.fromAccountRightTab || m.fromAccount}</span>
+          <span className="truncate">{m.rightBalanceTab || "Balance < 0"}</span>
           <span
             className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
               !isLeft ? "bg-rose-100 text-rose-700" : "bg-slate-200/80 text-slate-500"
             }`}
           >
-            {rightFrom.length}
+            {right.length}
           </span>
         </button>
       </div>
