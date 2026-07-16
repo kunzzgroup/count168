@@ -19,6 +19,7 @@ import {
   resolveTransactionCurrencyOrderCompanyId,
 } from "../lib/mobileTransactionScope.js";
 import {
+  applyOptimisticSubmitBalancePatch,
   applySummaryWinLossDisplayTolerance,
   applyTransactionDisplayFilters,
   buildTransactionSearchQueryFilters,
@@ -38,6 +39,9 @@ import {
   submitTransaction,
   fetchTypeAccountSearch,
 } from "../lib/transactionApi.js";
+import {
+  buildOptimisticSubmitDeltas,
+} from "../lib/transactionSubmitHelpers.js";
 import { isPartnershipAuditReadOnlyLocked } from "../lib/partnershipAuditReadOnly.js";
 import { TRANSACTION_I18N, getTransactionText } from "../translateFile/transactionTranslate.js";
 import { DASHBOARD_I18N } from "../translateFile/dashboardTranslate.js";
@@ -581,14 +585,40 @@ export function useMobileTransaction() {
             : "";
           if (approvalStatus === "PENDING") {
             pushToast(m.submittedWaitingApproval, "info");
-          } else {
-            pushToast(
-              res?.message ||
-                (payload.transaction_type === "RATE" ? m.rateTransactionSubmitted : m.transactionSubmitted),
-              "success",
-            );
+            void refreshContraInboxBadge();
+            return res;
           }
+
+          pushToast(
+            res?.message ||
+              (payload.transaction_type === "RATE" ? m.rateTransactionSubmitted : m.transactionSubmitted),
+            "success",
+          );
+
+          const txType = String(payload.transaction_type || "").toUpperCase();
+          const toAccountId = payload.account_id;
+          const fromAccountId = payload.from_account_id;
+          const submitCurrency = String(payload.currency || "").toUpperCase().trim();
+
+          if (txType && txType !== "RATE" && submitCurrency) {
+            const deltas = buildOptimisticSubmitDeltas({
+              txType,
+              amount: payload.amount,
+              toAccountId,
+              fromAccountId,
+            });
+            if (deltas.length) {
+              setRawSearchData((prev) =>
+                applyOptimisticSubmitBalancePatch(prev, {
+                  currency: submitCurrency,
+                  deltas,
+                }),
+              );
+            }
+          }
+
           setReloadNonce((n) => n + 1);
+          void refreshContraInboxBadge();
           return res;
         }
         pushToast(res?.message || m.submitFailed, "error");
@@ -598,7 +628,7 @@ export function useMobileTransaction() {
         return { success: false };
       }
     },
-    [scopeReady, scopeApi, transactionScope, mutationsBlocked, pushToast, m],
+    [scopeReady, scopeApi, transactionScope, mutationsBlocked, pushToast, m, refreshContraInboxBadge],
   );
 
   const orderCompanyId = useMemo(

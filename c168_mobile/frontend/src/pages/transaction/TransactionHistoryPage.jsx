@@ -17,6 +17,7 @@ import {
   resolveHistoryAccountName,
   resolvePaymentHistoryScope,
 } from "../../lib/transactionHistoryScope.js";
+import ExportPdfSheet from "./ExportPdfSheet.jsx";
 
 export default function TransactionHistoryPage() {
   const tx = useMobileTransaction();
@@ -29,9 +30,18 @@ export default function TransactionHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [accountMeta, setAccountMeta] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const m = tx.m;
   const i18n = tx.i18n;
+
+  const exportScope = useMemo(() => {
+    const companyId =
+      scope.companyId ||
+      (Number(tx.companyId) > 0 ? Number(tx.companyId) : undefined) ||
+      (Number(tx.selectedCompany?.id) > 0 ? Number(tx.selectedCompany.id) : undefined);
+    return { ...scope, companyId };
+  }, [scope, tx.companyId, tx.selectedCompany]);
 
   useEffect(() => {
     if (!paramsReady) return undefined;
@@ -86,6 +96,12 @@ export default function TransactionHistoryPage() {
     });
   }, [accountMeta, scope.accountCode, scope.accountName]);
 
+  const resolvedAccountName = resolveHistoryAccountName({
+    accountName: scope.accountName,
+    accountMeta,
+    accountCode: scope.accountCode,
+  });
+
   if (!paramsReady) {
     return <Navigate to="/transaction" replace />;
   }
@@ -106,6 +122,15 @@ export default function TransactionHistoryPage() {
           {scope.currency ? ` · ${scope.currency}` : ""}
         </p>
       </div>
+      <button
+        type="button"
+        onClick={() => setExportOpen(true)}
+        className="tap-scale grid size-9 shrink-0 place-items-center rounded-xl bg-[#2f6bf6] text-white"
+        aria-label={m.exportPdf}
+        title={m.exportPdf}
+      >
+        <i className="fas fa-file-pdf text-sm" aria-hidden="true" />
+      </button>
     </div>
   );
 
@@ -118,6 +143,18 @@ export default function TransactionHistoryPage() {
       lang={tx.lang}
       onLangChange={tx.setLang}
       showBottomNav={false}
+      overlayOpen={exportOpen}
+      overlay={
+        <ExportPdfSheet
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          m={m}
+          scope={exportScope}
+          accountCode={scope.accountCode || accountMeta?.account_id || ""}
+          accountName={resolvedAccountName}
+          lang={tx.lang}
+        />
+      }
     >
       <p className="mb-3 text-[12px] font-medium text-slate-500">
         {m.paymentHistoryShowingEntries.replace("{count}", String(rows.length))}
