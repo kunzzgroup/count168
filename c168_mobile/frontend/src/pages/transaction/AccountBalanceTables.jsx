@@ -153,7 +153,7 @@ export default function AccountBalanceTables({
       <p className="m-tx-balance-hint">
         {m.cardClickHint ||
           m.tableClickHint ||
-          "Tap account → history · Tap balance → fill From account"}
+          "Tap account → history · Tap balance → fill form (Balance+→From, Balance-→To)"}
       </p>
 
       <section>
