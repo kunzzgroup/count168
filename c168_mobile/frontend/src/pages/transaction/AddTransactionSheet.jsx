@@ -9,7 +9,7 @@ import {
   parseRateExpression,
 } from "../../lib/transactionFormat.js";
 import { buildRatePayload, toNumberLike } from "../../lib/transactionSubmitHelpers.js";
-import { formatYmd, parseYmd } from "../../lib/dashboardDateUtils.js";
+import { formatYmd, parseYmd, formatDisplayDate } from "../../lib/dashboardDateUtils.js";
 
 const TX_TYPES = ["CONTRA", "PAYMENT", "CLAIM", "PROFIT", "RATE", "ADJUSTMENT", "CLEAR"];
 
@@ -27,7 +27,47 @@ function sanitizeAmountInput(value) {
   return hasLeadingMinus ? `-${unsigned}` : unsigned;
 }
 
-function AccountPicker({ label, placeholder, options, value, onChange, disabled }) {
+/**
+ * iOS-safe date control: visible formatted row stays fixed height;
+ * native picker is an opacity-0 overlay (avoids type=date blowing the sheet).
+ */
+function DateTapRow({ label, value, onChange, disabled, badge }) {
+  return (
+    <label
+      className={`relative flex min-h-[56px] items-center gap-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3 transition-colors focus-within:border-[#2f6bf6] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#2f6bf6]/20 ${
+        disabled ? "opacity-50" : "cursor-pointer active:bg-slate-100"
+      }`}
+    >
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-[#2f6bf6] shadow-sm ring-1 ring-slate-100">
+        <i className="far fa-calendar text-[15px]" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-400">{label}</span>
+        <span className="mt-0.5 flex min-w-0 items-center gap-2">
+          <span className="truncate text-[16px] font-bold tabular-nums text-slate-900">
+            {value ? formatDisplayDate(value) : "—"}
+          </span>
+          {badge ? (
+            <span className="shrink-0 rounded-md bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700">
+              {badge}
+            </span>
+          ) : null}
+        </span>
+      </span>
+      <i className="fas fa-chevron-right text-[11px] text-slate-300" aria-hidden="true" />
+      <input
+        type="date"
+        value={value || ""}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 z-10 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+        aria-label={label}
+      />
+    </label>
+  );
+}
+
+function AccountPicker({ label, placeholder, searchPlaceholder, options, value, onChange, disabled }) {
   const [q, setQ] = useState("");
   const filtered = useMemo(() => {
     const needle = q.trim().toUpperCase();
@@ -42,7 +82,7 @@ function AccountPicker({ label, placeholder, options, value, onChange, disabled 
         type="search"
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder={placeholder}
+        placeholder={searchPlaceholder || placeholder}
         disabled={disabled}
         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#2f6bf6] focus:ring-2 focus:ring-[#2f6bf6]/20"
       />
@@ -375,10 +415,20 @@ export default function AddTransactionSheet({
     : m.addTransaction;
 
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col justify-end bg-slate-900/45 backdrop-blur-[2px]">
-      <button type="button" className="min-h-0 flex-1" aria-label={m.close} onClick={onClose} />
-      <div className="flex max-h-[90dvh] flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+    <div className="fixed inset-0 z-[90]">
+      <button
+        type="button"
+        className="absolute inset-0 size-full border-0 bg-slate-900/45 backdrop-blur-[2px]"
+        aria-label={m.close}
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={sheetTitle}
+        className="absolute inset-x-0 bottom-0 flex max-h-[min(90dvh,100%)] min-h-0 flex-col overflow-hidden rounded-t-3xl bg-white shadow-[0_-12px_40px_-12px_rgba(15,23,42,0.35)]"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3">
           <p className="text-[15px] font-bold text-slate-900">{sheetTitle}</p>
           <button
             type="button"
@@ -389,7 +439,7 @@ export default function AddTransactionSheet({
           </button>
         </div>
 
-        <div ref={bodyRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        <div ref={bodyRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
           <div ref={typeBlockRef}>
             <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.type}</label>
             <select
@@ -439,23 +489,20 @@ export default function AddTransactionSheet({
 
           {isSearchMode ? null : (
             <>
-          <div>
-            <label className="text-[12px] font-bold uppercase tracking-wide text-slate-500">{m.transactionDate}</label>
-            <input
-              type="date"
-              value={txDateYmd}
-              disabled={mutationsBlocked}
-              onChange={(e) => setTxDateYmd(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-[14px] font-semibold"
-            />
-            <p className="mt-1 text-[11px] text-slate-400">{todayDmy === txDate ? m.today : txDate}</p>
-          </div>
+          <DateTapRow
+            label={m.transactionDate}
+            value={txDateYmd}
+            disabled={mutationsBlocked}
+            onChange={setTxDateYmd}
+            badge={todayDmy === txDate ? m.today : null}
+          />
 
           {!isRate && (
             <>
               <AccountPicker
                 label={m.toAccount}
                 placeholder={m.selectToAccount}
+                searchPlaceholder={m.searchAccount}
                 options={accountOptions}
                 value={txToAccount}
                 onChange={setTxToAccount}
@@ -465,6 +512,7 @@ export default function AddTransactionSheet({
                 <AccountPicker
                   label={m.fromAccount}
                   placeholder={m.selectFromAccount}
+                  searchPlaceholder={m.searchAccount}
                   options={accountOptions}
                   value={txFromAccount}
                   onChange={setTxFromAccount}
@@ -507,6 +555,7 @@ export default function AddTransactionSheet({
               <AccountPicker
                 label={m.toAccount}
                 placeholder={m.selectToAccount}
+                searchPlaceholder={m.searchAccount}
                 options={accountOptions}
                 value={rateToAccount}
                 onChange={setRateToAccount}
@@ -515,6 +564,7 @@ export default function AddTransactionSheet({
               <AccountPicker
                 label={m.fromAccount}
                 placeholder={m.selectFromAccount}
+                searchPlaceholder={m.searchAccount}
                 options={accountOptions}
                 value={rateFromAccount}
                 onChange={setRateFromAccount}
@@ -588,6 +638,7 @@ export default function AddTransactionSheet({
               <AccountPicker
                 label={m.middleMan}
                 placeholder={m.selectMiddleManAccount}
+                searchPlaceholder={m.searchAccount}
                 options={accountOptions}
                 value={rateMiddlemanAccount}
                 onChange={setRateMiddlemanAccount}
@@ -623,6 +674,7 @@ export default function AddTransactionSheet({
               <AccountPicker
                 label={`${m.toAccount} (${m.optional})`}
                 placeholder={m.selectToAccount}
+                searchPlaceholder={m.searchAccount}
                 options={accountOptions}
                 value={rateTransferToAccount}
                 onChange={setRateTransferToAccount}
@@ -631,6 +683,7 @@ export default function AddTransactionSheet({
               <AccountPicker
                 label={`${m.fromAccount} (${m.optional})`}
                 placeholder={m.selectFromAccount}
+                searchPlaceholder={m.searchAccount}
                 options={accountOptions}
                 value={rateTransferFromAccount}
                 onChange={setRateTransferFromAccount}
@@ -666,7 +719,7 @@ export default function AddTransactionSheet({
 
         {isSearchMode ? (
           <div
-            className="border-t border-slate-100 px-4 pt-3"
+            className="shrink-0 border-t border-slate-100 px-4 pt-3"
             style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
           >
             <button
@@ -680,7 +733,7 @@ export default function AddTransactionSheet({
           </div>
         ) : (
         <div
-          className="flex gap-2 border-t border-slate-100 px-4 pt-3"
+          className="flex shrink-0 gap-2 border-t border-slate-100 px-4 pt-3"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
         >
           {isRate && rateStep === 2 && (
