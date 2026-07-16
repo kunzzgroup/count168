@@ -2,15 +2,16 @@ import { useState } from "react";
 import { parseBalanceValue, formatTransactionGridMoneyHalfUp } from "../../lib/transactionFormat.js";
 import { getRoleClass } from "../../lib/transactionPaymentLogic.js";
 
+/** Opaque tints — sticky Account/Balance must not let scrolled cells show through. */
 const ROLE_ROW_BG = {
   "transaction-role-capital": "bg-rose-50",
-  "transaction-role-bank": "bg-sky-50/80",
-  "transaction-role-cash": "bg-emerald-50/80",
-  "transaction-role-profit": "bg-amber-50/80",
-  "transaction-role-expenses": "bg-orange-50/70",
-  "transaction-role-company": "bg-indigo-50/70",
-  "transaction-role-member": "bg-teal-50/70",
-  "transaction-role-agent": "bg-cyan-50/80",
+  "transaction-role-bank": "bg-sky-50",
+  "transaction-role-cash": "bg-emerald-50",
+  "transaction-role-profit": "bg-amber-50",
+  "transaction-role-expenses": "bg-orange-50",
+  "transaction-role-company": "bg-indigo-50",
+  "transaction-role-member": "bg-teal-50",
+  "transaction-role-agent": "bg-cyan-50",
 };
 
 function MoneyCell({ value, emphasize = false, forceTone = null }) {
@@ -33,17 +34,35 @@ function AccountTable({ side, rows, showName, m, onOpenHistory, onPickBalance, b
     );
   }
 
+  /* Scheme A: crisp 1px edge, no blur shadow over B/F. */
+  const stickyLeft =
+    "sticky left-0 z-[2] border-r border-slate-200/90";
+  const stickyRight =
+    "sticky right-0 z-[2] border-l border-slate-200/90";
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] border-collapse text-left">
+    <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+      <table className="w-full min-w-[36rem] border-collapse text-left">
         <thead>
           <tr className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-            <th className="sticky left-0 z-[1] bg-slate-50 px-2.5 py-2">{m.accountTable}</th>
-            {showName ? <th className="px-2 py-2">{m.nameTable}</th> : null}
-            <th className="px-2 py-2 text-right">{m.bfTable}</th>
-            <th className="px-2 py-2 text-right">{m.winLossTableCompact}</th>
-            <th className="px-2 py-2 text-right">{m.crDrTable}</th>
-            <th className="px-2.5 py-2 text-right">{m.balanceTableCompact}</th>
+            <th
+              className={`${stickyLeft} z-[3] min-w-[5.75rem] whitespace-nowrap bg-slate-50 px-2.5 py-2`}
+            >
+              {m.accountTable}
+            </th>
+            {showName ? (
+              <th className="min-w-[5.5rem] whitespace-nowrap px-2 py-2">{m.nameTable}</th>
+            ) : null}
+            <th className="min-w-[4.75rem] whitespace-nowrap px-2 py-2 text-right">{m.bfTable}</th>
+            <th className="min-w-[4.75rem] whitespace-nowrap px-2 py-2 text-right">
+              {m.winLossTableCompact}
+            </th>
+            <th className="min-w-[4.75rem] whitespace-nowrap px-2 py-2 text-right">{m.crDrTable}</th>
+            <th
+              className={`${stickyRight} z-[3] min-w-[5.25rem] whitespace-nowrap bg-slate-50 px-2.5 py-2 text-right`}
+            >
+              {m.balanceTableCompact}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -54,9 +73,9 @@ function AccountTable({ side, rows, showName, m, onOpenHistory, onPickBalance, b
             const name = String(row?.account_name || "").trim();
             const key = `${row.account_db_id || row.account_id}-${row.currency}-${row.transaction_id || ""}`;
             return (
-              <tr key={key} className={`border-t border-slate-100/90 ${rowBg}`}>
+              <tr key={key} className={`border-t border-slate-100 ${rowBg}`}>
                 <td
-                  className={`sticky left-0 z-[1] cursor-pointer px-2.5 py-2 text-[12px] font-bold text-slate-900 active:brightness-95 ${rowBg}`}
+                  className={`${stickyLeft} cursor-pointer px-2.5 py-2 text-[12px] font-bold text-slate-900 active:brightness-95 ${rowBg}`}
                   onClick={() => onOpenHistory?.(row)}
                   title={m.tapForHistory}
                 >
@@ -68,19 +87,21 @@ function AccountTable({ side, rows, showName, m, onOpenHistory, onPickBalance, b
                   </span>
                 </td>
                 {showName ? (
-                  <td className="max-w-[7rem] truncate px-2 py-2 text-[11px] text-slate-500">{name || "—"}</td>
+                  <td className="max-w-[7rem] truncate px-2 py-2 text-[11px] text-slate-500">
+                    {name || "—"}
+                  </td>
                 ) : null}
-                <td className="px-2 py-2 text-right text-[11px] font-semibold">
+                <td className="whitespace-nowrap px-2 py-2 text-right text-[11px] font-semibold">
                   <MoneyCell value={row?.bf} />
                 </td>
-                <td className="px-2 py-2 text-right text-[11px] font-semibold">
+                <td className="whitespace-nowrap px-2 py-2 text-right text-[11px] font-semibold">
                   <MoneyCell value={row?.win_loss} />
                 </td>
-                <td className="px-2 py-2 text-right text-[11px] font-semibold">
+                <td className="whitespace-nowrap px-2 py-2 text-right text-[11px] font-semibold">
                   <MoneyCell value={row?.cr_dr} />
                 </td>
                 <td
-                  className="cursor-pointer px-2.5 py-2 text-right text-[12px] font-bold active:brightness-95"
+                  className={`${stickyRight} cursor-pointer whitespace-nowrap px-2.5 py-2 text-right text-[12px] font-bold active:brightness-95 ${rowBg}`}
                   onClick={() => onPickBalance?.(row, side)}
                   title={m.tapBalanceToFill || m.balanceTable}
                 >
