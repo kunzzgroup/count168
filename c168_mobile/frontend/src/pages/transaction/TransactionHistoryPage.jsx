@@ -21,6 +21,29 @@ import {
 import { historyTypeBadgeClass, historyTypeCardClass, historyTypeLabel } from "../../lib/transactionTypeStyles.js";
 import ExportPdfSheet from "./ExportPdfSheet.jsx";
 
+/** Sort key for history row dates (supports DD/MM/YYYY and YYYY-MM-DD). */
+function historyDateSortKey(row) {
+  const raw = String(row?.date || "").trim();
+  const dmy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmy) {
+    return `${dmy[3]}${dmy[2].padStart(2, "0")}${dmy[1].padStart(2, "0")}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10).replace(/-/g, "");
+  return raw;
+}
+
+/** Newest date first; B/F (period opening) stays at the bottom. */
+function sortHistoryNewestFirst(rows) {
+  return [...(rows || [])].sort((a, b) => {
+    const aBf = a?.row_type === "bf" ? 1 : 0;
+    const bBf = b?.row_type === "bf" ? 1 : 0;
+    if (aBf !== bBf) return aBf - bBf;
+    const byDate = historyDateSortKey(b).localeCompare(historyDateSortKey(a));
+    if (byDate !== 0) return byDate;
+    return Number(b?.id || 0) - Number(a?.id || 0);
+  });
+}
+
 function MoneyTone({ value, children }) {
   const n = parseBalanceValue(String(value ?? "").replace(/,/g, ""));
   let tone = "text-slate-800";
@@ -125,6 +148,8 @@ export default function TransactionHistoryPage() {
     accountCode: scope.accountCode,
   });
 
+  const displayRows = useMemo(() => sortHistoryNewestFirst(rows), [rows]);
+
   if (!paramsReady) {
     return <Navigate to="/transaction" replace />;
   }
@@ -180,18 +205,18 @@ export default function TransactionHistoryPage() {
       }
     >
       <p className="mb-3 text-[12px] font-medium text-slate-500">
-        {m.paymentHistoryShowingEntries.replace("{count}", String(rows.length))}
+        {m.paymentHistoryShowingEntries.replace("{count}", String(displayRows.length))}
       </p>
 
       {loading ? (
         <div className="py-16 text-center text-[13px] font-semibold text-slate-500">{m.loadingHistory}</div>
       ) : error ? (
         <div className="rounded-2xl bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-700">{error}</div>
-      ) : rows.length === 0 ? (
+      ) : displayRows.length === 0 ? (
         <p className="py-12 text-center text-[13px] font-medium text-slate-500">{m.searchCompletedNoData}</p>
       ) : (
         <ul className="space-y-2.5 pb-8">
-          {rows.map((row, idx) => {
+          {displayRows.map((row, idx) => {
             const typeLabel = historyTypeLabel(row);
             const badgeCls = historyTypeBadgeClass(row);
             const cardCls = historyTypeCardClass(row);
