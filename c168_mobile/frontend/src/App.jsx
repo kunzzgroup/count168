@@ -8,6 +8,7 @@ import { clearMobileTxListSnapshot } from "./lib/mobileTxListSnapshot.js";
 import TransactionLayout from "./pages/transaction/TransactionLayout.jsx";
 import TransactionPage from "./pages/transaction/TransactionPage.jsx";
 import TransactionHistoryPage from "./pages/transaction/TransactionHistoryPage.jsx";
+import AccountPage from "./pages/account/AccountPage.jsx";
 
 /** Drop list snapshot when leaving Transaction so bottom-nav re-entry stays default. */
 function ClearTxListSnapshotOutsideTransaction() {
@@ -34,6 +35,7 @@ export default function App() {
           <Route index element={<TransactionPage />} />
           <Route path="history" element={<TransactionHistoryPage />} />
         </Route>
+        <Route path="/account" element={<AccountPage />} />
         <Route path="/more" element={<StubPage title="更多功能" backTo="/dashboard" />} />
         <Route path="/reset-password" element={<StubPage title="重置密码" />} />
         <Route

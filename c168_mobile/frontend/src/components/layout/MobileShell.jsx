@@ -33,6 +33,7 @@ export default function MobileShell({
     navHome: "Home",
     navReport: "Report",
     navTransaction: "Transaction",
+    navAccount: "Account",
     navMore: "More",
   };
   const navItems = mobileNavItems(me);
