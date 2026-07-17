@@ -1,5 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 
+/** Find the nearest ancestor that actually scrolls (MobileShell main, etc.). */
+function findScrollRoot(el) {
+  let node = el?.parentElement;
+  while (node && node !== document.body) {
+    const style = window.getComputedStyle(node);
+    const overflowY = style.overflowY;
+    if (
+      (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+      node.scrollHeight > node.clientHeight
+    ) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
 /**
  * Incremental rendering for long mobile lists (poor man's virtualization):
  * render the first chunk only, then grow as the sentinel scrolls into view.
@@ -19,13 +36,15 @@ export function useIncrementalList(items, pageSize = 60) {
     if (!hasMore) return undefined;
     const el = sentinelRef.current;
     if (!el) return undefined;
+
+    const root = findScrollRoot(el);
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) {
-          setCount((n) => n + pageSize);
+          setCount((n) => Math.min(n + pageSize, items.length));
         }
       },
-      { rootMargin: "800px 0px" },
+      { root, rootMargin: "600px 0px" },
     );
     io.observe(el);
     return () => io.disconnect();
