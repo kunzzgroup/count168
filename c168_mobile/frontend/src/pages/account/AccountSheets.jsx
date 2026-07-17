@@ -337,7 +337,9 @@ export function AccountFormSheet({ open, onClose, account }) {
                 <option value="weekly">{i18n.weekly}</option>
                 <option value="monthly">{i18n.monthly}</option>
                 {Array.from({ length: 31 }, (_, index) => index + 1).map((day) => (
-                  <option key={day} value={day}>{day}</option>
+                  <option key={day} value={day}>
+                    {i18n.days.replace("{n}", day)}
+                  </option>
                 ))}
               </select>
             </FormField>
