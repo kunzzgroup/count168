@@ -458,6 +458,18 @@
   color: var(--m-color-danger-text);
 }
 
+/* Incremental list sentinel (long result sets load in chunks on scroll). */
+.m-mt-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 0 1.4rem;
+  color: var(--m-color-label);
+  font-size: var(--m-text-sub-ratio);
+  font-weight: 600;
+}
+
 /* ---- Sheets ---- */
 .m-mt-field {
   display: grid;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MobileShell from "../../components/layout/MobileShell.jsx";
+import { useIncrementalList } from "../../hooks/useIncrementalList.js";
 import { useMaintenanceSession } from "../../hooks/useMaintenanceSession.js";
 import {
   fetchMaintenanceCategories,
@@ -128,6 +129,7 @@ export default function MaintenanceTransactionPage() {
     const q = query.trim().toUpperCase();
     return rows.filter((r) => matchesQuery(r, q));
   }, [rows, query]);
+  const { visible, hasMore, sentinelRef, shown, total } = useIncrementalList(displayRows);
 
   const scopeLabel = s.groupMode
     ? s.selectedGroup || i18n.group
@@ -234,11 +236,21 @@ export default function MaintenanceTransactionPage() {
             <p>{i18n.noData}</p>
           </div>
         ) : (
-          <div className="m-mt-list">
-            {displayRows.map((row, idx) => (
-              <TransactionCard key={`${row.data_type}-${idx}`} row={row} i18n={i18n} />
-            ))}
-          </div>
+          <>
+            <div className="m-mt-list">
+              {visible.map((row, idx) => (
+                <TransactionCard key={`${row.data_type}-${idx}`} row={row} i18n={i18n} />
+              ))}
+            </div>
+            {hasMore ? (
+              <div ref={sentinelRef} className="m-mt-more">
+                <i className="fas fa-spinner fa-spin" aria-hidden="true" />
+                <span>
+                  {shown} / {total}
+                </span>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </MobileShell>

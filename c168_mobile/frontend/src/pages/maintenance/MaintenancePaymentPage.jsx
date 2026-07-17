@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MobileShell from "../../components/layout/MobileShell.jsx";
+import { useIncrementalList } from "../../hooks/useIncrementalList.js";
 import { useMaintenanceSession } from "../../hooks/useMaintenanceSession.js";
 import {
   deletePaymentRecords,
@@ -112,6 +113,7 @@ export default function MaintenancePaymentPage() {
     const q = query.trim().toUpperCase();
     return rows.filter((r) => matchesQuery(r, q));
   }, [rows, query]);
+  const { visible, hasMore, sentinelRef, shown, total } = useIncrementalList(displayRows);
 
   const toggleRow = useCallback((row) => {
     if (!canDelete(row)) return;
@@ -259,18 +261,28 @@ export default function MaintenancePaymentPage() {
             <p>{i18n.noData}</p>
           </div>
         ) : (
-          <div className="m-mt-list">
-            {displayRows.map((row, idx) => (
-              <PaymentCard
-                key={paymentRowKey(row, idx)}
-                row={row}
-                i18n={i18n}
-                selectable={canDelete(row)}
-                selected={selectedIds.has(Number(row.transaction_id))}
-                onToggle={() => toggleRow(row)}
-              />
-            ))}
-          </div>
+          <>
+            <div className="m-mt-list">
+              {visible.map((row, idx) => (
+                <PaymentCard
+                  key={paymentRowKey(row, idx)}
+                  row={row}
+                  i18n={i18n}
+                  selectable={canDelete(row)}
+                  selected={selectedIds.has(Number(row.transaction_id))}
+                  onToggle={() => toggleRow(row)}
+                />
+              ))}
+            </div>
+            {hasMore ? (
+              <div ref={sentinelRef} className="m-mt-more">
+                <i className="fas fa-spinner fa-spin" aria-hidden="true" />
+                <span>
+                  {shown} / {total}
+                </span>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
 
