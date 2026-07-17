@@ -340,19 +340,19 @@
 @keyframes m-tx-alert-breathe {
   0%,
   100% {
-    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.1);
+    box-shadow: 0 0 0 0 #fca5a5;
     outline-color: #fca5a5;
   }
   50% {
-    box-shadow: 0 0 0 5px rgba(220, 38, 38, 0.12);
-    outline-color: #f87171;
+    box-shadow: 0 0 0 5px #dc2626;
+    outline-color: #dc2626;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .m-tx-card--alert {
     animation: none;
-    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.12);
+    box-shadow: 0 0 0 3px #dc2626;
   }
 }
 
