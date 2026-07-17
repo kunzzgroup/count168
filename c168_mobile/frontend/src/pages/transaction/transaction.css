@@ -332,7 +332,7 @@
 /* Payment alert triggered — softened take on desktop's .transaction-alert-row */
 .m-tx-card--alert {
   background: #fff5f5;
-  outline: 2px solid #fca5a5;
+  outline: 3px solid #fca5a5;
   animation: m-tx-alert-breathe 1.8s ease-in-out infinite;
 }
 
