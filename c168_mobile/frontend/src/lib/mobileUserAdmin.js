@@ -290,3 +290,76 @@ export function validateUserEmail(raw) {
   const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
   return { ok, normalized };
 }
+
+function tenantCode(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function isVirtualGroupLink(row) {
+  return tenantCode(row?.link_source_group ?? row?.linkSourceGroup) !== "";
+}
+
+function isGroupEntity(row, groupId) {
+  const group = tenantCode(groupId);
+  if (!row || !group || isVirtualGroupLink(row)) return false;
+  const code = tenantCode(row.company_id ?? row.companyId ?? row.code);
+  const rowGroup = tenantCode(row.group_id ?? row.groupId ?? row.group);
+  return code === group || (code === "" && rowGroup === group);
+}
+
+/** Desktop-aligned dual tenant picker: one assignable entity row per visible group. */
+export function buildAdminGroupOptions(companies, visibleGroupIds) {
+  const rows = Array.isArray(companies) ? companies : [];
+  const out = [];
+  const seen = new Set();
+  for (const rawGroup of visibleGroupIds || []) {
+    const group = tenantCode(rawGroup);
+    if (!group || seen.has(group)) continue;
+    const entity = rows.find((row) => isGroupEntity(row, group));
+    const fallback = rows.find((row) => {
+      if (isVirtualGroupLink(row)) return false;
+      return tenantCode(row?.group_id ?? row?.groupId ?? row?.group) === group;
+    });
+    const picked = entity || fallback;
+    const id = Number(picked?.id);
+    if (!Number.isFinite(id) || id <= 0) continue;
+    seen.add(group);
+    out.push({ ...picked, id, company_id: group, group_id: group });
+  }
+  return out;
+}
+
+/** Desktop-aligned company area: subsidiaries and independent companies, deduped by code. */
+export function buildAdminCompanyOptions(companies) {
+  const out = [];
+  const seen = new Set();
+  for (const row of companies || []) {
+    const code = tenantCode(row?.company_id ?? row?.companyId ?? row?.code);
+    const group = tenantCode(row?.group_id ?? row?.groupId ?? row?.group);
+    if (!code || isGroupEntity(row, group) || seen.has(code)) continue;
+    const id = Number(row?.id);
+    if (!Number.isFinite(id) || id <= 0) continue;
+    seen.add(code);
+    out.push({ ...row, id, company_id: code });
+  }
+  return out;
+}
+
+export function resolveAdminGroupEntityIds(groupOptions, groupCodes) {
+  const wanted = new Set((groupCodes || []).map(tenantCode).filter(Boolean));
+  return (groupOptions || [])
+    .filter((row) => wanted.has(tenantCode(row?.group_id || row?.company_id)))
+    .map((row) => Number(row.id))
+    .filter((id) => Number.isFinite(id) && id > 0);
+}
+
+export function resolveAdminGroupCodes(groupOptions, selectedIds) {
+  const wanted = new Set([...selectedIds].map(Number));
+  const out = [];
+  for (const row of groupOptions || []) {
+    if (!wanted.has(Number(row.id))) continue;
+    const code = tenantCode(row?.group_id || row?.company_id);
+    if (code && !out.includes(code)) out.push(code);
+  }
+  return out;
+}

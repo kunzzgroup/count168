@@ -13,6 +13,8 @@ import { accountScopeIsGroupOnly, resolveAccountScopeDraft } from "../lib/mobile
 import { isPartnershipAuditReadOnlyLocked } from "../lib/partnershipAuditReadOnly.js";
 import {
   applyUserFilters,
+  buildAdminCompanyOptions,
+  buildAdminGroupOptions,
   computeRowCapabilities,
   getAvailableRolesForCreation,
   getAvailableRolesForEdit,
@@ -22,6 +24,8 @@ import {
   getVisiblePermissionKeys,
   normRole,
   parseJsonArray,
+  resolveAdminGroupCodes,
+  resolveAdminGroupEntityIds,
   roleHasReadOnlyToggle,
   canInteractWithReadOnlyToggle,
   sortUsersByLogin,
@@ -91,6 +95,8 @@ export function useMobileAdminUsers() {
   const [formProcesses, setFormProcesses] = useState([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState(() => new Set());
   const [selectedProcessIds, setSelectedProcessIds] = useState(() => new Set());
+  const [selectedTenantGroupIds, setSelectedTenantGroupIds] = useState(() => new Set());
+  const [selectedTenantCompanyIds, setSelectedTenantCompanyIds] = useState(() => new Set());
   const [saving, setSaving] = useState(false);
   const toastTimer = useRef(null);
   const listSeq = useRef(0);
@@ -100,6 +106,14 @@ export function useMobileAdminUsers() {
     [companyId, selectedGroup, groupsAllMode, groupAllMode],
   );
   const groupIds = useMemo(() => resolveMobileGroupIds(companies, me), [companies, me]);
+  const tenantGroupOptions = useMemo(
+    () => buildAdminGroupOptions(companies, groupIds),
+    [companies, groupIds],
+  );
+  const tenantCompanyOptions = useMemo(
+    () => buildAdminCompanyOptions(companies),
+    [companies],
+  );
   const selectedCompany = useMemo(
     () => companies.find((row) => Number(row.id) === Number(companyId)) || null,
     [companies, companyId],
@@ -112,6 +126,7 @@ export function useMobileAdminUsers() {
 
   const currentUserId = me?.user_id ?? null;
   const currentUserRole = normRole(me?.role);
+  const useDualTenantPicker = currentUserRole === "admin" || currentUserRole === "owner";
   const isEditMode = Number(form.id) > 0;
   const fieldLocks = useMemo(
     () =>
@@ -400,6 +415,18 @@ export function useMobileAdminUsers() {
     setEditingRow(null);
     setForm({ ...EMPTY_FORM });
     setPermSelected(new Set());
+    if (useDualTenantPicker) {
+      setSelectedTenantGroupIds(
+        new Set(resolveAdminGroupEntityIds(tenantGroupOptions, selectedGroup ? [selectedGroup] : [])),
+      );
+      const allowedCompanies = new Set(tenantCompanyOptions.map((row) => Number(row.id)));
+      setSelectedTenantCompanyIds(
+        new Set(allowedCompanies.has(Number(companyId)) ? [Number(companyId)] : []),
+      );
+    } else {
+      setSelectedTenantGroupIds(new Set());
+      setSelectedTenantCompanyIds(new Set());
+    }
     try {
       const { accounts, processes } = await loadFormOptions();
       setSelectedAccountIds(new Set(accounts.map((a) => a.id)));
@@ -409,7 +436,20 @@ export function useMobileAdminUsers() {
       notify(e?.message || i18n.loadError, "error");
       return false;
     }
-  }, [canMutate, i18n.loadError, i18n.readOnly, i18n.singleCompanyRequired, loadFormOptions, mutationsBlocked, notify]);
+  }, [
+    canMutate,
+    companyId,
+    i18n.loadError,
+    i18n.readOnly,
+    i18n.singleCompanyRequired,
+    loadFormOptions,
+    mutationsBlocked,
+    notify,
+    selectedGroup,
+    tenantCompanyOptions,
+    tenantGroupOptions,
+    useDualTenantPicker,
+  ]);
 
   const openEdit = useCallback(async () => {
     if (!detail) return false;
@@ -430,6 +470,22 @@ export function useMobileAdminUsers() {
       read_only: Number(detail.read_only ?? 1) === 1,
     });
     setPermSelected(new Set(parseJsonArray(detail.permissions)));
+    if (useDualTenantPicker && !detail.is_owner_shadow) {
+      setSelectedTenantGroupIds(
+        new Set(resolveAdminGroupEntityIds(tenantGroupOptions, parseJsonArray(detail.group_codes))),
+      );
+      const allowedCompanies = new Set(tenantCompanyOptions.map((row) => Number(row.id)));
+      setSelectedTenantCompanyIds(
+        new Set(
+          parseJsonArray(detail.company_ids)
+            .map(Number)
+            .filter((id) => allowedCompanies.has(id)),
+        ),
+      );
+    } else {
+      setSelectedTenantGroupIds(new Set());
+      setSelectedTenantCompanyIds(new Set());
+    }
     try {
       await loadFormOptions();
       setSelectedAccountIds(
@@ -443,7 +499,20 @@ export function useMobileAdminUsers() {
       notify(e?.message || i18n.loadError, "error");
       return false;
     }
-  }, [canMutate, detail, i18n.loadError, i18n.singleCompanyRequired, i18n.readOnly, loadFormOptions, mutationsBlocked, notify, rowCaps]);
+  }, [
+    canMutate,
+    detail,
+    i18n.loadError,
+    i18n.singleCompanyRequired,
+    i18n.readOnly,
+    loadFormOptions,
+    mutationsBlocked,
+    notify,
+    rowCaps,
+    tenantCompanyOptions,
+    tenantGroupOptions,
+    useDualTenantPicker,
+  ]);
 
   /** New user: sidebar permissions follow the role template until manually changed. */
   const applyRoleTemplate = useCallback((role) => {
@@ -491,18 +560,26 @@ export function useMobileAdminUsers() {
     if (form.password.trim()) payload.password = form.password;
     if (showReadOnlyToggle) payload.read_only = form.read_only ? 1 : 0;
     const isAdminOrOwner = currentUserRole === "admin" || currentUserRole === "owner";
+    if (useDualTenantPicker && !ownerShadow) {
+      payload.mixed_tenant_assign = 1;
+      payload.group_codes = resolveAdminGroupCodes(tenantGroupOptions, selectedTenantGroupIds);
+      payload.company_ids = [...selectedTenantCompanyIds];
+      if (selectedGroup) payload.group_id = String(selectedGroup).trim().toUpperCase();
+    }
     if (!editing) {
       payload.permissions = getFinalPermissionsForCreation(form.role, [...permSelected], currentUserRole);
       payload.account_permissions = accountPerms;
       payload.process_permissions = processPerms;
-      if (isAdminOrOwner) payload.company_ids = [Number(companyId)];
+      if (isAdminOrOwner && !useDualTenantPicker) payload.company_ids = [Number(companyId)];
     } else if (!ownerShadow) {
       if (!fieldLocks.sidebar) payload.permissions = [...permSelected];
       if (!fieldLocks.accountProcess) {
         payload.account_permissions = accountPerms;
         payload.process_permissions = processPerms;
       }
-      if (isAdminOrOwner && !fieldLocks.company) payload.company_ids = [Number(companyId)];
+      if (isAdminOrOwner && !useDualTenantPicker && !fieldLocks.company) {
+        payload.company_ids = [Number(companyId)];
+      }
     }
     setSaving(true);
     try {
@@ -533,7 +610,12 @@ export function useMobileAdminUsers() {
     permSelected,
     selectedAccountIds,
     selectedProcessIds,
+    selectedGroup,
+    selectedTenantCompanyIds,
+    selectedTenantGroupIds,
     showReadOnlyToggle,
+    tenantGroupOptions,
+    useDualTenantPicker,
   ]);
 
   const logout = useCallback(async () => {
@@ -602,6 +684,13 @@ export function useMobileAdminUsers() {
     setSelectedAccountIds,
     selectedProcessIds,
     setSelectedProcessIds,
+    useDualTenantPicker,
+    tenantGroupOptions,
+    tenantCompanyOptions,
+    selectedTenantGroupIds,
+    setSelectedTenantGroupIds,
+    selectedTenantCompanyIds,
+    setSelectedTenantCompanyIds,
     openCreate,
     openEdit,
     saveUser,

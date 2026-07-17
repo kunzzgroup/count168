@@ -220,15 +220,151 @@ function AccessPickerSheet({ open, onClose, title, i18n, options, selected, setS
   );
 }
 
+function TenantAssignmentSheet({ open, onClose, admin }) {
+  const { i18n } = admin;
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  const filterRows = (rows, labelOf) => {
+    const q = query.trim().toUpperCase();
+    if (!q) return rows;
+    return rows.filter((row) => labelOf(row).includes(q));
+  };
+  const groupLabel = (row) => String(row.group_id || row.company_id || "").trim().toUpperCase();
+  const companyLabel = (row) => String(row.company_id || "").trim().toUpperCase();
+  const groups = filterRows(admin.tenantGroupOptions, groupLabel);
+  const companies = filterRows(admin.tenantCompanyOptions, companyLabel);
+  const selectedCount =
+    admin.selectedTenantGroupIds.size + admin.selectedTenantCompanyIds.size;
+  const disabled = admin.fieldLocks.company || !!admin.editingRow?.is_owner_shadow;
+
+  const renderRows = (rows, selected, setSelected, labelOf, prefix) =>
+    rows.map((row) => {
+      const id = Number(row.id);
+      const checked = selected.has(id);
+      return (
+        <button
+          type="button"
+          key={`${prefix}-${id}`}
+          disabled={disabled}
+          aria-pressed={checked}
+          className={`m-admin-picker-item tap-scale${checked ? " is-checked" : ""}`}
+          onClick={() =>
+            setSelected((prev) => {
+              const next = new Set(prev);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            })
+          }
+        >
+          <i className={`${checked ? "fas fa-square-check" : "far fa-square"}`} aria-hidden="true" />
+          <span>{labelOf(row)}</span>
+        </button>
+      );
+    });
+
+  return (
+    <Sheet
+      open={open}
+      title={i18n.belonging}
+      onClose={onClose}
+      tall
+      footer={
+        <button type="button" className="m-account-primary-btn tap-scale" onClick={onClose}>
+          {i18n.done}
+        </button>
+      }
+    >
+      <label className="m-account-sheet-search">
+        <i className="fas fa-magnifying-glass" aria-hidden="true" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={i18n.searchGroupCompany} />
+      </label>
+      <div className="m-admin-picker-bulk">
+        <button
+          type="button"
+          className="m-admin-btn"
+          disabled={disabled}
+          onClick={() => {
+            admin.setSelectedTenantGroupIds(new Set(admin.tenantGroupOptions.map((row) => Number(row.id))));
+            admin.setSelectedTenantCompanyIds(new Set(admin.tenantCompanyOptions.map((row) => Number(row.id))));
+          }}
+        >
+          {i18n.selectAll}
+        </button>
+        <button
+          type="button"
+          className="m-admin-btn"
+          disabled={disabled}
+          onClick={() => {
+            admin.setSelectedTenantGroupIds(new Set());
+            admin.setSelectedTenantCompanyIds(new Set());
+          }}
+        >
+          {i18n.clearAll}
+        </button>
+        <span className="m-admin-picker-count">
+          {i18n.selectedCount.replace("{count}", String(selectedCount))}
+        </span>
+      </div>
+      <section className="m-admin-tenant-section">
+        <p className="m-account-section-title">{i18n.groupsSection}</p>
+        <div className="m-admin-picker-list">
+          {groups.length
+            ? renderRows(
+                groups,
+                admin.selectedTenantGroupIds,
+                admin.setSelectedTenantGroupIds,
+                groupLabel,
+                "group",
+              )
+            : <p className="m-admin-picker-empty">{i18n.noGroups}</p>}
+        </div>
+      </section>
+      <section className="m-admin-tenant-section">
+        <p className="m-account-section-title">{i18n.companiesSection}</p>
+        <div className="m-admin-picker-list">
+          {companies.length
+            ? renderRows(
+                companies,
+                admin.selectedTenantCompanyIds,
+                admin.setSelectedTenantCompanyIds,
+                companyLabel,
+                "company",
+              )
+            : <p className="m-admin-picker-empty">{i18n.noCompanies}</p>}
+        </div>
+      </section>
+    </Sheet>
+  );
+}
+
 export function UserFormSheet({ open, onClose, admin }) {
   const { i18n, form, setForm, fieldLocks, isEditMode } = admin;
   const [accountPickerOpen, setAccountPickerOpen] = useState(false);
   const [processPickerOpen, setProcessPickerOpen] = useState(false);
+  const [tenantPickerOpen, setTenantPickerOpen] = useState(false);
   const ownerShadow = !!admin.editingRow?.is_owner_shadow;
   const groupLabel = String(
     admin.selectedGroup || admin.selectedCompany?.group_id || "",
   ).toUpperCase();
   const companyLabel = String(admin.selectedCompany?.company_id || "").toUpperCase();
+  const selectedTenantLabels = useMemo(() => {
+    const groups = admin.tenantGroupOptions
+      .filter((row) => admin.selectedTenantGroupIds.has(Number(row.id)))
+      .map((row) => String(row.group_id || row.company_id || "").trim().toUpperCase());
+    const companies = admin.tenantCompanyOptions
+      .filter((row) => admin.selectedTenantCompanyIds.has(Number(row.id)))
+      .map((row) => String(row.company_id || "").trim().toUpperCase());
+    return [...groups, ...companies];
+  }, [
+    admin.selectedTenantCompanyIds,
+    admin.selectedTenantGroupIds,
+    admin.tenantCompanyOptions,
+    admin.tenantGroupOptions,
+  ]);
 
   const requestClose = () => {
     if (window.confirm(i18n.discardConfirm)) onClose();
@@ -262,7 +398,7 @@ export function UserFormSheet({ open, onClose, admin }) {
   return (
     <>
       <Sheet
-        open={open && !accountPickerOpen && !processPickerOpen}
+        open={open && !tenantPickerOpen && !accountPickerOpen && !processPickerOpen}
         title={isEditMode ? i18n.editUser : i18n.addUser}
         onClose={requestClose}
         tall
@@ -353,10 +489,27 @@ export function UserFormSheet({ open, onClose, admin }) {
 
         <div className="m-account-sheet-section">
           <p className="m-account-section-title">{i18n.belonging}</p>
-          <div className="m-admin-belonging">
-            {groupLabel ? <span className="m-admin-belonging-chip is-group">{groupLabel}</span> : null}
-            {companyLabel ? <span className="m-admin-belonging-chip">{companyLabel}</span> : null}
-          </div>
+          {admin.useDualTenantPicker && !ownerShadow ? (
+            <button
+              type="button"
+              className="m-admin-access-row tap-scale"
+              disabled={fieldLocks.company}
+              onClick={() => setTenantPickerOpen(true)}
+            >
+              <span>{i18n.selectGroupCompany}</span>
+              <small>
+                {selectedTenantLabels.length
+                  ? selectedTenantLabels.join(" · ")
+                  : i18n.noneSelected}
+                <i className="fas fa-chevron-right" aria-hidden="true" />
+              </small>
+            </button>
+          ) : (
+            <div className="m-admin-belonging">
+              {groupLabel ? <span className="m-admin-belonging-chip is-group">{groupLabel}</span> : null}
+              {companyLabel ? <span className="m-admin-belonging-chip">{companyLabel}</span> : null}
+            </div>
+          )}
         </div>
 
         {!ownerShadow ? (
@@ -397,6 +550,11 @@ export function UserFormSheet({ open, onClose, admin }) {
         ) : null}
       </Sheet>
 
+      <TenantAssignmentSheet
+        open={tenantPickerOpen}
+        onClose={() => setTenantPickerOpen(false)}
+        admin={admin}
+      />
       <AccessPickerSheet
         open={accountPickerOpen}
         onClose={() => setAccountPickerOpen(false)}
