@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { getProcessModalDropdownZIndex } from "../../../components/ProcessModalPortal.jsx";
 import SimpleSelect from "../../../components/SimpleSelect.jsx";
 import { useListboxKeyboard } from "../../../components/useListboxKeyboard.js";
-import FormDateField from "../../../components/FormDateField.jsx";
 import { formatDmy, formatYmd, parseYmd } from "../../../utils/date/dateUtils.js";
 import { filterBankPickAccounts, formatBankAccountDisplay } from "../lib/bankProcessHelpers.js";
 
@@ -46,23 +45,6 @@ export function BankSimpleSelect({ className = "", ...props }) {
   return <SimpleSelect {...props} wrapperClassName={`bank-simple-select${className ? ` ${className}` : ""}`} />;
 }
 
-/** Bank Process modal wrapper — same calendar as FormDateField, bank-specific CSS classes. */
-export function BankFormDateField(props) {
-  const { wrapClassName = "", disabled = false, ...rest } = props;
-  return (
-    <FormDateField
-      {...rest}
-      disabled={disabled}
-      wrapClassName={`bank-form-datepicker-wrap${disabled ? " bank-form-datepicker-wrap--disabled" : ""} ${wrapClassName}`.trim()}
-      inputClassName="bank-input bank-form-datepicker-input"
-      hitboxClassName="bank-form-datepicker-hitbox"
-      clearClassName="bank-form-datepicker-clear"
-      srSpanClassName="bank-form-datepicker-sr-span"
-      showCalendarIcon={false}
-    />
-  );
-}
-
 function toDisplayDate(value) {
   const date = parseYmd(String(value || "").trim());
   return date ? formatDmy(date) : "";
@@ -91,47 +73,35 @@ function buildCalendarCells(viewMonth) {
 }
 
 /**
- * Add/Edit-only date range field. It intentionally does not use the shared
- * MaintenanceDateRangePicker so the list Period picker and Resend fields keep
- * their existing bindings and behavior.
+ * Bank-style single-date field with its own calendar popup (no Period presets).
+ * Used by Add/Edit and Resend so both share one design. It intentionally does
+ * not use the shared MaintenanceDateRangePicker so the list Period picker
+ * keeps its existing bindings and behavior.
  */
-export function BankFormDateRangeFields({
-  startValue,
-  endValue,
-  onRangeChange,
-  startLabel,
-  endLabel,
+export function BankFormCalendarDateField({
+  id,
+  label,
+  value,
+  onValueChange,
+  disabled = false,
+  minYmd = "",
   placeholder,
   clearLabel,
-  endDisabled = false,
-  singleDateMode = false,
-  endLabelExtra = null,
+  labelExtra = null,
   monthLabels,
   weekdaysShort,
+  className = "",
+  wrapClassName = "",
 }) {
-  const groupRef = useRef(null);
+  const wrapRef = useRef(null);
   const popupRef = useRef(null);
   const [open, setOpen] = useState(false);
-  const [activeEndpoint, setActiveEndpoint] = useState("start");
-  const [draftStart, setDraftStart] = useState(String(startValue || ""));
-  const [draftEnd, setDraftEnd] = useState(String(endValue || ""));
-  const [hoverYmd, setHoverYmd] = useState("");
-  const [viewMonth, setViewMonth] = useState(() => firstOfMonth(startValue || endValue));
+  const [viewMonth, setViewMonth] = useState(() => firstOfMonth(value));
   const [popupStyle, setPopupStyle] = useState(null);
 
-  useEffect(() => {
-    if (!open) {
-      setDraftStart(String(startValue || ""));
-      setDraftEnd(String(endValue || ""));
-      return;
-    }
-    setDraftStart(String(startValue || ""));
-    setDraftEnd(String(endValue || ""));
-  }, [endValue, open, startValue]);
-
   useLayoutEffect(() => {
-    if (!open || !groupRef.current) return;
-    const anchorRect = groupRef.current.getBoundingClientRect();
+    if (!open || !wrapRef.current) return;
+    const anchorRect = wrapRef.current.getBoundingClientRect();
     const popupWidth = Math.min(292, Math.max(1, window.innerWidth - 24));
     const popupHeight = popupRef.current?.offsetHeight || 320;
     const left = Math.max(12, Math.min(anchorRect.left, window.innerWidth - popupWidth - 12));
@@ -143,15 +113,15 @@ export function BankFormDateRangeFields({
       left: `${Math.round(left)}px`,
       top: `${Math.round(top)}px`,
       width: `${Math.round(popupWidth)}px`,
-      zIndex: getProcessModalDropdownZIndex(groupRef.current),
+      zIndex: getProcessModalDropdownZIndex(wrapRef.current),
     });
-  }, [activeEndpoint, open, viewMonth]);
+  }, [open, viewMonth]);
 
   useEffect(() => {
     if (!open) return undefined;
     const closeOnOutside = (event) => {
       const target = event.target;
-      if (groupRef.current?.contains(target) || popupRef.current?.contains(target)) return;
+      if (wrapRef.current?.contains(target) || popupRef.current?.contains(target)) return;
       setOpen(false);
     };
     const closeOnEscape = (event) => {
@@ -170,95 +140,33 @@ export function BankFormDateRangeFields({
     };
   }, [open]);
 
-  const openCalendar = (endpoint) => {
-    if (endpoint === "end" && endDisabled) return;
-    const nextEndpoint = endpoint === "end" && !startValue ? "start" : endpoint;
-    setDraftStart(String(startValue || ""));
-    setDraftEnd(String(endValue || ""));
-    setHoverYmd("");
-    setActiveEndpoint(nextEndpoint);
-    setViewMonth(firstOfMonth(nextEndpoint === "end" ? endValue || startValue : startValue || endValue));
+  const openCalendar = () => {
+    if (disabled) return;
+    setViewMonth(firstOfMonth(value || minYmd));
     setOpen(true);
   };
 
-  const commitRange = (nextStart, nextEnd) => {
-    onRangeChange?.(nextStart, nextEnd);
-  };
-
   const selectDay = (ymd) => {
-    if (activeEndpoint === "start") {
-      if (singleDateMode) {
-        setDraftStart(ymd);
-        setDraftEnd("");
-        commitRange(ymd, "");
-        setOpen(false);
-        return;
-      }
-      if (endDisabled) {
-        setDraftStart(ymd);
-        commitRange(ymd, draftEnd);
-        setOpen(false);
-        return;
-      }
-      const nextEnd = draftEnd && draftEnd >= ymd ? draftEnd : "";
-      setDraftStart(ymd);
-      setDraftEnd(nextEnd);
-      commitRange(ymd, nextEnd);
-      setActiveEndpoint("end");
-      setHoverYmd("");
-      return;
-    }
-
-    if (!draftStart) {
-      setDraftStart(ymd);
-      setDraftEnd("");
-      commitRange(ymd, "");
-      setActiveEndpoint("end");
-      return;
-    }
-
-    const nextStart = ymd < draftStart ? ymd : draftStart;
-    const nextEnd = ymd < draftStart ? draftStart : ymd;
-    setDraftStart(nextStart);
-    setDraftEnd(nextEnd);
-    commitRange(nextStart, nextEnd);
+    if (minYmd && ymd < minYmd) return;
+    onValueChange?.(ymd);
     setOpen(false);
   };
 
-  const clearStart = (event) => {
+  const clearValue = (event) => {
     event.preventDefault();
     event.stopPropagation();
-    setDraftStart("");
-    setDraftEnd("");
-    commitRange("", "");
-    setOpen(false);
-  };
-
-  const clearEnd = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setDraftEnd("");
-    commitRange(draftStart || String(startValue || ""), "");
+    onValueChange?.("");
     setOpen(false);
   };
 
   const cells = useMemo(() => buildCalendarCells(viewMonth), [viewMonth]);
   const todayYmd = formatYmd(new Date());
-  const previewStart = draftStart;
-  const previewEnd =
-    activeEndpoint === "end" && hoverYmd
-      ? hoverYmd < previewStart
-        ? previewStart
-        : hoverYmd
-      : draftEnd;
-  const previewRangeStart =
-    activeEndpoint === "end" && hoverYmd && hoverYmd < previewStart ? hoverYmd : previewStart;
-
-  const selectedYears = [parseYmd(draftStart)?.getFullYear(), parseYmd(draftEnd)?.getFullYear()]
-    .filter(Number.isFinite);
+  const selectedYmd = String(value || "").trim();
+  const selectedYear = parseYmd(selectedYmd)?.getFullYear();
+  const extraYears = Number.isFinite(selectedYear) ? [selectedYear] : [];
   const currentYear = new Date().getFullYear();
-  const minYear = Math.min(2022, ...selectedYears);
-  const maxYear = Math.max(currentYear + 1, ...selectedYears);
+  const minYear = Math.min(2022, ...extraYears);
+  const maxYear = Math.max(currentYear + 1, ...extraYears);
   const yearOptions = Array.from({ length: maxYear - minYear + 1 }, (_, index) => minYear + index);
   const labels = Array.isArray(monthLabels) && monthLabels.length === 12
     ? monthLabels
@@ -267,52 +175,6 @@ export function BankFormDateRangeFields({
     ? weekdaysShort
     : Array(7).fill("");
 
-  const renderField = ({ endpoint, label, value, disabled, labelExtra, wrapClassName, className = "" }) => (
-    <div className={`form-group ${className}`.trim()}>
-      {labelExtra ? (
-        <div className="form-date-label-row bank-day-end-label-row">
-          <label htmlFor={`bank_day_${endpoint}`}>{label}</label>
-          {labelExtra}
-        </div>
-      ) : (
-        <label htmlFor={`bank_day_${endpoint}`}>{label}</label>
-      )}
-      <div
-        className={`bank-form-datepicker-wrap ${wrapClassName}${disabled ? " bank-form-datepicker-wrap--disabled" : ""}`.trim()}
-      >
-        <input
-          id={`bank_day_${endpoint}`}
-          type="text"
-          className="bank-input bank-form-datepicker-input"
-          readOnly
-          placeholder={placeholder}
-          value={toDisplayDate(value)}
-          disabled={disabled}
-          aria-haspopup="dialog"
-          aria-expanded={open && activeEndpoint === endpoint}
-          onClick={() => openCalendar(endpoint)}
-          onKeyDown={(event) => {
-            if (!disabled && (event.key === "Enter" || event.key === " ")) {
-              event.preventDefault();
-              openCalendar(endpoint);
-            }
-          }}
-        />
-        {value && !disabled ? (
-          <button
-            type="button"
-            className="bank-form-datepicker-clear"
-            title={clearLabel}
-            aria-label={clearLabel}
-            onClick={endpoint === "start" ? clearStart : clearEnd}
-          >
-            ×
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
-
   const popup = open && typeof document !== "undefined"
     ? createPortal(
         <div
@@ -320,7 +182,7 @@ export function BankFormDateRangeFields({
           className="calendar-popup calendar-popup--transaction-range calendar-popup--no-presets bank-form-range-calendar"
           style={{ ...popupStyle, display: "grid", visibility: popupStyle ? "visible" : "hidden" }}
           role="dialog"
-          aria-label={`${startLabel} - ${endLabel}`}
+          aria-label={label}
           onPointerDown={(event) => event.stopPropagation()}
         >
           <div className="transaction-calendar-panel">
@@ -336,18 +198,18 @@ export function BankFormDateRangeFields({
               <div className="calendar-month-year">
                 <select
                   value={viewMonth.getMonth()}
-                  aria-label={startLabel}
+                  aria-label={label}
                   onChange={(event) =>
                     setViewMonth((prev) => new Date(prev.getFullYear(), Number(event.target.value), 1))
                   }
                 >
-                  {labels.map((label, index) => (
-                    <option key={label} value={index}>{label}</option>
+                  {labels.map((monthLabel, index) => (
+                    <option key={monthLabel} value={index}>{monthLabel}</option>
                   ))}
                 </select>
                 <select
                   value={viewMonth.getFullYear()}
-                  aria-label={endLabel}
+                  aria-label={label}
                   onChange={(event) =>
                     setViewMonth((prev) => new Date(Number(event.target.value), prev.getMonth(), 1))
                   }
@@ -373,18 +235,13 @@ export function BankFormDateRangeFields({
             </div>
             <div className="calendar-days">
               {cells.map(({ ymd, date, otherMonth }) => {
-                const isStart = !!previewRangeStart && ymd === previewRangeStart;
-                const isEnd = !!previewEnd && ymd === previewEnd;
-                const inRange =
-                  !!previewRangeStart && !!previewEnd && ymd > previewRangeStart && ymd < previewEnd;
+                const dayDisabled = !!minYmd && ymd < minYmd;
                 const classNames = [
                   "calendar-day",
                   otherMonth ? "other-month" : "",
                   ymd === todayYmd ? "today" : "",
-                  isStart ? "start-date" : "",
-                  isEnd ? "end-date" : "",
-                  isStart && isEnd ? "selected" : "",
-                  inRange ? (hoverYmd ? "preview-range" : "in-range") : "",
+                  ymd === selectedYmd ? "selected start-date end-date" : "",
+                  dayDisabled ? "disabled" : "",
                 ].filter(Boolean).join(" ");
                 return (
                   <button
@@ -392,12 +249,7 @@ export function BankFormDateRangeFields({
                     type="button"
                     className={classNames}
                     aria-label={formatDmy(date)}
-                    onMouseEnter={() => {
-                      if (activeEndpoint === "end" && draftStart) setHoverYmd(ymd);
-                    }}
-                    onFocus={() => {
-                      if (activeEndpoint === "end" && draftStart) setHoverYmd(ymd);
-                    }}
+                    disabled={dayDisabled}
                     onClick={() => selectDay(ymd)}
                   >
                     {date.getDate()}
@@ -412,23 +264,49 @@ export function BankFormDateRangeFields({
     : null;
 
   return (
-    <div ref={groupRef} className="form-row bank-day-start-row bank-form-date-range-fields">
-      {renderField({
-        endpoint: "start",
-        label: startLabel,
-        value: startValue,
-        disabled: false,
-        wrapClassName: "bank-day-start-input-wrap",
-      })}
-      {renderField({
-        endpoint: "end",
-        label: endLabel,
-        value: endValue,
-        disabled: endDisabled,
-        labelExtra: endLabelExtra,
-        wrapClassName: "bank-day-end-input-wrap",
-        className: `bank-day-end-field-group${endDisabled ? " bank-day-end-input-wrap--muted" : ""}`,
-      })}
+    <div className={`form-group ${className}`.trim()}>
+      {labelExtra ? (
+        <div className="form-date-label-row bank-day-end-label-row">
+          <label htmlFor={id}>{label}</label>
+          {labelExtra}
+        </div>
+      ) : label ? (
+        <label htmlFor={id}>{label}</label>
+      ) : null}
+      <div
+        ref={wrapRef}
+        className={`bank-form-datepicker-wrap ${wrapClassName}${disabled ? " bank-form-datepicker-wrap--disabled" : ""}`.trim()}
+      >
+        <input
+          id={id}
+          type="text"
+          className="bank-input bank-form-datepicker-input"
+          readOnly
+          placeholder={placeholder}
+          value={toDisplayDate(value)}
+          disabled={disabled}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={openCalendar}
+          onKeyDown={(event) => {
+            if (!disabled && (event.key === "Enter" || event.key === " ")) {
+              event.preventDefault();
+              openCalendar();
+            }
+          }}
+        />
+        {selectedYmd && !disabled ? (
+          <button
+            type="button"
+            className="bank-form-datepicker-clear"
+            title={clearLabel}
+            aria-label={clearLabel}
+            onClick={clearValue}
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
       {popup}
     </div>
   );

@@ -2,7 +2,7 @@ import React from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 import {
-  BankFormDateRangeFields,
+  BankFormCalendarDateField,
   BankSearchableAccountPick,
   BankSimpleSelect,
 } from "./bankProcessFormFields.jsx";
@@ -234,25 +234,39 @@ export default function BankProcessFormModal({
               </div>
               <div className="bank-form-row">
                 <div className="bank-form-cell bank-form-cell-left">
-                  <BankFormDateRangeFields
-                    startValue={form.day_start}
-                    endValue={form.day_end}
-                    startLabel={t("dayStart")}
-                    endLabel={t("dayEnd")}
-                    placeholder={t("pickDate")}
-                    clearLabel={t("clearDate")}
-                    endDisabled={dayEndDisabled}
-                    singleDateMode={isOnce || isWeek || isDay}
-                    monthLabels={calendarI18n?.monthLabels}
-                    weekdaysShort={calendarI18n?.weekdaysShort}
-                    onRangeChange={(dayStartValue, dayEndValue) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        day_start: dayStartValue,
-                        day_end: dayEndValue,
-                      }))
-                    }
-                    endLabelExtra={
+                  <div className="form-row bank-day-start-row bank-form-date-range-fields">
+                    <BankFormCalendarDateField
+                      id="bank_day_start"
+                      label={t("dayStart")}
+                      value={form.day_start}
+                      placeholder={t("pickDate")}
+                      clearLabel={t("clearDate")}
+                      monthLabels={calendarI18n?.monthLabels}
+                      weekdaysShort={calendarI18n?.weekdaysShort}
+                      wrapClassName="bank-day-start-input-wrap"
+                      onValueChange={(iso) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          day_start: iso,
+                          // Keep end valid: a start after the current end invalidates the end.
+                          day_end: iso && prev.day_end && prev.day_end < iso ? "" : prev.day_end,
+                        }))
+                      }
+                    />
+                    <BankFormCalendarDateField
+                      id="bank_day_end"
+                      label={t("dayEnd")}
+                      value={form.day_end}
+                      disabled={dayEndDisabled}
+                      minYmd={form.day_start || ""}
+                      placeholder={t("pickDate")}
+                      clearLabel={t("clearDate")}
+                      monthLabels={calendarI18n?.monthLabels}
+                      weekdaysShort={calendarI18n?.weekdaysShort}
+                      wrapClassName="bank-day-end-input-wrap"
+                      className={`bank-day-end-field-group${dayEndDisabled ? " bank-day-end-input-wrap--muted" : ""}`}
+                      onValueChange={(iso) => setForm((prev) => ({ ...prev, day_end: iso }))}
+                      labelExtra={
                       showCapSwitch ? (
                         <div
                           id="bank_day_end_monthly_cap_wrap"
@@ -288,7 +302,8 @@ export default function BankProcessFormModal({
                         </div>
                       ) : null
                     }
-                  />
+                    />
+                  </div>
                 </div>
                 <div className="bank-form-cell bank-form-cell-right">
                   <div className="form-row bank-row-two-cols">

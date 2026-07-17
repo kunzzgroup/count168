@@ -830,8 +830,10 @@ export default function BankProcessListPage() {
 
       {resendModalOpen && (
         <ResendModal
-          resendTarget={resendTarget} resendDayStart={resendDayStart}
+          resendTarget={resendTarget}
+          resendDayStart={resendDayStart} setResendDayStart={setResendDayStart}
           resendDayEnd={resendDayEnd} setResendDayEnd={setResendDayEnd}
+          calendarI18n={calendarI18n}
           resendFrequency={resendFrequency} setResendFrequency={setResendFrequency}
           resendInlineError={resendInlineError} setResendInlineError={setResendInlineError}
           resendConfirmDisabled={resendConfirmDisabled}
