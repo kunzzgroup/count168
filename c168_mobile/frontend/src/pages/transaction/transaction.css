@@ -333,23 +333,33 @@
 .m-tx-card--alert {
   background: #fff5f5;
   outline: 1.5px solid #fca5a5;
-  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.12);
   border-left: 0.28rem solid #dc2626;
+  animation: m-tx-alert-breathe 2.6s ease-in-out infinite;
+}
+
+@keyframes m-tx-alert-breathe {
+  0%,
+  100% {
+    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.1);
+    outline-color: #fca5a5;
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(220, 38, 38, 0.12);
+    outline-color: #f87171;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m-tx-card--alert {
+    animation: none;
+    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.12);
+  }
 }
 
 .m-tx-card--alert .m-tx-card-account {
   background: #fee2e2 !important;
   color: #991b1b !important;
   border-bottom-color: #fecaca;
-}
-
-.m-tx-card--alert .m-tx-card-code::after {
-  content: "\f0f3";
-  font-family: "Font Awesome 6 Free";
-  font-weight: 900;
-  margin-left: 0.4rem;
-  font-size: 0.72em;
-  color: #dc2626;
 }
 
 .m-tx-card--alert .m-tx-card-currency {
