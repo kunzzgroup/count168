@@ -1,0 +1,273 @@
+/* Mobile admin user management — extends account.css card/sheet look. */
+
+.m-admin-card-actions {
+  justify-content: space-between;
+}
+
+.m-admin-owner-tag {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #6d28d9;
+  background: rgba(109, 40, 217, 0.12);
+  border-radius: 999px;
+  padding: 0.2rem 0.9rem;
+}
+
+.m-admin-detail-list {
+  margin: 0;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.m-admin-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.2rem;
+  padding: 0.9rem 1.1rem;
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: 1.2rem;
+}
+
+.m-admin-detail-row dt {
+  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
+  color: rgba(15, 23, 42, 0.55);
+}
+
+.m-admin-detail-row dd {
+  margin: 0;
+  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
+  font-weight: 600;
+  color: #0f172a;
+  text-align: right;
+  word-break: break-word;
+}
+
+.m-admin-detail-actions {
+  display: flex;
+  gap: 0.8rem;
+  margin-top: 1.4rem;
+}
+
+.m-admin-btn {
+  flex: 1;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: #fff;
+  color: #0f172a;
+  border-radius: 1.2rem;
+  padding: 1.1rem 1rem;
+  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
+  font-weight: 600;
+}
+
+.m-admin-btn:disabled {
+  opacity: 0.45;
+}
+
+.m-admin-btn--primary {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #fff;
+}
+
+.m-admin-btn--danger {
+  background: #fff1f2;
+  border-color: rgba(225, 29, 72, 0.35);
+  color: #e11d48;
+}
+
+.m-admin-delete-confirm {
+  margin-top: 1.4rem;
+  border: 1px solid rgba(225, 29, 72, 0.4);
+  background: #fff1f2;
+  border-radius: 1.4rem;
+  padding: 1.2rem;
+}
+
+.m-admin-delete-confirm p {
+  margin: 0 0 1rem;
+  color: #9f1239;
+  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
+  font-weight: 600;
+}
+
+.m-admin-delete-actions {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.m-admin-shadow-hint,
+.m-admin-field-hint {
+  margin: 0 0 1rem;
+  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
+  color: rgba(15, 23, 42, 0.55);
+}
+
+.m-admin-field {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.m-admin-field span {
+  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
+  font-weight: 600;
+  color: rgba(15, 23, 42, 0.6);
+}
+
+.m-admin-field input,
+.m-admin-field select {
+  width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 1.2rem;
+  padding: 1.1rem 1.2rem;
+  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
+  background: #fff;
+  color: #0f172a;
+}
+
+.m-admin-field input:disabled,
+.m-admin-field select:disabled {
+  background: rgba(15, 23, 42, 0.05);
+  color: rgba(15, 23, 42, 0.5);
+}
+
+.m-admin-toggle-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: #fff;
+  border-radius: 1.2rem;
+  padding: 1.1rem 1.2rem;
+  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.m-admin-belonging {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.m-admin-belonging-chip {
+  border-radius: 999px;
+  padding: 0.6rem 1.4rem;
+  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
+  font-weight: 700;
+  background: rgba(29, 78, 216, 0.1);
+  color: #1d4ed8;
+}
+
+.m-admin-belonging-chip.is-group {
+  background: rgba(109, 40, 217, 0.1);
+  color: #6d28d9;
+}
+
+.m-admin-access-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: #fff;
+  border-radius: 1.2rem;
+  padding: 1.2rem;
+  margin-bottom: 0.8rem;
+  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.m-admin-access-row:disabled {
+  opacity: 0.45;
+}
+
+.m-admin-access-row small {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
+  color: rgba(15, 23, 42, 0.55);
+}
+
+.m-admin-picker-search {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 1.2rem;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+  background: #fff;
+}
+
+.m-admin-picker-search i {
+  color: rgba(15, 23, 42, 0.4);
+}
+
+.m-admin-picker-search input {
+  flex: 1;
+  border: 0;
+  outline: none;
+  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
+  background: transparent;
+}
+
+.m-admin-picker-bulk {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.m-admin-picker-bulk .m-admin-btn {
+  flex: 0 0 auto;
+  padding: 0.7rem 1.2rem;
+  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
+}
+
+.m-admin-picker-count {
+  margin-left: auto;
+  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
+  color: rgba(15, 23, 42, 0.55);
+}
+
+.m-admin-picker-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.m-admin-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: #fff;
+  border-radius: 1.2rem;
+  padding: 1.1rem 1.2rem;
+  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
+  color: #0f172a;
+  text-align: left;
+}
+
+.m-admin-picker-item.is-checked {
+  border-color: rgba(29, 78, 216, 0.5);
+  background: rgba(29, 78, 216, 0.06);
+}
+
+.m-admin-picker-item i {
+  color: #1d4ed8;
+  font-size: 1.8rem;
+}
+
+.m-admin-picker-item:not(.is-checked) i {
+  color: rgba(15, 23, 42, 0.35);
+}
+
+.m-admin-sentinel {
+  height: 1px;
+}
