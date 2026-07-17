@@ -774,7 +774,11 @@ export function useMobileAccount() {
     groupAllMode,
     selectedCompany,
     groupIds,
-    companiesForPicker: companiesForPicker(companies, { selectedGroup, groupsAllMode }),
+    companiesForPicker: companiesForPicker(companies, {
+      selectedGroup,
+      groupsAllMode,
+      preferredCompanyId: companyId,
+    }),
     canUseGroupOnlyForGroup: (group) => canUseGroupOnlyMode(me, group, companies),
     resolveCompanyForGroup: (group, current) =>
       resolveCompanyPickForGroup(companies, group, current),

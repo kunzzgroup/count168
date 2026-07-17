@@ -131,8 +131,13 @@ export function useMobileTransaction({ listPaused = false } = {}) {
 
   const groupIds = useMemo(() => sortedUniqueGroupIds(companies), [companies]);
   const companiesForPicker = useMemo(
-    () => resolveCompaniesForPicker(companies, { selectedGroup, groupsAllMode }),
-    [companies, selectedGroup, groupsAllMode],
+    () =>
+      resolveCompaniesForPicker(companies, {
+        selectedGroup,
+        groupsAllMode,
+        preferredCompanyId: companyId,
+      }),
+    [companies, selectedGroup, groupsAllMode, companyId],
   );
   const selectedCompany = useMemo(
     () => companies.find((c) => Number(c.id) === Number(companyId)) || null,

@@ -2,6 +2,82 @@ export function normalizeGroupId(value) {
   return String(value || "").trim().toUpperCase();
 }
 
+function isVirtualGroupLinkCompanyRow(companyRow) {
+  return Boolean(companyRow?.link_source_group);
+}
+
+function companyRowIsGroupEntityAnyShape(companyRow) {
+  if (!companyRow || isVirtualGroupLinkCompanyRow(companyRow)) return false;
+  const grp = normalizeGroupId(companyRow.group_id);
+  if (!grp) return false;
+  const code = normalizeGroupId(companyRow.company_id);
+  if (code === grp) return true;
+  return code === "";
+}
+
+function companyDisplayCodeIsGroupLabel(companyRow, groupIds) {
+  const code = normalizeGroupId(companyRow?.company_id);
+  if (!code) return false;
+  const set = new Set((groupIds || []).map(normalizeGroupId).filter(Boolean));
+  return set.has(code);
+}
+
+function excludeGroupLabelsFromCompanyPicker(companies, groupIds) {
+  return (companies || []).filter((c) => {
+    if (companyDisplayCodeIsGroupLabel(c, groupIds)) return false;
+    if (companyRowIsGroupEntityAnyShape(c)) return false;
+    return true;
+  });
+}
+
+/** One pill per company code — prefer session / active company when duplicates exist. */
+export function dedupeOwnerCompaniesByCode(companies, preferredCompanyId = null) {
+  const byCode = new Map();
+  for (const comp of companies || []) {
+    const key = normalizeGroupId(comp.company_id);
+    if (!key) continue;
+    const existing = byCode.get(key);
+    if (!existing) {
+      byCode.set(key, comp);
+      continue;
+    }
+    const existingIsCurrent = Number(existing.id) === Number(preferredCompanyId);
+    const currentIsCurrent = Number(comp.id) === Number(preferredCompanyId);
+    if (!existingIsCurrent && currentIsCurrent) byCode.set(key, comp);
+  }
+  return Array.from(byCode.values());
+}
+
+function companiesNativeInGroupList(companies, gid) {
+  const gids = sortedUniqueGroupIds(companies);
+  if (!gid) {
+    return (companies || []).filter((c) => {
+      if (!c?.company_id || String(c.company_id).trim() === "") return false;
+      if (isVirtualGroupLinkCompanyRow(c)) return false;
+      const native = normalizeGroupId(c.native_group_id ?? c.group_id);
+      if (!native) return true;
+      return !companyRowIsGroupEntityAnyShape(c);
+    });
+  }
+  const g = normalizeGroupId(gid);
+  return (companies || []).filter((c) => {
+    if (!c?.company_id || String(c.company_id).trim() === "") return false;
+    if (isVirtualGroupLinkCompanyRow(c)) return false;
+    return normalizeGroupId(c.native_group_id ?? c.group_id) === g;
+  });
+}
+
+function allGroupedCompaniesForPicker(companies, groupIds) {
+  const set = new Set((groupIds || sortedUniqueGroupIds(companies)).map(normalizeGroupId).filter(Boolean));
+  return (companies || []).filter((c) => {
+    if (!c?.company_id || String(c.company_id).trim() === "") return false;
+    if (isVirtualGroupLinkCompanyRow(c)) return false;
+    const g = normalizeGroupId(c.group_id);
+    const link = normalizeGroupId(c.link_source_group);
+    return (g && set.has(g)) || (link && set.has(link));
+  });
+}
+
 export function sortedUniqueGroupIds(companies) {
   const set = new Set();
   for (const c of companies || []) {
@@ -36,16 +112,22 @@ export function companiesInGroup(companies, groupId) {
 }
 
 export function pickGroupAnchorCompany(companies, groupId) {
-  const list = companiesInGroup(companies, groupId);
+  const list = companiesForPicker(companies, { selectedGroup: groupId, groupsAllMode: false });
   return list.find((c) => Number(c.id) > 0) || null;
 }
 
-export function companiesForPicker(companies, { selectedGroup, groupsAllMode }) {
-  const rows = (companies || []).filter(
-    (c) => c?.company_id && String(c.company_id).trim() !== "",
-  );
-  if (groupsAllMode || !selectedGroup) return rows;
-  return companiesInGroup(rows, selectedGroup);
+export function companiesForPicker(companies, { selectedGroup, groupsAllMode, preferredCompanyId = null }) {
+  const groupIds = sortedUniqueGroupIds(companies);
+  let list;
+  if (groupsAllMode) {
+    list = allGroupedCompaniesForPicker(companies, groupIds);
+  } else if (selectedGroup) {
+    list = companiesNativeInGroupList(companies, selectedGroup);
+  } else {
+    list = companiesNativeInGroupList(companies, null);
+  }
+  list = excludeGroupLabelsFromCompanyPicker(list, groupIds);
+  return dedupeOwnerCompaniesByCode(list, preferredCompanyId);
 }
 
 /** Pick subsidiary when switching group without group-only permission (desktop-aligned). */
@@ -61,7 +143,7 @@ export function resolveCompanyPickForGroup(companies, groupId, currentCompanyId 
       if (native === g || link === g) return row;
     }
   }
-  return pickGroupAnchorCompany(companies, g) || companiesInGroup(companies, g)[0] || null;
+  return pickGroupAnchorCompany(companies, g) || companiesForPicker(companies, { selectedGroup: g, groupsAllMode: false })[0] || null;
 }
 
 export function pickCompany(companies, sessionCompanyId) {
