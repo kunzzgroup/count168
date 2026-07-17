@@ -296,7 +296,7 @@
 .m-account-sheet-body {
   min-height: 0;
   overflow-y: auto;
-  padding: 0.8rem 1rem 1rem;
+  padding: 1rem;
   font-size: var(--m-text-compact);
 }
 
@@ -310,13 +310,13 @@
 .m-account-primary-btn,
 .m-account-secondary-btn {
   display: inline-flex;
-  min-height: 2.75rem;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  border-radius: 0.7rem;
-  padding: 0.65rem 1rem;
-  font-weight: 800;
+  border-radius: var(--m-radius-card-lg);
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 
 .m-account-primary-btn {
@@ -342,15 +342,16 @@
 .m-account-danger-btn {
   display: flex;
   width: 100%;
-  min-height: 2.5rem;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
   margin-top: 0.55rem;
-  border-radius: 0.7rem;
+  border-radius: var(--m-radius-card-lg);
+  padding: 0.75rem 1rem;
   background: var(--m-color-danger-soft);
   color: var(--m-color-danger-text);
-  font-weight: 800;
+  font-size: 0.8125rem;
+  font-weight: 700;
 }
 
 .m-account-danger-btn:disabled {
@@ -467,7 +468,9 @@
   justify-content: space-between;
   border-radius: var(--m-radius-card);
   background: var(--m-color-surface-muted);
-  padding: 0.65rem 0.75rem;
+  padding: 0.75rem;
+  font-size: var(--m-text-body);
+  font-weight: 600;
 }
 
 .m-account-toggle-row > input {
@@ -479,29 +482,44 @@
 .m-account-form-grid,
 .m-account-alert-grid {
   display: grid;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
+/* Match Add Transaction form metrics (m-tx-form-*) */
 .m-account-form-field {
   display: grid;
-  gap: 0.3rem;
-  color: var(--m-color-text-secondary);
-  font-size: var(--m-text-sub-ratio);
+  gap: 0.375rem;
+  color: var(--m-color-muted);
+  font-size: 0.75rem;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .m-account-form-field input,
 .m-account-form-field select,
 .m-account-form-field textarea {
   width: 100%;
-  min-height: 2.65rem;
-  border: 1px solid var(--m-color-ring);
-  border-radius: 0.65rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
   outline: 0;
   background: #fff;
-  padding: 0.6rem 0.7rem;
+  padding: 0.75rem;
   color: var(--m-color-text);
-  font-size: var(--m-text-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.m-account-form-field select {
+  background: #f8fafc;
+}
+
+.m-account-form-field input:focus,
+.m-account-form-field select:focus,
+.m-account-form-field textarea:focus {
+  border-color: var(--m-color-primary);
 }
 
 .m-account-form-field textarea {
@@ -509,10 +527,25 @@
   resize: vertical;
 }
 
+/* iOS Safari renders native date inputs centered with collapsed height */
+.m-account-form-field input[type="date"] {
+  display: flex;
+  align-items: center;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.m-account-form-field input[type="date"]::-webkit-date-and-time-value {
+  margin: 0;
+  text-align: left;
+}
+
 .m-account-form-field small {
   color: var(--m-color-muted);
-  font-size: var(--m-text-label-ratio);
+  font-size: 0.6875rem;
   font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .m-account-currency-create {
@@ -524,20 +557,21 @@
 .m-account-currency-create input {
   min-width: 0;
   flex: 1;
-  border: 1px solid var(--m-color-ring);
-  border-radius: 0.65rem;
-  padding: 0.6rem 0.7rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
   outline: 0;
-  font-size: var(--m-text-body);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .m-account-currency-create button {
-  border-radius: 0.65rem;
+  border-radius: 0.75rem;
   background: #e8efff;
-  padding: 0.55rem 0.7rem;
+  padding: 0.625rem 0.875rem;
   color: var(--m-color-primary);
-  font-size: var(--m-text-sub-ratio);
-  font-weight: 800;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .m-account-currency-tags {
@@ -568,10 +602,10 @@
 }
 
 .m-account-form-card {
-  margin: 0.9rem 0;
-  border: 1px solid var(--m-color-ring);
-  border-radius: var(--m-radius-card);
-  padding: 0.7rem;
+  margin: 1rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
 }
 
 .m-account-alert-grid {
@@ -589,9 +623,9 @@
 
 .m-account-segment button {
   border-radius: 0.55rem;
-  padding: 0.55rem;
+  padding: 0.625rem;
   color: var(--m-color-muted);
-  font-size: var(--m-text-sub-ratio);
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
