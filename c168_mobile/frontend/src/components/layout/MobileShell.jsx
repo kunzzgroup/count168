@@ -2,8 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { usePullToRefresh } from "../../hooks/usePullToRefresh.js";
 import { useDirectScrollChrome } from "../../hooks/useDirectScrollChrome.js";
 import { useScrollIdleVisible } from "../../hooks/useScrollIdleVisible.js";
+import { mobileNavItems } from "../../utils/mobilePermissions.js";
 import MobileAppBar from "./MobileAppBar.jsx";
-import BottomNav from "./bottom-nav/BottomNav.jsx";
+import MobileBottomNav from "./MobileBottomNav.jsx";
 import MobileNotifications, { fetchMobileAnnouncements } from "./MobileNotifications.jsx";
 import MobileSidebar from "./MobileSidebar.jsx";
 import PullRefreshIndicator from "./PullRefreshIndicator.jsx";
@@ -36,6 +37,7 @@ export default function MobileShell({
     navMore: "More",
     ...(i18n || {}),
   };
+  const navItems = mobileNavItems(me);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
@@ -176,7 +178,7 @@ export default function MobileShell({
         style={{
           paddingTop: mainPadTop,
           paddingBottom: showBottomNav
-            ? "calc(env(safe-area-inset-bottom, 0px) + 3.5625rem)"
+            ? "calc(env(safe-area-inset-bottom, 0px) + 88px)"
             : "calc(env(safe-area-inset-bottom, 0px) + 12px)",
         }}
       >
@@ -193,7 +195,7 @@ export default function MobileShell({
 
       {showBottomNav ? (
         <nav ref={navRef} className="m-shell-nav" aria-label="Main">
-          <BottomNav me={me} labels={labels} />
+          <MobileBottomNav items={navItems} labels={labels} />
         </nav>
       ) : null}
 
