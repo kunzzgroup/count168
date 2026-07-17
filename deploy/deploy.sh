@@ -46,22 +46,39 @@ fi
 MOBILE_INC_SRC="$APP_ROOT/deploy/nginx/c168-mobile-locations.inc"
 MOBILE_INC_DST="/etc/nginx/conf.d/c168-mobile-locations.inc"
 NGINX_SSL="/etc/nginx/conf.d/count168.site-le-ssl.conf"
-if [[ -f "$MOBILE_INC_SRC" ]]; then
-  echo "==> sync c168 mobile nginx include"
-  sudo cp "$MOBILE_INC_SRC" "$MOBILE_INC_DST"
-  if [[ -f "$NGINX_SSL" ]] && ! sudo grep -q 'c168-mobile-locations.inc' "$NGINX_SSL"; then
-    echo "==> patch count168.site-le-ssl.conf for /c168_mobile/"
-    sudo sed -i '/server_name count168.site/a \    include /etc/nginx/conf.d/c168-mobile-locations.inc;' "$NGINX_SSL"
-  fi
-fi
-
-# 同步 Nginx 站点配置（git pull 不会自动更新 /etc/nginx/）
-# certbot 已上 HTTPS 时跳过，避免覆盖 le-ssl
 NGINX_SRC="$APP_ROOT/deploy/nginx/count168.site.amazon-linux.conf"
 NGINX_DST="/etc/nginx/conf.d/count168.site.conf"
 LE_CERT="/etc/letsencrypt/live/count168.site/fullchain.pem"
+
+# certbot 会把旧的 inline SPA 正则拷进 le-ssl；仅更新 .inc 时 HTTPS 仍可能走旧正则
+patch_mobile_spa_maintenance() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  if sudo grep -q '|account|more|reset-password|' "$f" && ! sudo grep -q '|account|maintenance|more|' "$f"; then
+    echo "==> inject maintenance into mobile SPA regex: $f"
+    sudo sed -i 's/|account|more|reset-password|/|account|maintenance|more|reset-password|/g' "$f"
+  fi
+}
+
+if [[ -f "$MOBILE_INC_SRC" ]]; then
+  echo "==> sync c168 mobile nginx include"
+  sudo cp "$MOBILE_INC_SRC" "$MOBILE_INC_DST"
+  if [[ -f "$NGINX_SSL" ]]; then
+    # 在每个 server_name count168.site 块后确保 include（HTTP + HTTPS）
+    if ! sudo grep -q 'c168-mobile-locations.inc' "$NGINX_SSL"; then
+      echo "==> patch count168.site-le-ssl.conf for /c168_mobile/"
+      sudo sed -i '/server_name count168.site/a \    include /etc/nginx/conf.d/c168-mobile-locations.inc;' "$NGINX_SSL"
+    fi
+    # 即使已有 include，也修补 le-ssl 里可能残留的旧 inline 正则
+    patch_mobile_spa_maintenance "$NGINX_SSL"
+  fi
+  patch_mobile_spa_maintenance "$NGINX_DST"
+fi
+
+# 同步 Nginx 站点配置（git pull 不会自动更新 /etc/nginx/）
+# certbot 已上 HTTPS 时跳过整文件覆盖，避免毁掉 le-ssl；路由增量由上方 patch 负责
 if [[ -f "$LE_CERT" ]] || [[ -f "$NGINX_SSL" ]]; then
-  echo "==> skip nginx config sync (certbot HTTPS active for count168.site)"
+  echo "==> skip nginx full config sync (certbot HTTPS active for count168.site)"
 elif [[ -f "$NGINX_SRC" ]]; then
   echo "==> sync nginx site config"
   NGINX_BAK="$(mktemp)"
@@ -85,7 +102,7 @@ if systemctl is-active --quiet nginx 2>/dev/null; then
     echo "ERROR: nginx -t failed — check c168-mobile-locations.inc / le-ssl patch"
     exit 1
   fi
-  sudo systemctl reload nginx || true
+  sudo systemctl reload nginx
 fi
 
 echo "==> Deploy OK at $(date -Iseconds)"
