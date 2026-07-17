@@ -1,3 +1,11 @@
+import {
+  canUseGroupOnlyMode,
+  companyLoginRequiresSubsidiaryWithGroup,
+  getLoginIdentifier,
+  isGroupLogin,
+  resolveVisibleGroupIds,
+} from "./loginScope.js";
+
 export function normalizeGroupId(value) {
   return String(value || "").trim().toUpperCase();
 }
@@ -128,6 +136,81 @@ export function companiesForPicker(companies, { selectedGroup, groupsAllMode, pr
   }
   list = excludeGroupLabelsFromCompanyPicker(list, groupIds);
   return dedupeOwnerCompaniesByCode(list, preferredCompanyId);
+}
+
+function isIndependentCompanyRow(row, groupIds) {
+  if (!row || isVirtualGroupLinkCompanyRow(row)) return false;
+  const code = normalizeGroupId(row.company_id);
+  if ((groupIds || []).some((g) => normalizeGroupId(g) === code)) return false;
+  if (companyRowIsGroupEntityAnyShape(row)) return false;
+  const native = normalizeGroupId(row.native_group_id ?? row.group_id);
+  return !native;
+}
+
+/** Desktop-aligned first-login Group / Company scope for mobile filters. */
+export function resolveInitialMobileGcScope(me, companies, sessionRow) {
+  const groupIds = sortedUniqueGroupIds(companies);
+
+  if (me && companyLoginRequiresSubsidiaryWithGroup(me)) {
+    const cid = Number(me.company_id);
+    const row =
+      sessionRow ||
+      (Number.isFinite(cid) && cid > 0 ? companies.find((c) => Number(c.id) === cid) : null);
+    if (row && !isIndependentCompanyRow(row, groupIds)) {
+      const group = normalizeGroupId(row.native_group_id ?? row.group_id);
+      if (group && Number.isFinite(cid) && cid > 0) {
+        return {
+          companyId: cid,
+          selectedGroup: group,
+          groupsAllMode: false,
+          groupAllMode: false,
+        };
+      }
+    }
+    const pickable = companiesForPicker(companies, { selectedGroup: null, groupsAllMode: false });
+    if (pickable.length === 0) {
+      return {
+        companyId: null,
+        selectedGroup: null,
+        groupsAllMode: false,
+        groupAllMode: false,
+      };
+    }
+  }
+
+  if (isGroupLogin(me)) {
+    const group = getLoginIdentifier(me) || normalizeGroupId(sessionRow?.group_id);
+    if (group) {
+      if (canUseGroupOnlyMode(me, group, companies)) {
+        return {
+          companyId: null,
+          selectedGroup: group,
+          groupsAllMode: false,
+          groupAllMode: false,
+        };
+      }
+      const pick = sessionRow?.id ? sessionRow : pickGroupAnchorCompany(companies, group);
+      return {
+        companyId: pick?.id != null ? Number(pick.id) : null,
+        selectedGroup: group,
+        groupsAllMode: false,
+        groupAllMode: false,
+      };
+    }
+  }
+
+  const cid = sessionRow?.id != null ? Number(sessionRow.id) : null;
+  const group = sessionRow ? resolveViewGroupForCompany(sessionRow, null) : null;
+  return {
+    companyId: Number.isFinite(cid) && cid > 0 ? cid : null,
+    selectedGroup: group,
+    groupsAllMode: false,
+    groupAllMode: false,
+  };
+}
+
+export function resolveMobileGroupIds(companies, me) {
+  return resolveVisibleGroupIds(sortedUniqueGroupIds(companies), me, companies);
 }
 
 /** Pick subsidiary when switching group without group-only permission (desktop-aligned). */
