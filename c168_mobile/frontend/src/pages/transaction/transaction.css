@@ -332,19 +332,16 @@
 /* Payment alert triggered — softened take on desktop's .transaction-alert-row */
 .m-tx-card--alert {
   background: #fff5f5;
-  outline: 1.5px solid #fca5a5;
-  border-left: 0.28rem solid #dc2626;
-  animation: m-tx-alert-breathe 2.6s ease-in-out infinite;
+  outline: 2px solid #fca5a5;
+  animation: m-tx-alert-breathe 3s ease-in-out infinite;
 }
 
 @keyframes m-tx-alert-breathe {
   0%,
   100% {
-    box-shadow: 0 0 0 0 #fca5a5;
-    outline-color: #fca5a5;
+    outline-color: #fecaca;
   }
   50% {
-    box-shadow: 0 0 0 5px #dc2626;
     outline-color: #dc2626;
   }
 }
@@ -352,7 +349,7 @@
 @media (prefers-reduced-motion: reduce) {
   .m-tx-card--alert {
     animation: none;
-    box-shadow: 0 0 0 3px #dc2626;
+    outline-color: #dc2626;
   }
 }
 
