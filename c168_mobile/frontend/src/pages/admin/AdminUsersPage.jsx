@@ -124,19 +124,10 @@ export default function AdminUsersPage() {
       </label>
       <div className="m-account-chips">
         <Chip
-          active={admin.showInactive && !admin.showAll}
-          onClick={() => {
-            admin.setShowAll(false);
-            admin.setShowInactive((value) => !value);
-          }}
+          active={admin.showInactive}
+          onClick={() => admin.setShowInactive((value) => !value)}
         >
           {i18n.showInactive}
-        </Chip>
-        <Chip
-          active={admin.showAll}
-          onClick={() => admin.setShowAll((value) => !value)}
-        >
-          {i18n.showAll}
         </Chip>
       </div>
     </div>

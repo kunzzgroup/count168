@@ -224,7 +224,7 @@ export function getFinalPermissionsForCreation(selectedRole, manuallySelected, c
 }
 
 /** List filters — non-owner viewers only see their own partnership row. */
-export function applyUserFilters(users, { search, showInactive, showAll, viewerRole, viewerUserId = null }) {
+export function applyUserFilters(users, { search, showInactive, viewerRole, viewerUserId = null }) {
   const vr = normRole(viewerRole);
   let rows = users.map((u) => ({ ...u }));
   if (vr !== "owner") {
@@ -239,7 +239,6 @@ export function applyUserFilters(users, { search, showInactive, showAll, viewerR
   if (q) {
     rows = rows.filter((u) => `${u.login_id || ""} ${u.name || ""} ${u.email || ""}`.toLowerCase().includes(q));
   }
-  if (showAll) return rows;
   if (showInactive) {
     rows = rows.filter((u) => normRole(u.status) === "inactive");
   } else {

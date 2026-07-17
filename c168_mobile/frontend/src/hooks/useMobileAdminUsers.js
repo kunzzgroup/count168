@@ -80,7 +80,6 @@ export function useMobileAdminUsers() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
-  const [showAll, setShowAll] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -278,12 +277,11 @@ export function useMobileAdminUsers() {
         applyUserFilters(users, {
           search: debouncedSearch,
           showInactive,
-          showAll,
           viewerRole: me?.role,
           viewerUserId: me?.user_id,
         }),
       ),
-    [users, debouncedSearch, showInactive, showAll, me?.role, me?.user_id],
+    [users, debouncedSearch, showInactive, me?.role, me?.user_id],
   );
 
   const refresh = useCallback(() => {
@@ -651,8 +649,6 @@ export function useMobileAdminUsers() {
     setSearch,
     showInactive,
     setShowInactive,
-    showAll,
-    setShowAll,
     loading,
     refreshing,
     error,
