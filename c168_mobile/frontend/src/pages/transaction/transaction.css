@@ -92,7 +92,7 @@
 
 /* --- FAB --- */
 .m-tx-fab-wrap {
-  margin-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  margin-bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px));
   margin-left: 1rem;
 }
 
