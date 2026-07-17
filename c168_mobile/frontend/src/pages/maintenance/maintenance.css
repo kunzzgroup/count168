@@ -171,53 +171,10 @@
   font-size: var(--m-text-compact);
 }
 
-.m-mt-bar-row {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.m-mt-scope-btn {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1px solid var(--m-color-ring);
-  border-radius: var(--m-radius-card);
-  background: var(--m-color-surface);
-  padding: 0.55rem 0.75rem;
-  box-shadow: var(--m-shadow-card);
-  color: var(--m-color-text);
-  font-weight: 700;
-}
-
-.m-mt-scope-btn > span {
-  overflow: hidden;
-  flex: 1;
+/* Buttons inside the shared m-filter-bar container (date row + scope row). */
+.m-mt-bar-btn {
+  width: 100%;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.m-mt-scope-btn > i:first-child {
-  color: var(--m-color-primary);
-}
-
-.m-mt-scope-btn > i:last-child {
-  color: var(--m-color-label);
-  font-size: 0.7rem;
-}
-
-.m-mt-filter-btn {
-  display: grid;
-  width: 2.75rem;
-  flex: 0 0 2.75rem;
-  place-items: center;
-  border: 1px solid var(--m-color-ring);
-  border-radius: var(--m-radius-card);
-  background: var(--m-color-surface);
-  box-shadow: var(--m-shadow-card);
-  color: var(--m-color-primary);
 }
 
 .m-mt-search {
@@ -627,6 +584,24 @@
 }
 
 .m-mt-field input:focus {
+  border-color: var(--m-color-primary);
+}
+
+.m-mt-field select {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.7rem;
+  outline: 0;
+  background: #fff;
+  padding: 0.7rem;
+  color: var(--m-color-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.m-mt-field select:focus {
   border-color: var(--m-color-primary);
 }
 

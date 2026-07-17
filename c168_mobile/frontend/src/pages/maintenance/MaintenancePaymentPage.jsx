@@ -19,7 +19,11 @@ import {
   PAYMENT_MAINTENANCE_TYPES,
 } from "../../translateFile/maintenanceTranslate.js";
 import { canAccessPaymentMaintenance } from "../../utils/mobilePermissions.js";
-import { MaintenanceFilterSheet, MaintenanceScopeSheet } from "./MaintenanceSheets.jsx";
+import {
+  MaintenanceFilterBar,
+  MaintenanceFilterSheet,
+  MaintenanceScopeSheet,
+} from "./MaintenanceSheets.jsx";
 import "./maintenance.css";
 
 const SEARCH_FIELDS = [
@@ -151,16 +155,16 @@ export default function MaintenancePaymentPage() {
 
   const stickyBar = (
     <div className="m-mt-sticky">
-      <div className="m-mt-bar-row">
-        <button type="button" className="m-mt-scope-btn tap-scale" onClick={() => setScopeOpen(true)}>
-          <i className="fas fa-building" aria-hidden="true" />
-          <span>{scopeLabel}</span>
-          <i className="fas fa-chevron-down" aria-hidden="true" />
-        </button>
-        <button type="button" className="m-mt-filter-btn tap-scale" onClick={() => setFilterOpen(true)}>
-          <i className="fas fa-filter" aria-hidden="true" />
-        </button>
-      </div>
+      <MaintenanceFilterBar
+        i18n={i18n}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        groupMode={s.groupMode}
+        selectedGroup={s.selectedGroup}
+        selectedCompany={s.selectedCompany}
+        onOpenFilter={() => setFilterOpen(true)}
+        onOpenScope={() => setScopeOpen(true)}
+      />
       <div className="m-mt-search">
         <i className="fas fa-magnifying-glass" aria-hidden="true" />
         <input

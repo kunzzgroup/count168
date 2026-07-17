@@ -24,6 +24,52 @@ export async function updateSessionCompany(companyId, signal) {
   return json.data;
 }
 
+/** Desktop parity: Bank category uses fixed payroll processes (no processlist call). */
+export const PAYROLL_PROCESS_OPTIONS = ["PROFIT", "SALARY", "COMMISSION", "BONUS"];
+
+function uniqueProcessNames(rows, pickName) {
+  const names = (Array.isArray(rows) ? rows : [])
+    .map((row) => String(pickName(row) ?? "").trim())
+    .filter(Boolean);
+  return [...new Set(names)];
+}
+
+/**
+ * Process options for the Transaction Maintenance filter (mirrors desktop
+ * fetchProcessesForMaintenance): Bank → fixed payroll list; group scope →
+ * domain report processes; company scope → processlist_api.
+ * @returns {Promise<string[]>} process names
+ */
+export async function fetchMaintenanceProcessOptions({ scope, category, signal }) {
+  if (String(category).toLowerCase() === "bank") {
+    return [...PAYROLL_PROCESS_OPTIONS];
+  }
+  if (scope?.mode === "group" && scope.groupId) {
+    const params = new URLSearchParams();
+    params.set("action", "processes");
+    params.set("view_group", scope.groupId);
+    params.set("group_id", scope.groupId);
+    params.set("group_aggregate", "1");
+    params.set("report_scope", "group");
+    const { res, json } = await fetchJson(
+      buildApiUrl(`api/reports/domain_report_api.php?${params.toString()}`),
+      { signal },
+    );
+    assertApiOk(res, json);
+    return uniqueProcessNames(json.data, (r) => r.process ?? r.process_id ?? r.display_text);
+  }
+  if (!(Number(scope?.companyId) > 0)) return [];
+  const params = new URLSearchParams();
+  params.set("company_id", String(scope.companyId));
+  if (category) params.set("permission", category);
+  const { res, json } = await fetchJson(
+    buildApiUrl(`api/processes/processlist_api.php?${params.toString()}`),
+    { signal },
+  );
+  assertApiOk(res, json);
+  return uniqueProcessNames(json.data, (r) => r.process_name ?? r.process);
+}
+
 /**
  * Transaction Maintenance search (read-only audit list).
  * @returns {Promise<Array>} rows

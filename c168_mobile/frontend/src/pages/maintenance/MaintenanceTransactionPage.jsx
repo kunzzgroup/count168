@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MobileShell from "../../components/layout/MobileShell.jsx";
 import { useMaintenanceSession } from "../../hooks/useMaintenanceSession.js";
 import {
+  fetchMaintenanceProcessOptions,
   formatMaintenanceAmount,
   searchTransactionMaintenance,
 } from "../../lib/maintenanceApi.js";
@@ -13,7 +14,11 @@ import {
 } from "../../lib/mobileMaintenanceScope.js";
 import { MAINTENANCE_CATEGORIES } from "../../translateFile/maintenanceTranslate.js";
 import { canAccessTransactionMaintenance } from "../../utils/mobilePermissions.js";
-import { MaintenanceFilterSheet, MaintenanceScopeSheet } from "./MaintenanceSheets.jsx";
+import {
+  MaintenanceFilterBar,
+  MaintenanceFilterSheet,
+  MaintenanceScopeSheet,
+} from "./MaintenanceSheets.jsx";
 import "./maintenance.css";
 
 const SEARCH_FIELDS = [
@@ -43,6 +48,8 @@ export default function MaintenanceTransactionPage() {
   const [dateFrom, setDateFrom] = useState(todayYmd);
   const [dateTo, setDateTo] = useState(todayYmd);
   const [category, setCategory] = useState("Games");
+  const [process, setProcess] = useState("");
+  const [processOptions, setProcessOptions] = useState([]);
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState([]);
   const [listLoading, setListLoading] = useState(false);
@@ -66,6 +73,7 @@ export default function MaintenanceTransactionPage() {
           dateFrom: ymdToDmy(dateFrom),
           dateTo: ymdToDmy(dateTo),
           category,
+          process,
           signal,
         });
         if (seq !== seqRef.current) return;
@@ -78,7 +86,7 @@ export default function MaintenanceTransactionPage() {
         if (seq === seqRef.current) setListLoading(false);
       }
     },
-    [scope, scopeReady, dateFrom, dateTo, category, i18n.loadFailed],
+    [scope, scopeReady, dateFrom, dateTo, category, process, i18n.loadFailed],
   );
 
   useEffect(() => {
@@ -87,7 +95,22 @@ export default function MaintenanceTransactionPage() {
     loadList(ac.signal);
     return () => ac.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [s.me, scopeCacheKey, dateFrom, dateTo, category]);
+  }, [s.me, scopeCacheKey, dateFrom, dateTo, category, process]);
+
+  /** Process options follow scope + category (desktop parity); reset stale selection. */
+  useEffect(() => {
+    if (!s.me || !scopeReady) return undefined;
+    const ac = new AbortController();
+    setProcess("");
+    setProcessOptions([]);
+    fetchMaintenanceProcessOptions({ scope, category, signal: ac.signal })
+      .then((names) => setProcessOptions(names))
+      .catch((e) => {
+        if (e?.name !== "AbortError") setProcessOptions([]);
+      });
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.me, scopeCacheKey, category]);
 
   const displayRows = useMemo(() => {
     const q = query.trim().toUpperCase();
@@ -100,16 +123,16 @@ export default function MaintenanceTransactionPage() {
 
   const stickyBar = (
     <div className="m-mt-sticky">
-      <div className="m-mt-bar-row">
-        <button type="button" className="m-mt-scope-btn tap-scale" onClick={() => setScopeOpen(true)}>
-          <i className="fas fa-building" aria-hidden="true" />
-          <span>{scopeLabel}</span>
-          <i className="fas fa-chevron-down" aria-hidden="true" />
-        </button>
-        <button type="button" className="m-mt-filter-btn tap-scale" onClick={() => setFilterOpen(true)}>
-          <i className="fas fa-filter" aria-hidden="true" />
-        </button>
-      </div>
+      <MaintenanceFilterBar
+        i18n={i18n}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        groupMode={s.groupMode}
+        selectedGroup={s.selectedGroup}
+        selectedCompany={s.selectedCompany}
+        onOpenFilter={() => setFilterOpen(true)}
+        onOpenScope={() => setScopeOpen(true)}
+      />
       <div className="m-mt-search">
         <i className="fas fa-magnifying-glass" aria-hidden="true" />
         <input
@@ -135,6 +158,16 @@ export default function MaintenanceTransactionPage() {
             {cat}
           </button>
         ))}
+        {process ? (
+          <button
+            type="button"
+            className="m-mt-chip is-active tap-scale"
+            onClick={() => setProcess("")}
+            aria-label={`${i18n.process}: ${process}`}
+          >
+            {process} <i className="fas fa-xmark" aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -174,9 +207,12 @@ export default function MaintenanceTransactionPage() {
             dateFrom={dateFrom}
             dateTo={dateTo}
             readOnlyNote
-            onApply={({ dateFrom: f, dateTo: t }) => {
+            processOptions={processOptions}
+            process={process}
+            onApply={({ dateFrom: f, dateTo: t, process: p }) => {
               setDateFrom(f);
               setDateTo(t);
+              setProcess(p ?? "");
             }}
           />
         </>

@@ -1,4 +1,63 @@
 import { useEffect, useState } from "react";
+import { formatRangeLabel } from "../../lib/dashboardDateUtils.js";
+import ScopeBreadcrumb from "../dashboard/ScopeBreadcrumb.jsx";
+
+/**
+ * Dashboard/Transaction-style sticky filter bar: date row opens the filter
+ * sheet, scope breadcrumb row opens the scope sheet.
+ */
+export function MaintenanceFilterBar({
+  i18n,
+  dateFrom,
+  dateTo,
+  groupMode,
+  selectedGroup,
+  selectedCompany,
+  onOpenFilter,
+  onOpenScope,
+}) {
+  const groupId = String(
+    (groupMode ? selectedGroup : selectedCompany?.group_id) || "",
+  )
+    .trim()
+    .toUpperCase();
+  const companyCode = groupMode
+    ? ""
+    : String(selectedCompany?.company_id || "").trim().toUpperCase();
+
+  return (
+    <div className="m-filter-bar">
+      <button
+        type="button"
+        className="m-filter-bar-row m-mt-bar-btn tap-scale"
+        onClick={onOpenFilter}
+        aria-label={i18n.filter}
+      >
+        <i className="far fa-calendar m-filter-bar-icon" aria-hidden="true" />
+        <span className="m-filter-bar-dates">{formatRangeLabel(dateFrom, dateTo)}</span>
+        <span className="m-filter-bar-action">
+          <i className="fas fa-filter" aria-hidden="true" />
+        </span>
+      </button>
+      <button
+        type="button"
+        className="m-filter-bar-scope m-filter-bar-scope-row m-mt-bar-btn tap-scale"
+        onClick={onOpenScope}
+        aria-label={i18n.selectScope}
+      >
+        <div className="m-filter-bar-scope-main">
+          <ScopeBreadcrumb
+            i18n={i18n}
+            groupId={groupId}
+            companyCode={companyCode}
+            groupOnlyMode={groupMode}
+          />
+        </div>
+        <span className="m-filter-bar-switch">{i18n.switchCompany || "Switch"}</span>
+      </button>
+    </div>
+  );
+}
 
 function Sheet({ open, title, onClose, children, footer = null }) {
   return (
@@ -106,7 +165,7 @@ export function MaintenanceScopeSheet({
   );
 }
 
-/** Date range (+ optional extra controls) filter sheet. */
+/** Date range (+ optional process select) filter sheet. */
 export function MaintenanceFilterSheet({
   open,
   onClose,
@@ -115,21 +174,25 @@ export function MaintenanceFilterSheet({
   dateTo,
   onApply,
   readOnlyNote = false,
+  processOptions = null,
+  process = "",
   children,
 }) {
   const [from, setFrom] = useState(dateFrom);
   const [to, setTo] = useState(dateTo);
+  const [draftProcess, setDraftProcess] = useState(process);
 
   useEffect(() => {
     if (open) {
       setFrom(dateFrom);
       setTo(dateTo);
+      setDraftProcess(process);
     }
-  }, [open, dateFrom, dateTo]);
+  }, [open, dateFrom, dateTo, process]);
 
   const apply = () => {
     if (!from || !to) return;
-    onApply({ dateFrom: from, dateTo: to });
+    onApply({ dateFrom: from, dateTo: to, process: draftProcess });
     onClose();
   };
 
@@ -170,6 +233,22 @@ export function MaintenanceFilterSheet({
           </label>
         </div>
       </div>
+
+      {Array.isArray(processOptions) ? (
+        <div className="m-mt-filter-section">
+          <p className="m-mt-scope-label">{i18n.process}</p>
+          <label className="m-mt-field">
+            <select value={draftProcess} onChange={(e) => setDraftProcess(e.target.value)}>
+              <option value="">{i18n.allProcesses}</option>
+              {processOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
 
       {children}
 
