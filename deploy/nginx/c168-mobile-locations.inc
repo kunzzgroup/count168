@@ -15,7 +15,7 @@ location = /c168_mobile {
     return 302 /c168_mobile/login;
 }
 
-location ~ "^/c168_mobile/(login|dashboard|home|member|report|transaction|more|reset-password|owner-secondary-password|user-secondary-password)(/.*)?$" {
+location ~ "^/c168_mobile/(login|dashboard|home|member|report|transaction|account|more|reset-password|owner-secondary-password|user-secondary-password)(/.*)?$" {
     add_header Cache-Control "no-cache";
     try_files /c168_mobile/frontend/dist/index.html =404;
 }
