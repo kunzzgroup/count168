@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { usePullToRefresh } from "../../hooks/usePullToRefresh.js";
-import { useScrollChromeOffset } from "../../hooks/useScrollChromeOffset.js";
+import { useDirectScrollChrome } from "../../hooks/useDirectScrollChrome.js";
 import { useScrollIdleVisible } from "../../hooks/useScrollIdleVisible.js";
 import { mobileNavItems } from "../../utils/mobilePermissions.js";
 import MobileAppBar from "./MobileAppBar.jsx";
@@ -39,13 +38,13 @@ export default function MobileShell({
     ...(i18n || {}),
   };
   const navItems = mobileNavItems(me);
-  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const [notifyLoading, setNotifyLoading] = useState(false);
   const mainRef = useRef(null);
   const topChromeRef = useRef(null);
+  const navRef = useRef(null);
   const [topChromeH, setTopChromeH] = useState(118);
 
   const refreshPage = useCallback(async () => {
@@ -90,9 +89,16 @@ export default function MobileShell({
     };
   }, [stickyBar, refreshing]);
 
-  const chromeOffsetRaw = useScrollChromeOffset(mainRef, {
+  const forceChrome =
+    active || isAnimating || overlayOpen || sidebarOpen || notifyOpen || refreshing;
+
+  useDirectScrollChrome({
+    scrollRef: mainRef,
+    topChromeRef,
+    navRef,
     maxOffset: Math.max(topChromeH, 1),
     topReveal: 12,
+    paused: forceChrome,
   });
 
   const openSidebar = () => {
@@ -143,23 +149,13 @@ export default function MobileShell({
     return () => ac.abort();
   }, [notifyOpen]);
 
-  const forceChrome =
-    active || isAnimating || overlayOpen || sidebarOpen || notifyOpen || refreshing;
-  const chromeOffset = forceChrome ? 0 : chromeOffsetRaw;
-  const chromeProgress = topChromeH > 0 ? Math.min(1, chromeOffset / topChromeH) : 0;
-  const navHidden = showBottomNav && chromeProgress > 0.88;
   const contentShift = pullPx > 0.5 ? pullPx : 0;
   const contentTransition = isAnimating && phase !== "pulling" && phase !== "armed";
   const mainPadTop = topChromeH;
 
   return (
     <div className="m-shell">
-      <div
-        ref={topChromeRef}
-        className="m-shell-chrome"
-        style={{ transform: `translate3d(0, ${-chromeOffset}px, 0)` }}
-        aria-hidden={chromeProgress > 0.95}
-      >
+      <div ref={topChromeRef} className="m-shell-chrome">
         <MobileAppBar
           i18n={labels}
           notificationCount={announcements.length}
@@ -193,23 +189,13 @@ export default function MobileShell({
           }}
         >
           <PullRefreshIndicator pullPx={pullPx} progress={progress} phase={phase} labels={labels} />
-          <div key={location.pathname} className="m-shell-page-enter">
-            <div className={refreshing ? "m-shell-main--refreshing" : ""}>{children}</div>
-          </div>
+          <div className={refreshing ? "m-shell-main--refreshing" : ""}>{children}</div>
         </div>
       </main>
 
       {showBottomNav ? (
-        <nav
-          className={`m-shell-nav${navHidden ? " m-shell-nav--hidden" : ""}`}
-          style={{
-            "--m-nav-chrome-shift": `${chromeProgress * 120}%`,
-            "--m-nav-chrome-opacity": String(Math.max(0, 1 - chromeProgress * 1.15)),
-          }}
-          aria-label="Main"
-          aria-hidden={navHidden}
-        >
-          <MobileBottomNav items={navItems} labels={labels} navHidden={navHidden} />
+        <nav ref={navRef} className="m-shell-nav" aria-label="Main">
+          <MobileBottomNav items={navItems} labels={labels} />
         </nav>
       ) : null}
 
