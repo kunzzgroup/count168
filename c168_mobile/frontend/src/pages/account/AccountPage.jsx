@@ -165,9 +165,6 @@ export default function AccountPage() {
         >
           {i18n.showInactive}
         </Chip>
-        <Chip active={account.showAll} onClick={() => account.setShowAll((value) => !value)}>
-          {i18n.showAll}
-        </Chip>
         <Chip active={sortOpen} onClick={() => setSortOpen(true)}>
           <i className="fas fa-arrow-down-wide-short" aria-hidden="true" /> {sortedLabel}
         </Chip>

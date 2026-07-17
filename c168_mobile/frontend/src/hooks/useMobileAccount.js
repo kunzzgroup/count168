@@ -72,7 +72,6 @@ export function useMobileAccount() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
-  const [showAll, setShowAll] = useState(false);
   const [sortKey, setSortKey] = useState("account");
   const [sortDirection, setSortDirection] = useState("asc");
   const [loading, setLoading] = useState(true);
@@ -178,7 +177,7 @@ export function useMobileAccount() {
 
   const fetchRows = useCallback(
     async (signal) => {
-      const filters = { search: debouncedSearch, showInactive, showAll };
+      const filters = { search: debouncedSearch, showInactive };
       let targets = [scope];
       if (groupsAllMode || groupAllMode) {
         const rows = companies.filter((row) => {
@@ -211,7 +210,6 @@ export function useMobileAccount() {
       groupsAllMode,
       scope,
       selectedGroup,
-      showAll,
       showInactive,
     ],
   );
@@ -786,8 +784,6 @@ export function useMobileAccount() {
     setSearch,
     showInactive,
     setShowInactive,
-    showAll,
-    setShowAll,
     sortKey,
     setSortKey,
     sortDirection,
