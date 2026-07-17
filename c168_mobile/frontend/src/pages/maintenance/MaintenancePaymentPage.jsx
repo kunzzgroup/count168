@@ -336,6 +336,9 @@ function PaymentCard({ row, i18n, selectable, selected, onToggle }) {
         {row.description && row.description !== "-" ? (
           <p className="m-mt-desc">{row.description}</p>
         ) : null}
+        {row.remark && row.remark !== "-" ? (
+          <p className="m-mt-remark">{String(row.remark).toUpperCase()}</p>
+        ) : null}
         <div className="m-mt-card-foot">
           <span>{row.dts_created}</span>
           <span>
