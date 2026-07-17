@@ -7,6 +7,10 @@ import {
   periodPresetRange,
   todayYmd,
 } from "../../lib/dashboardDateUtils.js";
+import {
+  companiesForPicker,
+  resolveCompanyPickForGroup,
+} from "../../lib/dashboardScope.js";
 import { fetchMaintenanceProcessOptions } from "../../lib/maintenanceApi.js";
 import { dashboardLabel } from "../../translateFile/dashboardTranslate.js";
 import {
@@ -112,6 +116,7 @@ export function MaintenanceFilterSheet({
   companyId = null,
   companies = [],
   groupIds = [],
+  allowedGroupIds = [],
   categories = null,
   category = "",
   withProcess = false,
@@ -156,9 +161,31 @@ export function MaintenanceFilterSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, withProcess, scopeKey, draft.category]);
 
-  const pickable = (companies || []).filter(
-    (c) => c?.company_id && String(c.company_id).trim() !== "",
-  );
+  /** Dashboard parity: company pills follow the selected group. */
+  const pickable = companiesForPicker(companies, {
+    selectedGroup: draft.groupId,
+    groupsAllMode: false,
+  });
+
+  /**
+   * Dashboard parity: tap a group → group ledger when allowed, otherwise
+   * auto-pick a company inside that group (company mode).
+   */
+  const pickDraftGroup = (gid) => {
+    setDraft((prev) => {
+      if (allowedGroupIds.includes(gid)) {
+        return { ...prev, groupMode: true, groupId: gid, process: "" };
+      }
+      const pick = resolveCompanyPickForGroup(companies, gid, prev.companyId);
+      return {
+        ...prev,
+        groupMode: false,
+        groupId: gid,
+        companyId: pick?.id ?? prev.companyId,
+        process: "",
+      };
+    });
+  };
 
   const handleReset = () => {
     const t = todayYmd();
@@ -271,21 +298,18 @@ export function MaintenanceFilterSheet({
                   <Pill
                     key={gid}
                     tone="violet"
-                    active={draft.groupMode && draft.groupId === gid}
-                    onClick={() =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        groupMode: true,
-                        groupId: gid,
-                        process: "",
-                      }))
-                    }
+                    active={draft.groupId === gid}
+                    onClick={() => pickDraftGroup(gid)}
                   >
                     {gid}
                   </Pill>
                 ))}
               </div>
-              <p className="m-filter-hint">{i18n.groupAggregate}</p>
+              <p className="m-filter-hint">
+                {allowedGroupIds.length > 0
+                  ? i18n.groupHint || "Tap a group for group-only · pick a company below"
+                  : i18n.groupCompanyHint || "Pick a group, then choose a company"}
+              </p>
             </Section>
           )}
 

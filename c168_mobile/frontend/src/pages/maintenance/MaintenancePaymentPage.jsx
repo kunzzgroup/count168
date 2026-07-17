@@ -206,7 +206,8 @@ export default function MaintenancePaymentPage() {
             selectedGroup={s.selectedGroup}
             companyId={s.companyId}
             companies={s.companies}
-            groupIds={s.allowedGroupIds}
+            groupIds={s.groupIds}
+            allowedGroupIds={s.allowedGroupIds}
             types={PAYMENT_MAINTENANCE_TYPES}
             transactionType={transactionType}
             onApply={async (next) => {
