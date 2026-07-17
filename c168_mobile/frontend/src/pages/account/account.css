@@ -527,19 +527,6 @@
   resize: vertical;
 }
 
-/* iOS Safari renders native date inputs centered with collapsed height */
-.m-account-form-field input[type="date"] {
-  display: flex;
-  align-items: center;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.m-account-form-field input[type="date"]::-webkit-date-and-time-value {
-  margin: 0;
-  text-align: left;
-}
-
 .m-account-form-field small {
   color: var(--m-color-muted);
   font-size: 0.6875rem;

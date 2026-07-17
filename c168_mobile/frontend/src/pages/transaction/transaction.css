@@ -329,6 +329,38 @@
   outline: 1px solid var(--m-color-ring);
 }
 
+/* Payment alert triggered — desktop parity (.transaction-alert-row) */
+.m-tx-card--alert {
+  background: #dc2626;
+  outline-color: #b91c1c;
+}
+
+.m-tx-card--alert .m-tx-card-account {
+  background: #dc2626 !important;
+  color: #fff !important;
+  border-bottom-color: #b91c1c;
+}
+
+.m-tx-card--alert .m-tx-card-code,
+.m-tx-card--alert .m-tx-card-name {
+  color: #fff;
+}
+
+.m-tx-card--alert .m-tx-card-currency {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  outline-color: rgba(255, 255, 255, 0.35);
+}
+
+.m-tx-card--alert .m-tx-metric-label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.m-tx-card--alert .m-tx-metric-value .m-money {
+  color: #fff !important;
+  font-weight: 700;
+}
+
 .m-tx-card-account {
   display: flex;
   width: 100%;

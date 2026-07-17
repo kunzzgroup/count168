@@ -49,9 +49,10 @@ function AccountCardList({ side, rows, showName, m, onOpenHistory, onPickBalance
         const code = String(row?.account_id || "").toUpperCase();
         const name = String(row?.account_name || "").trim();
         const cur = String(row?.currency || "").toUpperCase();
+        const isAlert = Number(row?.is_alert) === 1;
         const key = `${row.account_db_id || row.account_id}-${row.currency}-${row.transaction_id || ""}`;
         return (
-          <li key={key} className="m-tx-card">
+          <li key={key} className={`m-tx-card${isAlert ? " m-tx-card--alert" : ""}`}>
             <button
               type="button"
               className={`m-tx-card-account m-account-role tap-scale${roleCls ? ` ${roleCls}` : ""}`}

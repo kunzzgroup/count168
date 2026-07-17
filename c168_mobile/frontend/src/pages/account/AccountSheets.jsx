@@ -1,6 +1,35 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOverlayLock } from "../../hooks/useOverlayLock.js";
 import { buildAccountScopeDraft } from "../../lib/mobileAccountScope.js";
+import { formatDisplayDate } from "../../lib/dashboardDateUtils.js";
+import "../transaction/add-transaction-sheet.css";
+
+/* Same iOS-safe pattern as AddTransactionSheet: visible formatted row,
+   native date picker as an opacity-0 overlay. */
+function DateTapRow({ label, value, onChange, disabled }) {
+  return (
+    <label className={`m-tx-date-row${disabled ? " m-tx-date-row--disabled" : ""}`}>
+      <span className="m-tx-date-icon">
+        <i className="far fa-calendar" aria-hidden="true" />
+      </span>
+      <span className="m-tx-date-main">
+        <span className="m-tx-date-label">{label}</span>
+        <span className="m-tx-date-value-row">
+          <span className="m-tx-date-value">{value ? formatDisplayDate(value) : "—"}</span>
+        </span>
+      </span>
+      <i className="fas fa-chevron-right m-tx-date-chevron" aria-hidden="true" />
+      <input
+        type="date"
+        value={value || ""}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className="m-tx-date-input"
+        aria-label={label}
+      />
+    </label>
+  );
+}
 
 function Sheet({ open, title, onClose, tall = false, children, footer = null }) {
   useOverlayLock(open, onClose);
@@ -343,9 +372,11 @@ export function AccountFormSheet({ open, onClose, account }) {
                 ))}
               </select>
             </FormField>
-            <FormField label={i18n.startDate}>
-              <input type="date" value={form.alert_start_date} onChange={(e) => update("alert_start_date", e.target.value)} />
-            </FormField>
+            <DateTapRow
+              label={i18n.startDate}
+              value={form.alert_start_date}
+              onChange={(value) => update("alert_start_date", value)}
+            />
             <FormField label={i18n.alertAmount}>
               <input inputMode="decimal" value={form.alert_amount} onChange={(e) => update("alert_amount", e.target.value)} />
             </FormField>
