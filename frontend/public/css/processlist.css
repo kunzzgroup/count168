@@ -2552,6 +2552,46 @@ body.process-page .calendar-popup.calendar-popup--transaction-range.calendar-pop
     max-width: calc(100vw - 24px);
 }
 
+/* Add/Edit Bank Process: isolated range calendar with no Period column. */
+body.process-page.process-page--bank .bank-form-range-calendar {
+    position: fixed;
+    min-width: 0;
+    max-width: calc(100vw - 24px);
+    max-height: none;
+    padding: 0;
+    overflow: hidden;
+    z-index: 10150;
+}
+
+body.process-page.process-page--bank .bank-form-range-calendar .transaction-calendar-panel,
+body.process-page.process-page--bank .bank-form-range-calendar .calendar-header,
+body.process-page.process-page--bank .bank-form-range-calendar .calendar-weekdays,
+body.process-page.process-page--bank .bank-form-range-calendar .calendar-days {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+}
+
+body.process-page.process-page--bank .bank-form-range-calendar .calendar-day {
+    appearance: none;
+    min-width: 0;
+    border: 1px solid transparent;
+    font-family: var(--font-heading-page);
+}
+
+body.process-page.process-page--bank .bank-form-range-calendar .calendar-month-year select {
+    min-width: 0;
+    min-height: 34px;
+    padding: 6px 8px;
+    border: none;
+    background: transparent;
+    color: #334155;
+    font-family: var(--font-heading-page);
+    font-size: var(--text-small);
+    font-weight: 800;
+    cursor: pointer;
+}
+
 body.process-page.process-page--bank .calendar-popup.calendar-popup--transaction-range:not(.calendar-popup--no-presets) {
     grid-template-columns: var(--drp-preset-col) 1fr;
     width: var(--drp-popup-width);

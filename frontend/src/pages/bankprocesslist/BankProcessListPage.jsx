@@ -708,6 +708,7 @@ export default function BankProcessListPage() {
           editMode={editMode} form={form} setForm={setForm} accounts={accounts}
           countriesList={selectedCountryChips}
           banksList={selectedBanksByCountry[String(form.country || "").trim()] || []}
+          calendarI18n={calendarI18n}
           onClose={() => setModalOpen(false)} onSubmit={submitForm}
           onOpenCountryModal={() => {
             setSelectedCountryChips((prev) => {
