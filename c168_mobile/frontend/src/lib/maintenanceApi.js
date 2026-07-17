@@ -1,0 +1,133 @@
+import { buildApiUrl } from "../utils/apiUrl.js";
+import { fetchJson, assertApiOk } from "./fetchJson.js";
+import {
+  appendTransactionMaintenanceScope,
+  paymentMaintenanceScopeParams,
+} from "./mobileMaintenanceScope.js";
+
+export const OWNER_COMPANIES_API = "api/transactions/get_owner_companies_api.php";
+
+/** Load accessible companies (all=1). */
+export async function fetchOwnerCompanies(signal) {
+  const { res, json } = await fetchJson(buildApiUrl(`${OWNER_COMPANIES_API}?all=1`), { signal });
+  assertApiOk(res, json);
+  return Array.isArray(json.data) ? json.data : [];
+}
+
+/** Switch PHP session company (company scope). */
+export async function updateSessionCompany(companyId, signal) {
+  const { res, json } = await fetchJson(
+    buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`),
+    { signal },
+  );
+  assertApiOk(res, json);
+  return json.data;
+}
+
+/**
+ * Transaction Maintenance search (read-only audit list).
+ * @returns {Promise<Array>} rows
+ */
+export async function searchTransactionMaintenance({
+  scope,
+  dateFrom,
+  dateTo,
+  category,
+  process,
+  signal,
+}) {
+  const params = new URLSearchParams();
+  params.set("date_from", dateFrom);
+  params.set("date_to", dateTo);
+  if (category) params.set("category", category);
+  if (process) params.set("process", process);
+  appendTransactionMaintenanceScope(params, scope);
+
+  const { res, json } = await fetchJson(
+    buildApiUrl(`api/transactions/maintenance_search_api.php?${params.toString()}`),
+    { signal },
+  );
+  assertApiOk(res, json, "Search failed");
+  return Array.isArray(json.data) ? json.data : [];
+}
+
+/** Virtual rollup rows use transaction_id 0 — not real DB rows, not selectable for delete. */
+export function isPaymentRowSelectable(row) {
+  const id = row?.transaction_id;
+  if (id === null || id === undefined || id === "") return false;
+  const n = Number(id);
+  return Number.isFinite(n) && n !== 0;
+}
+
+export function paymentRowKey(row, index) {
+  if (isPaymentRowSelectable(row)) return `t-${row.transaction_id}`;
+  return `v-${index}-${String(row.dts_created ?? "")}-${String(row.amount ?? "")}`;
+}
+
+function parsePaymentSortTime(row) {
+  const m = String(row?.dts_created || "").match(
+    /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2}:\d{2})$/,
+  );
+  if (!m) return 0;
+  const ts = Date.parse(`${m[3]}-${m[2]}-${m[1]}T${m[4]}`);
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+function sortPaymentRows(rows) {
+  return [...rows].sort((a, b) => {
+    const cmp = parsePaymentSortTime(b) - parsePaymentSortTime(a);
+    if (cmp !== 0) return cmp;
+    return Number(b?.transaction_id || 0) - Number(a?.transaction_id || 0);
+  });
+}
+
+/**
+ * Payment Maintenance search (payment/rate rows + deleted history + virtual rollups).
+ * @returns {Promise<Array>} rows
+ */
+export async function searchPaymentMaintenance({
+  scope,
+  dateFrom,
+  dateTo,
+  transactionType,
+  query,
+  currency,
+  signal,
+}) {
+  const params = new URLSearchParams();
+  params.set("date_from", dateFrom);
+  params.set("date_to", dateTo);
+  if (transactionType) params.set("transaction_type", transactionType);
+  if (query && query.trim()) params.set("q", query.trim().toUpperCase());
+  if (currency) params.set("currency", currency);
+  Object.entries(paymentMaintenanceScopeParams(scope)).forEach(([k, v]) => params.set(k, v));
+
+  const { res, json } = await fetchJson(
+    buildApiUrl(`api/payment_maintenance/search_api.php?${params.toString()}`),
+    { signal },
+  );
+  assertApiOk(res, json, "Search failed");
+  return sortPaymentRows(Array.isArray(json.data) ? json.data : []);
+}
+
+/** Delete selected payment records (soft-archive + cascade handled server-side). */
+export async function deletePaymentRecords({ scope, transactionIds, signal }) {
+  const payload = {
+    transaction_ids: transactionIds,
+    ...paymentMaintenanceScopeParams(scope),
+  };
+  const { res, json } = await fetchJson(buildApiUrl("api/payment_maintenance/delete_api.php"), {
+    method: "POST",
+    body: JSON.stringify(payload),
+    signal,
+  });
+  assertApiOk(res, json, "Delete failed");
+  return json.data || {};
+}
+
+export function formatMaintenanceAmount(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  const val = parseFloat(value);
+  if (Number.isNaN(val)) return "-";
+  return val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}

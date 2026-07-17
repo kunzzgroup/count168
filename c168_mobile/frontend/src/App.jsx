@@ -10,6 +10,9 @@ import TransactionPage from "./pages/transaction/TransactionPage.jsx";
 import TransactionHistoryPage from "./pages/transaction/TransactionHistoryPage.jsx";
 import AccountPage from "./pages/account/AccountPage.jsx";
 import MorePage from "./pages/more/MorePage.jsx";
+import MaintenanceHubPage from "./pages/maintenance/MaintenanceHubPage.jsx";
+import MaintenanceTransactionPage from "./pages/maintenance/MaintenanceTransactionPage.jsx";
+import MaintenancePaymentPage from "./pages/maintenance/MaintenancePaymentPage.jsx";
 
 /** Drop list snapshot when leaving Transaction so bottom-nav re-entry stays default. */
 function ClearTxListSnapshotOutsideTransaction() {
@@ -37,6 +40,9 @@ export default function App() {
           <Route path="history" element={<TransactionHistoryPage />} />
         </Route>
         <Route path="/account" element={<AccountPage />} />
+        <Route path="/maintenance" element={<MaintenanceHubPage />} />
+        <Route path="/maintenance/transaction" element={<MaintenanceTransactionPage />} />
+        <Route path="/maintenance/payment" element={<MaintenancePaymentPage />} />
         <Route path="/more" element={<MorePage />} />
         <Route path="/reset-password" element={<StubPage title="重置密码" />} />
         <Route

@@ -39,6 +39,34 @@ export function canAccessAccount(me) {
   return canAccessPermission(me, "account");
 }
 
+/** Full Maintenance: owner / unrestricted, or explicit "maintenance" permission. */
+export function canAccessFullMaintenance(me) {
+  if (hasFullPermissions(me)) return true;
+  return canAccessPermission(me, "maintenance");
+}
+
+/** Non-owner without Maintenance permission but whose company has gambling/bank. */
+export function canAccessLimitedMaintenance(me) {
+  if (hasFullPermissions(me)) return false;
+  if (canAccessFullMaintenance(me)) return false;
+  return Boolean(me?.company_has_gambling || me?.company_has_bank);
+}
+
+/** Transaction Maintenance page (mirrors desktop canAccessTransactionFormulaMaintenance). */
+export function canAccessTransactionMaintenance(me) {
+  return canAccessFullMaintenance(me) || canAccessLimitedMaintenance(me);
+}
+
+/** Payment Maintenance page — full Maintenance permission only (desktop-aligned). */
+export function canAccessPaymentMaintenance(me) {
+  return canAccessFullMaintenance(me);
+}
+
+/** Maintenance hub / More entry visibility. */
+export function canAccessMaintenance(me) {
+  return canAccessTransactionMaintenance(me);
+}
+
 /** First mobile route after login — aligned with desktop sidebar order where possible. */
 export function resolveMobileLandingPath(me) {
   if (!me) return "/login";

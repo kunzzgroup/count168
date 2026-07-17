@@ -4,7 +4,8 @@ import MobileShell from "../../components/layout/MobileShell.jsx";
 import { fetchJson } from "../../lib/fetchJson.js";
 import { MORE_I18N } from "../../translateFile/moreTranslate.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
-import { canAccessReport } from "../../utils/mobilePermissions.js";
+import { canAccessMaintenance, canAccessReport } from "../../utils/mobilePermissions.js";
+import { maintenanceText } from "../../translateFile/maintenanceTranslate.js";
 import "./more.css";
 
 export default function MorePage() {
@@ -51,16 +52,24 @@ export default function MorePage() {
 
   const companyCode = String(me?.company_code || me?.company_id || "").toUpperCase();
   const groupId = String(me?.login_group_id || me?.login_identifier || "").toUpperCase();
-  const tools = canAccessReport(me)
-    ? [
-        {
-          to: "/report",
-          icon: "fa-chart-column",
-          title: i18n.report,
-          description: i18n.reportDescription,
-        },
-      ]
-    : [];
+  const mt = maintenanceText(lang);
+  const tools = [];
+  if (canAccessMaintenance(me)) {
+    tools.push({
+      to: "/maintenance",
+      icon: "fa-screwdriver-wrench",
+      title: mt.maintenance,
+      description: mt.maintenanceDescription,
+    });
+  }
+  if (canAccessReport(me)) {
+    tools.push({
+      to: "/report",
+      icon: "fa-chart-column",
+      title: i18n.report,
+      description: i18n.reportDescription,
+    });
+  }
 
   return (
     <MobileShell
