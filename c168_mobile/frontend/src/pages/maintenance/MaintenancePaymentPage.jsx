@@ -19,11 +19,7 @@ import {
   PAYMENT_MAINTENANCE_TYPES,
 } from "../../translateFile/maintenanceTranslate.js";
 import { canAccessPaymentMaintenance } from "../../utils/mobilePermissions.js";
-import {
-  MaintenanceFilterBar,
-  MaintenanceFilterSheet,
-  MaintenanceScopeSheet,
-} from "./MaintenanceSheets.jsx";
+import { MaintenanceFilterBar, MaintenanceFilterSheet } from "./MaintenanceSheets.jsx";
 import "./maintenance.css";
 
 const SEARCH_FIELDS = [
@@ -61,13 +57,13 @@ export default function MaintenancePaymentPage() {
 
   const [dateFrom, setDateFrom] = useState(todayYmd);
   const [dateTo, setDateTo] = useState(todayYmd);
+  const [activePreset, setActivePreset] = useState("today");
   const [transactionType, setTransactionType] = useState("");
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState([]);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState("");
-  const [scopeOpen, setScopeOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -162,8 +158,7 @@ export default function MaintenancePaymentPage() {
         groupMode={s.groupMode}
         selectedGroup={s.selectedGroup}
         selectedCompany={s.selectedCompany}
-        onOpenFilter={() => setFilterOpen(true)}
-        onOpenScope={() => setScopeOpen(true)}
+        onOpen={() => setFilterOpen(true)}
       />
       <div className="m-mt-search">
         <i className="fas fa-magnifying-glass" aria-hidden="true" />
@@ -178,25 +173,6 @@ export default function MaintenancePaymentPage() {
             <i className="fas fa-xmark" aria-hidden="true" />
           </button>
         ) : null}
-      </div>
-      <div className="m-mt-chips">
-        <button
-          type="button"
-          className={`m-mt-chip tap-scale${transactionType === "" ? " is-active" : ""}`}
-          onClick={() => setTransactionType("")}
-        >
-          {i18n.allTypes}
-        </button>
-        {PAYMENT_MAINTENANCE_TYPES.map((t) => (
-          <button
-            key={t}
-            type="button"
-            className={`m-mt-chip tap-scale${transactionType === t ? " is-active" : ""}`}
-            onClick={() => setTransactionType(t)}
-          >
-            {t}
-          </button>
-        ))}
       </div>
     </div>
   );
@@ -216,30 +192,39 @@ export default function MaintenancePaymentPage() {
       stickyBar={stickyBar}
       lang={s.lang}
       onLangChange={s.setLang}
-      overlayOpen={scopeOpen || filterOpen || confirmOpen}
+      overlayOpen={filterOpen || confirmOpen}
       overlay={
         <>
-          <MaintenanceScopeSheet
-            open={scopeOpen}
-            onClose={() => setScopeOpen(false)}
-            i18n={i18n}
-            companies={s.companies}
-            groupIds={s.allowedGroupIds}
-            companyId={s.companyId}
-            groupMode={s.groupMode}
-            selectedGroup={s.selectedGroup}
-            allowGroup
-            onApply={s.applyScope}
-          />
           <MaintenanceFilterSheet
             open={filterOpen}
             onClose={() => setFilterOpen(false)}
             i18n={i18n}
             dateFrom={dateFrom}
             dateTo={dateTo}
-            onApply={({ dateFrom: f, dateTo: t }) => {
-              setDateFrom(f);
-              setDateTo(t);
+            activePreset={activePreset}
+            groupMode={s.groupMode}
+            selectedGroup={s.selectedGroup}
+            companyId={s.companyId}
+            companies={s.companies}
+            groupIds={s.allowedGroupIds}
+            types={PAYMENT_MAINTENANCE_TYPES}
+            transactionType={transactionType}
+            onApply={async (next) => {
+              const scopeChanged =
+                next.scope.mode !== scope?.mode ||
+                String(next.scope.groupId ?? "") !== String(scope?.groupId ?? "") ||
+                Number(next.scope.companyId ?? 0) !== Number(scope?.companyId ?? 0);
+              if (scopeChanged) {
+                await s.applyScope(
+                  next.scope.mode === "group"
+                    ? { mode: "group", groupId: next.scope.groupId }
+                    : { mode: "company", companyId: next.scope.companyId },
+                );
+              }
+              setDateFrom(next.dateFrom);
+              setDateTo(next.dateTo);
+              setActivePreset(next.activePreset);
+              setTransactionType(next.transactionType ?? "");
             }}
           />
           <DeleteConfirm

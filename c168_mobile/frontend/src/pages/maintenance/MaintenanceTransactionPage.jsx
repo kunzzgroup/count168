@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MobileShell from "../../components/layout/MobileShell.jsx";
 import { useMaintenanceSession } from "../../hooks/useMaintenanceSession.js";
 import {
-  fetchMaintenanceProcessOptions,
   formatMaintenanceAmount,
   searchTransactionMaintenance,
 } from "../../lib/maintenanceApi.js";
@@ -14,11 +13,7 @@ import {
 } from "../../lib/mobileMaintenanceScope.js";
 import { MAINTENANCE_CATEGORIES } from "../../translateFile/maintenanceTranslate.js";
 import { canAccessTransactionMaintenance } from "../../utils/mobilePermissions.js";
-import {
-  MaintenanceFilterBar,
-  MaintenanceFilterSheet,
-  MaintenanceScopeSheet,
-} from "./MaintenanceSheets.jsx";
+import { MaintenanceFilterBar, MaintenanceFilterSheet } from "./MaintenanceSheets.jsx";
 import "./maintenance.css";
 
 const SEARCH_FIELDS = [
@@ -47,14 +42,13 @@ export default function MaintenanceTransactionPage() {
 
   const [dateFrom, setDateFrom] = useState(todayYmd);
   const [dateTo, setDateTo] = useState(todayYmd);
+  const [activePreset, setActivePreset] = useState("today");
   const [category, setCategory] = useState("Games");
   const [process, setProcess] = useState("");
-  const [processOptions, setProcessOptions] = useState([]);
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState([]);
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState("");
-  const [scopeOpen, setScopeOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
 
   const seqRef = useRef(0);
@@ -97,21 +91,6 @@ export default function MaintenanceTransactionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.me, scopeCacheKey, dateFrom, dateTo, category, process]);
 
-  /** Process options follow scope + category (desktop parity); reset stale selection. */
-  useEffect(() => {
-    if (!s.me || !scopeReady) return undefined;
-    const ac = new AbortController();
-    setProcess("");
-    setProcessOptions([]);
-    fetchMaintenanceProcessOptions({ scope, category, signal: ac.signal })
-      .then((names) => setProcessOptions(names))
-      .catch((e) => {
-        if (e?.name !== "AbortError") setProcessOptions([]);
-      });
-    return () => ac.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [s.me, scopeCacheKey, category]);
-
   const displayRows = useMemo(() => {
     const q = query.trim().toUpperCase();
     return rows.filter((r) => matchesQuery(r, q));
@@ -130,8 +109,7 @@ export default function MaintenanceTransactionPage() {
         groupMode={s.groupMode}
         selectedGroup={s.selectedGroup}
         selectedCompany={s.selectedCompany}
-        onOpenFilter={() => setFilterOpen(true)}
-        onOpenScope={() => setScopeOpen(true)}
+        onOpen={() => setFilterOpen(true)}
       />
       <div className="m-mt-search">
         <i className="fas fa-magnifying-glass" aria-hidden="true" />
@@ -144,28 +122,6 @@ export default function MaintenanceTransactionPage() {
         {query ? (
           <button type="button" onClick={() => setQuery("")} aria-label={i18n.reset}>
             <i className="fas fa-xmark" aria-hidden="true" />
-          </button>
-        ) : null}
-      </div>
-      <div className="m-mt-chips">
-        {MAINTENANCE_CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            type="button"
-            className={`m-mt-chip tap-scale${category === cat ? " is-active" : ""}`}
-            onClick={() => setCategory(cat)}
-          >
-            {cat}
-          </button>
-        ))}
-        {process ? (
-          <button
-            type="button"
-            className="m-mt-chip is-active tap-scale"
-            onClick={() => setProcess("")}
-            aria-label={`${i18n.process}: ${process}`}
-          >
-            {process} <i className="fas fa-xmark" aria-hidden="true" />
           </button>
         ) : null}
       </div>
@@ -185,37 +141,44 @@ export default function MaintenanceTransactionPage() {
       stickyBar={stickyBar}
       lang={s.lang}
       onLangChange={s.setLang}
-      overlayOpen={scopeOpen || filterOpen}
+      overlayOpen={filterOpen}
       overlay={
-        <>
-          <MaintenanceScopeSheet
-            open={scopeOpen}
-            onClose={() => setScopeOpen(false)}
-            i18n={i18n}
-            companies={s.companies}
-            groupIds={s.allowedGroupIds}
-            companyId={s.companyId}
-            groupMode={s.groupMode}
-            selectedGroup={s.selectedGroup}
-            allowGroup
-            onApply={s.applyScope}
-          />
-          <MaintenanceFilterSheet
-            open={filterOpen}
-            onClose={() => setFilterOpen(false)}
-            i18n={i18n}
-            dateFrom={dateFrom}
-            dateTo={dateTo}
-            readOnlyNote
-            processOptions={processOptions}
-            process={process}
-            onApply={({ dateFrom: f, dateTo: t, process: p }) => {
-              setDateFrom(f);
-              setDateTo(t);
-              setProcess(p ?? "");
-            }}
-          />
-        </>
+        <MaintenanceFilterSheet
+          open={filterOpen}
+          onClose={() => setFilterOpen(false)}
+          i18n={i18n}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          activePreset={activePreset}
+          groupMode={s.groupMode}
+          selectedGroup={s.selectedGroup}
+          companyId={s.companyId}
+          companies={s.companies}
+          groupIds={s.allowedGroupIds}
+          categories={MAINTENANCE_CATEGORIES}
+          category={category}
+          withProcess
+          process={process}
+          readOnlyNote
+          onApply={async (next) => {
+            const scopeChanged =
+              next.scope.mode !== scope?.mode ||
+              String(next.scope.groupId ?? "") !== String(scope?.groupId ?? "") ||
+              Number(next.scope.companyId ?? 0) !== Number(scope?.companyId ?? 0);
+            if (scopeChanged) {
+              await s.applyScope(
+                next.scope.mode === "group"
+                  ? { mode: "group", groupId: next.scope.groupId }
+                  : { mode: "company", companyId: next.scope.companyId },
+              );
+            }
+            setDateFrom(next.dateFrom);
+            setDateTo(next.dateTo);
+            setActivePreset(next.activePreset);
+            setCategory(next.category || "Games");
+            setProcess(next.process ?? "");
+          }}
+        />
       }
     >
       <div className="m-mt-content">

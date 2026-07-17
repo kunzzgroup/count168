@@ -13,7 +13,7 @@ import {
 import { companiesForPicker as resolveCompaniesForPicker, pickCompany, resolveCompanyPickForGroup } from "../../lib/dashboardScope.js";
 import { dashboardLabel } from "../../translateFile/dashboardTranslate.js";
 
-function Pill({ active, disabled, onClick, block, tone = "blue", children }) {
+export function Pill({ active, disabled, onClick, block, tone = "blue", children }) {
   const activeMod =
     tone === "violet" ? "m-filter-pill--active-violet" : "m-filter-pill--active-blue";
   return (
@@ -30,7 +30,7 @@ function Pill({ active, disabled, onClick, block, tone = "blue", children }) {
   );
 }
 
-function Section({ title, trailing, children }) {
+export function Section({ title, trailing, children }) {
   return (
     <div className="m-filter-section">
       <div className="m-filter-section-head">
@@ -42,7 +42,7 @@ function Section({ title, trailing, children }) {
   );
 }
 
-function DateRangeRow({ fromLabel, toLabel, dateFrom, dateTo, active, onOpen }) {
+export function DateRangeRow({ fromLabel, toLabel, dateFrom, dateTo, active, onOpen }) {
   return (
     <button
       type="button"
@@ -131,7 +131,7 @@ function draftGroupOnlyMode(draft) {
   return Boolean(draft.selectedGroup && !draft.groupAllMode && !draft.groupsAllMode && !hasCompany);
 }
 
-function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, labels, onApply }) {
+export function DateRangeCalendarSheet({ open, onClose, dateFrom, dateTo, maxYmd, labels, onApply }) {
   const [cursor, setCursor] = useState(() => parseYmd(dateFrom || maxYmd || todayYmd()));
   const [draftFrom, setDraftFrom] = useState(dateFrom || "");
   const [draftTo, setDraftTo] = useState(dateTo || "");

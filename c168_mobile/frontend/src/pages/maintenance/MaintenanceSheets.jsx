@@ -1,10 +1,25 @@
-import { useEffect, useState } from "react";
-import { formatRangeLabel } from "../../lib/dashboardDateUtils.js";
+import { useEffect, useRef, useState } from "react";
+import { useOverlayLock } from "../../hooks/useOverlayLock.js";
+import {
+  PERIOD_PRESET_KEYS,
+  daysInclusive,
+  formatRangeLabel,
+  periodPresetRange,
+  todayYmd,
+} from "../../lib/dashboardDateUtils.js";
+import { fetchMaintenanceProcessOptions } from "../../lib/maintenanceApi.js";
+import { dashboardLabel } from "../../translateFile/dashboardTranslate.js";
+import {
+  DateRangeCalendarSheet,
+  DateRangeRow,
+  Pill,
+  Section,
+} from "../dashboard/FilterSheet.jsx";
 import ScopeBreadcrumb from "../dashboard/ScopeBreadcrumb.jsx";
 
 /**
- * Dashboard/Transaction-style sticky filter bar: date row opens the filter
- * sheet, scope breadcrumb row opens the scope sheet.
+ * Dashboard/Transaction-style sticky filter bar: one button (date range +
+ * scope breadcrumb + Switch) opening the unified maintenance filter sheet.
  */
 export function MaintenanceFilterBar({
   i18n,
@@ -13,8 +28,7 @@ export function MaintenanceFilterBar({
   groupMode,
   selectedGroup,
   selectedCompany,
-  onOpenFilter,
-  onOpenScope,
+  onOpen,
 }) {
   const groupId = String(
     (groupMode ? selectedGroup : selectedCompany?.group_id) || "",
@@ -26,25 +40,15 @@ export function MaintenanceFilterBar({
     : String(selectedCompany?.company_id || "").trim().toUpperCase();
 
   return (
-    <div className="m-filter-bar">
-      <button
-        type="button"
-        className="m-filter-bar-row m-mt-bar-btn tap-scale"
-        onClick={onOpenFilter}
-        aria-label={i18n.filter}
-      >
+    <button type="button" onClick={onOpen} className="m-filter-bar tap-scale" aria-label={i18n.filter}>
+      <div className="m-filter-bar-row">
         <i className="far fa-calendar m-filter-bar-icon" aria-hidden="true" />
         <span className="m-filter-bar-dates">{formatRangeLabel(dateFrom, dateTo)}</span>
         <span className="m-filter-bar-action">
           <i className="fas fa-filter" aria-hidden="true" />
         </span>
-      </button>
-      <button
-        type="button"
-        className="m-filter-bar-scope m-filter-bar-scope-row m-mt-bar-btn tap-scale"
-        onClick={onOpenScope}
-        aria-label={i18n.selectScope}
-      >
+      </div>
+      <div className="m-filter-bar-scope m-filter-bar-scope-row">
         <div className="m-filter-bar-scope-main">
           <ScopeBreadcrumb
             i18n={i18n}
@@ -54,209 +58,361 @@ export function MaintenanceFilterBar({
           />
         </div>
         <span className="m-filter-bar-switch">{i18n.switchCompany || "Switch"}</span>
-      </button>
-    </div>
-  );
-}
-
-function Sheet({ open, title, onClose, children, footer = null }) {
-  return (
-    <div
-      className={`m-sheet-overlay m-sheet-overlay--high${
-        open ? " m-sheet-overlay--open" : " m-sheet-overlay--closed"
-      }`}
-      aria-hidden={!open}
-    >
-      <button type="button" className="m-sheet-backdrop" onClick={onClose} aria-label="Close" />
-      <div
-        className={`m-sheet-panel m-sheet-panel--tall${
-          open ? " m-sheet-panel--open" : " m-sheet-panel--closed"
-        }`}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="m-sheet-handle-wrap" aria-hidden="true">
-          <span className="m-sheet-handle" />
-        </div>
-        <header className="m-sheet-header">
-          <h2 className="m-sheet-title m-sheet-title--bold">{title}</h2>
-          <button
-            type="button"
-            className="m-sheet-close tap-scale"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <i className="fas fa-xmark" aria-hidden="true" />
-          </button>
-        </header>
-        <div className="m-sheet-body m-mt-sheet-body">{children}</div>
-        {footer}
       </div>
-    </div>
+    </button>
   );
 }
 
-/** Company / group scope picker. */
-export function MaintenanceScopeSheet({
-  open,
-  onClose,
-  i18n,
-  companies,
-  groupIds,
-  companyId,
+function buildDraft({
+  dateFrom,
+  dateTo,
+  activePreset,
   groupMode,
   selectedGroup,
-  allowGroup,
-  onApply,
+  companyId,
+  category,
+  process,
+  transactionType,
 }) {
-  const pickable = (companies || []).filter(
-    (c) => c?.company_id && String(c.company_id).trim() !== "",
-  );
-
-  const choose = async (draft) => {
-    const ok = await onApply(draft);
-    if (ok) onClose();
+  return {
+    dateFrom,
+    dateTo,
+    activePreset: activePreset || "",
+    groupMode: Boolean(groupMode),
+    groupId: selectedGroup || null,
+    companyId: companyId ?? null,
+    category: category ?? "",
+    process: process ?? "",
+    transactionType: transactionType ?? "",
   };
-
-  return (
-    <Sheet open={open} onClose={onClose} title={i18n.selectScope}>
-      {allowGroup && groupIds.length > 0 ? (
-        <section className="m-mt-scope-section">
-          <p className="m-mt-scope-label">{i18n.group}</p>
-          {groupIds.map((gid) => (
-            <button
-              key={`g-${gid}`}
-              type="button"
-              className={`m-mt-scope-row tap-scale${
-                groupMode && selectedGroup === gid ? " is-active" : ""
-              }`}
-              onClick={() => choose({ mode: "group", groupId: gid })}
-            >
-              <span>
-                <i className="fas fa-layer-group" aria-hidden="true" /> {gid}
-              </span>
-              <small>{i18n.groupAggregate}</small>
-            </button>
-          ))}
-        </section>
-      ) : null}
-
-      <section className="m-mt-scope-section">
-        <p className="m-mt-scope-label">{i18n.company}</p>
-        {pickable.map((c) => {
-          const active = !groupMode && Number(c.id) === Number(companyId);
-          return (
-            <button
-              key={`c-${c.id}`}
-              type="button"
-              className={`m-mt-scope-row tap-scale${active ? " is-active" : ""}`}
-              onClick={() => choose({ mode: "company", companyId: Number(c.id) })}
-            >
-              <span>
-                <i className="fas fa-building" aria-hidden="true" />{" "}
-                {String(c.company_id).toUpperCase()}
-              </span>
-              {c.group_id ? <small>{String(c.group_id).toUpperCase()}</small> : null}
-            </button>
-          );
-        })}
-      </section>
-    </Sheet>
-  );
 }
 
-/** Date range (+ optional process select) filter sheet. */
+function draftScope(draft) {
+  if (draft.groupMode && draft.groupId) {
+    return { mode: "group", companyId: null, groupId: draft.groupId };
+  }
+  const cid = Number(draft.companyId);
+  return { mode: "company", companyId: Number.isFinite(cid) && cid > 0 ? cid : null, groupId: draft.groupId };
+}
+
+/**
+ * Unified maintenance filter sheet — mirrors dashboard/transaction FilterSheet
+ * (date range + quick select + group/company + apply), plus maintenance-only
+ * sections: Category + Process (transaction) or Transaction type (payment).
+ */
 export function MaintenanceFilterSheet({
   open,
   onClose,
   i18n,
   dateFrom,
   dateTo,
-  onApply,
-  readOnlyNote = false,
-  processOptions = null,
+  activePreset = "",
+  groupMode = false,
+  selectedGroup = null,
+  companyId = null,
+  companies = [],
+  groupIds = [],
+  categories = null,
+  category = "",
+  withProcess = false,
   process = "",
-  children,
+  types = null,
+  transactionType = "",
+  readOnlyNote = false,
+  onApply,
 }) {
-  const [from, setFrom] = useState(dateFrom);
-  const [to, setTo] = useState(dateTo);
-  const [draftProcess, setDraftProcess] = useState(process);
+  const bodyRef = useRef(null);
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [draft, setDraft] = useState(() =>
+    buildDraft({ dateFrom, dateTo, activePreset, groupMode, selectedGroup, companyId, category, process, transactionType }),
+  );
+  const [processOptions, setProcessOptions] = useState([]);
+  useOverlayLock(open, onClose);
 
   useEffect(() => {
-    if (open) {
-      setFrom(dateFrom);
-      setTo(dateTo);
-      setDraftProcess(process);
+    if (!open) {
+      setRangeOpen(false);
+      return;
     }
-  }, [open, dateFrom, dateTo, process]);
+    setDraft(
+      buildDraft({ dateFrom, dateTo, activePreset, groupMode, selectedGroup, companyId, category, process, transactionType }),
+    );
+    bodyRef.current?.scrollTo?.({ top: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
-  const apply = () => {
-    if (!from || !to) return;
-    onApply({ dateFrom: from, dateTo: to, process: draftProcess });
-    onClose();
+  /** Process options follow the draft scope + category (desktop parity). */
+  const scope = draftScope(draft);
+  const scopeKey = `${scope.mode}:${scope.companyId ?? ""}:${scope.groupId ?? ""}`;
+  useEffect(() => {
+    if (!open || !withProcess) return undefined;
+    const ac = new AbortController();
+    fetchMaintenanceProcessOptions({ scope: draftScope(draft), category: draft.category, signal: ac.signal })
+      .then((names) => setProcessOptions(names))
+      .catch((e) => {
+        if (e?.name !== "AbortError") setProcessOptions([]);
+      });
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, withProcess, scopeKey, draft.category]);
+
+  const pickable = (companies || []).filter(
+    (c) => c?.company_id && String(c.company_id).trim() !== "",
+  );
+
+  const handleReset = () => {
+    const t = todayYmd();
+    setDraft((prev) => ({
+      ...prev,
+      dateFrom: t,
+      dateTo: t,
+      activePreset: "today",
+      category: categories?.[0] ?? prev.category,
+      process: "",
+      transactionType: "",
+    }));
   };
 
+  const handleApply = () => {
+    onApply?.({
+      dateFrom: draft.dateFrom,
+      dateTo: draft.dateTo,
+      activePreset: draft.activePreset,
+      scope: draftScope(draft),
+      category: draft.category,
+      process: draft.process,
+      transactionType: draft.transactionType,
+    });
+    onClose?.();
+  };
+
+  const maxDay = todayYmd();
+  const span = daysInclusive(draft.dateFrom, draft.dateTo);
+  const daysLabel = (i18n.daysCount || "{n} days").replace("{n}", String(span));
+
   return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      title={i18n.filter}
-      footer={
-        <div className="m-sheet-footer">
-          <button
-            type="button"
-            className="m-sheet-footer-btn m-sheet-footer-btn--muted tap-scale"
-            onClick={onClose}
-          >
-            {i18n.cancel}
-          </button>
-          <button
-            type="button"
-            className="m-sheet-footer-btn m-sheet-footer-btn--primary tap-scale"
-            onClick={apply}
-          >
-            {i18n.showResults}
+    <div
+      className={`m-sheet-overlay${open ? " m-sheet-overlay--open" : " m-sheet-overlay--closed"}`}
+      aria-hidden={!open}
+      inert={open ? undefined : ""}
+    >
+      <button type="button" aria-label="Close filter" onClick={onClose} className="m-sheet-backdrop" />
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={i18n.filter}
+        className={`m-sheet-panel${open ? " m-sheet-panel--open" : " m-sheet-panel--closed"}`}
+      >
+        <div className="m-sheet-handle-wrap" aria-hidden="true">
+          <span className="m-sheet-handle" />
+        </div>
+
+        <div className="m-sheet-header">
+          <h2 className="m-sheet-title">{i18n.filter}</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="m-sheet-close tap-scale">
+            <i className="fas fa-xmark" aria-hidden="true" />
           </button>
         </div>
-      }
-    >
-      <div className="m-mt-filter-section">
-        <p className="m-mt-scope-label">{i18n.dateRange}</p>
-        <div className="m-mt-date-grid">
-          <label className="m-mt-field">
-            <span>{i18n.dateFrom}</span>
-            <input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
-          </label>
-          <label className="m-mt-field">
-            <span>{i18n.dateTo}</span>
-            <input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
-          </label>
+
+        <div ref={bodyRef} className="m-sheet-body m-sheet-body--spaced">
+          <Section
+            title={i18n.dateRange}
+            trailing={
+              span > 0 ? (
+                <span
+                  className={`m-filter-span-badge${
+                    draft.activePreset ? " m-filter-span-badge--preset" : " m-filter-span-badge--custom"
+                  }`}
+                >
+                  {draft.activePreset ? daysLabel : `${i18n.customRange} · ${daysLabel}`}
+                </span>
+              ) : null
+            }
+          >
+            <DateRangeRow
+              fromLabel={i18n.from}
+              toLabel={i18n.toDate}
+              dateFrom={draft.dateFrom}
+              dateTo={draft.dateTo}
+              active={rangeOpen}
+              onOpen={() => setRangeOpen(true)}
+            />
+          </Section>
+
+          <Section title={i18n.quickSelect}>
+            <div className="m-filter-pill-grid">
+              {PERIOD_PRESET_KEYS.map((key) => (
+                <Pill
+                  key={key}
+                  active={draft.activePreset === key}
+                  onClick={() => {
+                    const range = periodPresetRange(key);
+                    if (!range) return;
+                    setDraft((prev) => ({
+                      ...prev,
+                      activePreset: key,
+                      dateFrom: range.dateFrom,
+                      dateTo: range.dateTo,
+                    }));
+                  }}
+                  block
+                >
+                  {dashboardLabel(i18n, key)}
+                </Pill>
+              ))}
+            </div>
+          </Section>
+
+          {groupIds.length > 0 && (
+            <Section title={i18n.groupId}>
+              <div className="m-filter-pill-wrap">
+                {groupIds.map((gid) => (
+                  <Pill
+                    key={gid}
+                    tone="violet"
+                    active={draft.groupMode && draft.groupId === gid}
+                    onClick={() =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        groupMode: true,
+                        groupId: gid,
+                        process: "",
+                      }))
+                    }
+                  >
+                    {gid}
+                  </Pill>
+                ))}
+              </div>
+              <p className="m-filter-hint">{i18n.groupAggregate}</p>
+            </Section>
+          )}
+
+          <Section title={i18n.company}>
+            <div className="m-filter-pill-wrap">
+              {pickable.map((c) => {
+                const label = String(c.company_id).toUpperCase();
+                const active = !draft.groupMode && Number(draft.companyId) === Number(c.id);
+                return (
+                  <Pill
+                    key={String(c.id)}
+                    active={active}
+                    onClick={() =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        groupMode: false,
+                        companyId: c.id,
+                        groupId: c.group_id ? String(c.group_id).trim().toUpperCase() : null,
+                        process: "",
+                      }))
+                    }
+                  >
+                    {label}
+                  </Pill>
+                );
+              })}
+            </div>
+          </Section>
+
+          {Array.isArray(categories) && categories.length > 0 && (
+            <Section title={i18n.category}>
+              <div className="m-filter-pill-scroll">
+                {categories.map((cat) => (
+                  <Pill
+                    key={cat}
+                    active={draft.category === cat}
+                    onClick={() => setDraft((prev) => ({ ...prev, category: cat, process: "" }))}
+                  >
+                    {cat}
+                  </Pill>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {withProcess && (
+            <Section title={i18n.process}>
+              <label className="m-mt-field">
+                <select
+                  value={draft.process}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, process: e.target.value }))}
+                >
+                  <option value="">{i18n.allProcesses}</option>
+                  {processOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </Section>
+          )}
+
+          {Array.isArray(types) && types.length > 0 && (
+            <Section title={i18n.transactionType}>
+              <div className="m-filter-pill-scroll">
+                <Pill
+                  active={draft.transactionType === ""}
+                  onClick={() => setDraft((prev) => ({ ...prev, transactionType: "" }))}
+                >
+                  {i18n.allTypes}
+                </Pill>
+                {types.map((t) => (
+                  <Pill
+                    key={t}
+                    active={draft.transactionType === t}
+                    onClick={() => setDraft((prev) => ({ ...prev, transactionType: t }))}
+                  >
+                    {t}
+                  </Pill>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {readOnlyNote ? (
+            <p className="m-mt-readonly-note">
+              <i className="fas fa-circle-info" aria-hidden="true" /> {i18n.readOnlyNote}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="m-sheet-footer">
+          <button type="button" onClick={handleReset} className="m-sheet-footer-btn m-sheet-footer-btn--muted tap-scale">
+            {i18n.reset}
+          </button>
+          <button type="button" onClick={handleApply} className="m-sheet-footer-btn m-sheet-footer-btn--primary tap-scale">
+            {i18n.applyFilter}
+          </button>
         </div>
       </div>
 
-      {Array.isArray(processOptions) ? (
-        <div className="m-mt-filter-section">
-          <p className="m-mt-scope-label">{i18n.process}</p>
-          <label className="m-mt-field">
-            <select value={draftProcess} onChange={(e) => setDraftProcess(e.target.value)}>
-              <option value="">{i18n.allProcesses}</option>
-              {processOptions.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      ) : null}
-
-      {children}
-
-      {readOnlyNote ? (
-        <p className="m-mt-readonly-note">
-          <i className="fas fa-circle-info" aria-hidden="true" /> {i18n.readOnlyNote}
-        </p>
-      ) : null}
-    </Sheet>
+      <DateRangeCalendarSheet
+        open={rangeOpen}
+        onClose={() => setRangeOpen(false)}
+        dateFrom={draft.dateFrom}
+        dateTo={draft.dateTo}
+        maxYmd={maxDay}
+        labels={{
+          selectDateRange: i18n.selectDateRange,
+          rangePickHint: i18n.rangePickHint,
+          from: i18n.from,
+          toDate: i18n.toDate,
+          today: i18n.today,
+          clear: i18n.clear,
+          done: i18n.done,
+          close: i18n.closeMenu || "Close",
+        }}
+        onApply={(from, to) =>
+          setDraft((prev) => ({
+            ...prev,
+            dateFrom: from,
+            dateTo: to,
+            activePreset: "",
+          }))
+        }
+      />
+    </div>
   );
 }
