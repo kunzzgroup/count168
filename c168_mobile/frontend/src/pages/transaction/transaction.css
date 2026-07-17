@@ -333,16 +333,20 @@
 .m-tx-card--alert {
   background: #fff5f5;
   outline: 2px solid #fca5a5;
-  animation: m-tx-alert-breathe 3s ease-in-out infinite;
+  animation: m-tx-alert-breathe 1.8s ease-in-out infinite;
 }
 
 @keyframes m-tx-alert-breathe {
-  0%,
-  100% {
+  0% {
     outline-color: #fecaca;
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5);
   }
   50% {
     outline-color: #dc2626;
+  }
+  100% {
+    outline-color: #fecaca;
+    box-shadow: 0 0 0 12px rgba(220, 38, 38, 0);
   }
 }
 
