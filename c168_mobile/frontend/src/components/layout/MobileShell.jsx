@@ -29,12 +29,13 @@ export default function MobileShell({
   onChromeOpen,
   overlayOpen = false,
 }) {
-  const labels = i18n || {
+  const labels = {
     navHome: "Home",
     navReport: "Report",
     navTransaction: "Transaction",
     navAccount: "Account",
     navMore: "More",
+    ...(i18n || {}),
   };
   const navItems = mobileNavItems(me);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -212,11 +213,13 @@ export default function MobileShell({
                 end={item.to === "/dashboard"}
                 tabIndex={navHidden ? -1 : undefined}
                 className={({ isActive }) =>
-                  `m-shell-nav-link tap-scale${isActive ? " m-shell-nav-link--active" : ""}`
+                  `m-shell-nav-link${isActive ? " m-shell-nav-link--active" : ""}`
                 }
               >
-                <i className={`fas ${item.icon}`} aria-hidden="true" />
-                <span>{labels[item.key]}</span>
+                <span className="m-shell-nav-glyph" aria-hidden="true">
+                  <i className={`fas ${item.icon}`} />
+                </span>
+                <span className="m-shell-nav-label">{labels[item.key]}</span>
               </NavLink>
             ))}
           </div>
