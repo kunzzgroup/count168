@@ -273,7 +273,7 @@ function SortSheet({ open, onClose, account }) {
     <div
       className={`m-sheet-overlay${open ? " m-sheet-overlay--open" : " m-sheet-overlay--closed"}`}
       aria-hidden={!open}
-      inert={open ? undefined : true}
+      inert={open ? undefined : ""}
     >
       <button type="button" className="m-sheet-backdrop" onClick={onClose} aria-label="Close" />
       <section className={`m-sheet-panel${open ? " m-sheet-panel--open" : " m-sheet-panel--closed"}`}>

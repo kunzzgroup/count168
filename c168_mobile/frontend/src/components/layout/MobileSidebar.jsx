@@ -35,7 +35,7 @@ export default function MobileSidebar({
     <div
       className={`m-sidebar-overlay ${open ? "m-sidebar-overlay--open" : "m-sidebar-overlay--closed"}`}
       aria-hidden={!open}
-      inert={open ? undefined : true}
+      inert={open ? undefined : ""}
     >
       <button
         type="button"

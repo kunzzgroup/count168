@@ -8,7 +8,7 @@ function Sheet({ open, title, onClose, tall = false, children, footer = null }) 
     <div
       className={`m-sheet-overlay${open ? " m-sheet-overlay--open" : " m-sheet-overlay--closed"}`}
       aria-hidden={!open}
-      inert={open ? undefined : true}
+      inert={open ? undefined : ""}
     >
       <button type="button" className="m-sheet-backdrop" onClick={onClose} aria-label="Close" />
       <section
@@ -184,10 +184,20 @@ export function AccountDetailSheet({ open, onClose, account, onEdit, onLink }) {
       footer={
         <>
           <div className="m-account-footer-actions">
-            <button type="button" className="m-account-secondary-btn tap-scale" onClick={onEdit}>
+            <button
+              type="button"
+              disabled={!account.canMutate}
+              className="m-account-secondary-btn tap-scale"
+              onClick={onEdit}
+            >
               <i className="fas fa-pen" aria-hidden="true" /> {i18n.edit}
             </button>
-            <button type="button" className="m-account-primary-btn tap-scale" onClick={onLink}>
+            <button
+              type="button"
+              disabled={!account.canMutate}
+              className="m-account-primary-btn tap-scale"
+              onClick={onLink}
+            >
               <i className="fas fa-link" aria-hidden="true" /> {i18n.linkAccount}
             </button>
           </div>

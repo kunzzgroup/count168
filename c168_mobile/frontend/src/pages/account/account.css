@@ -328,6 +328,10 @@
   color: var(--m-color-primary);
 }
 
+.m-account-secondary-btn:disabled {
+  opacity: 0.45;
+}
+
 .m-account-primary-btn:disabled {
   opacity: 0.45;
 }

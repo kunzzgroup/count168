@@ -34,7 +34,7 @@ export default function MobileNotifications({ open, onClose, i18n, items = [], l
     <div
       className={`m-notify-overlay ${open ? "m-notify-overlay--open" : "m-notify-overlay--closed"}`}
       aria-hidden={!open}
-      inert={open ? undefined : true}
+      inert={open ? undefined : ""}
     >
       <button
         type="button"
