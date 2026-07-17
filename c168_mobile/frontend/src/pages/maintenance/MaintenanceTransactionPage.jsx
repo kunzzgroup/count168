@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MobileShell from "../../components/layout/MobileShell.jsx";
 import { useMaintenanceSession } from "../../hooks/useMaintenanceSession.js";
 import {
+  fetchMaintenanceCategories,
   formatMaintenanceAmount,
+  pickMaintenanceCategory,
   searchTransactionMaintenance,
 } from "../../lib/maintenanceApi.js";
 import {
@@ -11,7 +13,6 @@ import {
   todayYmd,
   ymdToDmy,
 } from "../../lib/mobileMaintenanceScope.js";
-import { MAINTENANCE_CATEGORIES } from "../../translateFile/maintenanceTranslate.js";
 import { canAccessTransactionMaintenance } from "../../utils/mobilePermissions.js";
 import { MaintenanceFilterBar, MaintenanceFilterSheet } from "./MaintenanceSheets.jsx";
 import "./maintenance.css";
@@ -44,6 +45,7 @@ export default function MaintenanceTransactionPage() {
   const [dateTo, setDateTo] = useState(todayYmd);
   const [activePreset, setActivePreset] = useState("today");
   const [category, setCategory] = useState("Games");
+  const [categories, setCategories] = useState([]);
   const [process, setProcess] = useState("");
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState([]);
@@ -52,6 +54,8 @@ export default function MaintenanceTransactionPage() {
   const [filterOpen, setFilterOpen] = useState(false);
 
   const seqRef = useRef(0);
+  const categoryRef = useRef(category);
+  categoryRef.current = category;
   const scopeReady = maintenanceScopeIsReady(scope);
   const scopeCacheKey = maintenanceScopeKey(scope);
 
@@ -90,6 +94,35 @@ export default function MaintenanceTransactionPage() {
     return () => ac.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.me, scopeCacheKey, dateFrom, dateTo, category, process]);
+
+  /**
+   * Category options follow company permissions (desktop parity). Group mode
+   * uses the group's first company as permissions anchor, like desktop.
+   */
+  useEffect(() => {
+    if (!s.me || !scopeReady) return undefined;
+    const anchor = s.groupMode
+      ? s.companies.find(
+          (c) =>
+            String(c.group_id || "").trim().toUpperCase() ===
+            String(s.selectedGroup || "").trim().toUpperCase(),
+        )
+      : s.selectedCompany;
+    const code = String(anchor?.company_id || "").trim();
+    const ac = new AbortController();
+    fetchMaintenanceCategories(code, ac.signal)
+      .then((list) => {
+        setCategories(list);
+        const next = pickMaintenanceCategory(list, categoryRef.current);
+        if (next !== categoryRef.current) {
+          setCategory(next);
+          setProcess("");
+        }
+      })
+      .catch(() => {});
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.me, scopeCacheKey]);
 
   const displayRows = useMemo(() => {
     const q = query.trim().toUpperCase();
@@ -155,7 +188,7 @@ export default function MaintenanceTransactionPage() {
           companyId={s.companyId}
           companies={s.companies}
           groupIds={s.allowedGroupIds}
-          categories={MAINTENANCE_CATEGORIES}
+          categories={categories}
           category={category}
           withProcess
           process={process}

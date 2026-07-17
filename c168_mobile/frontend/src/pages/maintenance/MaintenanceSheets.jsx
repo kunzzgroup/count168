@@ -315,7 +315,8 @@ export function MaintenanceFilterSheet({
             </div>
           </Section>
 
-          {Array.isArray(categories) && categories.length > 0 && (
+          {/* Desktop parity: category buttons only when the company has multiple categories. */}
+          {Array.isArray(categories) && categories.length > 1 && (
             <Section title={i18n.category}>
               <div className="m-filter-pill-scroll">
                 {categories.map((cat) => (

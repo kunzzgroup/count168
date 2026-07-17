@@ -175,9 +175,6 @@ export function maintenanceText(lang) {
   return MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en;
 }
 
-/** Transaction Maintenance categories (Games/Gambling/Bank). */
-export const MAINTENANCE_CATEGORIES = ["Games", "Gambling", "Bank"];
-
 /** Payment Maintenance transaction types. */
 export const PAYMENT_MAINTENANCE_TYPES = [
   "PAYMENT",
