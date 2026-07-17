@@ -1,63 +1,42 @@
-/* Mobile admin user management — extends account.css card/sheet look. */
+/* Mobile admin user management — extends account.css card/sheet look.
+   Sizing follows c168_mobile tokens (1rem = 16px), NOT the desktop 62.5% scale. */
 
 .m-admin-card-actions {
   justify-content: space-between;
 }
 
 .m-admin-owner-tag {
-  font-size: 1.1rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #6d28d9;
+  border-radius: var(--m-radius-pill);
   background: rgba(109, 40, 217, 0.12);
-  border-radius: 999px;
-  padding: 0.2rem 0.9rem;
+  padding: 0.24rem 0.7rem;
+  color: #6d28d9;
+  font-size: var(--m-text-badge-ratio);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.m-admin-detail-list {
-  margin: 0;
-  display: grid;
-  gap: 0.8rem;
-}
+/* Detail sheet ------------------------------------------------------- */
 
-.m-admin-detail-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 1.2rem;
-  padding: 0.9rem 1.1rem;
-  background: rgba(15, 23, 42, 0.04);
-  border-radius: 1.2rem;
-}
-
-.m-admin-detail-row dt {
-  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
-  color: rgba(15, 23, 42, 0.55);
-}
-
-.m-admin-detail-row dd {
-  margin: 0;
-  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
-  font-weight: 600;
-  color: #0f172a;
-  text-align: right;
-  word-break: break-word;
+.m-admin-detail-status {
+  margin-left: 0.4rem;
 }
 
 .m-admin-detail-actions {
   display: flex;
-  gap: 0.8rem;
-  margin-top: 1.4rem;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
 }
 
 .m-admin-btn {
   flex: 1;
-  border: 1px solid rgba(15, 23, 42, 0.14);
-  background: #fff;
-  color: #0f172a;
-  border-radius: 1.2rem;
-  padding: 1.1rem 1rem;
-  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
-  font-weight: 600;
+  border: 1px solid var(--m-color-ring);
+  border-radius: var(--m-radius-card);
+  background: var(--m-color-surface);
+  padding: 0.7rem 0.75rem;
+  color: var(--m-color-text);
+  font-size: var(--m-text-body);
+  font-weight: 700;
 }
 
 .m-admin-btn:disabled {
@@ -65,100 +44,87 @@
 }
 
 .m-admin-btn--primary {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
+  border-color: var(--m-color-primary);
+  background: var(--m-color-primary);
   color: #fff;
 }
 
 .m-admin-btn--danger {
-  background: #fff1f2;
-  border-color: rgba(225, 29, 72, 0.35);
-  color: #e11d48;
+  border-color: rgba(225, 29, 72, 0.3);
+  background: var(--m-color-danger-soft);
+  color: var(--m-color-danger-text);
 }
 
 .m-admin-delete-confirm {
-  margin-top: 1.4rem;
-  border: 1px solid rgba(225, 29, 72, 0.4);
-  background: #fff1f2;
-  border-radius: 1.4rem;
-  padding: 1.2rem;
+  margin-top: 0.9rem;
+  border: 1px solid rgba(225, 29, 72, 0.35);
+  border-radius: var(--m-radius-card);
+  background: var(--m-color-danger-soft);
+  padding: 0.75rem;
 }
 
 .m-admin-delete-confirm p {
-  margin: 0 0 1rem;
+  margin: 0 0 0.65rem;
   color: #9f1239;
-  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
-  font-weight: 600;
+  font-size: var(--m-text-body);
+  font-weight: 700;
 }
 
 .m-admin-delete-actions {
   display: flex;
-  gap: 0.8rem;
+  gap: 0.5rem;
 }
 
 .m-admin-shadow-hint,
 .m-admin-field-hint {
-  margin: 0 0 1rem;
-  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
-  color: rgba(15, 23, 42, 0.55);
+  margin: 0 0 0.65rem;
+  border-radius: var(--m-radius-card);
+  background: #eff6ff;
+  padding: 0.55rem 0.7rem;
+  color: #3560b8;
+  font-size: var(--m-text-sub-ratio);
 }
 
-.m-admin-field {
-  display: grid;
-  gap: 0.4rem;
-  margin-bottom: 1rem;
+.m-admin-field-hint {
+  margin: 0.55rem 0 0;
 }
 
-.m-admin-field span {
-  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
-  font-weight: 600;
-  color: rgba(15, 23, 42, 0.6);
-}
+/* Form sheet --------------------------------------------------------- */
 
-.m-admin-field input,
-.m-admin-field select {
-  width: 100%;
-  border: 1px solid rgba(15, 23, 42, 0.14);
-  border-radius: 1.2rem;
-  padding: 1.1rem 1.2rem;
-  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
-  background: #fff;
-  color: #0f172a;
-}
-
-.m-admin-field input:disabled,
-.m-admin-field select:disabled {
-  background: rgba(15, 23, 42, 0.05);
-  color: rgba(15, 23, 42, 0.5);
+/* Permission chips wrap instead of horizontal scroll inside the form. */
+.m-admin-pill-wrap {
+  flex-wrap: wrap;
+  overflow-x: visible;
 }
 
 .m-admin-toggle-row {
-  width: 100%;
+  margin-top: 0.7rem;
   display: flex;
+  width: 100%;
+  min-height: 2.8rem;
   align-items: center;
   justify-content: space-between;
-  border: 1px solid rgba(15, 23, 42, 0.14);
-  background: #fff;
-  border-radius: 1.2rem;
-  padding: 1.1rem 1.2rem;
-  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
+  border-radius: var(--m-radius-card);
+  background: var(--m-color-surface-muted);
+  padding: 0.75rem;
+  color: var(--m-color-text);
+  font-size: var(--m-text-body);
   font-weight: 600;
-  color: #0f172a;
 }
 
 .m-admin-belonging {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.8rem;
+  gap: 0.45rem;
 }
 
 .m-admin-belonging-chip {
-  border-radius: 999px;
-  padding: 0.6rem 1.4rem;
-  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
-  font-weight: 700;
-  background: rgba(29, 78, 216, 0.1);
-  color: #1d4ed8;
+  border-radius: var(--m-radius-pill);
+  background: rgba(47, 107, 246, 0.1);
+  padding: 0.35rem 0.85rem;
+  color: var(--m-color-primary);
+  font-size: var(--m-text-sub-ratio);
+  font-weight: 800;
 }
 
 .m-admin-belonging-chip.is-group {
@@ -167,19 +133,19 @@
 }
 
 .m-admin-access-row {
-  width: 100%;
   display: flex;
+  width: 100%;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  border: 1px solid rgba(15, 23, 42, 0.14);
-  background: #fff;
-  border-radius: 1.2rem;
-  padding: 1.2rem;
-  margin-bottom: 0.8rem;
-  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
-  font-weight: 600;
-  color: #0f172a;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--m-color-ring);
+  border-radius: var(--m-radius-card);
+  background: var(--m-color-surface);
+  padding: 0.75rem;
+  color: var(--m-color-text);
+  font-size: var(--m-text-body);
+  font-weight: 700;
 }
 
 .m-admin-access-row:disabled {
@@ -189,79 +155,61 @@
 .m-admin-access-row small {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
-  color: rgba(15, 23, 42, 0.55);
+  gap: 0.4rem;
+  color: var(--m-color-muted);
+  font-size: var(--m-text-sub-ratio);
+  font-weight: 600;
 }
 
-.m-admin-picker-search {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  border: 1px solid rgba(15, 23, 42, 0.14);
-  border-radius: 1.2rem;
-  padding: 1rem 1.2rem;
-  margin-bottom: 1rem;
-  background: #fff;
-}
-
-.m-admin-picker-search i {
-  color: rgba(15, 23, 42, 0.4);
-}
-
-.m-admin-picker-search input {
-  flex: 1;
-  border: 0;
-  outline: none;
-  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
-  background: transparent;
-}
+/* Account / Process picker ------------------------------------------- */
 
 .m-admin-picker-bulk {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  margin-bottom: 1rem;
+  gap: 0.45rem;
+  margin: 0.7rem 0;
 }
 
 .m-admin-picker-bulk .m-admin-btn {
   flex: 0 0 auto;
-  padding: 0.7rem 1.2rem;
-  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
+  padding: 0.42rem 0.75rem;
+  font-size: var(--m-text-sub-ratio);
 }
 
 .m-admin-picker-count {
   margin-left: auto;
-  font-size: clamp(1.2rem, 0.15vw + 1rem, 1.3rem);
-  color: rgba(15, 23, 42, 0.55);
+  color: var(--m-color-muted);
+  font-size: var(--m-text-sub-ratio);
+  font-weight: 600;
 }
 
 .m-admin-picker-list {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.4rem;
 }
 
 .m-admin-picker-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  background: #fff;
-  border-radius: 1.2rem;
-  padding: 1.1rem 1.2rem;
-  font-size: clamp(1.4rem, 0.3125vw + 1rem, 1.6rem);
-  color: #0f172a;
+  gap: 0.65rem;
+  border: 1px solid var(--m-color-ring);
+  border-radius: var(--m-radius-card);
+  background: var(--m-color-surface);
+  padding: 0.65rem 0.75rem;
+  color: var(--m-color-text);
+  font-size: var(--m-text-body);
+  font-weight: 600;
   text-align: left;
 }
 
 .m-admin-picker-item.is-checked {
-  border-color: rgba(29, 78, 216, 0.5);
-  background: rgba(29, 78, 216, 0.06);
+  border-color: rgba(47, 107, 246, 0.5);
+  background: rgba(47, 107, 246, 0.06);
 }
 
 .m-admin-picker-item i {
-  color: #1d4ed8;
-  font-size: 1.8rem;
+  color: var(--m-color-primary);
+  font-size: 1rem;
 }
 
 .m-admin-picker-item:not(.is-checked) i {

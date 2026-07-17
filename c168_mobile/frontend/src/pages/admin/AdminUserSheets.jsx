@@ -59,11 +59,13 @@ export function UserDetailSheet({ open, onClose, admin, onEdit }) {
   const caps = admin.rowCaps(row);
   const active = normRole(row.status) === "active";
   const values = [
-    [i18n.loginId, String(row.login_id || "").toUpperCase()],
-    [i18n.name, String(row.name || "").toUpperCase()],
     [i18n.email, row.email || "-"],
-    [i18n.role, String(row.role || "").toUpperCase()],
-    [i18n.status, active ? i18n.active : i18n.inactive],
+    [
+      i18n.status,
+      <span key="status" className={`m-account-status m-admin-detail-status ${active ? "active" : "inactive"}`}>
+        {active ? i18n.active : i18n.inactive}
+      </span>,
+    ],
     [i18n.lastLogin, formatLastLogin(row.last_login)],
     [i18n.createdBy, String(row.created_by || "-").toUpperCase()],
   ];
@@ -71,9 +73,17 @@ export function UserDetailSheet({ open, onClose, admin, onEdit }) {
   return (
     <Sheet open={open} title={i18n.userDetail} onClose={onClose}>
       {row.is_owner_shadow ? <p className="m-admin-shadow-hint">{i18n.ownerShadowHint}</p> : null}
-      <dl className="m-admin-detail-list">
+      <div className="m-account-detail-head">
+        <span className="m-account-avatar">{String(row.login_id || "U").slice(0, 2)}</span>
+        <div>
+          <strong>{String(row.login_id || "").toUpperCase()}</strong>
+          <p>{String(row.name || "").toUpperCase()}</p>
+        </div>
+        <span className="m-account-role-badge">{String(row.role || "").toUpperCase()}</span>
+      </div>
+      <dl className="m-account-detail-list">
         {values.map(([label, value]) => (
-          <div key={label} className="m-admin-detail-row">
+          <div key={label}>
             <dt>{label}</dt>
             <dd>{value || "-"}</dd>
           </div>
@@ -162,7 +172,7 @@ function AccessPickerSheet({ open, onClose, title, i18n, options, selected, setS
         </button>
       }
     >
-      <label className="m-admin-picker-search">
+      <label className="m-account-sheet-search">
         <i className="fas fa-magnifying-glass" aria-hidden="true" />
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={i18n.searchOptions} />
       </label>
@@ -189,6 +199,7 @@ function AccessPickerSheet({ open, onClose, title, i18n, options, selected, setS
             <button
               type="button"
               key={id}
+              aria-pressed={checked}
               className={`m-admin-picker-item tap-scale${checked ? " is-checked" : ""}`}
               onClick={() =>
                 setSelected((prev) => {
@@ -232,6 +243,7 @@ export function UserFormSheet({ open, onClose, admin }) {
         type="button"
         key={key}
         disabled={fieldLocks.sidebar || ownerShadow}
+        aria-pressed={selected}
         className={`m-account-pill tap-scale${selected ? " is-active" : ""}`}
         onClick={() =>
           admin.setPermSelected((prev) => {
@@ -271,58 +283,60 @@ export function UserFormSheet({ open, onClose, admin }) {
 
         <div className="m-account-sheet-section">
           <p className="m-account-section-title">{i18n.basicInfo}</p>
-          <label className="m-admin-field">
-            <span>{i18n.loginId}</span>
-            <input
-              value={form.login_id}
-              disabled={isEditMode}
-              onChange={set("login_id")}
-              autoCapitalize="characters"
-            />
-          </label>
-          <label className="m-admin-field">
-            <span>{i18n.password}</span>
-            <input
-              type="password"
-              value={form.password}
-              disabled={fieldLocks.password}
-              onChange={set("password")}
-              placeholder={isEditMode ? i18n.passwordEditHint : ""}
-              autoComplete="new-password"
-            />
-          </label>
-          <label className="m-admin-field">
-            <span>{i18n.name}</span>
-            <input value={form.name} disabled={fieldLocks.name} onChange={set("name")} />
-          </label>
-          <label className="m-admin-field">
-            <span>{i18n.email}</span>
-            <input type="email" value={form.email} disabled={fieldLocks.email} onChange={set("email")} />
-          </label>
-          {!ownerShadow ? (
-            <label className="m-admin-field">
-              <span>{i18n.role}</span>
-              <select
-                value={form.role}
-                disabled={fieldLocks.role || !admin.roleOptions.length}
-                onChange={(e) => {
-                  const role = e.target.value;
-                  setForm((prev) => ({ ...prev, role }));
-                  if (!isEditMode) admin.applyRoleTemplate(role);
-                }}
-              >
-                <option value="">{i18n.selectRole}</option>
-                {admin.roleOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-                {form.role && !admin.roleOptions.some((opt) => opt.value === form.role) ? (
-                  <option value={form.role}>{String(form.role).toUpperCase()}</option>
-                ) : null}
-              </select>
+          <div className="m-account-form-grid">
+            <label className="m-account-form-field">
+              <span>{i18n.loginId}</span>
+              <input
+                value={form.login_id}
+                disabled={isEditMode}
+                onChange={set("login_id")}
+                autoCapitalize="characters"
+              />
             </label>
-          ) : null}
+            <label className="m-account-form-field">
+              <span>{i18n.password}</span>
+              <input
+                type="password"
+                value={form.password}
+                disabled={fieldLocks.password}
+                onChange={set("password")}
+                placeholder={isEditMode ? i18n.passwordEditHint : ""}
+                autoComplete="new-password"
+              />
+            </label>
+            <label className="m-account-form-field">
+              <span>{i18n.name}</span>
+              <input value={form.name} disabled={fieldLocks.name} onChange={set("name")} />
+            </label>
+            <label className="m-account-form-field">
+              <span>{i18n.email}</span>
+              <input type="email" value={form.email} disabled={fieldLocks.email} onChange={set("email")} />
+            </label>
+            {!ownerShadow ? (
+              <label className="m-account-form-field">
+                <span>{i18n.role}</span>
+                <select
+                  value={form.role}
+                  disabled={fieldLocks.role || !admin.roleOptions.length}
+                  onChange={(e) => {
+                    const role = e.target.value;
+                    setForm((prev) => ({ ...prev, role }));
+                    if (!isEditMode) admin.applyRoleTemplate(role);
+                  }}
+                >
+                  <option value="">{i18n.selectRole}</option>
+                  {admin.roleOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                  {form.role && !admin.roleOptions.some((opt) => opt.value === form.role) ? (
+                    <option value={form.role}>{String(form.role).toUpperCase()}</option>
+                  ) : null}
+                </select>
+              </label>
+            ) : null}
+          </div>
           {admin.showReadOnlyToggle && !ownerShadow ? (
             <button
               type="button"
@@ -349,7 +363,7 @@ export function UserFormSheet({ open, onClose, admin }) {
           <>
             <div className="m-account-sheet-section">
               <p className="m-account-section-title">{i18n.pagePermissions}</p>
-              <div className="m-account-pill-row">{permChips}</div>
+              <div className="m-account-pill-row m-admin-pill-wrap">{permChips}</div>
             </div>
 
             <div className="m-account-sheet-section">
