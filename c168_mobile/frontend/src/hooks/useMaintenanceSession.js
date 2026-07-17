@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { fetchJson } from "../lib/fetchJson.js";
 import { fetchOwnerCompanies, updateSessionCompany } from "../lib/maintenanceApi.js";
 import { pickCompany, sortedUniqueGroupIds } from "../lib/dashboardScope.js";
+import { canUseGroupOnlyMode } from "../lib/loginScope.js";
 import { resolveMaintenanceScope } from "../lib/mobileMaintenanceScope.js";
 import { maintenanceText } from "../translateFile/maintenanceTranslate.js";
 import { buildApiUrl } from "../utils/apiUrl.js";
@@ -88,6 +89,11 @@ export function useMaintenanceSession({ canAccess }) {
   );
 
   const groupIds = useMemo(() => sortedUniqueGroupIds(companies), [companies]);
+  /** Group ledger scope only for users the backend will accept (same gate as dashboard/transaction). */
+  const allowedGroupIds = useMemo(
+    () => groupIds.filter((g) => canUseGroupOnlyMode(me, g, companies)),
+    [groupIds, me, companies],
+  );
   const selectedCompany = useMemo(
     () => companies.find((row) => Number(row.id) === Number(companyId)) || null,
     [companies, companyId],
@@ -139,6 +145,7 @@ export function useMaintenanceSession({ canAccess }) {
     groupMode,
     scope,
     groupIds,
+    allowedGroupIds,
     selectedCompany,
     applyScope,
     loading,

@@ -224,7 +224,7 @@ export default function MaintenancePaymentPage() {
             onClose={() => setScopeOpen(false)}
             i18n={i18n}
             companies={s.companies}
-            groupIds={s.groupIds}
+            groupIds={s.allowedGroupIds}
             companyId={s.companyId}
             groupMode={s.groupMode}
             selectedGroup={s.selectedGroup}
