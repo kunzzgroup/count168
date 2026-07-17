@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { usePullToRefresh } from "../../hooks/usePullToRefresh.js";
 import { useScrollChromeOffset } from "../../hooks/useScrollChromeOffset.js";
 import { useScrollIdleVisible } from "../../hooks/useScrollIdleVisible.js";
 import { mobileNavItems } from "../../utils/mobilePermissions.js";
 import MobileAppBar from "./MobileAppBar.jsx";
+import MobileBottomNav from "./MobileBottomNav.jsx";
 import MobileNotifications, { fetchMobileAnnouncements } from "./MobileNotifications.jsx";
 import MobileSidebar from "./MobileSidebar.jsx";
 import PullRefreshIndicator from "./PullRefreshIndicator.jsx";
@@ -38,6 +39,7 @@ export default function MobileShell({
     ...(i18n || {}),
   };
   const navItems = mobileNavItems(me);
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
@@ -191,7 +193,9 @@ export default function MobileShell({
           }}
         >
           <PullRefreshIndicator pullPx={pullPx} progress={progress} phase={phase} labels={labels} />
-          <div className={refreshing ? "m-shell-main--refreshing" : ""}>{children}</div>
+          <div key={location.pathname} className="m-shell-page-enter">
+            <div className={refreshing ? "m-shell-main--refreshing" : ""}>{children}</div>
+          </div>
         </div>
       </main>
 
@@ -199,30 +203,13 @@ export default function MobileShell({
         <nav
           className={`m-shell-nav${navHidden ? " m-shell-nav--hidden" : ""}`}
           style={{
-            transform: `translate3d(0, ${chromeProgress * 120}%, 0)`,
-            opacity: Math.max(0, 1 - chromeProgress * 1.15),
+            "--m-nav-chrome-shift": `${chromeProgress * 120}%`,
+            "--m-nav-chrome-opacity": String(Math.max(0, 1 - chromeProgress * 1.15)),
           }}
           aria-label="Main"
           aria-hidden={navHidden}
         >
-          <div className="m-shell-nav-pill">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/dashboard"}
-                tabIndex={navHidden ? -1 : undefined}
-                className={({ isActive }) =>
-                  `m-shell-nav-link${isActive ? " m-shell-nav-link--active" : ""}`
-                }
-              >
-                <span className="m-shell-nav-glyph" aria-hidden="true">
-                  <i className={`fas ${item.icon}`} />
-                </span>
-                <span className="m-shell-nav-label">{labels[item.key]}</span>
-              </NavLink>
-            ))}
-          </div>
+          <MobileBottomNav items={navItems} labels={labels} navHidden={navHidden} />
         </nav>
       ) : null}
 
