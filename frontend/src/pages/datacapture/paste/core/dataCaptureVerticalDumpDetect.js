@@ -61,10 +61,25 @@ function looksLikeReportRowLabel(token) {
 
 function isDroppableTrailingLeftover(leftover, width) {
   if (!leftover.length) return true;
+  // Narrow Subtotal / TOTAL AMOUNT footers are shorter than agent rows — keep them.
+  if (leftoverLooksLikeSummaryFooter(leftover)) return false;
   const leftoverNums = leftover.filter((t) => isVerticalDumpMoneyToken(t)).length;
   if (leftoverNums === 0) return true;
   if (!isVerticalDumpMoneyToken(leftover[0]) && leftover.length < width) return true;
   return false;
+}
+
+/** SUBTOTAL / TOTAL AMOUNT (+ amounts) trailing chunk after equal-width agent rows. */
+function leftoverLooksLikeSummaryFooter(leftover) {
+  if (!Array.isArray(leftover) || !leftover.length) return false;
+  if (!isVerticalDumpSummaryLabel(leftover[0])) return false;
+  return leftover.some((token, index) => index > 0 && isVerticalDumpMoneyToken(token));
+}
+
+function padRowToWidth(row, width) {
+  const next = [...row];
+  while (next.length < width) next.push("");
+  return next;
 }
 
 /** DataTables / Material paginator chrome often appended by drag-to-end. */
@@ -150,6 +165,23 @@ function detectSummaryStride(tokens) {
   }
 
   const firstIdx = summaryIndices[0];
+  // N equal dense agent rows before SUBTOTAL (e.g. Win Loss Detail: 2 agents + Subtotal).
+  // Must run before the "header strip" half-width check — agent rows contain money tokens.
+  if (firstIdx >= 6 && firstIdx <= 80) {
+    for (const n of [2, 3, 4, 5]) {
+      if (firstIdx % n !== 0) continue;
+      const w = firstIdx / n;
+      if (w < 3 || w > 24) continue;
+      let allDense = true;
+      for (let i = 0; i < n; i += 1) {
+        if (!isDenseReportRow(tokens.slice(i * w, (i + 1) * w))) {
+          allDense = false;
+          break;
+        }
+      }
+      if (allDense) return w;
+    }
+  }
   // Header row + data row before SUBTOTAL → index ≈ 2× width.
   // Check before treating firstIdx as width (headers alone can push SUBTOTAL to 16–20).
   if (firstIdx >= 6 && firstIdx <= 40 && firstIdx % 2 === 0) {
@@ -173,13 +205,21 @@ function chunkTokensToRows(tokens, width, { requireDense = true } = {}) {
   for (let i = 0; i < tokens.length; i += width) {
     const chunk = tokens.slice(i, i + width);
     if (chunk.length < width) {
+      if (leftoverLooksLikeSummaryFooter(chunk)) {
+        rows.push(padRowToWidth(chunk, width));
+        break;
+      }
       if (!isDroppableTrailingLeftover(chunk, width)) return null;
       break;
     }
     rows.push(chunk);
   }
   if (!rows.length) return null;
-  if (requireDense && !rows.every((row) => isDenseReportRow(row))) return null;
+  if (requireDense) {
+    // Trailing SUBTOTAL / TOTAL AMOUNT footers are allowed to be non-dense.
+    const bodyRows = rows.filter((row) => !isVerticalDumpSummaryLabel(row[0]));
+    if (!bodyRows.length || !bodyRows.every((row) => isDenseReportRow(row))) return null;
+  }
   return rows;
 }
 
@@ -218,7 +258,11 @@ function tryParseAnchoredVerticalRows(tokens) {
     const rem = dataTokens.length % width;
     if (rem > 0) {
       const leftover = dataTokens.slice(completeRows * width);
-      if (!isDroppableTrailingLeftover(leftover, width)) continue;
+      if (leftoverLooksLikeSummaryFooter(leftover)) {
+        rows.push(padRowToWidth(leftover, width));
+      } else if (!isDroppableTrailingLeftover(leftover, width)) {
+        continue;
+      }
     }
 
     if (

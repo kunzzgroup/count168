@@ -193,7 +193,8 @@ export function formatHtmlLooksLikeVerticalNx1(html) {
     if (maxCols >= 2) return false;
     return (dataRows?.length || 0) >= 3 || maxCols <= 1;
   } catch {
-    return false;
+    // Fail closed: prefer plain dual-source reshape over applying a bad HTML body.
+    return true;
   }
 }
 

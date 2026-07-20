@@ -93,20 +93,19 @@ function isSummaryLabelToken(text) {
 }
 
 /**
- * Real footer total rows often have fewer filled cells than body (no serial / code),
- * but still carry many amount columns — must not be treated as over-select stubs.
+ * Real footer total rows often have fewer filled cells than body (no serial / code).
+ * Win Loss Detail Subtotal footers are frequently much narrower than agent rows
+ * (colspan / sparse leading empties) — still keep them when labeled.
  */
-function rowLooksLikeKeptSummaryTotalRow(row, bodyWidth) {
+function rowLooksLikeKeptSummaryTotalRow(row, _bodyWidth) {
   if (!Array.isArray(row)) return false;
   const tokens = row.map((cell) => cellValue(cell)).filter(Boolean);
   if (!tokens.length || !isSummaryLabelToken(tokens[0])) return false;
 
+  // Label + at least one amount is enough. Do not require ~50% of body width —
+  // that dropped legitimate Subtotal rows from C8 / Material win-loss copies.
   const moneyCount = tokens.filter((token) => isMoneyOrNumberLikeToken(token)).length;
-  if (moneyCount < 2) return false;
-
-  const minKeepWidth = Math.max(3, Math.ceil(bodyWidth * 0.5));
-  const minKeepMoney = Math.max(2, Math.ceil(bodyWidth * 0.35));
-  return tokens.length >= minKeepWidth || moneyCount >= minKeepMoney;
+  return moneyCount >= 1;
 }
 
 /** Drop trailing empty / paginator / truncated stub rows (loop for multi-line chrome). */
