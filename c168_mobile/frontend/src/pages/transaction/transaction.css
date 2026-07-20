@@ -330,11 +330,20 @@
   font-size: clamp(0.4375rem, 1.8vw, 0.5rem);
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
-  color: #334155;
-  background: #e2e8f0;
-  border-top: 1px solid #cbd5e1;
+  letter-spacing: 0.03em;
+  color: #f8fafc;
+  background: #1e3a5f;
+  border-top: 1px solid #1e3a5f;
   border-bottom: none;
+  border-right-color: rgba(255, 255, 255, 0.12);
+}
+
+.m-tx-dense-th:first-child {
+  border-left-color: #1e3a5f;
+}
+
+.m-tx-dense-th:last-child {
+  border-right-color: #1e3a5f;
 }
 
 .m-tx-dense-th--acc {
