@@ -169,6 +169,50 @@ function buildVerticalNx1TableHtml() {
   return `<table><tbody>${rows}</tbody></table>`;
 }
 
+/**
+ * Real C8Play/Kendo clipboard: agent rows have role="row", Subtotal is
+ * tr.k-group-footer with NO role (user's live Ctrl+C shape).
+ */
+function buildKendoGroupFooterHtml() {
+  const agentTr = (cells, alt = false) => {
+    const cls = alt ? ' class="k-alt"' : "";
+    const tds = cells
+      .map((v) => `<td role="gridcell">${v === "" ? "&nbsp;" : v}</td>`)
+      .join("");
+    return `<tr role="row"${cls}>${tds}</tr>`;
+  };
+  // Real footer: empty leading cells, money starts at Turn Over — no "Subtotal" text.
+  const footerCells = ["", "", "", "", ...AGENT1.slice(3)].map((v, i) => {
+    if (i >= 4) {
+      // Use summed-looking values from SUBTOTAL amounts when available
+      return SUBTOTAL[i] || v;
+    }
+    return "";
+  });
+  const footerTds = footerCells
+    .map((v) => `<td>${v === "" ? "&nbsp;" : v}</td>`)
+    .join("");
+  return `<table role="grid"><tbody>
+  ${agentTr(AGENT1)}
+  ${agentTr(AGENT2, true)}
+  <tr class="k-group-footer">${footerTds}</tr>
+</tbody></table>`;
+}
+
+/** Real-ish plain text from C8Play Ctrl+C (mixed newlines + sparse tabs). */
+function buildKendoMessyPlain() {
+  const packAgent = (row) =>
+    [
+      " \t",
+      row[0],
+      `${row[1]}\t${row[2]}\t`,
+      ...row.slice(3),
+    ].join("\n");
+  const packFooter = (row) =>
+    [" \t \t \t \t", ...row.filter((c) => c !== "")].join("\n");
+  return [packAgent(AGENT1), packAgent(AGENT2), packFooter(SUBTOTAL)].join("\n");
+}
+
 async function runNodePureChecks() {
   console.log("\n[1] Node pure parsers (sanitize / plain / vertical dump)");
 
@@ -215,6 +259,17 @@ async function runNodePureChecks() {
     );
   }
   assertRowCount("vertical dump reshape", verticalMatrix, 3);
+
+  // Money-only footer (no Subtotal label) — real Kendo plain after blank cells strip.
+  const moneyFooterVertical = [AGENT1, AGENT2, SUBTOTAL.slice(3)].flat().join("\n");
+  const moneyFooterMatrix = parsePlainTextMatrix(moneyFooterVertical);
+  console.log(
+    `  · money-only footer vertical → ${moneyFooterMatrix.length} rows x ${moneyFooterMatrix[0]?.length ?? 0} cols`,
+  );
+  if (moneyFooterMatrix.length < 3) {
+    fail(`money-only footer vertical lost Subtotal: ${moneyFooterMatrix.length} rows`);
+  }
+  ok("money-only footer vertical keeps 3 rows");
 }
 
 function narrowTsvOr(m) {
@@ -294,6 +349,14 @@ async function runPlaywrightHtmlChecks() {
     const cases = [
       { name: "mat-row + footer-row", html: buildMatRowHtml(), expectRows: 3, expectColsMin: 10 },
       { name: "collapsed mat-row", html: buildCollapsedMatHtml(), expectRows: 3, expectColsMin: 10 },
+      {
+        name: "Kendo k-group-footer (no role=row)",
+        html: buildKendoGroupFooterHtml(),
+        expectRows: 3,
+        expectColsMin: 10,
+        // Footer has no Subtotal label — accept money in first filled cell
+        allowMoneyFirstFooter: true,
+      },
       { name: "vertical N×1 table", html: buildVerticalNx1TableHtml(), expectRows: null, expectColsMin: 1 },
     ];
 
@@ -332,8 +395,13 @@ async function runPlaywrightHtmlChecks() {
           fail(`${c.name}: expected >=${c.expectColsMin} cols, got ${result.cols}`);
         }
         const hasSub = result.labels.some((l) => /subtotal/i.test(l));
-        if (!hasSub) fail(`${c.name}: Subtotal row missing from body labels`);
-        ok(`${c.name}: ${result.rows}x${result.cols} (Subtotal kept)`);
+        const hasMoneyFooter = result.labels.some((l) =>
+          /^-?[\d,]+(?:\.\d+)?$/.test(String(l).replace(/[,$]/g, "")),
+        );
+        if (!hasSub && !(c.allowMoneyFirstFooter && hasMoneyFooter && result.rows >= 3)) {
+          fail(`${c.name}: Subtotal/footer row missing from body labels`);
+        }
+        ok(`${c.name}: ${result.rows}x${result.cols} (footer kept)`);
       } else {
         const looksNx1 = result.cols <= 1 && result.rows >= 3;
         console.log(`  · vertical N×1 shape (cols<=1, rows>=3): ${looksNx1}`);

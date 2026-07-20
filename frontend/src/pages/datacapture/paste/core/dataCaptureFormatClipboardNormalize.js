@@ -163,15 +163,31 @@ function collectGridRows(root) {
     .querySelectorAll(".mat-row, .mat-header-row, .mat-footer-row, .cdk-row, .cdk-header-row, .cdk-footer-row")
     .forEach(pushUnique);
 
-  // 3) ARIA rows that contain cell-like children or newline-flattened column text
+  // 3) Kendo Grid group/footer rows — Win Loss Detail Subtotal copies as
+  //    <tr class="k-group-footer"> with NO role="row", so ARIA collection misses them.
+  root
+    .querySelectorAll(
+      "tr.k-group-footer, tr.k-group-header, tr.k-footer-template, tr.k-grouping-row, .k-grid-footer tr, .k-group-footer",
+    )
+    .forEach(pushUnique);
+
+  // 4) ARIA rows that contain cell-like children or newline-flattened column text
   Array.from(root.querySelectorAll('[role="row"]')).forEach((row) => {
     if (rowHasCellHints(row) || rowLooksLikeFlattenedColumns(row)) pushUnique(row);
   });
 
   // Drop outer shells that only wrap other rows (keep leaf data rows).
+  // Re-sort into document order — Kendo footers are queried before role=row agents.
   return rows
     .filter((row) => !rows.some((other) => other !== row && row.contains(other)))
-    .filter((row) => !gridRowLooksLikePaginator(row));
+    .filter((row) => !gridRowLooksLikePaginator(row))
+    .sort((a, b) => {
+      if (a === b) return 0;
+      const pos = a.compareDocumentPosition(b);
+      if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+      if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+      return 0;
+    });
 }
 
 function collectRowCells(row) {
@@ -623,6 +639,18 @@ export function normalizeClipboardHtmlToTable(html) {
       expandCollapsedTableRows(mergedDataTables);
       if (tableColumnCount(mergedDataTables) >= 2) {
         return `${styleHtml}\n${mergedDataTables.outerHTML}`;
+      }
+    }
+
+    // Prefer a wide native <table> when it has MORE <tr> than ARIA/mat shells.
+    // C8Play/Kendo Win Loss: agent rows have role="row", Subtotal is k-group-footer
+    // without role — rebuilding from gridRows alone used to drop that footer.
+    if (existingTable) {
+      const nativeTrCount = existingTable.querySelectorAll("tr").length;
+      const nativeCols = tableColumnCount(existingTable);
+      if (nativeCols >= 2 && nativeTrCount > 0 && nativeTrCount > gridRows.length) {
+        expandCollapsedTableRows(existingTable);
+        return `${styleHtml}\n${existingTable.outerHTML}`;
       }
     }
 
