@@ -16,7 +16,7 @@ import {
   resolveHistoryAccountName,
   resolvePaymentHistoryScope,
 } from "../../lib/transactionHistoryScope.js";
-import { historyTypeCardClass, historyTypeLabel } from "../../lib/transactionTypeStyles.js";
+import { historyTypeCardClass } from "../../lib/transactionTypeStyles.js";
 import { moneyToneClass } from "../../lib/money/moneyToneClass.js";
 import ExportPdfSheet from "./ExportPdfSheet.jsx";
 import "./transaction-history.css";
@@ -218,8 +218,8 @@ export default function TransactionHistoryPage() {
                   <th scope="col" className="m-tx-hist-dense-th m-tx-hist-dense-th--date">
                     {m.dateCompact || m.date || "Date"}
                   </th>
-                  <th scope="col" className="m-tx-hist-dense-th m-tx-hist-dense-th--type">
-                    {m.typeCompact || "Type"}
+                  <th scope="col" className="m-tx-hist-dense-th m-tx-hist-dense-th--product">
+                    {m.idProduct || m.idProductCompact || "Id Product"}
                   </th>
                   <th scope="col" className="m-tx-hist-dense-th m-tx-hist-dense-th--num">
                     {m.winLossTableCompact}
@@ -239,8 +239,10 @@ export default function TransactionHistoryPage() {
                 {displayRows.map((row, idx) => {
                   const key = rowKey(row, idx);
                   const expanded = expandedKey === key;
-                  const typeLabel = historyTypeLabel(row);
                   const typeCls = historyTypeCardClass(row);
+                  const idProductDisplay = toUpperDisplay(
+                    row.is_bank_process_transaction ? row.card_owner || "-" : row.product || "-",
+                  );
                   const createdRaw = row.created_by;
                   const createdBy =
                     createdRaw == null ||
@@ -273,8 +275,8 @@ export default function TransactionHistoryPage() {
                         <td className="m-tx-hist-dense-td m-tx-hist-dense-td--date">
                           {row.date || "—"}
                         </td>
-                        <td className="m-tx-hist-dense-td m-tx-hist-dense-td--type">
-                          <span className="m-tx-hist-type-badge">{typeLabel}</span>
+                        <td className="m-tx-hist-dense-td m-tx-hist-dense-td--product">
+                          {idProductDisplay || "—"}
                         </td>
                         <td className="m-tx-hist-dense-td m-tx-hist-dense-td--num">
                           <MoneyTone value={row.win_loss}>{formatHistoryMoney(row.win_loss)}</MoneyTone>
