@@ -211,26 +211,64 @@ export function handleTextHtmlPaste(html, anchorCell) {
  */
 function plainLooksLikeReshapableVerticalDump(pastedData) {
   const text = String(pastedData ?? "");
-  if (!text.trim() || text.includes("\t")) return false;
+  if (!text.trim()) return false;
   const nonEmptyLines = text
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .split("\n")
     .filter((line) => line.trim() !== "");
-  return Boolean(detectVerticalFieldDump(nonEmptyLines)?.rows?.length);
+  if (!nonEmptyLines.length) return false;
+
+  // Sparse tabs (C8Play: "87\tAgent\t" amid one-field-per-line) still count as
+  // vertical dumps. Dense TSV (most lines have tabs) stays on the tab/HTML path.
+  const tabLines = nonEmptyLines.filter((line) => line.includes("\t")).length;
+  if (tabLines > 0 && tabLines >= Math.ceil(nonEmptyLines.length * 0.35)) return false;
+
+  const tokens = [];
+  nonEmptyLines.forEach((line) => {
+    if (line.includes("\t")) {
+      line.split("\t").forEach((part) => {
+        const t = part.replace(/\u00a0/g, " ").trim();
+        if (t) tokens.push(t);
+      });
+    } else {
+      tokens.push(line.trim());
+    }
+  });
+  return Boolean(detectVerticalFieldDump(tokens)?.rows?.length);
+}
+
+/** Wide multi-col <tr> count — used so Plan B cannot beat a fuller HTML table. */
+function countWideHtmlTableRows(html) {
+  if (!html || !/<table\b/i.test(html)) return 0;
+  try {
+    const root = document.createElement("div");
+    root.innerHTML = html;
+    const table = root.querySelector("table");
+    if (!table) return 0;
+    let wide = 0;
+    table.querySelectorAll("tr").forEach((tr) => {
+      const cells = tr.querySelectorAll("td, th");
+      if (cells.length >= 3) wide += 1;
+    });
+    return wide;
+  } catch {
+    return 0;
+  }
 }
 
 export function handleTextModePaste(e, pastedData, anchorCell) {
-  // Plan B first: agent_period / mat-row copies often ship HTML that parses as
-  // N×1 while plain is the reliable vertical field dump.
-  if (plainLooksLikeReshapableVerticalDump(pastedData)) {
-    if (handleTextPlainPaste(e, pastedData, anchorCell)) return true;
-  }
-
   const html = getClipboardHtml(e);
   const htmlFromDetect = html ? "" : detectHtmlTableInClipboard(e);
   const rawHtmlCandidate = html || htmlFromDetect;
   const htmlCandidate = resolveTextPasteHtml(rawHtmlCandidate) || rawHtmlCandidate;
+  const wideHtmlRows = countWideHtmlTableRows(htmlCandidate || rawHtmlCandidate);
+
+  // Plan B: vertical field dump — but never short-circuit when clipboard HTML
+  // already has a wider multi-row table (C8Play Kendo: 3 <tr>, plain reshape ≤2).
+  if (plainLooksLikeReshapableVerticalDump(pastedData) && wideHtmlRows < 3) {
+    if (handleTextPlainPaste(e, pastedData, anchorCell)) return true;
+  }
 
   if (htmlCandidate && (isFormatRichHtmlTable(htmlCandidate) || clipboardHtmlLooksLikeGrid(rawHtmlCandidate))) {
     const formatHtml = resolveTextPasteHtml(htmlCandidate) || htmlCandidate;
