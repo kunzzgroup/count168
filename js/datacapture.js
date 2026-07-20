@@ -4318,6 +4318,120 @@ function normalizeMatRowClipboardHtml(html) {
     return norm.normalizeClipboardHtmlToTable(html) || '';
 }
 
+function matrixLooksMultiColumnFormat(matrix) {
+    if (!Array.isArray(matrix) || !matrix.length) return false;
+    const cols = Math.max(...matrix.map((row) => (Array.isArray(row) ? row.length : 0)), 0);
+    if (cols < 2) return false;
+    if (matrix.length > 1 && cols === 1) return false;
+    return true;
+}
+
+/** Report Center agent_period (~9 cols, $ money) — not wide statement sheets. */
+function plainMatrixLooksLikeAgentPeriodDump(matrix) {
+    if (!matrixLooksMultiColumnFormat(matrix)) return false;
+    const width = matrix[0]?.length || 0;
+    if (width < 6 || width > 12) return false;
+    let dollarRows = 0;
+    for (const row of matrix.slice(0, 5)) {
+        const first = String(row?.[0] ?? '').trim();
+        if (/^\d{1,4}$/.test(first)) return false;
+        const dollars = (row || []).filter((c) => /\$/.test(String(c ?? ''))).length;
+        if (dollars >= 3) dollarRows += 1;
+    }
+    return dollarRows >= 1;
+}
+
+/** True when Format HTML collapsed to vertical N×1 or one cell with newline/$ dump. */
+function formatHtmlLooksLikeVerticalNx1(html) {
+    if (!html || !/<table\b/i.test(html)) return false;
+    try {
+        const root = document.createElement('div');
+        root.innerHTML = html;
+        const table = root.querySelector('table');
+        if (!table) return true;
+        const trs = Array.from(table.querySelectorAll('tr'));
+        if (!trs.length) return true;
+        let maxCols = 0;
+        let stackedCells = 0;
+        trs.forEach((tr) => {
+            const cells = tr.querySelectorAll('td, th');
+            let colCount = 0;
+            cells.forEach((cell) => {
+                colCount += Math.max(1, parseInt(cell.getAttribute('colspan') || '1', 10) || 1);
+                const text = String(cell.textContent || '').replace(/\u00a0/g, ' ').trim();
+                const lines = text.split(/\r?\n/).filter((line) => line.trim());
+                const moneyHits = (text.match(/\$[\d,]+(?:\.\d+)?/g) || []).length;
+                if (lines.length >= 3 || moneyHits >= 3) stackedCells += 1;
+            });
+            maxCols = Math.max(maxCols, colCount);
+        });
+        if (stackedCells >= 1 && maxCols <= 2) return true;
+        return maxCols <= 1 && trs.length >= 3;
+    } catch (_) {
+        return true;
+    }
+}
+
+/**
+ * 2.Format: prefer plain vertical-dump reshape when HTML would stack agent_period into col1
+ * (same dual-source idea as site SPA).
+ * @returns {boolean} true when filled
+ */
+function tryFillFormatFromPreferredPlain(text, html) {
+    const matrixApi = window.DataCapturePasteMatrix;
+    if (!matrixApi || typeof matrixApi.parsePlainTextMatrix !== 'function') return false;
+    if (!text || !String(text).trim()) return false;
+    if (typeof matrixApi.plainMatrixToHtmlTable !== 'function') return false;
+
+    const matrix = matrixApi.parsePlainTextMatrix(text);
+    if (!matrixLooksMultiColumnFormat(matrix)) return false;
+
+    const normalized =
+        normalizeMatRowClipboardHtml(html || '') ||
+        (html && /<table\b/i.test(html) ? html : '');
+    const htmlNx1 =
+        formatHtmlLooksLikeVerticalNx1(normalized) || formatHtmlLooksLikeVerticalNx1(html || '');
+    const agentPeriod = plainMatrixLooksLikeAgentPeriodDump(matrix);
+
+    let htmlCol1Stacked = false;
+    const preferApi = window.DataCapturePastePrefer;
+    if (
+        preferApi &&
+        typeof preferApi.tableHtmlToMatrix === 'function' &&
+        typeof preferApi.matrixLooksCol1Stacked === 'function'
+    ) {
+        const htmlMatrix = preferApi.tableHtmlToMatrix(normalized || html || '');
+        htmlCol1Stacked = preferApi.matrixLooksCol1Stacked(htmlMatrix);
+    }
+
+    const hasWideHtml =
+        Boolean(normalized && /<table\b/i.test(normalized) && !htmlNx1 && !htmlCol1Stacked);
+    // C8 wide HTML keeps HTML path; agent_period / collapsed HTML use plain reshape.
+    const shouldPreferPlain = agentPeriod || htmlNx1 || htmlCol1Stacked || !hasWideHtml;
+    if (!shouldPreferPlain) return false;
+
+    const tableHtml = matrixApi.plainMatrixToHtmlTable(matrix);
+    const cols = matrix[0].length;
+    console.log('Format: prefer plain reshape', matrix.length + 'x' + cols, {
+        htmlNx1,
+        agentPeriod,
+        htmlCol1Stacked
+    });
+    if (typeof renderFormatPreview === 'function') {
+        renderFormatPreview(tableHtml);
+    }
+    const filled = parseAndFillHTMLTableForFormat(tableHtml);
+    if (filled) {
+        isFormatGridReady = true;
+        const area = document.getElementById('pasteAreaFormat');
+        if (area) area.innerHTML = '';
+        if (typeof toggleTableDisplayForFormat === 'function') {
+            toggleTableDisplayForFormat();
+        }
+    }
+    return !!filled;
+}
+
 /** Fill editable grid from a plain string[][] matrix (1.Text / mat-row reshape). */
 function applyPlainMatrixLikeExcel(dataMatrix, startCell, preferSource) {
     if (!dataMatrix || !dataMatrix.length || !startCell) return false;
@@ -22819,8 +22933,15 @@ function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
         }
     };
 
-    // 1) Prefer HTML table (or mat-row normalized to table)
     const htmlData = getClipboardData('text/html') || '';
+    const textForMatrix = getClipboardData('text/plain') || '';
+
+    // 0) agent_period / N×1 HTML: plain reshape first (avoid col1 stack)
+    if (tryFillFormatFromPreferredPlain(textForMatrix, htmlData || fallbackHTML || '')) {
+        return true;
+    }
+
+    // 1) Prefer HTML table (or mat-row normalized to table)
     const matNormalized = normalizeMatRowClipboardHtml(htmlData || fallbackHTML || '');
     const htmlToUse =
         (htmlData && /<table\b/i.test(htmlData)) ? htmlData :
@@ -22834,7 +22955,6 @@ function handleFormatPasteFromClipboard(clipboard, fallbackHTML) {
     }
 
     // 1b) mat-row plain newline → table
-    const textForMatrix = getClipboardData('text/plain') || '';
     const matrixApi = window.DataCapturePasteMatrix;
     if (matrixApi && textForMatrix && !textForMatrix.includes('\t')) {
         const matrix = matrixApi.parsePlainTextMatrix(textForMatrix);
@@ -22905,6 +23025,13 @@ function initFormatPasteArea() {
         let text = '';
         try { html = clipboard && clipboard.getData ? (clipboard.getData('text/html') || '') : ''; } catch (_) { }
         try { text = clipboard && clipboard.getData ? (clipboard.getData('text/plain') || '') : ''; } catch (_) { }
+
+        // 0a) agent_period / N×1 HTML: plain reshape first (avoid col1 stack)
+        if (tryFillFormatFromPreferredPlain(text, html)) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
 
         // 0) Material mat-row / mat-cell (no real <table>, or 1-TD wrappers)
         const matHtml = normalizeMatRowClipboardHtml(html);
@@ -24730,6 +24857,16 @@ document.addEventListener('paste', function (e) {
         html = clipboard.getData('text/html') || '';
     } catch (_) { }
 
+    let text = '';
+    try {
+        text = clipboard.getData('text/plain') || '';
+    } catch (_) { }
+
+    // agent_period / N×1 HTML: plain reshape first (avoid col1 stack)
+    if (tryFillFormatFromPreferredPlain(text, html)) {
+        return;
+    }
+
     const matHtml = normalizeMatRowClipboardHtml(html);
     if (matHtml && /<table\b/i.test(matHtml)) {
         const previewFragment = buildFormatPreviewFragmentFromClipboardHtml(matHtml) || matHtml;
@@ -24757,11 +24894,6 @@ document.addEventListener('paste', function (e) {
         }
         return;
     }
-
-    let text = '';
-    try {
-        text = clipboard.getData('text/plain') || '';
-    } catch (_) { }
 
     const matrixApi = window.DataCapturePasteMatrix;
     if (matrixApi && text && !text.includes('\t')) {
