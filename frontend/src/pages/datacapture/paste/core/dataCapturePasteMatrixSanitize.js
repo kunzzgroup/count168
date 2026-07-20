@@ -155,8 +155,6 @@ export function dropTrailingIncompleteRows(matrix) {
 
 /**
  * Plain string[][] or format cell matrix — trim trailing over-select chrome only.
- * Do not invent labels (e.g. SUBTOTAL) — paste must stay 1:1 with clipboard.
- * Summary keeps money-only footers via buildColumnAEntries.
  * @param {Array<Array<string|object>>} matrix
  */
 export function sanitizePasteMatrix(matrix) {

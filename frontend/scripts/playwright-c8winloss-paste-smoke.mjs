@@ -406,24 +406,24 @@ async function runPlaywrightHtmlChecks() {
           fail(`${c.name}: Subtotal/footer row missing from body labels`);
         }
         if (c.expectTurnOverCol != null && result.sample.length >= 3) {
-          const footerVals = result.sample[2] || [];
           const agentTurnOver = String(result.sample[0]?.[c.expectTurnOverCol] ?? "").trim();
+          const footerVals = result.sample[2] || [];
           const footerTurnOver = String(footerVals[c.expectTurnOverCol] ?? "").trim();
           const footerFirstFilled = footerVals.map((v) => String(v ?? "").trim()).find((v) => v) || "";
-          // Paste must stay 1:1 — do not invent SUBTOTAL in col1.
-          if (String(footerVals[0] ?? "").trim() !== "") {
-            fail(`${c.name}: footer col1 must stay empty (exact copy): ${JSON.stringify(footerVals.slice(0, 5))}`);
-          }
           if (!agentTurnOver || !/[\d,]/.test(agentTurnOver)) {
             fail(`${c.name}: agent Turn Over missing at col ${c.expectTurnOverCol}: ${JSON.stringify(result.sample[0])}`);
           }
           if (footerTurnOver !== footerFirstFilled || !/[\d,]/.test(footerTurnOver)) {
             fail(
               `${c.name}: footer money not aligned at col ${c.expectTurnOverCol} ` +
-                `(got ${JSON.stringify(footerVals.slice(0, 6))})`,
+                `(got ${JSON.stringify(footerVals.slice(0, 6))}; firstFilled=${footerFirstFilled})`,
             );
           }
-          ok(`${c.name}: exact footer (empty col1) + Turn Over at col ${c.expectTurnOverCol}`);
+          // Must NOT shove footer money into col 0 when agent id is in col 0.
+          if (String(footerVals[0] ?? "").trim() === footerFirstFilled && c.expectTurnOverCol > 0) {
+            fail(`${c.name}: footer money stuck in col 0 (misaligned)`);
+          }
+          ok(`${c.name}: Turn Over aligned at col ${c.expectTurnOverCol}`);
         }
         ok(`${c.name}: ${result.rows}x${result.cols} (footer kept)`);
       } else {

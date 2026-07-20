@@ -38,29 +38,6 @@ function split655RowDEntries(cellValue) {
   return null;
 }
 
-function isMoneyOrNumberLikeToken(text) {
-  const cleaned = String(text ?? "")
-    .trim()
-    .replace(/[,$]/g, "")
-    .replace(/^\((.*)\)$/, "-$1");
-  if (!cleaned) return false;
-  return /^-?\d+(?:\.\d+)?$/.test(cleaned);
-}
-
-/**
- * Capture rows whose Id Product cell is empty but amounts remain (Kendo Subtotal).
- * Summary must still list them — otherwise Submit drops the third pasted row.
- */
-function snapshotRowLooksLikeMoneyOnlyFooter(rowData) {
-  const dataValues = rowData
-    .filter((cell) => cell?.type === "data")
-    .map((cell) => String(cell?.value ?? "").trim());
-  if (!dataValues.length || dataValues[0] !== "") return false;
-  const firstIdx = dataValues.findIndex((v) => v !== "");
-  if (firstIdx < 2) return false;
-  return isMoneyOrNumberLikeToken(dataValues[firstIdx]);
-}
-
 /**
  * @returns {{ entries: Array<{ idProduct: string, rowIndex: number }>, idProducts: string[] }}
  */
@@ -75,13 +52,7 @@ export function buildColumnAEntries(tableData) {
     if (rowData.length <= 1 || rowData[1]?.type !== "data") return;
 
     const cellValue = rowData[1].value || "";
-    if (!cellValue.trim()) {
-      // Keep exact empty Id Product — do not invent "SUBTOTAL" text.
-      if (snapshotRowLooksLikeMoneyOnlyFooter(rowData)) {
-        entries.push({ idProduct: "", rowIndex, moneyOnlyFooter: true });
-      }
-      return;
-    }
+    if (!cellValue.trim()) return;
 
     if (rowIndex === 3 && cellValue.trim() !== "") {
       const split = split655RowDEntries(cellValue);
