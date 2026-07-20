@@ -300,34 +300,23 @@ export default function TransactionHistoryPage() {
                         <tr className="m-tx-hist-detail-row" id={detailId}>
                           <td className="m-tx-hist-detail" colSpan={6}>
                             <div className="m-tx-hist-detail-panel">
-                              <div className="m-tx-hist-detail-list">
-                                <div className="m-tx-hist-detail-item">
-                                  <span className="m-tx-hist-detail-label">
-                                    {m.description || m.descriptionCompact}
-                                  </span>
-                                  <span
-                                    className={
-                                      description && description !== "-"
-                                        ? "m-tx-hist-detail-value"
-                                        : "m-tx-hist-detail-value m-tx-hist-detail-value--muted"
-                                    }
-                                  >
-                                    {description && description !== "-" ? description : "—"}
-                                  </span>
-                                </div>
-                                <div className="m-tx-hist-detail-item m-tx-hist-detail-item--pair">
-                                  <span className="m-tx-hist-detail-label">{m.rate}</span>
-                                  <span
-                                    className={
-                                      row.rate && row.rate !== "-"
-                                        ? "m-tx-hist-detail-value"
-                                        : "m-tx-hist-detail-value m-tx-hist-detail-value--muted"
-                                    }
-                                  >
-                                    {row.rate && row.rate !== "-"
-                                      ? formatRateForHistoryDisplay(row.rate)
-                                      : "—"}
-                                  </span>
+                              <div className="m-tx-hist-detail-block">
+                                <span className="m-tx-hist-detail-label">
+                                  {m.description || m.descriptionCompact}
+                                </span>
+                                <p
+                                  className={
+                                    description && description !== "-"
+                                      ? "m-tx-hist-detail-desc"
+                                      : "m-tx-hist-detail-desc m-tx-hist-detail-desc--muted"
+                                  }
+                                >
+                                  {description && description !== "-" ? description : "—"}
+                                </p>
+                              </div>
+
+                              <div className="m-tx-hist-detail-meta">
+                                <div className="m-tx-hist-detail-meta-item">
                                   <span className="m-tx-hist-detail-label">
                                     {m.currencyCompact || m.currency}
                                   </span>
@@ -341,21 +330,7 @@ export default function TransactionHistoryPage() {
                                     {cur && cur !== "-" ? cur : "—"}
                                   </span>
                                 </div>
-                                <div className="m-tx-hist-detail-item">
-                                  <span className="m-tx-hist-detail-label">
-                                    {m.remark || m.remarkCompact}
-                                  </span>
-                                  <span
-                                    className={
-                                      remark && remark !== "-"
-                                        ? "m-tx-hist-detail-value"
-                                        : "m-tx-hist-detail-value m-tx-hist-detail-value--muted"
-                                    }
-                                  >
-                                    {remark && remark !== "-" ? remark : "—"}
-                                  </span>
-                                </div>
-                                <div className="m-tx-hist-detail-item">
+                                <div className="m-tx-hist-detail-meta-item">
                                   <span className="m-tx-hist-detail-label">
                                     {m.createdByCompact || m.createdBy}
                                   </span>
@@ -370,6 +345,24 @@ export default function TransactionHistoryPage() {
                                   </span>
                                 </div>
                               </div>
+
+                              {row.rate && row.rate !== "-" ? (
+                                <div className="m-tx-hist-detail-block m-tx-hist-detail-block--inline">
+                                  <span className="m-tx-hist-detail-label">{m.rate}</span>
+                                  <span className="m-tx-hist-detail-value">
+                                    {formatRateForHistoryDisplay(row.rate)}
+                                  </span>
+                                </div>
+                              ) : null}
+
+                              {remark && remark !== "-" ? (
+                                <div className="m-tx-hist-detail-block">
+                                  <span className="m-tx-hist-detail-label">
+                                    {m.remark || m.remarkCompact}
+                                  </span>
+                                  <p className="m-tx-hist-detail-desc">{remark}</p>
+                                </div>
+                              ) : null}
                             </div>
                           </td>
                         </tr>
