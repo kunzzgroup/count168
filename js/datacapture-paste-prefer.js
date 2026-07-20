@@ -76,6 +76,14 @@
     return false;
   }
 
+  /** Footer money crushed into col0 — common bad plain TSV shape vs Kendo HTML. */
+  function matrixHasMoneyFirstFooter(matrix) {
+    if (!Array.isArray(matrix) || matrix.length < 2) return false;
+    const last = matrix[matrix.length - 1] || [];
+    const first = last.findIndex((cell) => cellText(cell));
+    return first === 0 && isMoneyLike(last[0]);
+  }
+
   function scoreReportPasteMatrix(matrix) {
     if (!Array.isArray(matrix) || !matrix.length) return -1;
     if (matrixLooksCol1Stacked(matrix)) return -1;
@@ -84,7 +92,8 @@
     if (matrix.length > 1 && cols === 1) return -1;
 
     let score = rows * 100 + cols * 10;
-    if (matrixHasAlignedMoneyFooter(matrix)) score += 50;
+    if (matrixHasAlignedMoneyFooter(matrix)) score += 80;
+    if (matrixHasMoneyFirstFooter(matrix)) score -= 100;
     if (matrixHasMergedNameUserType(matrix)) score -= 80;
     return score;
   }

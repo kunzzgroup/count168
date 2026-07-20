@@ -4319,7 +4319,7 @@ function normalizeMatRowClipboardHtml(html) {
 }
 
 /** Fill editable grid from a plain string[][] matrix (1.Text / mat-row reshape). */
-function applyPlainMatrixLikeExcel(dataMatrix, startCell) {
+function applyPlainMatrixLikeExcel(dataMatrix, startCell, preferSource) {
     if (!dataMatrix || !dataMatrix.length || !startCell) return false;
     const maxCols = Math.max(...dataMatrix.map((row) => (row && row.length) || 0));
     if (maxCols < 1) return false;
@@ -4371,8 +4371,11 @@ function applyPlainMatrixLikeExcel(dataMatrix, startCell) {
     }
 
     if (successCount > 0) {
+        const alignNote = preferSource
+            ? `已与2.FORMAT对齐 (${preferSource})!`
+            : '已保持Excel原始格式!';
         showNotification(
-            `成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持Excel原始格式!`,
+            `成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，${alignNote}`,
             'success'
         );
         setTimeout(updateSubmitButtonState, 0);
@@ -4389,7 +4392,9 @@ function tryHandleMatRowPasteForText(e, pastedData, startCell) {
         html = (e.clipboardData && e.clipboardData.getData('text/html')) || '';
     } catch (_) { }
 
-    // Prefer helper: same scoring as site SPA so 1.Text matches 2.Format shape.
+    // Prefer helper: same as site SPA — apply the scored matrix directly
+    // (do NOT re-parse HTML via parseAndFillHTMLTableForText; that can drop
+    // Kendo footer empty pads and shove money into col1).
     const preferApi = window.DataCapturePastePrefer;
     if (preferApi && typeof preferApi.selectPreferredReportPasteMatrix === 'function') {
         const preferred = preferApi.selectPreferredReportPasteMatrix(html, pastedData || '');
@@ -4401,14 +4406,7 @@ function tryHandleMatRowPasteForText(e, pastedData, startCell) {
                     preferred.source,
                     preferred.matrix.length + 'x' + cols
                 );
-                if (
-                    preferred.source === 'html' &&
-                    preferred.htmlNormalized &&
-                    /<table\b/i.test(preferred.htmlNormalized)
-                ) {
-                    if (parseAndFillHTMLTableForText(preferred.htmlNormalized, cell)) return true;
-                }
-                return applyPlainMatrixLikeExcel(preferred.matrix, cell);
+                return applyPlainMatrixLikeExcel(preferred.matrix, cell, preferred.source);
             }
         }
     }
