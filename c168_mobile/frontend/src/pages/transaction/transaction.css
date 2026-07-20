@@ -441,17 +441,13 @@
   font-size: inherit;
 }
 
-/* Zebra like Total card: white / lavender (role tint text-only) */
-.m-tx-dense-table tbody .m-tx-dense-row:nth-child(odd) > .m-tx-dense-td {
+/* Zebra on money columns; Acc keeps role tint backgrounds */
+.m-tx-dense-table tbody .m-tx-dense-row:nth-child(odd) > .m-tx-dense-td:not(.m-account-role) {
   background: #fff;
 }
 
-.m-tx-dense-table tbody .m-tx-dense-row:nth-child(even) > .m-tx-dense-td {
+.m-tx-dense-table tbody .m-tx-dense-row:nth-child(even) > .m-tx-dense-td:not(.m-account-role) {
   background: #eef2ff;
-}
-
-.m-tx-dense-table tbody .m-tx-dense-td.m-account-role {
-  background-color: transparent;
 }
 
 .m-tx-dense-row--alert > .m-tx-dense-td--acc {
