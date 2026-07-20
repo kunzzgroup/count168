@@ -1,4 +1,4 @@
-/* Payment history page — dense expandable ledger (option C) */
+/* Payment history — dense expandable ledger (Acc table parity) */
 
 .m-tx-hist-sticky {
   display: flex;
@@ -112,7 +112,7 @@
   color: var(--m-color-muted);
 }
 
-/* Dense table */
+/* Dense table: sticky Date; Type+ money scroll; zebra like Acc */
 .m-tx-hist-dense-wrap {
   min-width: 0;
   max-width: 100%;
@@ -126,11 +126,12 @@
 }
 
 .m-tx-hist-dense-table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  table-layout: fixed;
-  font-size: clamp(0.5625rem, 2.3vw, 0.6875rem);
+  table-layout: auto;
+  font-size: 0.8125rem;
 }
 
 .m-tx-hist-dense-th,
@@ -139,7 +140,7 @@
   border-bottom: 1px solid #e2e8f0;
   vertical-align: middle;
   font-variant-numeric: tabular-nums;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .m-tx-hist-dense-th:first-child,
@@ -155,12 +156,12 @@
 .m-tx-hist-dense-table thead {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 3;
 }
 
 .m-tx-hist-dense-th {
-  padding: 0.375rem 0.1875rem;
-  font-size: clamp(0.4375rem, 1.7vw, 0.5rem);
+  padding: 0.5rem 0.25rem;
+  font-size: 0.8125rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -170,27 +171,40 @@
   border-right-color: rgba(255, 255, 255, 0.12);
 }
 
-.m-tx-hist-dense-th--date {
-  width: 18%;
+.m-tx-hist-dense-th--date,
+.m-tx-hist-dense-td--date {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 5.75rem;
+  min-width: 5.75rem;
+  max-width: 5.75rem;
   text-align: left;
   padding-left: 0.375rem;
+  box-shadow: 4px 0 8px -4px rgba(15, 23, 42, 0.28);
+}
+
+.m-tx-hist-dense-th--date {
+  z-index: 5;
+  background: #1e3a5f;
 }
 
 .m-tx-hist-dense-th--type {
-  width: 18%;
+  min-width: 5.5rem;
   text-align: left;
 }
 
 .m-tx-hist-dense-th--num {
-  width: 18%;
+  min-width: 8rem;
   text-align: right;
-  padding-right: 0.25rem;
+  padding-right: 0.375rem;
 }
 
 .m-tx-hist-dense-th--chev {
-  width: 8%;
+  min-width: 2rem;
+  width: 2rem;
   text-align: center;
-  padding: 0.375rem 0;
+  padding: 0.5rem 0;
 }
 
 .m-tx-hist-row {
@@ -211,19 +225,31 @@
   filter: brightness(0.98);
 }
 
+/* Zebra: white / lavender (type tint only on badges) */
+.m-tx-hist-row > .m-tx-hist-dense-td {
+  background: #fff;
+}
+
+.m-tx-hist-row--alt > .m-tx-hist-dense-td {
+  background: #eef2ff;
+}
+
 .m-tx-hist-dense-td {
-  padding: 0.375rem 0.1875rem;
-  font-weight: 600;
+  padding: 0.5rem 0.25rem;
+  font-weight: 700;
 }
 
 .m-tx-hist-dense-td--date {
-  text-align: left;
-  padding-left: 0.375rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #334155;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  background-color: #fff;
+}
+
+.m-tx-hist-row--alt > .m-tx-hist-dense-td--date {
+  background-color: #eef2ff;
 }
 
 .m-tx-hist-dense-td--type {
@@ -232,10 +258,13 @@
 }
 
 .m-tx-hist-dense-td--num {
+  min-width: 8rem;
   text-align: right;
-  padding-right: 0.25rem;
+  padding-right: 0.375rem;
   white-space: nowrap;
-  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: clip;
+  letter-spacing: -0.01em;
 }
 
 .m-tx-hist-dense-td--chev {
@@ -245,7 +274,7 @@
 }
 
 .m-tx-hist-chev {
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   opacity: 0.75;
 }
 
@@ -257,7 +286,7 @@
   white-space: nowrap;
   border-radius: 0.25rem;
   padding: 0.0625rem 0.25rem;
-  font-size: clamp(0.4375rem, 1.6vw, 0.5rem);
+  font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   vertical-align: middle;
@@ -275,7 +304,7 @@
   background: #eff6ff;
   border: 1px solid #bfdbfe;
   padding: 0.5rem 0.625rem;
-  font-size: clamp(0.625rem, 2vw, 0.75rem);
+  font-size: 0.8125rem;
   font-weight: 500;
   line-height: 1.4;
   color: #334155;

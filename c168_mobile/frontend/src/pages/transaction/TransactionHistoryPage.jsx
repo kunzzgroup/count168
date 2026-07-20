@@ -257,7 +257,7 @@ export default function TransactionHistoryPage() {
                   return (
                     <Fragment key={key}>
                       <tr
-                        className={`m-tx-hist-row ${typeCls}${expanded ? " m-tx-hist-row--expanded" : ""}`}
+                        className={`m-tx-hist-row ${typeCls}${idx % 2 === 1 ? " m-tx-hist-row--alt" : ""}${expanded ? " m-tx-hist-row--expanded" : ""}`}
                         tabIndex={0}
                         role="button"
                         aria-expanded={expanded}
