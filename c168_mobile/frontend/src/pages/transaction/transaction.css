@@ -362,7 +362,7 @@
   padding: 0.3125rem 0.375rem;
   font-size: inherit;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.01em;
   color: #1e293b;
 }
 
@@ -405,6 +405,11 @@
 .m-tx-dense-td--acc {
   padding: 0;
   background-clip: padding-box;
+}
+
+.m-tx-dense-td--acc.m-tx-dense-td--total-label {
+  /* Same inset as .m-tx-dense-acc button text */
+  padding: 0.3125rem 0.375rem;
 }
 
 .m-tx-dense-td--num {
