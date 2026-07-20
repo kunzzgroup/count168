@@ -53,8 +53,6 @@ function DenseAccountTable({ side, rows, showName, m, totals, onOpenHistory, onP
               {m.balanceTableCompact}
             </th>
           </tr>
-        </thead>
-        <tbody>
           <tr className="m-tx-dense-row m-tx-dense-row--total">
             <th scope="row" className="m-tx-dense-td m-tx-dense-td--acc m-tx-dense-td--total-label">
               {m.total}
@@ -72,7 +70,8 @@ function DenseAccountTable({ side, rows, showName, m, totals, onOpenHistory, onP
               <MoneyText value={totals.balance} />
             </td>
           </tr>
-
+        </thead>
+        <tbody>
           {rows.length === 0 ? (
             <tr className="m-tx-dense-row">
               <td className="m-tx-dense-td m-tx-dense-td--empty" colSpan={5}>

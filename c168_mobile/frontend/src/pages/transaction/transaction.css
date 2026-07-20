@@ -288,7 +288,7 @@
 
 .m-tx-dense-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
   font-size: clamp(0.625rem, 0.18vw + 0.5rem, 0.75rem);
@@ -296,16 +296,26 @@
 
 .m-tx-dense-th,
 .m-tx-dense-td {
-  border: 1px solid #cbd5e1;
+  border-right: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
   vertical-align: middle;
   font-variant-numeric: tabular-nums;
   line-height: 1.25;
 }
 
-.m-tx-dense-th {
+.m-tx-dense-th:first-child,
+.m-tx-dense-td:first-child {
+  border-left: 1px solid #cbd5e1;
+}
+
+/* Header + Total stick as one block (avoids dual-sticky white seam) */
+.m-tx-dense-table thead {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 3;
+}
+
+.m-tx-dense-th {
   padding: 0.375rem 0.25rem;
   font-size: clamp(0.5rem, 0.12vw + 0.45rem, 0.5625rem);
   font-weight: 800;
@@ -313,6 +323,8 @@
   letter-spacing: 0.04em;
   color: #334155;
   background: #e2e8f0;
+  border-top: 1px solid #cbd5e1;
+  border-bottom: none;
 }
 
 .m-tx-dense-th--acc {
@@ -327,16 +339,12 @@
   padding-right: 0.375rem;
 }
 
-.m-tx-dense-row--total {
-  position: sticky;
-  top: 1.625rem;
-  z-index: 1;
-}
-
-.m-tx-dense-row--total .m-tx-dense-td,
-.m-tx-dense-row--total .m-tx-dense-td--total-label {
+/* Total in thead: single shared edge with header (no gap) */
+.m-tx-dense-row--total > .m-tx-dense-td,
+.m-tx-dense-row--total > .m-tx-dense-td--total-label {
   background: #eef2ff;
   font-weight: 800;
+  border-top: 1px solid #cbd5e1;
 }
 
 .m-tx-dense-td--total-label {
