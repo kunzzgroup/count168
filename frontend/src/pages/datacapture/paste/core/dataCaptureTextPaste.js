@@ -16,7 +16,10 @@ import {
   detectFlattenedStatementMatrix,
   detectVerticalFieldDump,
 } from "./dataCaptureVerticalDumpDetect.js";
-import { sanitizePasteMatrix } from "./dataCapturePasteMatrixSanitize.js";
+import {
+  plainTextLooksLikeAlignedTsv,
+  sanitizePasteMatrix,
+} from "./dataCapturePasteMatrixSanitize.js";
 import { splitStackedSubtotalGrandTotalRows } from "./dataCaptureStackedTotalSplit.js";
 
 /**
@@ -95,7 +98,10 @@ export function parsePlainTextMatrix(pastedData) {
     .replace(/\r/g, "\n");
   if (!normalized.trim()) return [];
 
-  if (normalized.includes("\t")) {
+  // Only real spreadsheet TSV uses the tab-row path. Sparse tabs mixed into a
+  // one-field-per-line dump (C8Play / agent_period) must fall through to
+  // vertical-dump reshape — otherwise paste lands as N×1 in column 1.
+  if (plainTextLooksLikeAlignedTsv(normalized)) {
     const tabRows = normalized
       .split("\n")
       .filter((line) => line.trim() !== "")
@@ -114,6 +120,7 @@ export function parsePlainTextMatrix(pastedData) {
 
   // Prefer vertical-dump reshape before blank-line block splitting so mat-row
   // dumps with blank separators / trailing paginator still become multi-col rows.
+  // detectVerticalFieldDump expands sparse tabs into tokens.
   const verticalDump = detectVerticalFieldDump(nonEmptyLines);
   if (verticalDump?.rows?.length) return finalizePlainMatrix(verticalDump.rows);
 
@@ -257,16 +264,43 @@ function countWideHtmlTableRows(html) {
   }
 }
 
+/** True when HTML table is field-per-row (col1 stack) — Plan B must still win. */
+function htmlTableLooksLikeVerticalNx1(html) {
+  if (!html || !/<table\b/i.test(html)) return false;
+  try {
+    const root = document.createElement("div");
+    root.innerHTML = html;
+    const table = root.querySelector("table");
+    if (!table) return false;
+    let maxCols = 0;
+    let rowCount = 0;
+    table.querySelectorAll("tr").forEach((tr) => {
+      const n = tr.querySelectorAll("td, th").length;
+      if (!n) return;
+      rowCount += 1;
+      maxCols = Math.max(maxCols, n);
+    });
+    return rowCount >= 3 && maxCols <= 1;
+  } catch {
+    return false;
+  }
+}
+
 export function handleTextModePaste(e, pastedData, anchorCell) {
   const html = getClipboardHtml(e);
   const htmlFromDetect = html ? "" : detectHtmlTableInClipboard(e);
   const rawHtmlCandidate = html || htmlFromDetect;
   const htmlCandidate = resolveTextPasteHtml(rawHtmlCandidate) || rawHtmlCandidate;
   const wideHtmlRows = countWideHtmlTableRows(htmlCandidate || rawHtmlCandidate);
+  const htmlNx1 = htmlTableLooksLikeVerticalNx1(htmlCandidate || rawHtmlCandidate);
 
-  // Plan B: vertical field dump — but never short-circuit when clipboard HTML
-  // already has a wider multi-row table (C8Play Kendo: 3 <tr>, plain reshape ≤2).
-  if (plainLooksLikeReshapableVerticalDump(pastedData) && wideHtmlRows < 3) {
+  // Plan B: vertical field dump. Skip only when HTML already has a fuller wide
+  // multi-row table (C8Play Kendo: 3 <tr>). Never defer to N×1 HTML — that
+  // regresses agent_period (SDSPDA95 + SUBTOTAL) into column-1 stacks.
+  if (
+    plainLooksLikeReshapableVerticalDump(pastedData) &&
+    (wideHtmlRows < 3 || htmlNx1)
+  ) {
     if (handleTextPlainPaste(e, pastedData, anchorCell)) return true;
   }
 

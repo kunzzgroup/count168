@@ -286,6 +286,45 @@ async function runNodePureChecks() {
   }
   ok("clean TSV looks like aligned TSV");
 
+  // agent_period (SDSPDA95 + SUBTOTAL): sparse tabs must NOT force N×1 col1 stack.
+  const agentPeriod = [
+    "SDSPDA95",
+    "5,300\t",
+    "$0.00",
+    "$9,134.90",
+    "$9,134.90",
+    "$7,787.17",
+    "$9,134.90",
+    "$0.00",
+    "$1,347.73",
+    "SUBTOTAL",
+    "5,300",
+    "$0.00",
+    "$9,134.90",
+    "$9,134.90",
+    "$7,787.17",
+    "$9,134.90",
+    "$0.00",
+    "$1,347.73",
+  ].join("\n");
+  const agentPeriodMatrix = parsePlainTextMatrix(agentPeriod);
+  console.log(
+    `  · agent_period sparse-tab → ${agentPeriodMatrix.length} rows x ${agentPeriodMatrix[0]?.length ?? 0} cols`,
+  );
+  if (agentPeriodMatrix.length !== 2 || (agentPeriodMatrix[0]?.length ?? 0) < 8) {
+    fail(
+      `agent_period reshape failed (col1 stack risk): ${agentPeriodMatrix.length}x${agentPeriodMatrix[0]?.length ?? 0} ` +
+        JSON.stringify(agentPeriodMatrix.slice(0, 3).map((r) => r.slice(0, 3))),
+    );
+  }
+  if (String(agentPeriodMatrix[0]?.[0] ?? "") !== "SDSPDA95") {
+    fail(`agent_period row0 id wrong: ${JSON.stringify(agentPeriodMatrix[0]?.slice(0, 3))}`);
+  }
+  if (!/subtotal/i.test(String(agentPeriodMatrix[1]?.[0] ?? ""))) {
+    fail(`agent_period row1 missing SUBTOTAL: ${JSON.stringify(agentPeriodMatrix[1]?.slice(0, 3))}`);
+  }
+  ok("agent_period sparse-tab reshapes to 2 wide rows");
+
   // Summary: money-only footer (empty Id Product) must still become a row — no fake SUBTOTAL.
   const snapshotRows = [AGENT1, AGENT2, ["", "", "", ...SUBTOTAL.slice(3)]].map((cells, rowIndex) => {
     const row = [{ type: "header", value: String.fromCharCode(65 + rowIndex) }];
