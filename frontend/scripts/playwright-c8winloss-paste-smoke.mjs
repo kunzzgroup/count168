@@ -16,6 +16,7 @@ import {
   plainTextLooksLikeAlignedTsv,
   sanitizePasteMatrix,
 } from "../src/pages/datacapture/paste/core/dataCapturePasteMatrixSanitize.js";
+import { scoreReportPasteMatrix } from "../src/pages/datacapture/paste/core/dataCapturePasteMatrixPrefer.js";
 import { parsePlainTextMatrix } from "../src/pages/datacapture/paste/core/dataCaptureTextPaste.js";
 import { detectVerticalFieldDump } from "../src/pages/datacapture/paste/core/dataCaptureVerticalDumpDetect.js";
 import { buildColumnAEntries } from "../src/pages/datacapturesummary/table/summaryColumnAData.js";
@@ -370,6 +371,36 @@ async function runNodePureChecks() {
     );
   }
   ok("agent_period+TOTAL AMOUNT reshapes to 3 wide rows (like 2.FORMAT)");
+
+  // Merged "87 AGENT" plain must score worse than aligned HTML (TEXT=FORMAT helper).
+  const mergedPlain = [
+    ["CKZ03", "87 AGENT", "19,004.16", "0.00"],
+    ["CKZ16", "8 AGENT", "21,939.77", "0.00"],
+    ["40,943.93", "0.00", "0.00", "0.00"],
+  ];
+  const alignedHtmlShape = [
+    ["CKZ03", "87", "AGENT", "19,004.16", "0.00"],
+    ["CKZ16", "8", "AGENT", "21,939.77", "0.00"],
+    ["", "", "", "40,943.93", "0.00"],
+  ];
+  if (scoreReportPasteMatrix(alignedHtmlShape) <= scoreReportPasteMatrix(mergedPlain)) {
+    fail(
+      `prefer helper should score aligned HTML above merged Name/AGENT plain ` +
+        `(html=${scoreReportPasteMatrix(alignedHtmlShape)} plain=${scoreReportPasteMatrix(mergedPlain)})`,
+    );
+  }
+  ok("prefer helper scores aligned HTML above merged 87 AGENT plain");
+
+  // "87 AGENT" on one line must split in vertical dump.
+  const crushedAgent = ["CKZ03", "87 AGENT", "19,004.16", "0.00", "16,254.51", "CKZ16", "8 AGENT", "21,939.77", "0.00", "14,000.00"];
+  const crushedDump = detectVerticalFieldDump(crushedAgent);
+  const hasSeparateAgent = crushedDump?.rows?.some((row) =>
+    row.some((cell, idx) => cell === "AGENT" && String(row[idx - 1] || "") === "87"),
+  );
+  if (!hasSeparateAgent) {
+    fail(`vertical dump should split "87 AGENT": ${JSON.stringify(crushedDump?.rows)}`);
+  }
+  ok('vertical dump splits "87 AGENT" into two cells');
 
   // Summary: money-only footer (empty Id Product) must still become a row — no fake SUBTOTAL.
   const snapshotRows = [AGENT1, AGENT2, ["", "", "", ...SUBTOTAL.slice(3)]].map((cells, rowIndex) => {

@@ -395,6 +395,15 @@ function asVerticalDumpResult(rows) {
  * @param {string[]} nonEmptyLines
  * @returns {{ width: number, rows: string[][] } | null}
  */
+/** Split "87 AGENT" / "8 MEMBER" crushed onto one line by some clipboards. */
+function expandCompoundFieldTokens(token) {
+  const text = normalizeVerticalDumpToken(token);
+  if (!text) return [];
+  const merged = text.match(/^(\d+)\s+(AGENT|MEMBER)$/i);
+  if (merged) return [merged[1], merged[2].toUpperCase()];
+  return [text];
+}
+
 export function detectVerticalFieldDump(nonEmptyLines) {
   if (!Array.isArray(nonEmptyLines) || nonEmptyLines.length < 3) return null;
 
@@ -405,12 +414,11 @@ export function detectVerticalFieldDump(nonEmptyLines) {
     if (!normalized) return;
     if (normalized.includes("\t")) {
       normalized.split("\t").forEach((part) => {
-        const token = normalizeVerticalDumpToken(part);
-        if (token) rawTokens.push(token);
+        expandCompoundFieldTokens(part).forEach((token) => rawTokens.push(token));
       });
       return;
     }
-    rawTokens.push(normalized);
+    expandCompoundFieldTokens(normalized).forEach((token) => rawTokens.push(token));
   });
   if (rawTokens.length < 3) return null;
 
