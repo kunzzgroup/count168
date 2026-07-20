@@ -179,6 +179,28 @@ export function plainTabTextLooksPasteable(text) {
   return maxCols >= 2;
 }
 
+/**
+ * True when text/plain is a real spreadsheet TSV (most rows tab-separated),
+ * not C8Play Win Loss vertical dumps that only have sparse tabs like `87\\tAgent\\t`.
+ * Only aligned TSV may grill-reject Format HTML fills.
+ */
+export function plainTextLooksLikeAlignedTsv(text) {
+  if (!text || !String(text).includes("\t")) return false;
+  const lines = String(text)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .filter((line) => String(line).trim() !== "");
+  if (lines.length < 2) return false;
+  const tabLines = lines.filter((line) => line.includes("\t"));
+  // Vertical field dumps: dozens of single-field lines + a few sparse tabs.
+  if (tabLines.length < Math.ceil(lines.length * 0.5)) return false;
+  const widths = tabLines.map((line) => line.split("\t").length);
+  const maxCols = Math.max(...widths);
+  const minCols = Math.min(...widths);
+  return maxCols >= 2 && maxCols - minCols <= 2;
+}
+
 /** Sanitized plain matrix is usable as the alignment source of truth. */
 export function plainMatrixLooksReliable(matrix) {
   if (!Array.isArray(matrix) || matrix.length < 1) return false;

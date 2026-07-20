@@ -16,7 +16,10 @@ import { parseFormatHtmlTableStructure } from "./dataCaptureFormatHtmlMatrix.js"
 import { formatBodyMatrixLooksCollapsed } from "./dataCaptureFormatHtmlPaste.js";
 import { parsePlainTextMatrix, expandLabelColonMoneyCells } from "./dataCaptureTextPaste.js";
 import { splitStackedSubtotalGrandTotalRows } from "./dataCaptureStackedTotalSplit.js";
-import { sanitizePasteMatrix } from "./dataCapturePasteMatrixSanitize.js";
+import {
+  plainTextLooksLikeAlignedTsv,
+  sanitizePasteMatrix,
+} from "./dataCapturePasteMatrixSanitize.js";
 import {
   applyDataMatrixToGrid,
   ensureGridFits,
@@ -303,18 +306,30 @@ function readClipboard(clipboard) {
   };
 }
 
+function tryFormatHtmlFill(html, options, htmlFillOpts) {
+  if (!html || !/<table\b/i.test(html)) return false;
+  if (formatHtmlLooksLikeVerticalNx1(html)) return false;
+  if (processFormatTableHtml(html, htmlFillOpts)) return true;
+  // C8Play Win Loss: sparse-tab vertical plain reshapes to a "reliable" matrix that
+  // disagrees with padded footer empties — retry HTML without plain grill.
+  if (htmlFillOpts?.plainMatrix) {
+    return processFormatTableHtml(html, { ...options, plainMatrix: null });
+  }
+  return false;
+}
+
 function tryProcessFormatClipboard(html, text, options) {
   const plainText = resolveFormatPlainText(html, text);
   const plainMatrix = plainText?.trim() ? parsePlainTextMatrix(plainText) : null;
   const plainMulti = matrixLooksMultiColumn(plainMatrix);
   const normalizedHtml = resolveNormalizedHtml(html);
-  // Grill alignment may only use real multi-col text/plain — HTML-extracted dumps
-  // (C8Play vertical) disagree on leading empty footer cells and wrongly reject HTML.
-  const directMatrix = text?.trim() ? parsePlainTextMatrix(text) : null;
-  const directMulti = matrixLooksMultiColumn(directMatrix);
+  // Only real spreadsheet TSV may grill-reject HTML. C8Play Win Loss plain is a
+  // vertical dump with sparse tabs (`87\\tAgent\\t`) — never treat as aligned TSV.
+  const directIsAlignedTsv = plainTextLooksLikeAlignedTsv(text);
+  const directMatrix = directIsAlignedTsv && text?.trim() ? parsePlainTextMatrix(text) : null;
   const htmlFillOpts = {
     ...options,
-    plainMatrix: directMulti ? directMatrix : null,
+    plainMatrix: matrixLooksMultiColumn(directMatrix) ? directMatrix : null,
   };
   const dualOpts = { ...options, plainMatrix };
 
@@ -328,7 +343,7 @@ function tryProcessFormatClipboard(html, text, options) {
   // Fall through to dual when HTML fill rejects collapsed bodies.
   if (normalizedHtml && /<table\b/i.test(normalizedHtml)) {
     if (!formatHtmlLooksLikeVerticalNx1(normalizedHtml)) {
-      if (processFormatTableHtml(normalizedHtml, htmlFillOpts)) return true;
+      if (tryFormatHtmlFill(normalizedHtml, options, htmlFillOpts)) return true;
       if (plainMulti) return processFormatDualSource(html || normalizedHtml, plainText, dualOpts);
     } else if (plainMulti) {
       return processFormatDualSource(html || normalizedHtml, plainText, dualOpts);
@@ -341,7 +356,7 @@ function tryProcessFormatClipboard(html, text, options) {
     const forced = normalizeClipboardHtmlToTable(html);
     if (forced && /<table\b/i.test(forced)) {
       if (!formatHtmlLooksLikeVerticalNx1(forced)) {
-        if (processFormatTableHtml(forced, htmlFillOpts)) return true;
+        if (tryFormatHtmlFill(forced, options, htmlFillOpts)) return true;
         if (plainMulti) return processFormatDualSource(html, plainText, dualOpts);
       } else if (plainMulti) {
         return processFormatDualSource(html, plainText, dualOpts);
@@ -356,7 +371,7 @@ function tryProcessFormatClipboard(html, text, options) {
 
   if (plainText && /<table\b/i.test(plainText)) {
     if (!formatHtmlLooksLikeVerticalNx1(plainText)) {
-      if (processFormatTableHtml(plainText, htmlFillOpts)) return true;
+      if (tryFormatHtmlFill(plainText, options, htmlFillOpts)) return true;
       if (plainMulti) return processFormatDualSource(html, plainText, dualOpts);
     } else if (plainMulti) {
       return processFormatDualSource(html, plainText, dualOpts);

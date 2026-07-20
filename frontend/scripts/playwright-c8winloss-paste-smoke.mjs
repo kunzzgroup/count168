@@ -13,6 +13,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   dropTrailingJunkRows,
+  plainTextLooksLikeAlignedTsv,
   sanitizePasteMatrix,
 } from "../src/pages/datacapture/paste/core/dataCapturePasteMatrixSanitize.js";
 import { parsePlainTextMatrix } from "../src/pages/datacapture/paste/core/dataCaptureTextPaste.js";
@@ -272,6 +273,16 @@ async function runNodePureChecks() {
     fail(`money-only footer vertical lost Subtotal: ${moneyFooterMatrix.length} rows`);
   }
   ok("money-only footer vertical keeps 3 rows");
+
+  const messyKendoPlain = buildKendoMessyPlain();
+  if (plainTextLooksLikeAlignedTsv(messyKendoPlain)) {
+    fail("C8 messy plain must NOT look like aligned TSV (would reject Format HTML)");
+  }
+  ok("C8 messy plain is not aligned TSV");
+  if (!plainTextLooksLikeAlignedTsv(buildTsv())) {
+    fail("clean TSV should look like aligned TSV");
+  }
+  ok("clean TSV looks like aligned TSV");
 }
 
 function narrowTsvOr(m) {
@@ -447,6 +458,35 @@ async function runPlaywrightHtmlChecks() {
       fail("fig3-like near-vertical matrix not rejected by formatBodyMatrixLooksCollapsed");
     }
     ok("fig3-like matrix rejected as collapsed");
+
+    // Format path: Kendo HTML + messy C8 plain must fill (not grill-reject) and keep borders.
+    const formatFill = await page.evaluate(async (html) => {
+      const normalizeMod = await import("/paste-mod/dataCaptureFormatClipboardNormalize.js");
+      const matrixMod = await import("/paste-mod/dataCaptureFormatHtmlMatrix.js");
+      const normalized = normalizeMod.normalizeClipboardHtmlToTable(html);
+      const structure = matrixMod.parseFormatHtmlTableStructure(normalized || html);
+      const body = structure
+        ? matrixMod.buildFormatBodyMatrix(structure.dataRows, structure.maxCols)
+        : [];
+      const hasBorder = (body[0] || []).some((cell) =>
+        /border/i.test(String(cell?.styleCssText || "")),
+      );
+      return {
+        rows: body.length,
+        cols: structure?.maxCols || 0,
+        hasBorder,
+        sample: (body[2] || []).slice(0, 5).map((c) => String(c?.value ?? "")),
+        footerMoneyCol: (body[2] || []).findIndex((c) => /[\d,]/.test(String(c?.value ?? "").trim())),
+      };
+    }, buildKendoGroupFooterHtml());
+    console.log(`  · Format Kendo+messy plain body: ${JSON.stringify(formatFill)}`);
+    if (formatFill.rows !== 3 || formatFill.footerMoneyCol < 2) {
+      fail(`Format Kendo body misaligned: ${JSON.stringify(formatFill)}`);
+    }
+    if (!formatFill.hasBorder) {
+      fail("Format body cells missing border style (分线条)");
+    }
+    ok("Format Kendo body keeps footer align + cell borders");
 
     // Full-width Subtotal (realistic) must survive sanitize — baseline.
     const fullSanitized = sanitizePasteMatrix([AGENT1, AGENT2, SUBTOTAL]);
