@@ -148,10 +148,47 @@
     return null;
   }
 
+  function plainTextLooksLikeAlignedTsv(text) {
+    const api = global.DataCaptureC8WinLossPasteHelper;
+    if (api && typeof api.plainTextLooksLikeAlignedTsv === "function") {
+      return api.plainTextLooksLikeAlignedTsv(text);
+    }
+    const lines = String(text ?? "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .split("\n")
+      .filter((line) => line.trim() !== "");
+    if (lines.length < 2) return false;
+    const tabLines = lines.filter((line) => line.includes("\t")).length;
+    return tabLines >= Math.ceil(lines.length * 0.6);
+  }
+
   function parsePlainTextMatrix(pastedData) {
     const normalized = String(pastedData || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     if (!normalized.trim()) return [];
 
+    // Dense spreadsheet TSV first (keeps empty Player/Name/Type cells 1:1).
+    if (plainTextLooksLikeAlignedTsv(normalized)) {
+      const tabRows = normalized
+        .split("\n")
+        .filter((line) => line.trim() !== "")
+        .map((line) => line.split("\t"));
+      if (!tabRows.length) return [];
+      const maxCols = Math.max(...tabRows.map((row) => row.length));
+      tabRows.forEach((row) => {
+        while (row.length < maxCols) row.push("");
+      });
+      return tabRows;
+    }
+
+    // Scoped C8 Win Loss Detail helper — null for all other report pastes.
+    const c8Api = global.DataCaptureC8WinLossPasteHelper;
+    if (c8Api && typeof c8Api.tryReshapeC8WinLossPlainMatrix === "function") {
+      const c8Rows = c8Api.tryReshapeC8WinLossPlainMatrix(normalized);
+      if (c8Rows && c8Rows.length) return c8Rows;
+    }
+
+    // Legacy: any remaining tab-separated lines (sparse / mixed).
     if (normalized.includes("\t")) {
       const tabRows = normalized
         .split("\n")
