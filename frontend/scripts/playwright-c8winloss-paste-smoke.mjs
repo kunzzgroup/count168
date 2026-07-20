@@ -170,27 +170,29 @@ function buildVerticalNx1TableHtml() {
 }
 
 /**
- * Real C8Play/Kendo clipboard: agent rows have role="row", Subtotal is
- * tr.k-group-footer with NO role (user's live Ctrl+C shape).
+ * Real C8Play/Kendo clipboard (live Ctrl+C shape):
+ * - Agent: td.k-group-cell (no role) + td[role=gridcell]…
+ * - Subtotal: tr.k-group-footer with NO role; cells have NO role=gridcell;
+ *   4 leading empties then Turn Over money (aligns with agent col after strip).
  */
 function buildKendoGroupFooterHtml() {
   const agentTr = (cells, alt = false) => {
     const cls = alt ? ' class="k-alt"' : "";
-    const tds = cells
+    const dataTds = cells
       .map((v) => `<td role="gridcell">${v === "" ? "&nbsp;" : v}</td>`)
       .join("");
-    return `<tr role="row"${cls}>${tds}</tr>`;
+    return `<tr role="row"${cls}><td class="k-group-cell">&nbsp;</td>${dataTds}</tr>`;
   };
-  // Real footer: empty leading cells, money starts at Turn Over — no "Subtotal" text.
-  const footerCells = ["", "", "", "", ...AGENT1.slice(3)].map((v, i) => {
-    if (i >= 4) {
-      // Use summed-looking values from SUBTOTAL amounts when available
-      return SUBTOTAL[i] || v;
-    }
-    return "";
+  // Footer width matches agent+indent (1 group + AGENT1.length). Money at Turn Over.
+  const footerCells = Array.from({ length: AGENT1.length + 1 }, (_, i) => {
+    if (i < 4) return "";
+    return SUBTOTAL[i - 1] || "";
   });
   const footerTds = footerCells
-    .map((v) => `<td>${v === "" ? "&nbsp;" : v}</td>`)
+    .map((v, i) => {
+      const cls = i === 0 ? ' class="k-group-cell"' : "";
+      return `<td${cls}>${v === "" ? "&nbsp;" : v}</td>`;
+    })
     .join("");
   return `<table role="grid"><tbody>
   ${agentTr(AGENT1)}
@@ -356,6 +358,8 @@ async function runPlaywrightHtmlChecks() {
         expectColsMin: 10,
         // Footer has no Subtotal label — accept money in first filled cell
         allowMoneyFirstFooter: true,
+        // After stripping k-group-cell, Turn Over is index 3 (id, count, level, turnover)
+        expectTurnOverCol: 3,
       },
       { name: "vertical N×1 table", html: buildVerticalNx1TableHtml(), expectRows: null, expectColsMin: 1 },
     ];
@@ -400,6 +404,26 @@ async function runPlaywrightHtmlChecks() {
         );
         if (!hasSub && !(c.allowMoneyFirstFooter && hasMoneyFooter && result.rows >= 3)) {
           fail(`${c.name}: Subtotal/footer row missing from body labels`);
+        }
+        if (c.expectTurnOverCol != null && result.sample.length >= 3) {
+          const agentTurnOver = String(result.sample[0]?.[c.expectTurnOverCol] ?? "").trim();
+          const footerVals = result.sample[2] || [];
+          const footerTurnOver = String(footerVals[c.expectTurnOverCol] ?? "").trim();
+          const footerFirstFilled = footerVals.map((v) => String(v ?? "").trim()).find((v) => v) || "";
+          if (!agentTurnOver || !/[\d,]/.test(agentTurnOver)) {
+            fail(`${c.name}: agent Turn Over missing at col ${c.expectTurnOverCol}: ${JSON.stringify(result.sample[0])}`);
+          }
+          if (footerTurnOver !== footerFirstFilled || !/[\d,]/.test(footerTurnOver)) {
+            fail(
+              `${c.name}: footer money not aligned at col ${c.expectTurnOverCol} ` +
+                `(got ${JSON.stringify(footerVals.slice(0, 6))}; firstFilled=${footerFirstFilled})`,
+            );
+          }
+          // Must NOT shove footer money into col 0 when agent id is in col 0.
+          if (String(footerVals[0] ?? "").trim() === footerFirstFilled && c.expectTurnOverCol > 0) {
+            fail(`${c.name}: footer money stuck in col 0 (misaligned)`);
+          }
+          ok(`${c.name}: Turn Over aligned at col ${c.expectTurnOverCol}`);
         }
         ok(`${c.name}: ${result.rows}x${result.cols} (footer kept)`);
       } else {

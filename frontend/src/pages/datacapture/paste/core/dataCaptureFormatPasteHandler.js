@@ -308,60 +308,68 @@ function tryProcessFormatClipboard(html, text, options) {
   const plainMatrix = plainText?.trim() ? parsePlainTextMatrix(plainText) : null;
   const plainMulti = matrixLooksMultiColumn(plainMatrix);
   const normalizedHtml = resolveNormalizedHtml(html);
-  const opts = { ...options, plainMatrix };
+  // Grill alignment may only use real multi-col text/plain — HTML-extracted dumps
+  // (C8Play vertical) disagree on leading empty footer cells and wrongly reject HTML.
+  const directMatrix = text?.trim() ? parsePlainTextMatrix(text) : null;
+  const directMulti = matrixLooksMultiColumn(directMatrix);
+  const htmlFillOpts = {
+    ...options,
+    plainMatrix: directMulti ? directMatrix : null,
+  };
+  const dualOpts = { ...options, plainMatrix };
 
   // agent_period / N×1 dumps: plain reshape FIRST (avoids Fig1 col1 stack).
   // Wide statement HTML (OB / 16-col) stays on HTML path below.
   if (shouldPreferFormatPlainDual(plainMulti, plainMatrix, normalizedHtml)) {
-    if (processFormatDualSource(html, plainText, opts)) return true;
+    if (processFormatDualSource(html, plainText, dualOpts)) return true;
   }
 
   // Multi-col report HTML (e.g. OB/SUBTOTAL sheets) — keep styles + icon column.
   // Fall through to dual when HTML fill rejects collapsed bodies.
   if (normalizedHtml && /<table\b/i.test(normalizedHtml)) {
     if (!formatHtmlLooksLikeVerticalNx1(normalizedHtml)) {
-      if (processFormatTableHtml(normalizedHtml, opts)) return true;
-      if (plainMulti) return processFormatDualSource(html || normalizedHtml, plainText, opts);
+      if (processFormatTableHtml(normalizedHtml, htmlFillOpts)) return true;
+      if (plainMulti) return processFormatDualSource(html || normalizedHtml, plainText, dualOpts);
     } else if (plainMulti) {
-      return processFormatDualSource(html || normalizedHtml, plainText, opts);
+      return processFormatDualSource(html || normalizedHtml, plainText, dualOpts);
     }
   } else if (plainMulti) {
-    if (processFormatDualSource(html, plainText, opts)) return true;
+    if (processFormatDualSource(html, plainText, dualOpts)) return true;
   }
 
   if (html && clipboardHtmlLooksLikeGrid(html)) {
     const forced = normalizeClipboardHtmlToTable(html);
     if (forced && /<table\b/i.test(forced)) {
       if (!formatHtmlLooksLikeVerticalNx1(forced)) {
-        if (processFormatTableHtml(forced, opts)) return true;
-        if (plainMulti) return processFormatDualSource(html, plainText, opts);
+        if (processFormatTableHtml(forced, htmlFillOpts)) return true;
+        if (plainMulti) return processFormatDualSource(html, plainText, dualOpts);
       } else if (plainMulti) {
-        return processFormatDualSource(html, plainText, opts);
+        return processFormatDualSource(html, plainText, dualOpts);
       }
     }
   }
 
   // Grid-like HTML + reshapable plain, but normalize failed → still dual-source.
   if (html && clipboardHtmlLooksLikeGrid(html) && plainMulti) {
-    return processFormatDualSource(html, plainText, opts);
+    return processFormatDualSource(html, plainText, dualOpts);
   }
 
   if (plainText && /<table\b/i.test(plainText)) {
     if (!formatHtmlLooksLikeVerticalNx1(plainText)) {
-      if (processFormatTableHtml(plainText, opts)) return true;
-      if (plainMulti) return processFormatDualSource(html, plainText, opts);
+      if (processFormatTableHtml(plainText, htmlFillOpts)) return true;
+      if (plainMulti) return processFormatDualSource(html, plainText, dualOpts);
     } else if (plainMulti) {
-      return processFormatDualSource(html, plainText, opts);
+      return processFormatDualSource(html, plainText, dualOpts);
     }
   }
   if (plainText && plainText.includes("\t")) {
-    return processFormatTsv(plainText, opts);
+    return processFormatTsv(plainText, dualOpts);
   }
   if (plainMulti) {
-    return processFormatDualSource(html, plainText, opts);
+    return processFormatDualSource(html, plainText, dualOpts);
   }
   if (plainText?.trim()) {
-    return processFormatPlainMatrix(plainText, { ...opts, html: html || "" });
+    return processFormatPlainMatrix(plainText, { ...dualOpts, html: html || "" });
   }
   return false;
 }
@@ -384,12 +392,16 @@ export function handleFormatPasteAreaEvent(e) {
     return;
   }
 
-  // Still intercept Material / report pastes so the browser does not dump N×1 into the area.
+  // Only block the browser dump when dual-source actually fills the grid.
+  // Previously we preventDefault'd on any grid-like HTML, then dual-source failed
+  // (C8Play messy plain) — paste area stayed empty and Ctrl+V looked broken.
   if ((html && clipboardHtmlLooksLikeGrid(html)) || resolveFormatPlainText(html, text).includes("\n")) {
-    e.preventDefault();
-    e.stopPropagation();
     const recovered = resolveFormatPlainText(html, text);
-    if (recovered?.trim() && processFormatDualSource(html, recovered, options)) return;
+    if (recovered?.trim() && processFormatDualSource(html, recovered, options)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
   }
 
   setTimeout(() => {
