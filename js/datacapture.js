@@ -4325,7 +4325,8 @@ function applyPlainMatrixLikeExcel(dataMatrix, startCell) {
     if (maxCols < 1) return false;
 
     const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-    const startCol = 0;
+    // Paste from the clicked/selected cell (Excel-like), not always column 0
+    const startCol = parseInt(startCell.dataset.col, 10) || 0;
     const currentRows = document.querySelectorAll('#tableBody tr').length;
     const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
     const requiredRows = startRow + dataMatrix.length;
@@ -7259,10 +7260,11 @@ function parseAndFillHTMLTable(htmlString, startCell) {
 
         // 直接填充到表格
         const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-        // VPOWER、AGENT_LINK、ALIPAY、1.Text：强制从第一列开始粘贴，保证解析顺序与表格列顺序一致
+        // VPOWER、AGENT_LINK、ALIPAY：强制从第一列开始粘贴，保证解析顺序与表格列顺序一致
+        // 1.Text / 2.Format：从鼠标点选的单元格开始粘贴（Excel 行为）
         let startCol = parseInt(startCell.dataset.col);
         if (typeof currentDataCaptureType !== 'undefined' &&
-            (currentDataCaptureType === 'VPOWER' || currentDataCaptureType === 'AGENT_LINK' || currentDataCaptureType === 'ALIPAY' || currentDataCaptureType === '1.Text')) {
+            (currentDataCaptureType === 'VPOWER' || currentDataCaptureType === 'AGENT_LINK' || currentDataCaptureType === 'ALIPAY')) {
             startCol = 0;
         }
 
@@ -10447,11 +10449,11 @@ function handleCellPaste(e) {
                     }
                 });
 
-                // 填充到表格，保持原始格式。始终从第 0 列开始写，避免点击靠右单元格时 No./User 等前几列被写到后面
+                // 填充到表格，保持原始格式；从鼠标点选的单元格开始写（Excel 行为）
                 if (dataMatrix.length > 0 && maxCols > 0) {
                     const startCell = e.target;
                     const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                    const startCol = 0;
+                    const startCol = parseInt(startCell.dataset.col, 10) || 0;
 
                     const currentRows = document.querySelectorAll('#tableBody tr').length;
                     const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
