@@ -300,27 +300,76 @@ export default function TransactionHistoryPage() {
                         <tr className="m-tx-hist-detail-row" id={detailId}>
                           <td className="m-tx-hist-detail" colSpan={6}>
                             <div className="m-tx-hist-detail-panel">
-                              <p>
-                                <span className="m-tx-hist-detail-label">{m.descriptionCompact}: </span>
-                                {description || "—"}
-                              </p>
-                              {row.rate && row.rate !== "-" ? (
-                                <p>
-                                  <span className="m-tx-hist-detail-label">{m.rate}: </span>
-                                  {formatRateForHistoryDisplay(row.rate)}
-                                </p>
-                              ) : null}
-                              {remark && remark !== "-" ? (
-                                <p>
-                                  <span className="m-tx-hist-detail-label">{m.remarkCompact}: </span>
-                                  {remark}
-                                </p>
-                              ) : null}
-                              <p>
-                                <span className="m-tx-hist-detail-label">{m.createdByCompact}: </span>
-                                {createdBy}
-                                {cur ? ` · ${cur}` : ""}
-                              </p>
+                              <div className="m-tx-hist-detail-list">
+                                <div className="m-tx-hist-detail-item">
+                                  <span className="m-tx-hist-detail-label">
+                                    {m.description || m.descriptionCompact}
+                                  </span>
+                                  <span
+                                    className={
+                                      description && description !== "-"
+                                        ? "m-tx-hist-detail-value"
+                                        : "m-tx-hist-detail-value m-tx-hist-detail-value--muted"
+                                    }
+                                  >
+                                    {description && description !== "-" ? description : "—"}
+                                  </span>
+                                </div>
+                                <div className="m-tx-hist-detail-item m-tx-hist-detail-item--pair">
+                                  <span className="m-tx-hist-detail-label">{m.rate}</span>
+                                  <span
+                                    className={
+                                      row.rate && row.rate !== "-"
+                                        ? "m-tx-hist-detail-value"
+                                        : "m-tx-hist-detail-value m-tx-hist-detail-value--muted"
+                                    }
+                                  >
+                                    {row.rate && row.rate !== "-"
+                                      ? formatRateForHistoryDisplay(row.rate)
+                                      : "—"}
+                                  </span>
+                                  <span className="m-tx-hist-detail-label">
+                                    {m.currencyCompact || m.currency}
+                                  </span>
+                                  <span
+                                    className={
+                                      cur && cur !== "-"
+                                        ? "m-tx-hist-detail-value"
+                                        : "m-tx-hist-detail-value m-tx-hist-detail-value--muted"
+                                    }
+                                  >
+                                    {cur && cur !== "-" ? cur : "—"}
+                                  </span>
+                                </div>
+                                <div className="m-tx-hist-detail-item">
+                                  <span className="m-tx-hist-detail-label">
+                                    {m.remark || m.remarkCompact}
+                                  </span>
+                                  <span
+                                    className={
+                                      remark && remark !== "-"
+                                        ? "m-tx-hist-detail-value"
+                                        : "m-tx-hist-detail-value m-tx-hist-detail-value--muted"
+                                    }
+                                  >
+                                    {remark && remark !== "-" ? remark : "—"}
+                                  </span>
+                                </div>
+                                <div className="m-tx-hist-detail-item">
+                                  <span className="m-tx-hist-detail-label">
+                                    {m.createdByCompact || m.createdBy}
+                                  </span>
+                                  <span
+                                    className={
+                                      createdBy && createdBy !== "-"
+                                        ? "m-tx-hist-detail-value"
+                                        : "m-tx-hist-detail-value m-tx-hist-detail-value--muted"
+                                    }
+                                  >
+                                    {createdBy && createdBy !== "-" ? createdBy : "—"}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
                           </td>
                         </tr>
