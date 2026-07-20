@@ -306,16 +306,13 @@ function readClipboard(clipboard) {
   };
 }
 
-function tryFormatHtmlFill(html, options, htmlFillOpts) {
+function tryFormatHtmlFill(html, _options, htmlFillOpts) {
   if (!html || !/<table\b/i.test(html)) return false;
   if (formatHtmlLooksLikeVerticalNx1(html)) return false;
-  if (processFormatTableHtml(html, htmlFillOpts)) return true;
-  // C8Play Win Loss: sparse-tab vertical plain reshapes to a "reliable" matrix that
-  // disagrees with padded footer empties — retry HTML without plain grill.
-  if (htmlFillOpts?.plainMatrix) {
-    return processFormatTableHtml(html, { ...options, plainMatrix: null });
-  }
-  return false;
+  // Do not retry with plainMatrix cleared — that bypasses TSV row/col grill and can
+  // accept HTML missing footers. C8 messy plain is already excluded from htmlFillOpts
+  // via plainTextLooksLikeAlignedTsv (only aligned TSV may grill).
+  return processFormatTableHtml(html, htmlFillOpts);
 }
 
 function tryProcessFormatClipboard(html, text, options) {
