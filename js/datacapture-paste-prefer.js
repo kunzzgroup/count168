@@ -84,6 +84,37 @@
     return first === 0 && isMoneyLike(last[0]);
   }
 
+  /** First money column on a dense agent row (id / count / AGENT then money). */
+  function bodyFirstMoneyCol(matrix) {
+    const row = matrix?.[0] || [];
+    for (let i = 0; i < row.length; i += 1) {
+      if (isMoneyLike(row[i]) && i >= 2) return i;
+    }
+    return -1;
+  }
+
+  /**
+   * Shift money-first footer right so Turn Over lines up with agent rows.
+   * Mirrors Kendo empty Account/Count/Level pads when plain TSV dropped them.
+   */
+  function alignMoneyFirstFooter(matrix) {
+    const padded = padMatrix(matrix);
+    if (!padded || !matrixHasMoneyFirstFooter(padded)) return padded;
+    const moneyCol = bodyFirstMoneyCol(padded);
+    if (moneyCol < 2) return padded;
+    const last = padded[padded.length - 1] || [];
+    const shifted = Array(moneyCol).fill("").concat(last);
+    const cols = Math.max(padded[0].length, shifted.length);
+    const next = shifted.slice();
+    while (next.length < cols) next.push("");
+    const body = padded.slice(0, -1).map((row) => {
+      const r = (row || []).slice();
+      while (r.length < cols) r.push("");
+      return r;
+    });
+    return body.concat([next.slice(0, cols)]);
+  }
+
   function scoreReportPasteMatrix(matrix) {
     if (!Array.isArray(matrix) || !matrix.length) return -1;
     if (matrixLooksCol1Stacked(matrix)) return -1;
@@ -92,8 +123,8 @@
     if (matrix.length > 1 && cols === 1) return -1;
 
     let score = rows * 100 + cols * 10;
-    if (matrixHasAlignedMoneyFooter(matrix)) score += 80;
-    if (matrixHasMoneyFirstFooter(matrix)) score -= 100;
+    if (matrixHasAlignedMoneyFooter(matrix)) score += 200;
+    if (matrixHasMoneyFirstFooter(matrix)) score -= 200;
     if (matrixHasMergedNameUserType(matrix)) score -= 80;
     return score;
   }
@@ -168,25 +199,43 @@
       htmlNormalized = html;
     }
 
-    const htmlMatrix = matrixFromClipboardHtml(html);
+    // Prefer the already-normalized table string (same as 2.FORMAT fill path).
+    const htmlMatrix =
+      (htmlNormalized && tableHtmlToMatrix(htmlNormalized)) || matrixFromClipboardHtml(html);
 
     const plainScore = scoreReportPasteMatrix(plainMatrix);
     const htmlScore = scoreReportPasteMatrix(htmlMatrix);
 
     if (htmlScore < 0 && plainScore < 0) return null;
 
-    if (htmlScore >= plainScore && htmlScore >= 0) {
+    // Hard rules: never pick money-first plain over a usable HTML grid
+    // (C8 Win Loss — FORMAT already shows the correct padded footer).
+    const htmlUsable = htmlScore >= 0 && htmlMatrix;
+    const plainMoneyFirst = matrixHasMoneyFirstFooter(plainMatrix);
+    const htmlAligned = matrixHasAlignedMoneyFooter(htmlMatrix);
+    if (htmlUsable && (htmlAligned || plainMoneyFirst)) {
       return {
-        matrix: htmlMatrix,
+        matrix: alignMoneyFirstFooter(htmlMatrix) || htmlMatrix,
+        source: "html",
+        htmlNormalized: htmlNormalized || "",
+      };
+    }
+
+    if (htmlScore >= plainScore && htmlUsable) {
+      return {
+        matrix: alignMoneyFirstFooter(htmlMatrix) || htmlMatrix,
         source: "html",
         htmlNormalized: htmlNormalized || "",
       };
     }
     if (plainScore >= 0) {
-      return { matrix: plainMatrix, source: "plain" };
+      return {
+        matrix: alignMoneyFirstFooter(plainMatrix) || plainMatrix,
+        source: "plain",
+      };
     }
     return {
-      matrix: htmlMatrix,
+      matrix: alignMoneyFirstFooter(htmlMatrix) || htmlMatrix,
       source: "html",
       htmlNormalized: htmlNormalized || "",
     };
@@ -195,6 +244,8 @@
   global.DataCapturePastePrefer = {
     scoreReportPasteMatrix,
     matrixLooksCol1Stacked,
+    matrixHasMoneyFirstFooter,
+    alignMoneyFirstFooter,
     selectPreferredReportPasteMatrix,
     tableHtmlToMatrix,
   };
