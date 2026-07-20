@@ -153,42 +153,10 @@ export function dropTrailingIncompleteRows(matrix) {
   return dropTrailingJunkRows(matrix);
 }
 
-function setCellText(cell, text) {
-  if (cell != null && typeof cell === "object" && "value" in cell) {
-    return { ...cell, value: text };
-  }
-  return text;
-}
-
-/**
- * C8Play/Kendo Win Loss Subtotal: leading empties + money, no label.
- * Without col1 text, Data Capture Summary skips the row (buildColumnAEntries).
- * Keep money columns aligned; only fill the empty id cell with SUBTOTAL.
- */
-export function rowLooksLikeMoneyOnlyFooter(row) {
-  if (!Array.isArray(row) || row.length < 3) return false;
-  const values = row.map((cell) => cellValue(cell));
-  if (values[0] !== "") return false;
-  if (isSummaryLabelToken(values.find((v) => v) || "")) return false;
-  const firstIdx = values.findIndex((v) => v !== "");
-  // Need pad before first money (Account/Count/Level gap after k-group strip).
-  if (firstIdx < 2) return false;
-  // First filled cell must be money (not AGENT / a leftover label).
-  return isMoneyOrNumberLikeToken(values[firstIdx]);
-}
-
-export function labelMoneyOnlyFooterRows(matrix) {
-  if (!Array.isArray(matrix) || matrix.length < 2) return matrix;
-  return matrix.map((row) => {
-    if (!rowLooksLikeMoneyOnlyFooter(row)) return row;
-    const next = [...row];
-    next[0] = setCellText(row[0], "SUBTOTAL");
-    return next;
-  });
-}
-
 /**
  * Plain string[][] or format cell matrix — trim trailing over-select chrome only.
+ * Do not invent labels (e.g. SUBTOTAL) — paste must stay 1:1 with clipboard.
+ * Summary keeps money-only footers via buildColumnAEntries.
  * @param {Array<Array<string|object>>} matrix
  */
 export function sanitizePasteMatrix(matrix) {
@@ -196,7 +164,6 @@ export function sanitizePasteMatrix(matrix) {
   let next = trimTrailingEmptyColumns(matrix);
   next = dropTrailingJunkRows(next);
   next = trimTrailingEmptyColumns(next);
-  next = labelMoneyOnlyFooterRows(next);
   return next;
 }
 

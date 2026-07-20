@@ -76,8 +76,9 @@ export function buildColumnAEntries(tableData) {
 
     const cellValue = rowData[1].value || "";
     if (!cellValue.trim()) {
+      // Keep exact empty Id Product — do not invent "SUBTOTAL" text.
       if (snapshotRowLooksLikeMoneyOnlyFooter(rowData)) {
-        entries.push({ idProduct: "SUBTOTAL", rowIndex });
+        entries.push({ idProduct: "", rowIndex, moneyOnlyFooter: true });
       }
       return;
     }

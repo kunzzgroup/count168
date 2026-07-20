@@ -128,7 +128,7 @@ export function buildInitialSummaryRows(tableData) {
   if (!tableData) return [];
   const { entries } = buildColumnAEntries(tableData);
   const rows = entries
-    .filter((e) => e.idProduct?.trim())
+    .filter((e) => e.idProduct?.trim() || e.moneyOnlyFooter)
     .map((entry, index) => createMainRowFromEntry(entry, index));
   return reconcileRowIndexes(rows, tableData);
 }

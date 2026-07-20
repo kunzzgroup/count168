@@ -13,7 +13,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   dropTrailingJunkRows,
-  labelMoneyOnlyFooterRows,
   sanitizePasteMatrix,
 } from "../src/pages/datacapture/paste/core/dataCapturePasteMatrixSanitize.js";
 import { parsePlainTextMatrix } from "../src/pages/datacapture/paste/core/dataCaptureTextPaste.js";
@@ -407,25 +406,24 @@ async function runPlaywrightHtmlChecks() {
           fail(`${c.name}: Subtotal/footer row missing from body labels`);
         }
         if (c.expectTurnOverCol != null && result.sample.length >= 3) {
-          const labeled = labelMoneyOnlyFooterRows(
-            result.sample.map((row) => (row || []).map((v) => String(v ?? ""))),
-          );
-          const footerVals = labeled[2] || [];
-          const agentTurnOver = String(labeled[0]?.[c.expectTurnOverCol] ?? "").trim();
+          const footerVals = result.sample[2] || [];
+          const agentTurnOver = String(result.sample[0]?.[c.expectTurnOverCol] ?? "").trim();
           const footerTurnOver = String(footerVals[c.expectTurnOverCol] ?? "").trim();
-          if (!/subtotal/i.test(String(footerVals[0] ?? ""))) {
-            fail(`${c.name}: money-only footer should get SUBTOTAL label: ${JSON.stringify(footerVals.slice(0, 5))}`);
+          const footerFirstFilled = footerVals.map((v) => String(v ?? "").trim()).find((v) => v) || "";
+          // Paste must stay 1:1 — do not invent SUBTOTAL in col1.
+          if (String(footerVals[0] ?? "").trim() !== "") {
+            fail(`${c.name}: footer col1 must stay empty (exact copy): ${JSON.stringify(footerVals.slice(0, 5))}`);
           }
           if (!agentTurnOver || !/[\d,]/.test(agentTurnOver)) {
-            fail(`${c.name}: agent Turn Over missing at col ${c.expectTurnOverCol}: ${JSON.stringify(labeled[0])}`);
+            fail(`${c.name}: agent Turn Over missing at col ${c.expectTurnOverCol}: ${JSON.stringify(result.sample[0])}`);
           }
-          if (!/[\d,]/.test(footerTurnOver)) {
+          if (footerTurnOver !== footerFirstFilled || !/[\d,]/.test(footerTurnOver)) {
             fail(
               `${c.name}: footer money not aligned at col ${c.expectTurnOverCol} ` +
                 `(got ${JSON.stringify(footerVals.slice(0, 6))})`,
             );
           }
-          ok(`${c.name}: SUBTOTAL labeled + Turn Over at col ${c.expectTurnOverCol}`);
+          ok(`${c.name}: exact footer (empty col1) + Turn Over at col ${c.expectTurnOverCol}`);
         }
         ok(`${c.name}: ${result.rows}x${result.cols} (footer kept)`);
       } else {
