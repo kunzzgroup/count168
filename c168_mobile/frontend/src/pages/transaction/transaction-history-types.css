@@ -1,13 +1,11 @@
 /**
- * Payment History row type tint — badge + card shell (B/F + 7 TX types).
- * Inset ring via box-shadow (not outline) so corners are not clipped at screen edge.
- * Overrides .m-tx-hist-card box-shadow from transaction-history.css.
+ * Payment History row type tint — badge + row shell (B/F + 7 TX types).
+ * Class names stay m-tx-hist-card--* for compatibility with transactionTypeStyles.js.
  */
 
 /* B/F opening balance */
-.m-tx-hist-card--bf {
+.m-tx-hist-row.m-tx-hist-card--bf {
   background: #fffbeb;
-  box-shadow: inset 0 0 0 2px #fcd34d;
 }
 
 .m-tx-hist-card--bf .m-tx-hist-type-badge {
@@ -17,9 +15,8 @@
 }
 
 /* CONTRA */
-.m-tx-hist-card--contra {
+.m-tx-hist-row.m-tx-hist-card--contra {
   background: #f5f3ff;
-  box-shadow: inset 0 0 0 2px #c4b5fd;
 }
 
 .m-tx-hist-card--contra .m-tx-hist-type-badge {
@@ -29,9 +26,8 @@
 }
 
 /* PAYMENT */
-.m-tx-hist-card--payment {
+.m-tx-hist-row.m-tx-hist-card--payment {
   background: #f0f9ff;
-  box-shadow: inset 0 0 0 2px #7dd3fc;
 }
 
 .m-tx-hist-card--payment .m-tx-hist-type-badge {
@@ -41,9 +37,8 @@
 }
 
 /* RECEIVE */
-.m-tx-hist-card--receive {
+.m-tx-hist-row.m-tx-hist-card--receive {
   background: #ecfeff;
-  box-shadow: inset 0 0 0 2px #67e8f9;
 }
 
 .m-tx-hist-card--receive .m-tx-hist-type-badge {
@@ -53,9 +48,8 @@
 }
 
 /* CLAIM */
-.m-tx-hist-card--claim {
+.m-tx-hist-row.m-tx-hist-card--claim {
   background: #fffbeb;
-  box-shadow: inset 0 0 0 2px #fcd34d;
 }
 
 .m-tx-hist-card--claim .m-tx-hist-type-badge {
@@ -65,9 +59,8 @@
 }
 
 /* PROFIT / WIN / LOSE */
-.m-tx-hist-card--profit {
+.m-tx-hist-row.m-tx-hist-card--profit {
   background: #ecfdf5;
-  box-shadow: inset 0 0 0 2px #6ee7b7;
 }
 
 .m-tx-hist-card--profit .m-tx-hist-type-badge {
@@ -77,9 +70,8 @@
 }
 
 /* RATE */
-.m-tx-hist-card--rate {
+.m-tx-hist-row.m-tx-hist-card--rate {
   background: #eef2ff;
-  box-shadow: inset 0 0 0 2px #a5b4fc;
 }
 
 .m-tx-hist-card--rate .m-tx-hist-type-badge {
@@ -89,9 +81,8 @@
 }
 
 /* ADJUSTMENT */
-.m-tx-hist-card--adjustment {
+.m-tx-hist-row.m-tx-hist-card--adjustment {
   background: #fff7ed;
-  box-shadow: inset 0 0 0 2px #fdba74;
 }
 
 .m-tx-hist-card--adjustment .m-tx-hist-type-badge {
@@ -101,9 +92,8 @@
 }
 
 /* CLEAR */
-.m-tx-hist-card--clear {
+.m-tx-hist-row.m-tx-hist-card--clear {
   background: #f1f5f9;
-  box-shadow: inset 0 0 0 2px #cbd5e1;
 }
 
 .m-tx-hist-card--clear .m-tx-hist-type-badge {
@@ -113,9 +103,8 @@
 }
 
 /* Bank process / unknown */
-.m-tx-hist-card--default {
-  background: var(--m-color-surface);
-  box-shadow: inset 0 0 0 2px #e2e8f0;
+.m-tx-hist-row.m-tx-hist-card--default {
+  background: #fff;
 }
 
 .m-tx-hist-card--default .m-tx-hist-type-badge {
