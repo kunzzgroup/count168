@@ -18,6 +18,8 @@ import {
 } from "../src/pages/datacapture/paste/core/dataCapturePasteMatrixSanitize.js";
 import { parsePlainTextMatrix } from "../src/pages/datacapture/paste/core/dataCaptureTextPaste.js";
 import { detectVerticalFieldDump } from "../src/pages/datacapture/paste/core/dataCaptureVerticalDumpDetect.js";
+import { buildColumnAEntries } from "../src/pages/datacapturesummary/table/summaryColumnAData.js";
+import { buildInitialSummaryRows } from "../src/pages/datacapturesummary/table/summaryTemplatePopulatePure.js";
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -283,6 +285,30 @@ async function runNodePureChecks() {
     fail("clean TSV should look like aligned TSV");
   }
   ok("clean TSV looks like aligned TSV");
+
+  // Summary: money-only footer (empty Id Product) must still become a row — no fake SUBTOTAL.
+  const snapshotRows = [AGENT1, AGENT2, ["", "", "", ...SUBTOTAL.slice(3)]].map((cells, rowIndex) => {
+    const row = [{ type: "header", value: String.fromCharCode(65 + rowIndex) }];
+    cells.forEach((value, col) => {
+      row.push({ type: "data", value: String(value ?? ""), col });
+    });
+    return row;
+  });
+  const { entries, idProducts } = buildColumnAEntries({ rows: snapshotRows });
+  if (entries.length !== 3) {
+    fail(`buildColumnAEntries expected 3 entries, got ${entries.length}: ${JSON.stringify(entries)}`);
+  }
+  if (entries[2]?.idProduct !== "") {
+    fail(`footer entry must keep empty idProduct (paste fidelity), got ${JSON.stringify(entries[2])}`);
+  }
+  if (idProducts.length !== 2) {
+    fail(`idProducts for templates should stay 2 agents, got ${idProducts.length}`);
+  }
+  const summaryRows = buildInitialSummaryRows({ rows: snapshotRows });
+  if (summaryRows.length !== 3) {
+    fail(`buildInitialSummaryRows expected 3 rows, got ${summaryRows.length}`);
+  }
+  ok("Summary keeps money-only empty-Id footer as 3rd row (no SUBTOTAL inject)");
 }
 
 function narrowTsvOr(m) {
