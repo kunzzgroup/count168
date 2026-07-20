@@ -325,6 +325,52 @@ async function runNodePureChecks() {
   }
   ok("agent_period sparse-tab reshapes to 2 wide rows");
 
+  // agent_period + TOTAL AMOUNT (same shape as 2.FORMAT success screenshot).
+  const agentPeriod3 = [
+    "SDSPDA95",
+    "5,300",
+    "$0.00",
+    "$9,134.90",
+    "$9,134.90",
+    "$7,787.17",
+    "$9,134.90",
+    "$0.00",
+    "$1,347.73",
+    "SUBTOTAL",
+    "5,300",
+    "$0.00",
+    "$9,134.90",
+    "$9,134.90",
+    "$7,787.17",
+    "$9,134.90",
+    "$0.00",
+    "$1,347.73",
+    "TOTAL AMOUNT",
+    "5,300",
+    "$0.00",
+    "$9,134.90",
+    "$9,134.90",
+    "$7,787.17",
+    "$9,134.90",
+    "$0.00",
+    "$1,347.73",
+  ].join("\n");
+  const agentPeriod3Matrix = parsePlainTextMatrix(agentPeriod3);
+  if (
+    agentPeriod3Matrix.length !== 3 ||
+    (agentPeriod3Matrix[0]?.length ?? 0) < 8 ||
+    String(agentPeriod3Matrix[0]?.[0] ?? "") !== "SDSPDA95" ||
+    !/subtotal/i.test(String(agentPeriod3Matrix[1]?.[0] ?? "")) ||
+    !/total\s*amount/i.test(String(agentPeriod3Matrix[2]?.[0] ?? ""))
+  ) {
+    fail(
+      `agent_period+TOTAL AMOUNT should match 2.FORMAT 3x9 layout, got ` +
+        `${agentPeriod3Matrix.length}x${agentPeriod3Matrix[0]?.length ?? 0} ` +
+        JSON.stringify(agentPeriod3Matrix.map((r) => r?.[0])),
+    );
+  }
+  ok("agent_period+TOTAL AMOUNT reshapes to 3 wide rows (like 2.FORMAT)");
+
   // Summary: money-only footer (empty Id Product) must still become a row — no fake SUBTOTAL.
   const snapshotRows = [AGENT1, AGENT2, ["", "", "", ...SUBTOTAL.slice(3)]].map((cells, rowIndex) => {
     const row = [{ type: "header", value: String.fromCharCode(65 + rowIndex) }];

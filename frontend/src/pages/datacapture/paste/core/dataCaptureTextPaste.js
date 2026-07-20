@@ -294,14 +294,21 @@ export function handleTextModePaste(e, pastedData, anchorCell) {
   const wideHtmlRows = countWideHtmlTableRows(htmlCandidate || rawHtmlCandidate);
   const htmlNx1 = htmlTableLooksLikeVerticalNx1(htmlCandidate || rawHtmlCandidate);
 
-  // Plan B: vertical field dump. Skip only when HTML already has a fuller wide
-  // multi-row table (C8Play Kendo: 3 <tr>). Never defer to N×1 HTML — that
-  // regresses agent_period (SDSPDA95 + SUBTOTAL) into column-1 stacks.
-  if (
-    plainLooksLikeReshapableVerticalDump(pastedData) &&
-    (wideHtmlRows < 3 || htmlNx1)
-  ) {
-    if (handleTextPlainPaste(e, pastedData, anchorCell)) return true;
+  // Match 2.FORMAT: prefer plain vertical-dump reshape whenever it yields a real
+  // multi-col matrix. HTML-first only when it has a strictly fuller wide table
+  // than plain (C8 Kendo 3-row footer vs plain that lost a row).
+  if (plainLooksLikeReshapableVerticalDump(pastedData)) {
+    const plainMatrix = parsePlainTextMatrix(pastedData);
+    const plainRows = Array.isArray(plainMatrix) ? plainMatrix.length : 0;
+    const plainCols = Math.max(
+      0,
+      ...(plainMatrix || []).map((row) => (Array.isArray(row) ? row.length : 0)),
+    );
+    const plainReshaped = plainRows >= 2 && plainCols >= 2;
+    const htmlClearlyFuller = wideHtmlRows >= 3 && wideHtmlRows > plainRows && !htmlNx1;
+    if (plainReshaped && !htmlClearlyFuller) {
+      if (handleTextPlainPaste(e, pastedData, anchorCell)) return true;
+    }
   }
 
   if (htmlCandidate && (isFormatRichHtmlTable(htmlCandidate) || clipboardHtmlLooksLikeGrid(rawHtmlCandidate))) {
