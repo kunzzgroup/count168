@@ -31,7 +31,38 @@ function sumSideMetrics(rows) {
   };
 }
 
-function DenseAccountTable({ side, rows, showName, m, totals, onOpenHistory, onPickBalance }) {
+function SideTotalsCard({ m, totals }) {
+  const metrics = [
+    { key: "bf", label: m.bfTable, value: totals.bf },
+    { key: "wl", label: m.winLossTable, value: totals.win_loss },
+    { key: "cd", label: m.crDrTable, value: totals.cr_dr },
+    { key: "bal", label: m.balanceTable, value: totals.balance },
+  ];
+  return (
+    <div className="m-tx-total-card" aria-label={m.total}>
+      <div className="m-tx-total-card-head">{m.total}</div>
+      <table className="m-tx-total-card-table">
+        <tbody>
+          {metrics.map((item, idx) => (
+            <tr
+              key={item.key}
+              className={`m-tx-total-card-row${idx % 2 === 1 ? " m-tx-total-card-row--alt" : ""}`}
+            >
+              <th scope="row" className="m-tx-total-card-label">
+                {item.label}
+              </th>
+              <td className="m-tx-total-card-value">
+                <MoneyText value={item.value} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DenseAccountTable({ side, rows, showName, m, onOpenHistory, onPickBalance }) {
   return (
     <div className="m-tx-dense-wrap">
       <table className="m-tx-dense-table">
@@ -52,23 +83,6 @@ function DenseAccountTable({ side, rows, showName, m, totals, onOpenHistory, onP
             <th scope="col" className="m-tx-dense-th m-tx-dense-th--num">
               {m.balanceTableCompact}
             </th>
-          </tr>
-          <tr className="m-tx-dense-row m-tx-dense-row--total">
-            <th scope="row" className="m-tx-dense-td m-tx-dense-td--acc m-tx-dense-td--total-label">
-              {m.total}
-            </th>
-            <td className="m-tx-dense-td m-tx-dense-td--num m-tx-dense-td--total">
-              <MoneyText value={totals.bf} />
-            </td>
-            <td className="m-tx-dense-td m-tx-dense-td--num m-tx-dense-td--total">
-              <MoneyText value={totals.win_loss} />
-            </td>
-            <td className="m-tx-dense-td m-tx-dense-td--num m-tx-dense-td--total">
-              <MoneyText value={totals.cr_dr} />
-            </td>
-            <td className="m-tx-dense-td m-tx-dense-td--num m-tx-dense-td--total">
-              <MoneyText value={totals.balance} />
-            </td>
           </tr>
         </thead>
         <tbody>
@@ -201,12 +215,13 @@ export default function AccountBalanceTables({
         </button>
       </div>
 
+      <SideTotalsCard m={m} totals={sideTotals} />
+
       <DenseAccountTable
         side={isLeft ? "left" : "right"}
         rows={activeRows}
         showName={showName}
         m={m}
-        totals={sideTotals}
         onOpenHistory={onOpenHistory}
         onPickBalance={onPickBalance}
       />
