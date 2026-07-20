@@ -61,6 +61,19 @@ function isPlaceholderIdColumn(value) {
   return !trimmed;
 }
 
+/** Agent/product codes only — never money or pure numbers (Win Loss Subtotal footers). */
+function looksLikeIdProductCode(value) {
+  const s = String(value || "").trim();
+  if (!s) return false;
+  if (FORMAT_LABEL_FIRST_COLUMNS.has(s.toUpperCase())) return false;
+  // Pure money / numeric amounts must stay in their columns.
+  if (/^\$?-?[\d,]+(?:\.\d+)?$/.test(s)) return false;
+  if (/^\(\$?-?[\d,]+(?:\.\d+)?\)$/.test(s)) return false;
+  // Typical codes: CKZ03, CXZ15, ABC-12 — need at least one letter.
+  if (!/[A-Za-z]/.test(s)) return false;
+  return /^[A-Za-z][A-Za-z0-9_-]{1,24}$/.test(s);
+}
+
 function swapRowDataCells(a, b) {
   const tempValue = a.value;
   a.value = b.value;
@@ -86,7 +99,7 @@ function normalizeIdProductColumnForRow(rowData, captureType, rowIndex) {
       const cell = rowData[i];
       if (cell?.type !== "data") continue;
       const candidate = String(cell.value || "").trim();
-      if (!candidate || FORMAT_LABEL_FIRST_COLUMNS.has(candidate.toUpperCase())) continue;
+      if (!looksLikeIdProductCode(candidate)) continue;
       swapRowDataCells(firstDataCell, cell);
       console.log(
         `${captureType}: Row ${rowIndex} - adjusted id product from column ${cell.col + 1} (value: "${candidate}") to first column`,

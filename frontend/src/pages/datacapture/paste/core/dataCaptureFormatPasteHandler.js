@@ -447,24 +447,28 @@ export function handleGlobalFormatPaste(e) {
   if (!isFormatMode()) return;
   if (isEditableFormField(e.target)) return;
   if (e.target?.closest?.("#dataTable")) return;
+  // #pasteAreaFormat has its own handler + browser fallback. Global must not
+  // preventDefault after a failed tryProcess — that swallowed C8Play Ctrl+V.
+  if (e.target?.closest?.("#pasteAreaFormat")) return;
   if (e.defaultPrevented) return;
 
   const clipboard = e.clipboardData || window.clipboardData;
   if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
-
-  e.preventDefault();
-  e.stopPropagation();
 
   const anchorCell = getFormatPasteAnchorCell();
   const startRow = resolveFormatPasteStartRow(anchorCell);
   const pasteAreaFormat = document.getElementById("pasteAreaFormat");
   const { html, text } = readClipboard(clipboard);
 
-  tryProcessFormatClipboard(html, text, {
+  const filled = tryProcessFormatClipboard(html, text, {
     area: pasteAreaFormat,
     startRow,
     anchorCell,
   });
+  // Always block raw <table> dump into page chrome outside the paste area.
+  e.preventDefault();
+  e.stopPropagation();
+  return filled;
 }
 
 /** Legacy-compatible entry used by handleFormatPasteFromClipboard. */
