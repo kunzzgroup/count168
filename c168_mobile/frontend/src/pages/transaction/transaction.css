@@ -322,84 +322,42 @@
   color: #be123c;
 }
 
-/* Side Total — under tabs, above dense table */
-.m-tx-side-total {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  border-radius: var(--m-radius-card);
-  background: rgba(248, 250, 252, 0.95);
-  padding: 0.5rem 0.5rem 0.5625rem;
-  outline: 1px solid rgba(226, 232, 240, 0.95);
-}
-
-.m-tx-side-total-title {
-  font-size: clamp(0.625rem, 0.15vw + 0.55rem, 0.6875rem);
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--m-color-text-secondary);
-}
-
-.m-tx-side-total-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.25rem;
-}
-
-.m-tx-side-total-cell {
-  min-width: 0;
-  text-align: right;
-}
-
-.m-tx-side-total-label {
-  display: block;
-  font-size: clamp(0.5rem, 0.12vw + 0.45rem, 0.5625rem);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--m-color-label);
-}
-
-.m-tx-side-total-value {
-  display: block;
-  margin-top: 0.0625rem;
-  font-size: clamp(0.625rem, 0.18vw + 0.5rem, 0.75rem);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.2;
-  word-break: break-all;
-}
-
-/* Dense ledger table */
+/* Dense ledger table — desktop-like grid + Total as first body row */
 .m-tx-dense-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  border-radius: var(--m-radius-card);
+  border-radius: 0.5rem;
   background: var(--m-color-surface);
-  outline: 1px solid var(--m-color-ring-soft);
+  border: 1px solid #cbd5e1;
 }
 
 .m-tx-dense-table {
   width: 100%;
   border-collapse: collapse;
+  border-spacing: 0;
   table-layout: fixed;
   font-size: clamp(0.625rem, 0.18vw + 0.5rem, 0.75rem);
+}
+
+.m-tx-dense-th,
+.m-tx-dense-td {
+  border: 1px solid #cbd5e1;
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
 }
 
 .m-tx-dense-th {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
   padding: 0.375rem 0.25rem;
   font-size: clamp(0.5rem, 0.12vw + 0.45rem, 0.5625rem);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--m-color-label);
-  background: rgba(248, 250, 252, 0.96);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+  color: #334155;
+  background: #e2e8f0;
 }
 
 .m-tx-dense-th--acc {
@@ -414,49 +372,66 @@
   padding-right: 0.375rem;
 }
 
-.m-tx-dense-row {
-  border-bottom: 1px solid rgba(241, 245, 249, 0.95);
+.m-tx-dense-row--total {
+  position: sticky;
+  top: 1.625rem;
+  z-index: 1;
 }
 
-.m-tx-dense-row:last-child {
-  border-bottom: none;
+.m-tx-dense-row--total .m-tx-dense-td,
+.m-tx-dense-row--total .m-tx-dense-td--total-label {
+  background: #eef2ff;
+  font-weight: 800;
+}
+
+.m-tx-dense-td--total-label {
+  text-align: left;
+  padding: 0.375rem 0.5rem;
+  font-size: clamp(0.625rem, 0.15vw + 0.55rem, 0.75rem);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #1e293b;
+}
+
+.m-tx-dense-td--total {
+  font-size: clamp(0.625rem, 0.18vw + 0.5rem, 0.75rem);
 }
 
 .m-tx-dense-row--alert {
   background: #fff5f5;
-  box-shadow: inset 3px 0 0 #f87171;
   animation: m-tx-alert-breathe 1.8s ease-in-out infinite;
+}
+
+.m-tx-dense-row--alert .m-tx-dense-td--acc {
+  box-shadow: inset 3px 0 0 #f87171;
 }
 
 @keyframes m-tx-alert-breathe {
   0% {
-    box-shadow: inset 3px 0 0 #fecaca;
+    background-color: #fff5f5;
   }
   50% {
-    box-shadow: inset 3px 0 0 #dc2626;
+    background-color: #fee2e2;
   }
   100% {
-    box-shadow: inset 3px 0 0 #fecaca;
+    background-color: #fff5f5;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .m-tx-dense-row--alert {
     animation: none;
-    box-shadow: inset 3px 0 0 #dc2626;
+    background: #fee2e2;
   }
 }
 
 .m-tx-dense-td {
   padding: 0.3125rem 0.25rem;
-  vertical-align: middle;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.25;
 }
 
 .m-tx-dense-td--acc {
-  padding-left: 0.375rem;
-  padding-right: 0.25rem;
+  padding: 0;
+  background-clip: padding-box;
 }
 
 .m-tx-dense-td--num {
@@ -466,18 +441,30 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 600;
+  background: #fff;
+}
+
+.m-tx-dense-td--empty {
+  padding: 1.25rem 0.75rem;
+  text-align: center;
+  font-weight: 500;
+  color: var(--m-color-label);
+  background: #fff;
 }
 
 .m-tx-dense-acc {
   display: flex;
   width: 100%;
   min-width: 0;
+  min-height: 100%;
   flex-direction: column;
   align-items: flex-start;
+  justify-content: center;
   gap: 0.0625rem;
-  border-radius: 0.25rem;
-  padding: 0.1875rem 0.3125rem;
+  padding: 0.3125rem 0.5rem;
   text-align: left;
+  background: transparent;
+  color: inherit;
 }
 
 .m-tx-dense-acc:active {
@@ -502,7 +489,7 @@
   white-space: nowrap;
   font-size: 0.9em;
   font-weight: 500;
-  opacity: 0.75;
+  opacity: 0.8;
   letter-spacing: 0.01em;
 }
 
@@ -510,21 +497,11 @@
   display: inline-flex;
   max-width: 100%;
   justify-content: flex-end;
-  border-radius: 0.25rem;
+  border-radius: 0.125rem;
   padding: 0.125rem 0.1875rem;
   margin-right: -0.1875rem;
 }
 
 .m-tx-dense-bal:active {
   background: rgba(241, 245, 249, 0.9);
-}
-
-.m-tx-table-empty {
-  border-radius: var(--m-radius-card);
-  background: var(--m-color-surface);
-  padding: 1.5rem 0.75rem;
-  text-align: center;
-  font-weight: 500;
-  color: var(--m-color-label);
-  outline: 1px solid var(--m-color-ring-soft);
 }

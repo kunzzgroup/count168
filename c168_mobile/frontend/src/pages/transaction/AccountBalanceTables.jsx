@@ -31,45 +31,7 @@ function sumSideMetrics(rows) {
   };
 }
 
-function SideTotalBand({ m, totals }) {
-  return (
-    <div className="m-tx-side-total" aria-label={m.total}>
-      <span className="m-tx-side-total-title">{m.total}</span>
-      <div className="m-tx-side-total-grid">
-        <div className="m-tx-side-total-cell">
-          <span className="m-tx-side-total-label">{m.bfTable}</span>
-          <span className="m-tx-side-total-value">
-            <MoneyText value={totals.bf} />
-          </span>
-        </div>
-        <div className="m-tx-side-total-cell">
-          <span className="m-tx-side-total-label">{m.winLossTableCompact}</span>
-          <span className="m-tx-side-total-value">
-            <MoneyText value={totals.win_loss} />
-          </span>
-        </div>
-        <div className="m-tx-side-total-cell">
-          <span className="m-tx-side-total-label">{m.crDrTable}</span>
-          <span className="m-tx-side-total-value">
-            <MoneyText value={totals.cr_dr} />
-          </span>
-        </div>
-        <div className="m-tx-side-total-cell">
-          <span className="m-tx-side-total-label">{m.balanceTableCompact}</span>
-          <span className="m-tx-side-total-value">
-            <MoneyText value={totals.balance} />
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DenseAccountTable({ side, rows, showName, m, onOpenHistory, onPickBalance }) {
-  if (rows.length === 0) {
-    return <p className="m-tx-table-empty">{m.noAccountsFound}</p>;
-  }
-
+function DenseAccountTable({ side, rows, showName, m, totals, onOpenHistory, onPickBalance }) {
   return (
     <div className="m-tx-dense-wrap">
       <table className="m-tx-dense-table">
@@ -93,59 +55,87 @@ function DenseAccountTable({ side, rows, showName, m, onOpenHistory, onPickBalan
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
-            const roleCls = getRoleClass(row?.role);
-            const code = String(row?.account_id || "").toUpperCase();
-            const name = String(row?.account_name || "").trim();
-            const isAlert = Number(row?.is_alert) === 1;
-            const key = `${row.account_db_id || row.account_id}-${row.currency}-${row.transaction_id || ""}`;
-            const balDisplay = formatTransactionGridMoneyHalfUp(row?.balance);
-            return (
-              <tr
-                key={key}
-                className={`m-tx-dense-row${isAlert ? " m-tx-dense-row--alert" : ""}`}
-              >
-                <td className="m-tx-dense-td m-tx-dense-td--acc">
-                  <button
-                    type="button"
-                    className={`m-tx-dense-acc tap-scale m-account-role${roleCls ? ` ${roleCls}` : ""}`}
-                    onClick={() => onOpenHistory?.(row)}
-                    title={m.tapForHistory}
-                    aria-label={`${m.tapForHistory}: ${code}`}
+          <tr className="m-tx-dense-row m-tx-dense-row--total">
+            <th scope="row" className="m-tx-dense-td m-tx-dense-td--acc m-tx-dense-td--total-label">
+              {m.total}
+            </th>
+            <td className="m-tx-dense-td m-tx-dense-td--num m-tx-dense-td--total">
+              <MoneyText value={totals.bf} />
+            </td>
+            <td className="m-tx-dense-td m-tx-dense-td--num m-tx-dense-td--total">
+              <MoneyText value={totals.win_loss} />
+            </td>
+            <td className="m-tx-dense-td m-tx-dense-td--num m-tx-dense-td--total">
+              <MoneyText value={totals.cr_dr} />
+            </td>
+            <td className="m-tx-dense-td m-tx-dense-td--num m-tx-dense-td--total">
+              <MoneyText value={totals.balance} />
+            </td>
+          </tr>
+
+          {rows.length === 0 ? (
+            <tr className="m-tx-dense-row">
+              <td className="m-tx-dense-td m-tx-dense-td--empty" colSpan={5}>
+                {m.noAccountsFound}
+              </td>
+            </tr>
+          ) : (
+            rows.map((row) => {
+              const roleCls = getRoleClass(row?.role);
+              const code = String(row?.account_id || "").toUpperCase();
+              const name = String(row?.account_name || "").trim();
+              const isAlert = Number(row?.is_alert) === 1;
+              const key = `${row.account_db_id || row.account_id}-${row.currency}-${row.transaction_id || ""}`;
+              const balDisplay = formatTransactionGridMoneyHalfUp(row?.balance);
+              return (
+                <tr
+                  key={key}
+                  className={`m-tx-dense-row${isAlert ? " m-tx-dense-row--alert" : ""}`}
+                >
+                  <td
+                    className={`m-tx-dense-td m-tx-dense-td--acc m-account-role${roleCls ? ` ${roleCls}` : ""}`}
                   >
-                    <span className="m-tx-dense-code">{code}</span>
-                    {showName && name ? <span className="m-tx-dense-name">{name}</span> : null}
-                  </button>
-                </td>
-                <td className="m-tx-dense-td m-tx-dense-td--num">
-                  <MoneyText value={row?.bf} />
-                </td>
-                <td className="m-tx-dense-td m-tx-dense-td--num">
-                  <MoneyText value={row?.win_loss} />
-                </td>
-                <td className="m-tx-dense-td m-tx-dense-td--num">
-                  <MoneyText value={row?.cr_dr} />
-                </td>
-                <td className="m-tx-dense-td m-tx-dense-td--num">
-                  <button
-                    type="button"
-                    className="m-tx-dense-bal tap-scale"
-                    onClick={() => onPickBalance?.(row, side)}
-                    title={m.tapBalanceToFill || m.balanceTable}
-                    aria-label={
-                      m.tapBalanceAria
-                        ? m.tapBalanceAria
-                            .replace("{account}", code)
-                            .replace("{amount}", balDisplay)
-                        : `${m.tapBalanceToFill || m.balanceTable}: ${code} ${balDisplay}`
-                    }
-                  >
-                    <MoneyText value={row?.balance} />
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
+                    <button
+                      type="button"
+                      className="m-tx-dense-acc tap-scale"
+                      onClick={() => onOpenHistory?.(row)}
+                      title={m.tapForHistory}
+                      aria-label={`${m.tapForHistory}: ${code}`}
+                    >
+                      <span className="m-tx-dense-code">{code}</span>
+                      {showName && name ? <span className="m-tx-dense-name">{name}</span> : null}
+                    </button>
+                  </td>
+                  <td className="m-tx-dense-td m-tx-dense-td--num">
+                    <MoneyText value={row?.bf} />
+                  </td>
+                  <td className="m-tx-dense-td m-tx-dense-td--num">
+                    <MoneyText value={row?.win_loss} />
+                  </td>
+                  <td className="m-tx-dense-td m-tx-dense-td--num">
+                    <MoneyText value={row?.cr_dr} />
+                  </td>
+                  <td className="m-tx-dense-td m-tx-dense-td--num">
+                    <button
+                      type="button"
+                      className="m-tx-dense-bal tap-scale"
+                      onClick={() => onPickBalance?.(row, side)}
+                      title={m.tapBalanceToFill || m.balanceTable}
+                      aria-label={
+                        m.tapBalanceAria
+                          ? m.tapBalanceAria
+                              .replace("{account}", code)
+                              .replace("{amount}", balDisplay)
+                          : `${m.tapBalanceToFill || m.balanceTable}: ${code} ${balDisplay}`
+                      }
+                    >
+                      <MoneyText value={row?.balance} />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })
+          )}
         </tbody>
       </table>
     </div>
@@ -212,13 +202,12 @@ export default function AccountBalanceTables({
         </button>
       </div>
 
-      <SideTotalBand m={m} totals={sideTotals} />
-
       <DenseAccountTable
         side={isLeft ? "left" : "right"}
         rows={activeRows}
         showName={showName}
         m={m}
+        totals={sideTotals}
         onOpenHistory={onOpenHistory}
         onPickBalance={onPickBalance}
       />
