@@ -444,7 +444,6 @@ if ($current_user_id && count($user_companies_all) > 0) {
     <script src="js/money-decimal.js?v=<?php echo $assetVer('js/money-decimal.js'); ?>"></script>
     <script src="js/datacapture-clipboard-normalize.js?v=<?php echo $assetVer('js/datacapture-clipboard-normalize.js'); ?>"></script>
     <script src="js/datacapture-paste-matrix.js?v=<?php echo $assetVer('js/datacapture-paste-matrix.js'); ?>"></script>
-    <script src="js/datacapture-paste-prefer.js?v=<?php echo $assetVer('js/datacapture-paste-prefer.js'); ?>"></script>
     <script src="js/datacapture.js?v=<?php echo $assetVer('js/datacapture.js'); ?>"></script>
 
 </body>

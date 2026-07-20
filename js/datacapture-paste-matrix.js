@@ -26,34 +26,6 @@
     );
   }
 
-  /** True spreadsheet TSV — not sparse tabs inside a one-field-per-line dump. */
-  function plainTextLooksLikeAlignedTsv(text) {
-    if (!text || !String(text).includes("\t")) return false;
-    const lines = String(text)
-      .replace(/\r\n/g, "\n")
-      .replace(/\r/g, "\n")
-      .split("\n")
-      .filter((line) => String(line).trim() !== "");
-    if (lines.length < 2) return false;
-    const tabLines = lines.filter((line) => line.includes("\t"));
-    if (tabLines.length < Math.ceil(lines.length * 0.5)) return false;
-    const widths = tabLines.map((line) => line.split("\t").length);
-    const maxCols = Math.max(...widths);
-    const minCols = Math.min(...widths);
-    return maxCols >= 2 && maxCols - minCols <= 2;
-  }
-
-  /** Split "87 AGENT" / "8 MEMBER" crushed onto one line by some clipboards. */
-  function expandCompoundFieldTokens(token) {
-    const text = String(token ?? "")
-      .replace(/\u00a0/g, " ")
-      .trim();
-    if (!text) return [];
-    const merged = text.match(/^(\d+)\s+(AGENT|MEMBER)$/i);
-    if (merged) return [merged[1], merged[2].toUpperCase()];
-    return [text];
-  }
-
   function isDenseReportRow(row) {
     if (!row || row.length < 3) return false;
     if (isMoneyOrNumberLikeToken(row[0])) return false;
@@ -128,72 +100,17 @@
   }
 
   /**
-   * Win Loss style: agent codes at a fixed stride (skip AGENT/MEMBER tokens).
-   */
-  function tryParseAgentIdStrideRows(tokens) {
-    const agentIdx = [];
-    tokens.forEach((token, index) => {
-      const t = String(token || "").trim();
-      if (!t || isMoneyOrNumberLikeToken(t) || isSummaryLabelToken(t)) return;
-      if (/^(AGENT|MEMBER)$/i.test(t)) return;
-      if (!/^[A-Z0-9][A-Z0-9_-]{2,}$/i.test(t) || !/[A-Za-z]/.test(t) || !/\d/.test(t)) return;
-      agentIdx.push(index);
-    });
-    if (agentIdx.length < 2) return null;
-
-    const width = agentIdx[1] - agentIdx[0];
-    if (width < 3 || width > 24) return null;
-    for (let i = 1; i < agentIdx.length; i += 1) {
-      if (agentIdx[i] - agentIdx[i - 1] !== width) return null;
-    }
-    if (agentIdx[0] !== 0 && agentIdx[0] > 2) return null;
-
-    const dataTokens = tokens.slice(agentIdx[0]);
-    const rows = [];
-    for (let i = 0; i < dataTokens.length; i += width) {
-      const chunk = dataTokens.slice(i, i + width);
-      if (chunk.length < Math.min(3, width)) break;
-      while (chunk.length < width) chunk.push("");
-      rows.push(chunk);
-    }
-    return rows.length >= 2 ? rows : null;
-  }
-
-  /**
    * mat-row copy: one field per line, no tabs → 1..N horizontal rows.
    * Uses label stride + numeric density (no hard-coded column count / account).
    */
   function tryParseVerticalFieldDump(nonEmptyLines) {
-    const rawTokens = [];
-    (nonEmptyLines || []).forEach((line) => {
-      const normalized = String(line ?? "")
-        .replace(/\u00a0/g, " ")
-        .trim();
-      if (!normalized) return;
-      if (normalized.includes("\t")) {
-        normalized.split("\t").forEach((part) => {
-          expandCompoundFieldTokens(part).forEach((token) => rawTokens.push(token));
-        });
-        return;
-      }
-      expandCompoundFieldTokens(normalized).forEach((token) => rawTokens.push(token));
-    });
-    if (rawTokens.length < 3) return null;
+    const tokens = nonEmptyLines.map((line) => String(line ?? "").trim()).filter(Boolean);
+    if (tokens.length < 3) return null;
 
-    // Already mostly multi-column lines → leave for spacing/tab paths.
-    const multiColCount = rawTokens.filter(
-      (token) => token.includes("\t") || /\s{2,}/.test(token),
-    ).length;
-    if (multiColCount >= Math.max(2, Math.ceil(rawTokens.length * 0.5))) return null;
-    if (rawTokens.some((token) => token.includes("\t"))) return null;
+    if (tokens.some((token) => token.includes("\t") || /\s{2,}/.test(token))) return null;
 
-    const tokens = rawTokens;
     const numericLikeCount = tokens.filter((token) => isMoneyOrNumberLikeToken(token)).length;
     if (numericLikeCount < 2) return null;
-
-    const agentStrideRows = tryParseAgentIdStrideRows(tokens);
-    if (agentStrideRows) return agentStrideRows;
-
     if (numericLikeCount < Math.ceil(tokens.length * 0.5)) return null;
 
     const labelIndices = [];
@@ -235,19 +152,11 @@
     const normalized = String(pastedData || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     if (!normalized.trim()) return [];
 
-    // Only real spreadsheet TSV uses the tab-row path. Sparse tabs mixed into a
-    // one-field-per-line dump must fall through to vertical-dump reshape.
-    if (plainTextLooksLikeAlignedTsv(normalized)) {
+    if (normalized.includes("\t")) {
       const tabRows = normalized
         .split("\n")
         .filter((line) => line.trim() !== "")
-        .map((line) =>
-          line.split("\t").flatMap((cell) => {
-            const expanded = expandCompoundFieldTokens(cell);
-            // Keep empty TSV cells so footer leading blanks stay aligned.
-            return expanded.length ? expanded : [""];
-          }),
-        );
+        .map((line) => line.split("\t"));
       if (!tabRows.length) return [];
       const maxCols = Math.max(...tabRows.map((row) => row.length));
       tabRows.forEach((row) => {
@@ -257,11 +166,6 @@
     }
 
     const rawLines = normalized.split("\n");
-    const nonEmptyLines = rawLines.filter((line) => line.trim() !== "");
-
-    const verticalDumpRows = tryParseVerticalFieldDump(nonEmptyLines);
-    if (verticalDumpRows) return verticalDumpRows;
-
     const hasBlankLine = rawLines.some((line) => line.trim() === "");
     if (hasBlankLine) {
       const rowBlocks = [];
@@ -287,6 +191,11 @@
         return rowBlocks;
       }
     }
+
+    const nonEmptyLines = rawLines.filter((line) => line.trim() !== "");
+
+    const verticalDumpRows = tryParseVerticalFieldDump(nonEmptyLines);
+    if (verticalDumpRows) return verticalDumpRows;
 
     const spacingSplitRows = nonEmptyLines.map((line) =>
       line
