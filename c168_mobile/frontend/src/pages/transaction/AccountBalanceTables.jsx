@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
 import { parseBalanceValue, formatTransactionGridMoneyHalfUp } from "../../lib/transactionFormat.js";
 import { moneyToneClass } from "../../lib/money/moneyToneClass.js";
-import MoneyDecimal from "../../lib/money/moneyDecimal.js";
-import { getRoleClass } from "../../lib/transactionPaymentLogic.js";
+import {
+  applySummaryWinLossDisplayTolerance,
+  calculateTotals,
+  getRoleClass,
+} from "../../lib/transactionPaymentLogic.js";
 
 function MoneyText({ value }) {
   return (
@@ -10,25 +13,6 @@ function MoneyText({ value }) {
       {formatTransactionGridMoneyHalfUp(value)}
     </span>
   );
-}
-
-function sumSideMetrics(rows) {
-  let bf = MoneyDecimal.toDecimal(0);
-  let winLoss = MoneyDecimal.toDecimal(0);
-  let crDr = MoneyDecimal.toDecimal(0);
-  let balance = MoneyDecimal.toDecimal(0);
-  for (const row of rows || []) {
-    bf = MoneyDecimal.add(bf, row?.bf ?? 0);
-    winLoss = MoneyDecimal.add(winLoss, row?.win_loss ?? 0);
-    crDr = MoneyDecimal.add(crDr, row?.cr_dr ?? 0);
-    balance = MoneyDecimal.add(balance, row?.balance ?? 0);
-  }
-  return {
-    bf: bf.toFixed(),
-    win_loss: winLoss.toFixed(),
-    cr_dr: crDr.toFixed(),
-    balance: balance.toFixed(),
-  };
 }
 
 function SideTotalsCard({ m, totals }) {
@@ -196,10 +180,13 @@ export default function AccountBalanceTables({
   const [sideTab, setSideTab] = useState("left");
   const isLeft = sideTab === "left";
   const activeRows = isLeft ? left : right;
-  /* Grand total = Balance+ and Balance− combined (summary card). */
-  const grandTotals = useMemo(() => sumSideMetrics(rows), [rows]);
-  /* Per-tab total for the Acc table currently shown. */
-  const sideTotals = useMemo(() => sumSideMetrics(activeRows), [activeRows]);
+  /* Grand total = Balance+ and Balance− combined (desktop summary card). */
+  const grandTotals = useMemo(
+    () => applySummaryWinLossDisplayTolerance(calculateTotals(rows)),
+    [rows],
+  );
+  /* Per-tab total — same calculateTotals as desktop left/right footers. */
+  const sideTotals = useMemo(() => calculateTotals(activeRows), [activeRows]);
 
   return (
     <div className="m-tx-balance-root">
