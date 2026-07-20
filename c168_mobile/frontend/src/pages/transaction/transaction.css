@@ -416,6 +416,31 @@
   letter-spacing: -0.01em;
 }
 
+/* Per-side Total row under Acc headers (current Balance+/− tab) */
+.m-tx-dense-row--total > .m-tx-dense-td,
+.m-tx-dense-row--total > .m-tx-dense-td--total-label {
+  background: #eef2ff;
+  font-weight: 800;
+  border-top: 1px solid #cbd5e1;
+}
+
+.m-tx-dense-td--total-label {
+  text-align: left;
+  padding: 0.3125rem 0.375rem;
+  font-size: inherit;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  color: #1e293b;
+}
+
+.m-tx-dense-td--acc.m-tx-dense-td--total-label {
+  padding: 0.3125rem 0.375rem;
+}
+
+.m-tx-dense-td--total {
+  font-size: inherit;
+}
+
 .m-tx-dense-row--alert {
   background: #fff5f5;
   animation: m-tx-alert-breathe 1.8s ease-in-out infinite;

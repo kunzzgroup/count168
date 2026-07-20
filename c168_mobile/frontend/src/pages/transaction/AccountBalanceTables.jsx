@@ -62,7 +62,7 @@ function SideTotalsCard({ m, totals }) {
   );
 }
 
-function DenseAccountTable({ side, rows, showName, m, onOpenHistory, onPickBalance }) {
+function DenseAccountTable({ side, rows, showName, m, totals, onOpenHistory, onPickBalance }) {
   return (
     <div className="m-tx-dense-wrap">
       <table className="m-tx-dense-table">
@@ -83,6 +83,23 @@ function DenseAccountTable({ side, rows, showName, m, onOpenHistory, onPickBalan
             <th scope="col" className="m-tx-dense-th m-tx-dense-th--num">
               {m.balanceTableCompact}
             </th>
+          </tr>
+          <tr className="m-tx-dense-row m-tx-dense-row--total">
+            <th scope="row" className="m-tx-dense-td m-tx-dense-td--acc m-tx-dense-td--total-label">
+              {m.total}
+            </th>
+            <td className="m-tx-dense-td m-tx-dense-td--num m-tx-dense-td--total">
+              <MoneyText value={totals.bf} />
+            </td>
+            <td className="m-tx-dense-td m-tx-dense-td--num m-tx-dense-td--total">
+              <MoneyText value={totals.win_loss} />
+            </td>
+            <td className="m-tx-dense-td m-tx-dense-td--num m-tx-dense-td--total">
+              <MoneyText value={totals.cr_dr} />
+            </td>
+            <td className="m-tx-dense-td m-tx-dense-td--num m-tx-dense-td--total">
+              <MoneyText value={totals.balance} />
+            </td>
           </tr>
         </thead>
         <tbody>
@@ -179,6 +196,9 @@ export default function AccountBalanceTables({
   const [sideTab, setSideTab] = useState("left");
   const isLeft = sideTab === "left";
   const activeRows = isLeft ? left : right;
+  /* Grand total = Balance+ and Balance− combined (summary card). */
+  const grandTotals = useMemo(() => sumSideMetrics(rows), [rows]);
+  /* Per-tab total for the Acc table currently shown. */
   const sideTotals = useMemo(() => sumSideMetrics(activeRows), [activeRows]);
 
   return (
@@ -215,13 +235,14 @@ export default function AccountBalanceTables({
         </button>
       </div>
 
-      <SideTotalsCard m={m} totals={sideTotals} />
+      <SideTotalsCard m={m} totals={grandTotals} />
 
       <DenseAccountTable
         side={isLeft ? "left" : "right"}
         rows={activeRows}
         showName={showName}
         m={m}
+        totals={sideTotals}
         onOpenHistory={onOpenHistory}
         onPickBalance={onPickBalance}
       />
