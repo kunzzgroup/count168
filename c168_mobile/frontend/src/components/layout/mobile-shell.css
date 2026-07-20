@@ -211,7 +211,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   padding-inline: 0.125rem;
-  font-size: clamp(1rem, 0.15vw + 0.85rem, 1.05rem);
+  font-size: 0.625rem;
   font-weight: 600;
   line-height: 1.1;
   letter-spacing: 0.02em;
