@@ -220,6 +220,8 @@ function chunkTokensToRows(tokens, width, { requireDense = true } = {}) {
     const chunk = tokens.slice(i, i + width);
     if (chunk.length < width) {
       if (leftoverLooksLikeSummaryFooter(chunk) || leftoverLooksLikeNumericFooter(chunk, width)) {
+        // Keep short footers; generic path right-pads. C8 Win Loss left-pad lives
+        // in dataCaptureC8WinLossPasteHelper.js only.
         rows.push(padRowToWidth(chunk, width));
         break;
       }
@@ -301,35 +303,6 @@ function tryParseAnchoredVerticalRows(tokens) {
 }
 
 /**
- * Win Loss style: CKZ03 / CXZ15 agent codes at a fixed stride, then a shorter
- * money-only Subtotal footer (no SUBTOTAL label in the clipboard).
- */
-function tryParseAgentIdStrideRows(tokens) {
-  const agentIdx = [];
-  tokens.forEach((token, index) => {
-    const t = normalizeVerticalDumpToken(token);
-    // Player codes: letters+digits (CKZ03, CK203, 225C8) — not AGENT/MEMBER/money.
-    if (!t || isVerticalDumpMoneyToken(t) || isVerticalDumpSummaryLabel(t)) return;
-    if (/^(AGENT|MEMBER)$/i.test(t)) return;
-    if (!/^[A-Z0-9][A-Z0-9_-]{2,}$/i.test(t) || !/[A-Za-z]/.test(t) || !/\d/.test(t)) return;
-    agentIdx.push(index);
-  });
-  if (agentIdx.length < 2) return null;
-
-  const width = agentIdx[1] - agentIdx[0];
-  if (width < 3 || width > 24) return null;
-  for (let i = 1; i < agentIdx.length; i += 1) {
-    if (agentIdx[i] - agentIdx[i - 1] !== width) return null;
-  }
-  if (agentIdx[0] !== 0 && agentIdx[0] > 2) return null;
-
-  const start = agentIdx[0];
-  const dataTokens = tokens.slice(start);
-  const rows = chunkTokensToRows(dataTokens, width, { requireDense: true });
-  return rows?.length >= 2 ? rows : null;
-}
-
-/**
  * Summary-label stride path for Agent / SUBTOTAL / TOTAL AMOUNT statements.
  */
 function tryParseSummaryStrideRows(tokens) {
@@ -398,7 +371,9 @@ function asVerticalDumpResult(rows) {
 export function detectVerticalFieldDump(nonEmptyLines) {
   if (!Array.isArray(nonEmptyLines) || nonEmptyLines.length < 3) return null;
 
-  // Expand sparse tab cells ("87\tAgent\t") so C8Play plain matches field-per-line.
+  // Expand sparse tab cells ("87\tAgent\t") so field-per-line dumps tokenize.
+  // Note: normalizeVerticalDumpToken collapses \t → space; C8 Win Loss tab
+  // fidelity is handled only in dataCaptureC8WinLossPasteHelper.js.
   const rawTokens = [];
   nonEmptyLines.forEach((line) => {
     const normalized = normalizeVerticalDumpToken(line);
@@ -430,11 +405,10 @@ export function detectVerticalFieldDump(nonEmptyLines) {
   const summaryRows = tryParseSummaryStrideRows(tokens);
   if (summaryRows) return asVerticalDumpResult(summaryRows);
 
-  // 2) Repeated agent-id stride + optional money-only footer (Kendo group footer).
-  const agentStrideRows = tryParseAgentIdStrideRows(tokens);
-  if (agentStrideRows) return asVerticalDumpResult(agentStrideRows);
+  // C8 Win Loss agent-id stride + money-only footer left-pad is NOT here —
+  // see dataCaptureC8WinLossPasteHelper.js (avoids reshaping other report pastes).
 
-  // 3) Anchor on first dense label+numbers block (skips column-title headers).
+  // 2) Anchor on first dense label+numbers block (skips column-title headers).
   const anchoredRows = tryParseAnchoredVerticalRows(tokens);
   if (anchoredRows) return asVerticalDumpResult(anchoredRows);
 

@@ -16,6 +16,7 @@ import {
   detectFlattenedStatementMatrix,
   detectVerticalFieldDump,
 } from "./dataCaptureVerticalDumpDetect.js";
+import { tryReshapeC8WinLossPlainMatrix } from "./dataCaptureC8WinLossPasteHelper.js";
 import {
   plainTextLooksLikeAlignedTsv,
   sanitizePasteMatrix,
@@ -98,9 +99,8 @@ export function parsePlainTextMatrix(pastedData) {
     .replace(/\r/g, "\n");
   if (!normalized.trim()) return [];
 
-  // Only real spreadsheet TSV uses the tab-row path. Sparse tabs mixed into a
-  // one-field-per-line dump (C8Play / agent_period) must fall through to
-  // vertical-dump reshape — otherwise paste lands as N×1 in column 1.
+  // Only real spreadsheet TSV uses the tab-row path (keeps empty cells 1:1).
+  // Sparse tabs mixed into a one-field-per-line dump must fall through.
   if (plainTextLooksLikeAlignedTsv(normalized)) {
     const tabRows = normalized
       .split("\n")
@@ -114,6 +114,11 @@ export function parsePlainTextMatrix(pastedData) {
     });
     return finalizePlainMatrix(tabRows);
   }
+
+  // Scoped C8 Win Loss Detail helper — vertical / sparse-tab only.
+  // Null for all other report pastes (agent_period, OB, etc.).
+  const c8WinLoss = tryReshapeC8WinLossPlainMatrix(normalized);
+  if (c8WinLoss?.length) return finalizePlainMatrix(c8WinLoss);
 
   const rawLines = normalized.split("\n");
   const nonEmptyLines = rawLines.filter((line) => line.trim() !== "");

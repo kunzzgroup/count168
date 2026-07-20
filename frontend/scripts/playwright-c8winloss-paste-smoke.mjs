@@ -17,6 +17,10 @@ import {
   sanitizePasteMatrix,
 } from "../src/pages/datacapture/paste/core/dataCapturePasteMatrixSanitize.js";
 import { parsePlainTextMatrix } from "../src/pages/datacapture/paste/core/dataCaptureTextPaste.js";
+import {
+  looksLikeC8WinLossPlain,
+  tryReshapeC8WinLossPlainMatrix,
+} from "../src/pages/datacapture/paste/core/dataCaptureC8WinLossPasteHelper.js";
 import { detectVerticalFieldDump } from "../src/pages/datacapture/paste/core/dataCaptureVerticalDumpDetect.js";
 import { buildColumnAEntries } from "../src/pages/datacapturesummary/table/summaryColumnAData.js";
 import { buildInitialSummaryRows } from "../src/pages/datacapturesummary/table/summaryTemplatePopulatePure.js";
@@ -275,6 +279,50 @@ async function runNodePureChecks() {
     fail(`money-only footer vertical lost Subtotal: ${moneyFooterMatrix.length} rows`);
   }
   ok("money-only footer vertical keeps 3 rows");
+  // 1.TEXT must left-pad like 2.FORMAT (empty Player/Name/Type), not shove money into col0.
+  const footerLead = (moneyFooterMatrix[2] || []).slice(0, 3).map((c) => String(c ?? "").trim());
+  const footerMoneyAt = (moneyFooterMatrix[2] || []).findIndex((c) => /[\d,]/.test(String(c ?? "").trim()));
+  if (footerLead.some(Boolean) || footerMoneyAt !== 3) {
+    fail(
+      `money-only footer must left-pad 3 empties (Turn Over @ col3); got lead=${JSON.stringify(footerLead)} moneyAt=${footerMoneyAt}`,
+    );
+  }
+  ok("money-only footer left-pads to match agent Turn Over col");
+
+  // C8Play sparse tab "87\tAGENT" must split — not collapse to "87 AGENT" (1.TEXT fig).
+  const sparseTabVertical = [
+    "CKZ03",
+    "87\tAGENT",
+    ...AGENT1.slice(3),
+    "CKZ16",
+    "8\tAGENT",
+    ...AGENT2.slice(3),
+    ...SUBTOTAL.slice(3),
+  ].join("\n");
+  const sparseMatrix = parsePlainTextMatrix(sparseTabVertical);
+  if (sparseMatrix.length !== 3) {
+    fail(`sparse-tab vertical expected 3 rows, got ${sparseMatrix.length}`);
+  }
+  if (String(sparseMatrix[0]?.[1] ?? "") !== "87" || String(sparseMatrix[0]?.[2] ?? "").toUpperCase() !== "AGENT") {
+    fail(
+      `sparse-tab must split Name/UserType; got ${JSON.stringify(sparseMatrix[0]?.slice(0, 4))}`,
+    );
+  }
+  if (String(sparseMatrix[2]?.[0] ?? "").trim() !== "" || String(sparseMatrix[2]?.[3] ?? "").trim() !== String(SUBTOTAL[3])) {
+    fail(
+      `sparse-tab footer must stay left-padded; got ${JSON.stringify(sparseMatrix[2]?.slice(0, 5))}`,
+    );
+  }
+  ok("sparse-tab 87\\tAGENT splits + footer left-pads (1.TEXT)");
+
+  // Helper must be scoped — agent_period (narrow, no AGENT/MEMBER col) must NOT match.
+  const agentPeriodPlain = ["SDSPDA95", "3,000", "$0.00", "1,200", "SUBTOTAL", "3,000", "$0.00", "1,200"].join(
+    "\n",
+  );
+  if (looksLikeC8WinLossPlain(agentPeriodPlain) || tryReshapeC8WinLossPlainMatrix(agentPeriodPlain)) {
+    fail("C8 helper must not claim agent_period / non-WinLoss dumps");
+  }
+  ok("C8 helper ignores non-WinLoss plain (scoped)");
 
   const messyKendoPlain = buildKendoMessyPlain();
   if (plainTextLooksLikeAlignedTsv(messyKendoPlain)) {
