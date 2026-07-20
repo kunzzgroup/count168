@@ -173,7 +173,9 @@ export function parsePlainTextMatrix(pastedData) {
 /** 1.Text — Excel plain text paste, preserving the clipboard matrix as-is. */
 export function handleTextPlainPaste(e, pastedData, anchorCell) {
   // TEXT-only: unwind SUB TOTAL+GRAND TOTAL stacked in one label cell (helper not used by Format).
-  const dataMatrix = splitStackedSubtotalGrandTotalRows(parsePlainTextMatrix(pastedData));
+  const dataMatrix = sanitizePasteMatrix(
+    splitStackedSubtotalGrandTotalRows(parsePlainTextMatrix(pastedData)),
+  );
   if (!dataMatrix.length) return false;
 
   const { successCount, maxRows, maxCols: cols } = applyDataMatrixToGrid(dataMatrix, anchorCell, {
