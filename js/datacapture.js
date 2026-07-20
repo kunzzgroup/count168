@@ -4389,6 +4389,30 @@ function tryHandleMatRowPasteForText(e, pastedData, startCell) {
         html = (e.clipboardData && e.clipboardData.getData('text/html')) || '';
     } catch (_) { }
 
+    // Prefer helper: same scoring as site SPA so 1.Text matches 2.Format shape.
+    const preferApi = window.DataCapturePastePrefer;
+    if (preferApi && typeof preferApi.selectPreferredReportPasteMatrix === 'function') {
+        const preferred = preferApi.selectPreferredReportPasteMatrix(html, pastedData || '');
+        if (preferred && preferred.matrix && preferred.matrix.length) {
+            const cols = Math.max(...preferred.matrix.map((row) => (row && row.length) || 0), 0);
+            if (cols >= 2) {
+                console.log(
+                    '1.Text: prefer',
+                    preferred.source,
+                    preferred.matrix.length + 'x' + cols
+                );
+                if (
+                    preferred.source === 'html' &&
+                    preferred.htmlNormalized &&
+                    /<table\b/i.test(preferred.htmlNormalized)
+                ) {
+                    if (parseAndFillHTMLTableForText(preferred.htmlNormalized, cell)) return true;
+                }
+                return applyPlainMatrixLikeExcel(preferred.matrix, cell);
+            }
+        }
+    }
+
     const normalizedHtml = normalizeMatRowClipboardHtml(html);
     if (normalizedHtml && /<table\b/i.test(normalizedHtml)) {
         console.log('1.Text: mat-row HTML normalized to table');
