@@ -4613,6 +4613,116 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!accessible.length) {
         throw new Error(i18n.failedToLoadDashboard);
       }
+
+      const viewGroupHint = String(viewGroupFallback ?? selectedGroup ?? "")
+        .trim()
+        .toUpperCase();
+      const cur = currencyOverride ?? currencyCodeRef.current;
+      const ids = accessible
+        .map((c) => parseInt(c.id, 10))
+        .filter((id) => Number.isFinite(id) && id > 0);
+
+      /** One HTTP: server runs per-company packs in-process; FE still owns mergeGroupData. */
+      const tryGroupAllBootstrap = async () => {
+        if (!ids.length || ids.length > 40) return null;
+        // Heterogeneous view_group (Groups All) — keep parallel per-company fetches.
+        const sameViewGroup = accessible.every((c) => {
+          const vg = resolveViewGroupForCompany(c, viewGroupFallback ?? selectedGroup);
+          return String(vg || "").trim().toUpperCase() === viewGroupHint;
+        });
+        if (!sameViewGroup || !viewGroupHint) return null;
+
+        const q = new URLSearchParams({
+          date_from: rangeFrom,
+          date_to: rangeTo,
+          group_all: "1",
+          company_ids: ids.join(","),
+          view_group: viewGroupHint,
+          bootstrap_scope: earningsOnly ? "earnings" : "full",
+        });
+        if (cur) q.set("currency", cur);
+        const codes = currenciesRef.current;
+        if (Array.isArray(codes) && codes.length > 1) {
+          q.set("currencies", codes.join(","));
+        }
+        if (!earningsOnly && shouldAggregateChartByMonth(rangeFrom, rangeTo)) {
+          q.set("chart_monthly", "1");
+        }
+
+        const { res, json } = await fetchBootstrapHttpDeduped(
+          bootstrapInflightRef.current,
+          q.toString(),
+          { credentials: "include" }
+        );
+        if (!res.ok || !json?.success || !json?.data?.group_all || !Array.isArray(json.data.companies)) {
+          return null;
+        }
+
+        const byId = new Map(
+          json.data.companies.map((row) => [parseInt(row.company_id, 10), row])
+        );
+        const pairs = [];
+        for (const c of accessible) {
+          const cid = parseInt(c.id, 10);
+          const pack = byId.get(cid);
+          const data = earningsOnly
+            ? pack?.current ?? pack?.earnings?.current?.[0]?.payload ?? null
+            : pack?.current;
+          if (!data) continue;
+          const viewGroup = resolveViewGroupForCompany(c, viewGroupFallback ?? selectedGroup);
+          seedDashboardPayloadCacheForCompany(cid, viewGroup, rangeFrom, rangeTo, cur, data);
+          if (!earningsOnly && pack?.previous) {
+            const prevRange = previousMonthEquivalentRange(rangeFrom, rangeTo);
+            seedDashboardPayloadCacheForCompany(
+              cid,
+              viewGroup,
+              prevRange.from,
+              prevRange.to,
+              cur,
+              pack.previous
+            );
+          }
+          pairs.push({ company: c, data, viewGroup });
+        }
+        if (!pairs.length) return null;
+
+        const merged = mergeGroupData(
+          pairs.map((p) => p.data),
+          { startDate: rangeFrom, endDate: rangeTo }
+        );
+        const byCompany = buildCompanyNetProfitRowsFromPairs(
+          pairs,
+          viewGroupFallback ?? selectedGroup
+        );
+        if (byCompany.length) {
+          merged.subsidiary_earnings_by_company = byCompany;
+        }
+        if (!earningsOnly && codes?.length > 1) {
+          const lists = [];
+          for (const c of accessible) {
+            const pack = byId.get(parseInt(c.id, 10));
+            if (!pack?.earnings?.current?.length) continue;
+            const rows = earningsRowsFromBootstrapEntries(
+              pack.earnings.current,
+              parseInt(c.id, 10),
+              resolveViewGroupForCompany(c, viewGroupFallback ?? selectedGroup)
+            );
+            if (rows.length) lists.push(rows);
+          }
+          if (lists.length) {
+            merged._group_all_earnings_by_currency = mergeEarningsByCurrency(lists, codes);
+          }
+        }
+        return merged;
+      };
+
+      try {
+        const bootMerged = await tryGroupAllBootstrap();
+        if (bootMerged) return bootMerged;
+      } catch {
+        /* fall back to parallel dashboard_api */
+      }
+
       const settled = await runTasksInBatches(
         accessible,
         MERGE_DASHBOARD_PARALLEL_BATCH,
@@ -4662,7 +4772,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       return merged;
     },
-    [fetchDashboardPayload, selectedGroup, companies, i18n.failedToLoadDashboard]
+    [
+      fetchDashboardPayload,
+      selectedGroup,
+      companies,
+      i18n.failedToLoadDashboard,
+      seedDashboardPayloadCacheForCompany,
+      earningsRowsFromBootstrapEntries,
+    ]
   );
 
   const fetchGroupAllMergedDashboard = useCallback(
@@ -6360,7 +6477,32 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           current,
           previous: warmedGroupAll?.previous ?? cached?.previous ?? null,
         };
-        if (groupAllMode && needsMultiCurrencyEarnings && !warmedGroupAll?.earnings?.length) {
+        const bootEarnings = current?._group_all_earnings_by_currency;
+        if (
+          groupAllMode &&
+          needsMultiCurrencyEarnings &&
+          Array.isArray(bootEarnings) &&
+          bootEarnings.length > 1 &&
+          dashboardEarningsRowsComplete(bootEarnings, codesForEarnings || currenciesRef.current)
+        ) {
+          setEarningsByCurrency(bootEarnings);
+          setEarningsByCurrencyPrev([]);
+          setEarningsByCurrencyLoading(false);
+          cachePatch.earnings = bootEarnings;
+          mirrorDashboardEarningsAcrossCurrencies(
+            bootEarnings,
+            codesForEarnings || currenciesRef.current,
+            resolveDashboardScopeKey
+          );
+          // Drop ephemeral merge hint before caching the KPI payload.
+          if (current && current._group_all_earnings_by_currency) {
+            const { _group_all_earnings_by_currency: _drop, ...rest } = current;
+            current = rest;
+            cachePatch.current = rest;
+            setDashboardData(rest);
+            dashboardDataRef.current = rest;
+          }
+        } else if (groupAllMode && needsMultiCurrencyEarnings && !warmedGroupAll?.earnings?.length) {
           const codes = codesForEarnings || currenciesRef.current;
           const primary = currencyCode;
           const primaryMetrics = computeCurrencyMetricsFromPayload(current);
