@@ -1027,17 +1027,23 @@ function ensureCompanyDomainBillingPeriodColumn(PDO $pdo): void
 
 function domainApiClearTransactionSearchCache(): void
 {
-    $cacheDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search';
-    if (!is_dir($cacheDir)) {
-        return;
-    }
-    foreach (scandir($cacheDir) as $file) {
-        if ($file === '.' || $file === '..') {
+    // 须与 search_api.php 的 count168_tx_search_cache 一致；旧错误名一并清理
+    $dirs = [
+        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search_cache',
+        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search',
+    ];
+    foreach ($dirs as $cacheDir) {
+        if (!is_dir($cacheDir)) {
             continue;
         }
-        $fullPath = $cacheDir . DIRECTORY_SEPARATOR . $file;
-        if (is_file($fullPath)) {
-            @unlink($fullPath);
+        foreach (scandir($cacheDir) as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+            $fullPath = $cacheDir . DIRECTORY_SEPARATOR . $file;
+            if (is_file($fullPath)) {
+                @unlink($fullPath);
+            }
         }
     }
 }

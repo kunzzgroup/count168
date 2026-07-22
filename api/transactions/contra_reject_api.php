@@ -21,6 +21,30 @@ function canRejectTransactionType(string $transactionType): bool {
     return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'ADJUSTMENT', 'PROFIT', 'WIN', 'LOSE'], true);
 }
 
+/**
+ * 清理 Transaction List 搜索缓存（须与 search_api.php 的 count168_tx_search_cache 一致）
+ */
+function clearTransactionSearchCache(): void {
+    $dirs = [
+        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search_cache',
+        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search',
+    ];
+    foreach ($dirs as $cacheDir) {
+        if (!is_dir($cacheDir)) {
+            continue;
+        }
+        foreach (scandir($cacheDir) as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+            $fullPath = $cacheDir . DIRECTORY_SEPARATOR . $file;
+            if (is_file($fullPath)) {
+                @unlink($fullPath);
+            }
+        }
+    }
+}
+
 function resolveContraCompanyIdPost(PDO $pdo): int {
     $userRole = strtolower($_SESSION['role'] ?? '');
     $rid = isset($_POST['company_id']) ? trim($_POST['company_id']) : '';
@@ -76,6 +100,7 @@ try {
     try {
         deleteContraTransaction($pdo, $transactionId, $companyId);
         $pdo->commit();
+        clearTransactionSearchCache();
         api_success(null, 'Rejected and deleted');
     } catch (Exception $e) {
         $pdo->rollBack();

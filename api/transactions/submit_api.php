@@ -88,23 +88,29 @@ function insertTransactionRow(PDO $pdo, array $data): int
  * 删除 Transaction List 搜索缓存
  *
  * Transaction List 使用 api/transactions/search_api.php，并在系统临时目录下
- * 的 count168_tx_search 目录里做 60 秒文件缓存。
+ * 的 count168_tx_search_cache 目录里做短时文件缓存（约 3–15 秒）。
  * 当这里提交新交易（PAYMENT / CONTRA / RATE 等）后，需要清掉这些缓存文件，
  * 不然在缓存过期前再次搜索会拿到旧数据，看不到刚提交的余额变化。
  */
 function clearTransactionSearchCache(): void
 {
-    $cacheDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search';
-    if (!is_dir($cacheDir)) {
-        return;
-    }
-    foreach (scandir($cacheDir) as $file) {
-        if ($file === '.' || $file === '..') {
+    // search_api.php 实际目录为 count168_tx_search_cache；旧错误名一并清理
+    $dirs = [
+        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search_cache',
+        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search',
+    ];
+    foreach ($dirs as $cacheDir) {
+        if (!is_dir($cacheDir)) {
             continue;
         }
-        $fullPath = $cacheDir . DIRECTORY_SEPARATOR . $file;
-        if (is_file($fullPath)) {
-            @unlink($fullPath);
+        foreach (scandir($cacheDir) as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+            $fullPath = $cacheDir . DIRECTORY_SEPARATOR . $file;
+            if (is_file($fullPath)) {
+                @unlink($fullPath);
+            }
         }
     }
 }

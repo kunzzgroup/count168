@@ -475,8 +475,13 @@
             .then(data => {
                 if (data && data.success) {
                     showNotification('Approved', 'success');
-                    // 刷新 inbox + 刷新表格（未批准的 contra 之前被排除，批准后要立即生效）
-                    return Promise.all([loadContraInbox(), searchTransactions()]);
+                    // 刷新 inbox + 强制刷新表格（跳过 1200ms 节流，批准后余额必须立刻生效）
+                    return Promise.all([
+                        loadContraInbox(),
+                        typeof searchTransactions === 'function'
+                            ? Promise.resolve(searchTransactions(false, { forceRefresh: true }))
+                            : Promise.resolve()
+                    ]);
                 }
                 showNotification((data && (data.error || data.message)) || 'Approve failed', 'error');
             })

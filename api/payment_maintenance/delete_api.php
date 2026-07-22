@@ -194,22 +194,27 @@ function expandTransactionIdsByRateGroup(PDO $pdo, array $ids, int $company_id):
  * 删除 Transaction List 搜索缓存
  *
  * Transaction List 使用 api/transactions/search_api.php，并在系统临时目录下
- * 的 count168_tx_search 目录里做 60 秒文件缓存。
+ * 的 count168_tx_search_cache 目录里做短时文件缓存（约 3–15 秒）。
  * 当 Payment Maintenance 删除/还原交易时，需要清掉这些缓存文件，
  * 否则在缓存过期前 Transaction List 仍然会显示被删除前的旧数据。
  */
 function clearTransactionSearchCache(): void {
-    $cacheDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search';
-    if (!is_dir($cacheDir)) {
-        return;
-    }
-    foreach (scandir($cacheDir) as $file) {
-        if ($file === '.' || $file === '..') {
+    $dirs = [
+        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search_cache',
+        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search',
+    ];
+    foreach ($dirs as $cacheDir) {
+        if (!is_dir($cacheDir)) {
             continue;
         }
-        $fullPath = $cacheDir . DIRECTORY_SEPARATOR . $file;
-        if (is_file($fullPath)) {
-            @unlink($fullPath);
+        foreach (scandir($cacheDir) as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+            $fullPath = $cacheDir . DIRECTORY_SEPARATOR . $file;
+            if (is_file($fullPath)) {
+                @unlink($fullPath);
+            }
         }
     }
 }
