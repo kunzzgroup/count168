@@ -40,6 +40,16 @@ function statusToneClass(status) {
   return "is-inactive";
 }
 
+function statusLabel(status, i18n) {
+  const s = String(status || "").toUpperCase();
+  if (s === "ACTIVE") return i18n.bankStatusActive;
+  if (s === "INACTIVE") return i18n.bankStatusInactive;
+  if (s === "OFFICIAL") return i18n.bankStatusOfficial;
+  if (s === "E-INVOICE" || s === "E_INVOICE") return i18n.bankStatusEInvoice;
+  if (s === "BLOCK") return i18n.bankStatusBlock;
+  return s;
+}
+
 function rowKey(row, idx) {
   return String(row?.id ?? row?.process_id ?? `${row?.card_lower}-${row?.bank}-${idx}`);
 }
@@ -326,7 +336,7 @@ function BankProcessCard({ row, i18n }) {
         <div className="m-bp-card-key">
           {supplier} · {bankTypeLabel(row)}
         </div>
-        <span className={`m-bp-status ${statusToneClass(status)}`}>{status}</span>
+        <span className={`m-bp-status ${statusToneClass(status)}`}>{statusLabel(status, i18n)}</span>
       </div>
       <div className="m-bp-card-title">{owner}</div>
       <div className="m-bp-card-meta">{meta}</div>
