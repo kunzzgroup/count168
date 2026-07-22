@@ -675,8 +675,6 @@ const LOAD_DASHBOARD_DEBOUNCE_MS = 90;
 const DASHBOARD_STALE_RETRY_MAX = 3;
 const EARNINGS_INCOMPLETE_RETRY_MAX = 5;
 const PREFETCH_WAIT_MAX_ROUNDS = 40;
-/** Wait before low-priority sibling prefetches after a company pick. */
-const COMPANY_SWITCH_PREFETCH_DELAY_MS = 3000;
 /** Coalesce rapid filter switches into one currency reload. */
 const LOAD_CURRENCIES_COALESCE_MS = 32;
 /** Defer session sync so dashboard fetch gets connection priority on company pick. */
@@ -686,7 +684,7 @@ const CURRENCY_REFRESH_DEFER_MS = 600;
 /** Parallel company dashboard fetches when merging Group/Company "All". */
 const MERGE_DASHBOARD_PARALLEL_BATCH = 12;
 /** Idle delay before one-time session warm of picker companies (current currency only). */
-const SESSION_DASHBOARD_WARM_DELAY_MS = 6000;
+const SESSION_DASHBOARD_WARM_DELAY_MS = 1500;
 /** Parallel kpi bootstrap requests when filling multi-currency earnings sidebar. */
 const EARNINGS_KPI_PARALLEL_BATCH = 3;
 /** Defer trend-chart daily fetch so MoM previous can use DB first (skip for month-bucket ranges). */
@@ -694,6 +692,8 @@ const CHART_DAILY_DEFER_MS = 250;
 /** Sibling currency KPI warm — shorter when This Year (chart/FX feel laggy otherwise). */
 const CURRENCY_PREFETCH_DELAY_MS = 3500;
 const CURRENCY_PREFETCH_DELAY_LONG_RANGE_MS = 800;
+/** After picking a company, warm siblings quickly so cold CX/RS/VG feel hot. */
+const COMPANY_SWITCH_PREFETCH_DELAY_MS = 250;
 
 function scheduleChartDailyLoad(cacheKey, resolveScopeKey, loadChartDaily, dateFrom, dateTo) {
   const deferMs =
@@ -6466,14 +6466,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     primeDashboardFromCache,
   ]);
 
-  /** Warm active group companies (incl. current) so first entry and 95↔AG switches hit cache. */
+  /** Warm active group companies + Company All so CX/RS/VG / All switches hit cache. */
   useEffect(() => {
     if (
       !gcBootstrapReady ||
       !companies.length ||
       !dateFrom ||
       !dateTo ||
-      groupAllMode ||
       groupsAllMode
     ) {
       return undefined;
@@ -6492,8 +6491,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         window.setTimeout(runGroupWarm, 600);
         return;
       }
-      const activeId = companyId != null ? parseInt(companyId, 10) : Number.NaN;
-      if (Number.isFinite(activeId) && activeId > 0 && !groupAllMode) return;
+      // Always warm siblings while a company is selected — prefetchDashboardCompany
+      // already no-ops the active scope. Skipping here left CX/RS/VG cold.
       const rows = companiesForCompanyPicker(companies, activeGroup, groupIds);
       const tasks = [];
       for (const row of rows) {
@@ -6503,6 +6502,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (!Number.isFinite(rid) || rid <= 0) continue;
         if (!shouldPrefetchCompanyScope(rid, activeGroup)) continue;
         tasks.push(() => prefetchDashboardCompany(row, activeGroup));
+      }
+      if (!groupAllMode) {
+        tasks.push(() => prefetchDashboardGroupAll(activeGroup));
       }
       let idx = 0;
       const drain = () => {
@@ -6518,7 +6520,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       };
       drain();
     };
-    const timer = window.setTimeout(runGroupWarm, 1200);
+    const timer = window.setTimeout(runGroupWarm, 400);
 
     return () => {
       cancelled = true;
@@ -6536,6 +6538,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     companies,
     companyId,
     prefetchDashboardCompany,
+    prefetchDashboardGroupAll,
     shouldPrefetchCompanyScope,
   ]);
 
@@ -7279,6 +7282,25 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const id = parseInt(raw, 10);
     return Number.isFinite(id) && id > 0 ? id : companyId;
   }, [displayScopeKey, companyId]);
+  /** "All" company pill follows painted scope (cache key segment 5 = groupAllMode). */
+  const displayGroupAllMode = useMemo(() => {
+    if (!displayScopeKey || !scopeDataPending) return groupAllMode;
+    const parts = String(displayScopeKey).split("|");
+    return parts[5] === "1";
+  }, [displayScopeKey, scopeDataPending, groupAllMode]);
+  /** Freeze currency pills while next scope paints — avoid empty/flash mid-switch. */
+  const paintedCurrencyFilterRef = useRef({
+    currencies,
+    currencyCode: displayCurrencyCode,
+  });
+  if (!scopeDataPending) {
+    paintedCurrencyFilterRef.current = {
+      currencies,
+      currencyCode: displayCurrencyCode,
+    };
+  }
+  const displayCurrencies = paintedCurrencyFilterRef.current.currencies;
+  const displayFilterCurrencyCode = paintedCurrencyFilterRef.current.currencyCode;
   const chartDataStable = useMemo(
     () =>
       !scopeDataPending &&
@@ -7621,6 +7643,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             if (!shouldPrefetchCompanyScope(rid, gid)) continue;
             void prefetchDashboardCompany(row, gid);
           }
+          void prefetchDashboardGroupAll(gid);
         }, COMPANY_SWITCH_PREFETCH_DELAY_MS);
       }
       const sessionViewGroup = groupsAllMode ? null : (gid || null);
@@ -7654,6 +7677,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       primeCurrenciesFromCache,
       primeDashboardFromCache,
       prefetchDashboardCompany,
+      prefetchDashboardGroupAll,
       shouldPrefetchCompanyScope,
       me,
       resetCurrencyForCompanySwitch,
@@ -8106,9 +8130,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     selectedGroup,
     groupsAllMode,
     groupAllMode,
+    displayGroupAllMode,
     mergedSubsetIds,
     companyId,
     displayCompanyId,
+    displayCurrencies,
+    displayFilterCurrencyCode,
     currencies,
     currencyCode: displayCurrencyCode,
     showAllCurrencies,

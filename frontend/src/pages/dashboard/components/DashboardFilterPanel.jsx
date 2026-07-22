@@ -5,6 +5,7 @@ export function DashboardFilterPanel({
   selectedGroup,
   groupsAllMode,
   groupAllMode,
+  displayGroupAllMode,
   companiesForPicker,
   companyId,
   displayCompanyId,
@@ -22,6 +23,8 @@ export function DashboardFilterPanel({
   const showCompanyRow = groupIds.length > 0 || companiesForPicker.length > 0;
   const showPanel =
     groupIds.length > 0 || companiesForPicker.length > 0 || currencies.length > 0;
+  const paintedGroupAll =
+    displayGroupAllMode !== undefined ? displayGroupAllMode : groupAllMode;
 
   return (
     <div className="dashboard-card dashboard-filter-panel action-buttons-container">
@@ -86,7 +89,7 @@ export function DashboardFilterPanel({
                   {showCompanyAll && (
                     <button
                       type="button"
-                      className={`user-gc-segment${groupAllMode ? " is-on" : ""}`}
+                      className={`user-gc-segment${paintedGroupAll ? " is-on" : ""}`}
                       onClick={() => void onPickAllInGroup()}
                     >
                       {i18n.all}
@@ -96,7 +99,7 @@ export function DashboardFilterPanel({
                     const id = parseInt(c.id, 10);
                     const paintedId =
                       displayCompanyId !== undefined ? displayCompanyId : companyId;
-                    const active = groupAllMode
+                    const active = paintedGroupAll
                       ? false
                       : mergedSubsetIds && mergedSubsetIds.length > 1
                         ? mergedSubsetIds.includes(id)
