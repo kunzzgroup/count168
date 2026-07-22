@@ -836,6 +836,7 @@ export function useTransactionSearch({
         preserveSearchState = false,
         forceRefresh = false,
       } = opts;
+      const normalizedType = String(formTxType || "").toUpperCase().trim();
 
       setSubmitFocusByCurrency({});
       setSubmitFocusRangeKey(null);
