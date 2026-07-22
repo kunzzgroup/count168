@@ -905,33 +905,46 @@ export function useTransactionSearch({
           return;
         }
 
-        const cleaned = sanitizeSearchApiData(result.data);
+        const rawCleaned = sanitizeSearchApiData(result.data);
+
+        // Filter to only include rows with actual transaction movement (Cr/Dr != 0 or Win/Loss != 0) on this date.
+        const hasRowMovement = (row) => {
+          if (!row) return false;
+          const crDr = parseFloat(String(row?.cr_dr ?? "").replace(/,/g, "")) || 0;
+          const wl = parseFloat(String(row?.win_loss ?? row?.win_loss_full ?? "").replace(/,/g, "")) || 0;
+          return Math.abs(crDr) > 0.0001 || Math.abs(wl) > 0.0001;
+        };
+
+        const activeLeft = (rawCleaned.left_table || []).filter(hasRowMovement);
+        const activeRight = (rawCleaned.right_table || []).filter(hasRowMovement);
+
+        const cleaned = sanitizeSearchApiData({
+          ...rawCleaned,
+          left_table: activeLeft,
+          right_table: activeRight,
+        });
 
         // Auto-detect currencies present in the returned data that have ACTUAL transaction movement on this date.
         const foundCurrencySet = new Set();
-        const checkRowMovement = (row) => {
+        (cleaned.left_table || []).forEach((row) => {
           const cur = String(row?.currency || "").toUpperCase().trim();
-          if (!cur) return;
-          const crDr = parseFloat(String(row?.cr_dr ?? "").replace(/,/g, "")) || 0;
-          const wl = parseFloat(String(row?.win_loss ?? row?.win_loss_full ?? "").replace(/,/g, "")) || 0;
-          if (Math.abs(crDr) > 0.0001 || Math.abs(wl) > 0.0001) {
-            foundCurrencySet.add(cur);
-          }
-        };
-
-        (cleaned.left_table || []).forEach(checkRowMovement);
-        (cleaned.right_table || []).forEach(checkRowMovement);
+          if (cur) foundCurrencySet.add(cur);
+        });
+        (cleaned.right_table || []).forEach((row) => {
+          const cur = String(row?.currency || "").toUpperCase().trim();
+          if (cur) foundCurrencySet.add(cur);
+        });
 
         let foundCurrencies = [...foundCurrencySet];
 
         // Fallback: If no currency has active movement (e.g., initial 0-balance view), fall back to default currency.
         if (foundCurrencies.length === 0) {
           const allCurrencies = new Set();
-          (cleaned.left_table || []).forEach((row) => {
+          (rawCleaned.left_table || []).forEach((row) => {
             const cur = String(row?.currency || "").toUpperCase().trim();
             if (cur) allCurrencies.add(cur);
           });
-          (cleaned.right_table || []).forEach((row) => {
+          (rawCleaned.right_table || []).forEach((row) => {
             const cur = String(row?.currency || "").toUpperCase().trim();
             if (cur) allCurrencies.add(cur);
           });
