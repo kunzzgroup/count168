@@ -3586,6 +3586,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const applyDashboardCacheEntryToUi = useCallback(
     (key, cached, { codes = currencies } = {}) => {
       if (!key || !cached?.current) return false;
+      const multiCodes = Array.isArray(codes) && codes.length > 1 ? codes : null;
+      // Never paint a partial scope (KPI without chart / incomplete pie) — company switches
+      // must wait for a full view so panels update together.
+      if (dashboardPayloadNeedsChartDaily(cached.current)) return false;
+      if (multiCodes) {
+        const readyEarnings =
+          getCompleteCachedEarnings(cached, multiCodes) ||
+          (cacheEntryHasFullEarnings(cached, multiCodes) ? cached.earnings : null);
+        if (!readyEarnings) return false;
+      }
+
       setDashboardData(cached.current);
       dashboardDataRef.current = cached.current;
       setDashboardDataPrev(cached.previous ?? null);
@@ -3595,28 +3606,30 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       else setMultiCurrencyKpi(null);
       if (cached.multiCurrencyKpiPrev) setMultiCurrencyKpiPrev(cached.multiCurrencyKpiPrev);
       else setMultiCurrencyKpiPrev(null);
-      const sharedEarnings = resolveScopeDashboardEarnings(codes, key);
-      if (sharedEarnings?.length) {
-        setEarningsByCurrency(sharedEarnings);
-        setEarningsByCurrencyPrev([]);
-        setEarningsByCurrencyLoading(false);
-      } else {
-        const readyEarnings = getCompleteCachedEarnings(cached, codes);
-        if (readyEarnings) {
-          setEarningsByCurrency(readyEarnings);
+      if (multiCodes) {
+        const readyEarnings =
+          getCompleteCachedEarnings(cached, multiCodes) ||
+          (Array.isArray(cached.earnings) ? cached.earnings : null);
+        const sharedEarnings = resolveScopeDashboardEarnings(multiCodes, key);
+        const rows = readyEarnings || sharedEarnings;
+        if (rows?.length) {
+          setEarningsByCurrency(rows);
           setEarningsByCurrencyPrev([]);
           setEarningsByCurrencyLoading(false);
-          ensureDeferredDashboardLoadsRef.current?.(key, cached, codes);
-          return true;
         }
+      } else {
         setEarningsByCurrency([]);
         setEarningsByCurrencyPrev([]);
-        setEarningsByCurrencyLoading(codes.length > 1);
+        setEarningsByCurrencyLoading(false);
       }
-      ensureDeferredDashboardLoadsRef.current?.(key, cached, codes);
       return true;
     },
-    [currencies, resolveScopeDashboardEarnings, getCompleteCachedEarnings]
+    [
+      currencies,
+      resolveScopeDashboardEarnings,
+      getCompleteCachedEarnings,
+      cacheEntryHasFullEarnings,
+    ]
   );
 
   const applyPrefetchCacheToActiveScope = useCallback(
@@ -3789,7 +3802,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         setLoading(true);
         return false;
       }
-      applyDashboardCacheEntryToUi(key, cached);
+      // Incomplete cache (KPI without chart / pie) must not paint — keep prior UI until loadDashboard finishes.
+      const applied = applyDashboardCacheEntryToUi(key, cached);
+      if (!applied) {
+        setLoading(true);
+        return false;
+      }
       return true;
     },
     [
@@ -5786,12 +5804,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       Array.isArray(multiCurrencyCodes) && multiCurrencyCodes.length > 1;
     setLoadError("");
 
-    let hydratedFromPayload = false;
-
-    if (cached?.current) {
-      let currentCached = cached.current;
-      let previousCached = cached.previous ?? null;
-      let earningsCached = getCompleteCachedEarnings(cached, multiCurrencyCodes);
+    /** Fill chart/earnings/previous then paint once — used on company switch so panels stay in sync. */
+    const materializeCachedDashboard = async (entry) => {
+      if (!entry?.current) return false;
+      let currentCached = entry.current;
+      let previousCached = entry.previous ?? null;
+      let earningsCached = getCompleteCachedEarnings(entry, multiCurrencyCodes);
 
       const fillTasks = [];
       if (!previousCached && !allCurrenciesActive) {
@@ -5848,7 +5866,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       if (fillTasks.length) {
         await Promise.all(fillTasks);
-        if (gen !== dashboardFetchGenRef.current) return;
+        if (gen !== dashboardFetchGenRef.current) return false;
       }
 
       setDashboardData(currentCached);
@@ -5865,8 +5883,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       } else {
         setEarningsByCurrencyLoading(false);
       }
-      if (cached.multiCurrencyKpi) setMultiCurrencyKpi(cached.multiCurrencyKpi);
-      if (cached.multiCurrencyKpiPrev) setMultiCurrencyKpiPrev(cached.multiCurrencyKpiPrev);
+      if (entry.multiCurrencyKpi) setMultiCurrencyKpi(entry.multiCurrencyKpi);
+      if (entry.multiCurrencyKpiPrev) setMultiCurrencyKpiPrev(entry.multiCurrencyKpiPrev);
       if (!allCurrenciesActive) {
         setMultiCurrencyKpi(null);
         setMultiCurrencyKpiPrev(null);
@@ -5877,139 +5895,101 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         earnings: earningsCached || undefined,
       });
       setLoading(false);
-      if (needsMultiCurrencyEarnings && !earningsCached) {
-        /* earnings still loading — view gate waits on earningsPanelStable */
-        return;
-      }
-      return;
-    } else {
-      if (groupAllMode) {
-        const synthesized = tryBuildGroupAllDashboardFromCompanyCaches();
-        if (synthesized?.current) {
-          setDashboardData(synthesized.current);
-          setDashboardDataPrev(synthesized.previous ?? null);
-          setDisplayScopeKey(cacheKey);
-          setLoading(false);
-          hydratedFromPayload = true;
-          const cacheEntry = {
-            current: synthesized.current,
-            previous: synthesized.previous ?? undefined,
-            earnings:
-              synthesized.earnings?.length > 1 &&
-              synthesized.earnings.every((row) => row.earnings != null)
-                ? synthesized.earnings
-                : undefined,
-          };
-          setDashboardCache(cacheKey, cacheEntry);
-          if (cacheEntry.earnings?.length) {
-            setEarningsByCurrency(cacheEntry.earnings);
-            setEarningsByCurrencyPrev([]);
-            setEarningsByCurrencyLoading(false);
-            mirrorDashboardEarningsAcrossCurrencies(
-              cacheEntry.earnings,
-              codesForEarnings || currenciesRef.current,
-              resolveDashboardScopeKey
-            );
-          }
-        }
-      }
+      return true;
+    };
 
-      const scopeEarningsReady =
-        !needsMultiCurrencyEarnings ||
-        resolveScopeDashboardEarnings(codesForEarnings || currenciesRef.current, cacheKey)?.length ===
-          codesForEarnings?.length;
-      if (
-        !hydratedFromPayload &&
-        !allCurrenciesActive &&
-        !groupAllMode &&
-        !(mergedSubsetIds && mergedSubsetIds.length > 1) &&
-        scopeEarningsReady
-      ) {
-        if (companyId != null) {
-          const provisionalCur = resolveProvisionalDashboardCurrency({
-            currencyCode,
-            companyId,
-            currenciesRef,
-            currenciesByCompanyRef,
-          });
-          const q = new URLSearchParams({
-            date_from: dateFrom,
-            date_to: dateTo,
-            company_id: String(companyId),
-          });
-          if (provisionalCur) q.append("currency", provisionalCur);
-          appendDashboardGroupTabParams(q, dashboardViewGroup, { subsidiaryOnly: subsidiaryDashboardScope });
-          const payload = getDashboardPayloadCache(q.toString());
-          if (payload) {
-            const adjusted = applyDashboardPayloadAdjustments(payload, companyId, selectedGroup);
-            setDashboardData(adjusted);
-            setDisplayScopeKey(cacheKey);
-            setLoading(false);
-            hydratedFromPayload = true;
-          }
-        } else if (usesGroupLedgerDashboard && selectedGroup) {
-          const q = new URLSearchParams({
-            date_from: dateFrom,
-            date_to: dateTo,
-          });
-          appendGroupLedgerDashboardParams(q, selectedGroup);
-          if (currencyCode) q.append("currency", currencyCode);
-          const payload = getDashboardPayloadCache(q.toString());
-          if (payload) {
-            setDashboardData(payload);
-            setDisplayScopeKey(cacheKey);
-            setLoading(false);
-            hydratedFromPayload = true;
-          }
-        }
-      }
-      if (hydratedFromPayload) {
-        const scopeEarnings = resolveScopeDashboardEarnings(
-          codesForEarnings || currenciesRef.current,
-          cacheKey
-        );
-        if (scopeEarnings?.length) {
-          setEarningsByCurrency(scopeEarnings);
-          setEarningsByCurrencyPrev([]);
-          setEarningsByCurrencyLoading(false);
-        }
-      }
-      if (!hydratedFromPayload && !dashboardDataRef.current) {
-        setLoading(true);
-        setDashboardData(null);
-        setDashboardDataPrev(null);
-        setDisplayScopeKey("");
-        setMultiCurrencyKpi(null);
-        setMultiCurrencyKpiPrev(null);
-      } else if (!hydratedFromPayload) {
-        setLoading(true);
+    if (cached?.current) {
+      await materializeCachedDashboard(cached);
+      return;
+    }
+
+    // Seed session cache only — do not paint partial KPI/chart (keeps previous company until ready).
+    if (groupAllMode) {
+      const synthesized = tryBuildGroupAllDashboardFromCompanyCaches();
+      if (synthesized?.current) {
+        const cacheEntry = {
+          current: synthesized.current,
+          previous: synthesized.previous ?? undefined,
+          earnings:
+            synthesized.earnings?.length > 1 &&
+            synthesized.earnings.every((row) => row.earnings != null)
+              ? synthesized.earnings
+              : undefined,
+        };
+        setDashboardCache(cacheKey, cacheEntry);
       }
     }
-    if (!cached?.earnings?.length) {
-      const scopeEarnings = resolveScopeDashboardEarnings(currenciesRef.current, cacheKey);
-      if (scopeEarnings?.length) {
-        setEarningsByCurrency(scopeEarnings);
-        setEarningsByCurrencyPrev([]);
-        setEarningsByCurrencyLoading(false);
+
+    const scopeEarningsReady =
+      !needsMultiCurrencyEarnings ||
+      resolveScopeDashboardEarnings(codesForEarnings || currenciesRef.current, cacheKey)?.length ===
+        codesForEarnings?.length;
+    if (
+      !allCurrenciesActive &&
+      !groupAllMode &&
+      !(mergedSubsetIds && mergedSubsetIds.length > 1) &&
+      scopeEarningsReady
+    ) {
+      if (companyId != null) {
+        const provisionalCur = resolveProvisionalDashboardCurrency({
+          currencyCode,
+          companyId,
+          currenciesRef,
+          currenciesByCompanyRef,
+        });
+        const q = new URLSearchParams({
+          date_from: dateFrom,
+          date_to: dateTo,
+          company_id: String(companyId),
+        });
+        if (provisionalCur) q.append("currency", provisionalCur);
+        appendDashboardGroupTabParams(q, dashboardViewGroup, {
+          subsidiaryOnly: subsidiaryDashboardScope,
+        });
+        const payload = getDashboardPayloadCache(q.toString());
+        if (payload) {
+          const adjusted = applyDashboardPayloadAdjustments(payload, companyId, selectedGroup);
+          setDashboardCache(cacheKey, {
+            current: adjusted,
+            previous: getDashboardCache(cacheKey)?.previous,
+          });
+        }
+      } else if (usesGroupLedgerDashboard && selectedGroup) {
+        const q = new URLSearchParams({
+          date_from: dateFrom,
+          date_to: dateTo,
+        });
+        appendGroupLedgerDashboardParams(q, selectedGroup);
+        if (currencyCode) q.append("currency", currencyCode);
+        const payload = getDashboardPayloadCache(q.toString());
+        if (payload) {
+          setDashboardCache(cacheKey, {
+            current: payload,
+            previous: getDashboardCache(cacheKey)?.previous,
+          });
+        }
       }
+    }
+
+    if (!dashboardDataRef.current) {
+      setLoading(true);
+      setDashboardData(null);
+      setDashboardDataPrev(null);
+      setDisplayScopeKey("");
+      setMultiCurrencyKpi(null);
+      setMultiCurrencyKpiPrev(null);
+    } else {
+      setLoading(true);
     }
 
     const warmedGroupAll = groupAllMode ? getDashboardCache(cacheKey) : null;
-    if (
-      groupAllMode &&
-      warmedGroupAll?.current &&
-      (!needsMultiCurrencyEarnings ||
-        cacheEntryHasFullEarnings(warmedGroupAll, multiCurrencyCodes))
-    ) {
-      ensureDeferredDashboardLoads(cacheKey, warmedGroupAll, multiCurrencyCodes);
+    const latestCached = getDashboardCache(cacheKey);
+    if (latestCached?.current) {
+      await materializeCachedDashboard(latestCached);
       return;
     }
 
-    const latestCached = getDashboardCache(cacheKey);
     const needsDashboardFetch = !latestCached?.current;
-    const needsEarningsUpgrade =
-      needsMultiCurrencyEarnings &&
-      !cacheEntryHasFullEarnings(latestCached, multiCurrencyCodes);
     const scopeNeedsCurrency = dashboardScopeNeedsCurrency({
       companyId,
       usesGroupLedgerDashboard,
@@ -6023,28 +6003,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       currenciesRef,
       currenciesByCompanyRef,
     });
-    if (
-      needsDashboardFetch &&
-      scopeNeedsCurrency &&
-      !provisionalCurrency &&
-      !latestCached?.current &&
-      !hydratedFromPayload
-    ) {
+    if (needsDashboardFetch && scopeNeedsCurrency && !provisionalCurrency) {
       setLoading(true);
-      return;
-    }
-
-    if (!needsDashboardFetch && needsEarningsUpgrade) {
-      setLoading(false);
-      setEarningsByCurrencyLoading(true);
-      ensureDeferredDashboardLoads(cacheKey, latestCached, multiCurrencyCodes);
-      void upgradeActiveScopeEarnings();
-      return;
-    }
-
-    if (!needsDashboardFetch) {
-      ensureDeferredDashboardLoads(cacheKey, latestCached, multiCurrencyCodes);
-      setLoading(false);
       return;
     }
 
