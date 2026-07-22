@@ -7,6 +7,7 @@ export function DashboardFilterPanel({
   groupAllMode,
   companiesForPicker,
   companyId,
+  displayCompanyId,
   mergedSubsetIds,
   currencies,
   currencyCode,
@@ -93,11 +94,13 @@ export function DashboardFilterPanel({
                   )}
                   {companiesForPicker.map((c) => {
                     const id = parseInt(c.id, 10);
+                    const paintedId =
+                      displayCompanyId !== undefined ? displayCompanyId : companyId;
                     const active = groupAllMode
                       ? false
                       : mergedSubsetIds && mergedSubsetIds.length > 1
                         ? mergedSubsetIds.includes(id)
-                        : parseInt(companyId, 10) === id;
+                        : parseInt(paintedId, 10) === id;
                     return (
                       <button
                         key={c.id}

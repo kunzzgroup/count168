@@ -5360,6 +5360,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   /** Sync earnings rows when currency list or cache updates — do not abort parallel fetches on hydrate. */
   useEffect(() => {
+    // While selected scope is ahead of painted scope, freeze pie/earnings so KPI+chart+pie
+    // never show a mixed company (pill/pie first, numbers later).
+    if (displayScopeKey && dashboardScopeKey && displayScopeKey !== dashboardScopeKey) {
+      prevEarningsCurrenciesSigRef.current = currenciesScopeSig;
+      return;
+    }
+
     if (
       prevEarningsCurrenciesSigRef.current !== "" &&
       prevEarningsCurrenciesSigRef.current !== currenciesScopeSig &&
@@ -5444,6 +5451,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     companyId,
     selectedGroup,
     dashboardScopeKey,
+    displayScopeKey,
     resolveScopeDashboardEarnings,
     getCompleteCachedEarnings,
     computeCurrencyMetricsFromPayload,
@@ -6699,6 +6707,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   useEffect(() => {
     if (loading || !dashboardData || currencies.length <= 1) return undefined;
+    if (displayScopeKey && dashboardScopeKey && displayScopeKey !== dashboardScopeKey) {
+      return undefined;
+    }
     const scopeEarnings = resolveScopeDashboardEarnings(currencies);
     if (scopeEarnings?.length === currencies.length) {
       const earningsRows = Array.isArray(earningsByCurrencyRef.current)
@@ -6758,6 +6769,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     loadEarningsByCurrency,
     upgradeActiveScopeEarnings,
     dashboardScopeKey,
+    displayScopeKey,
     getCompleteCachedEarnings,
     resolveScopeDashboardEarnings,
     showAllCurrencies,
@@ -7259,6 +7271,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const scopeDataPending =
     Boolean(dashboardScopeKey) && displayScopeKey !== dashboardScopeKey;
+  /** Company pill highlight follows painted data — not the in-flight selection. */
+  const displayCompanyId = useMemo(() => {
+    if (!displayScopeKey) return companyId;
+    const raw = String(displayScopeKey).split("|")[0];
+    if (raw === "") return null;
+    const id = parseInt(raw, 10);
+    return Number.isFinite(id) && id > 0 ? id : companyId;
+  }, [displayScopeKey, companyId]);
   const chartDataStable = useMemo(
     () =>
       !scopeDataPending &&
@@ -7266,10 +7286,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       !dashboardPayloadNeedsChartDaily(dashboardData),
     [scopeDataPending, dashboardData]
   );
-  const summaryScopeLoading = scopeDataPending || (loading && !dashboardData);
+  // Do not blank pie/KPI while the next scope loads — keep previous panels until atomic swap.
+  const summaryScopeLoading = loading && !dashboardData;
   const summaryEarningsLoading =
     summaryScopeLoading ||
-    (currencies.length > 1 &&
+    (!scopeDataPending &&
+      currencies.length > 1 &&
       (exchangeRatesLoading ||
         earningsByCurrencyLoading ||
         !allCurrencyEarningsReady ||
@@ -7279,6 +7301,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           convertedPanelTotal == null)));
   const earningsPanelStable =
     currencies.length <= 1 ||
+    scopeDataPending ||
     (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
   /**
    * True when KPI + chart (+ multi-currency earnings) are ready for the active scope.
@@ -8085,6 +8108,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     groupAllMode,
     mergedSubsetIds,
     companyId,
+    displayCompanyId,
     currencies,
     currencyCode: displayCurrencyCode,
     showAllCurrencies,
@@ -8106,6 +8130,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     chartXAxisLayout,
     chartDataStable,
     dashboardScopeKey,
+    displayScopeKey,
     earningsCurrencyRows,
     panelCurrencyRows,
     useConvertedEarnings,

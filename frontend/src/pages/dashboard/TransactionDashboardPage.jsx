@@ -51,6 +51,7 @@ export default function TransactionDashboardPage() {
             groupAllMode={page.groupAllMode}
             companiesForPicker={page.companiesForPicker}
             companyId={page.companyId}
+            displayCompanyId={page.displayCompanyId}
             mergedSubsetIds={page.mergedSubsetIds}
             currencies={page.currencies}
             currencyCode={page.currencyCode}
@@ -83,7 +84,7 @@ export default function TransactionDashboardPage() {
               onToggleSeries={page.toggleChartSeries}
               chartDateRangeText={page.chartDateRangeText}
               chartXAxisLayout={page.chartXAxisLayout}
-              chartScopeKey={page.dashboardScopeKey}
+              chartScopeKey={page.displayScopeKey || page.dashboardScopeKey}
             />
             <DashboardEarningsSummary
               i18n={i18n}
