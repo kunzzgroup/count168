@@ -1184,7 +1184,7 @@ try {
     if (!is_dir($cache_dir)) {
         @mkdir($cache_dir, 0777, true);
     }
-    if (!$debug_wl_total && is_dir($cache_dir)) {
+    if (!$debug_wl_total && !$type_search_active && is_dir($cache_dir)) {
         $cache_key_payload = [
             'user_id' => (int) ($_SESSION['user_id'] ?? 0),
             'user_type' => strtolower((string) ($_SESSION['user_type'] ?? '')),
