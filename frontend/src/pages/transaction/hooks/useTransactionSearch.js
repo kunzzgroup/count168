@@ -1339,15 +1339,31 @@ export function useTransactionSearch({
     const codesOrdered = currencyRowsOrdered.map((c) => String(c.code || "").toUpperCase().trim()).filter(Boolean);
 
     if (!multi) {
-      const title =
-        selectedCurrencies.length === 1 ? `Currency: ${selectedCurrencies[0]}` : null;
+      const singleCode =
+        selectedCurrencies.length === 1 ? String(selectedCurrencies[0] || "").toUpperCase().trim() : null;
+      const title = singleCode ? `Currency: ${singleCode}` : null;
+
+      // Filter rows to only include rows matching the selected single currency.
+      const singleLeft = singleCode
+        ? sortedLeft.filter((row) => String(row?.currency || "").toUpperCase().trim() === singleCode)
+        : sortedLeft;
+      const singleRight = singleCode
+        ? sortedRight.filter((row) => String(row?.currency || "").toUpperCase().trim() === singleCode)
+        : sortedRight;
+
+      const singleTotalsLeft = calculateTotals(singleLeft);
+      const singleTotalsRight = calculateTotals(singleRight);
+      const singleTotalsSummary = applySummaryWinLossDisplayTolerance(
+        calculateTotals([...singleLeft, ...singleRight]),
+      );
+
       return {
         mode: "default",
-        defaultLeft: sortedLeft,
-        defaultRight: sortedRight,
-        totalsLeft,
-        totalsRight,
-        totalsSummary,
+        defaultLeft: singleLeft,
+        defaultRight: singleRight,
+        totalsLeft: singleTotalsLeft,
+        totalsRight: singleTotalsRight,
+        totalsSummary: singleTotalsSummary,
         grouped: [],
         singleCurrencyTitle: title,
       };
