@@ -842,6 +842,11 @@ export function useTransactionSearch({
       setSubmitFocusByCurrency({});
       setSubmitFocusRangeKey(null);
 
+      if (autoSearchTimerRef.current) {
+        clearTimeout(autoSearchTimerRef.current);
+        autoSearchTimerRef.current = null;
+      }
+
       if (!preserveSearchState) {
         const clearedState = {
           showName: false,
@@ -850,7 +855,13 @@ export function useTransactionSearch({
           showZeroBalance: false,
         };
         setSearchState((prev) => ({ ...prev, ...clearedState }));
+        prevServerSideFiltersRef.current = clearedState;
       }
+
+      // Enable all-currencies mode upfront so UI & table grouping are active from start of search
+      suppressCrossPageCurrencyRef.current = true;
+      setShowAllCurrencies(true);
+      setSelectedCurrencies([]);
 
       if (!scopeReady || !scopeCacheCompanyKey) return;
       const queryDateFrom = String(dateFromOverride ?? effectiveDateFrom ?? "").trim();
@@ -949,33 +960,26 @@ export function useTransactionSearch({
         const displayed =
           (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
 
-        // Use flushSync so ALL state updates (data + currency selection) are committed
-        // in a single synchronous render. This prevents currency-change effects from
-        // scheduling an auto-search that would exit type search mode and overwrite data.
+        // Commit type search data and finalize currency selection synchronously.
         flushSync(() => {
           setTypeSearchActive(true);
           setTypeSearchFormType(normalizedType);
           setTypeSearchAccountIds(typeAccountIds);
           setRawSearchData(cleaned);
 
-          if (foundCurrencies.length >= 2) {
-            // Multiple currencies with transactions — show all of them.
-            suppressCrossPageCurrencyRef.current = true;
-            setShowAllCurrencies(true);
-            setSelectedCurrencies([]);
-          } else if (foundCurrencies.length === 1) {
-            // Only one currency with transactions — select it.
-            suppressCrossPageCurrencyRef.current = false;
-            setShowAllCurrencies(false);
-            setSelectedCurrencies(foundCurrencies);
+          if (foundCurrencies.length < 2) {
+            if (foundCurrencies.length === 1) {
+              // If only one currency has transactions, lock view to that single currency.
+              suppressCrossPageCurrencyRef.current = false;
+              setShowAllCurrencies(false);
+              setSelectedCurrencies(foundCurrencies);
+            }
           }
 
           setTablesVisible(displayed > 0);
         });
 
-        // Cancel any auto-search timer that effects scheduled during the flush above.
-        // The type search data is already correct — a regular runSearch would exit
-        // type search mode and replace the results.
+        // Cancel any auto-search timer that effects scheduled during state changes above.
         if (autoSearchTimerRef.current) {
           clearTimeout(autoSearchTimerRef.current);
           autoSearchTimerRef.current = null;
