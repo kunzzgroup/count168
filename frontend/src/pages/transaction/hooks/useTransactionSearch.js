@@ -912,17 +912,38 @@ export function useTransactionSearch({
 
         const cleaned = sanitizeSearchApiData(result.data);
 
-        // Auto-detect currencies present in the returned data.
+        // Auto-detect currencies present in the returned data that have ACTUAL transaction movement on this date.
         const foundCurrencySet = new Set();
-        (cleaned.left_table || []).forEach((row) => {
+        const checkRowMovement = (row) => {
           const cur = String(row?.currency || "").toUpperCase().trim();
-          if (cur) foundCurrencySet.add(cur);
-        });
-        (cleaned.right_table || []).forEach((row) => {
-          const cur = String(row?.currency || "").toUpperCase().trim();
-          if (cur) foundCurrencySet.add(cur);
-        });
-        const foundCurrencies = [...foundCurrencySet];
+          if (!cur) return;
+          const crDr = parseFloat(String(row?.cr_dr ?? "").replace(/,/g, "")) || 0;
+          const wl = parseFloat(String(row?.win_loss ?? row?.win_loss_full ?? "").replace(/,/g, "")) || 0;
+          if (Math.abs(crDr) > 0.0001 || Math.abs(wl) > 0.0001) {
+            foundCurrencySet.add(cur);
+          }
+        };
+
+        (cleaned.left_table || []).forEach(checkRowMovement);
+        (cleaned.right_table || []).forEach(checkRowMovement);
+
+        let foundCurrencies = [...foundCurrencySet];
+
+        // Fallback: If no currency has active movement (e.g., initial 0-balance view), fall back to default currency.
+        if (foundCurrencies.length === 0) {
+          const allCurrencies = new Set();
+          (cleaned.left_table || []).forEach((row) => {
+            const cur = String(row?.currency || "").toUpperCase().trim();
+            if (cur) allCurrencies.add(cur);
+          });
+          (cleaned.right_table || []).forEach((row) => {
+            const cur = String(row?.currency || "").toUpperCase().trim();
+            if (cur) allCurrencies.add(cur);
+          });
+          const allList = [...allCurrencies];
+          const defaultCode = pickTransactionDefaultCurrency(allList.length > 0 ? allList : txCurrencyCodes);
+          foundCurrencies = defaultCode ? [defaultCode] : allList.length > 0 ? [allList[0]] : ["MYR"];
+        }
 
         const displayed =
           (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
@@ -934,13 +955,16 @@ export function useTransactionSearch({
           setTypeSearchAccountIds([]);
           setRawSearchData(cleaned);
 
-          if (foundCurrencies.length < 2) {
-            if (foundCurrencies.length === 1) {
-              // If only one currency has transactions, lock view to that single currency.
-              suppressCrossPageCurrencyRef.current = false;
-              setShowAllCurrencies(false);
-              setSelectedCurrencies(foundCurrencies);
-            }
+          if (foundCurrencies.length >= 2) {
+            // 2+ currencies have actual transactions today -> show all currencies.
+            suppressCrossPageCurrencyRef.current = true;
+            setShowAllCurrencies(true);
+            setSelectedCurrencies([]);
+          } else {
+            // Only 1 currency has actual transactions today -> show only that currency.
+            suppressCrossPageCurrencyRef.current = false;
+            setShowAllCurrencies(false);
+            setSelectedCurrencies(foundCurrencies);
           }
 
           setTablesVisible(displayed > 0);
