@@ -933,12 +933,8 @@ export function useTransactionSearch({
         }
 
         const cleaned = sanitizeSearchApiData(payload);
-        setTypeSearchActive(true);
-        setTypeSearchFormType(normalizedType);
-        setTypeSearchAccountIds(typeAccountIds);
-        setRawSearchData(cleaned);
 
-        // Auto-detect currencies present in the returned data and update the filter state.
+        // Auto-detect currencies present in the returned data.
         const foundCurrencySet = new Set();
         (cleaned.left_table || []).forEach((row) => {
           const cur = String(row?.currency || "").toUpperCase().trim();
@@ -950,21 +946,41 @@ export function useTransactionSearch({
         });
         const foundCurrencies = [...foundCurrencySet];
 
-        if (foundCurrencies.length >= 2) {
-          // Multiple currencies with transactions — show all of them.
-          suppressCrossPageCurrencyRef.current = true;
-          setShowAllCurrencies(true);
-          setSelectedCurrencies([]);
-        } else if (foundCurrencies.length === 1) {
-          // Only one currency with transactions — select it.
-          suppressCrossPageCurrencyRef.current = false;
-          setShowAllCurrencies(false);
-          setSelectedCurrencies(foundCurrencies);
-        }
-
         const displayed =
           (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
-        setTablesVisible(displayed > 0);
+
+        // Use flushSync so ALL state updates (data + currency selection) are committed
+        // in a single synchronous render. This prevents currency-change effects from
+        // scheduling an auto-search that would exit type search mode and overwrite data.
+        flushSync(() => {
+          setTypeSearchActive(true);
+          setTypeSearchFormType(normalizedType);
+          setTypeSearchAccountIds(typeAccountIds);
+          setRawSearchData(cleaned);
+
+          if (foundCurrencies.length >= 2) {
+            // Multiple currencies with transactions — show all of them.
+            suppressCrossPageCurrencyRef.current = true;
+            setShowAllCurrencies(true);
+            setSelectedCurrencies([]);
+          } else if (foundCurrencies.length === 1) {
+            // Only one currency with transactions — select it.
+            suppressCrossPageCurrencyRef.current = false;
+            setShowAllCurrencies(false);
+            setSelectedCurrencies(foundCurrencies);
+          }
+
+          setTablesVisible(displayed > 0);
+        });
+
+        // Cancel any auto-search timer that effects scheduled during the flush above.
+        // The type search data is already correct — a regular runSearch would exit
+        // type search mode and replace the results.
+        if (autoSearchTimerRef.current) {
+          clearTimeout(autoSearchTimerRef.current);
+          autoSearchTimerRef.current = null;
+        }
+
         if (!silent && displayed > 0) {
           pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
         }
