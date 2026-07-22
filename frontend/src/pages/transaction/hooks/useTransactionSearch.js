@@ -837,14 +837,10 @@ export function useTransactionSearch({
         forceRefresh = false,
       } = opts;
       const normalizedType = String(formTxType || "").toUpperCase().trim();
+      if (!normalizedType) return;
 
       setSubmitFocusByCurrency({});
       setSubmitFocusRangeKey(null);
-
-      if (autoSearchTimerRef.current) {
-        clearTimeout(autoSearchTimerRef.current);
-        autoSearchTimerRef.current = null;
-      }
 
       if (!preserveSearchState) {
         const clearedState = {
@@ -854,7 +850,6 @@ export function useTransactionSearch({
           showZeroBalance: false,
         };
         setSearchState((prev) => ({ ...prev, ...clearedState }));
-        prevServerSideFiltersRef.current = clearedState;
       }
 
       if (!scopeReady || !scopeCacheCompanyKey) return;
@@ -864,6 +859,7 @@ export function useTransactionSearch({
         pushToast(m.pleaseSelectDateRange, "error");
         return;
       }
+      // Type Search: skip currency pre-check — we fetch all currencies and auto-detect from results.
 
       setSearchLoading(true);
       try {
@@ -875,6 +871,8 @@ export function useTransactionSearch({
         const subsidiarySearch =
           scopeApi.subsidiaryAccountsOnly ||
           (scopeApi.companyId != null && Number(scopeApi.companyId) > 0);
+        // Type Search: do not restrict by currency — let the API return all currencies with transactions.
+        const currencyCodes = undefined;
         const scopeParams = {
           ...scopeApi,
           viewGroup: subsidiarySearch ? undefined : scopeApi.viewGroup,
@@ -883,48 +881,64 @@ export function useTransactionSearch({
           subsidiaryAccountsOnly: subsidiarySearch ? true : scopeApi.subsidiaryAccountsOnly,
         };
 
-        const categoryParam =
-          selectedCategories.length > 0 && !selectedCategories.includes("")
-            ? [...selectedCategories].sort().join(",")
-            : undefined;
+        let payload = null;
+        let typeAccountIds = [];
 
-        // Query all transaction types for the selected Capture Date range across all currencies (no type filtering)
-        const result = await searchTransactionsApi({
-          ...scopeParams,
-          dateFrom: queryDateFrom,
-          dateTo: queryDateTo,
-          showInactive: false,
-          showCaptureOnly: false,
-          hideZeroBalance: false,
-          categories: categoryParam ? categoryParam.split(",") : undefined,
-          currencyCodes: undefined,
-        });
+        if (PERIOD_TYPE_SEARCH_TYPES.has(normalizedType)) {
+          typeAccountIds = await fetchTypeAccountSearch({
+            ...scopeParams,
+            transactionType: normalizedType,
+          });
+          if (typeAccountIds.length === 0) {
+            setTypeSearchActive(true);
+            setTypeSearchFormType(normalizedType);
+            setTypeSearchAccountIds([]);
+            setRawSearchData({ left_table: [], right_table: [], totals: null });
+            setTablesVisible(false);
+            return;
+          }
 
-        if (!result?.success || !result?.data) {
-          pushToast(result?.message || result?.error || m.searchFailed, "error");
-          return;
+          const categoryParam =
+            selectedCategories.length > 0 && !selectedCategories.includes("")
+              ? [...selectedCategories].sort().join(",")
+              : undefined;
+          const result = await searchTransactionsApi({
+            ...scopeParams,
+            dateFrom: queryDateFrom,
+            dateTo: queryDateTo,
+            showInactive: false,
+            showCaptureOnly: false,
+            hideZeroBalance: false,
+            categories: categoryParam ? categoryParam.split(",") : undefined,
+            currencyCodes,
+            typeSearch: true,
+            typeAccountIds,
+            typeSearchFormType: normalizedType,
+          });
+          if (!result?.success || !result?.data) {
+            pushToast(result?.message || result?.error || m.searchFailed, "error");
+            return;
+          }
+          payload = result.data;
+        } else {
+          payload = await fetchTypeTransactionSearch({
+            ...scopeParams,
+            transactionType: normalizedType,
+            currencyCodes,
+          });
+          if (!payload) {
+            pushToast(m.searchFailed, "error");
+            return;
+          }
         }
 
-        const rawCleaned = sanitizeSearchApiData(result.data);
+        const cleaned = sanitizeSearchApiData(payload);
+        setTypeSearchActive(true);
+        setTypeSearchFormType(normalizedType);
+        setTypeSearchAccountIds(typeAccountIds);
+        setRawSearchData(cleaned);
 
-        // Filter to only include rows with actual transaction movement (Cr/Dr != 0 or Win/Loss != 0) on this date.
-        const hasRowMovement = (row) => {
-          if (!row) return false;
-          const crDr = parseFloat(String(row?.cr_dr ?? "").replace(/,/g, "")) || 0;
-          const wl = parseFloat(String(row?.win_loss ?? row?.win_loss_full ?? "").replace(/,/g, "")) || 0;
-          return Math.abs(crDr) > 0.0001 || Math.abs(wl) > 0.0001;
-        };
-
-        const activeLeft = (rawCleaned.left_table || []).filter(hasRowMovement);
-        const activeRight = (rawCleaned.right_table || []).filter(hasRowMovement);
-
-        const cleaned = sanitizeSearchApiData({
-          ...rawCleaned,
-          left_table: activeLeft,
-          right_table: activeRight,
-        });
-
-        // Auto-detect currencies present in the returned data that have ACTUAL transaction movement on this date.
+        // Auto-detect currencies present in the returned data and update the filter state.
         const foundCurrencySet = new Set();
         (cleaned.left_table || []).forEach((row) => {
           const cur = String(row?.currency || "").toUpperCase().trim();
@@ -934,56 +948,23 @@ export function useTransactionSearch({
           const cur = String(row?.currency || "").toUpperCase().trim();
           if (cur) foundCurrencySet.add(cur);
         });
+        const foundCurrencies = [...foundCurrencySet];
 
-        let foundCurrencies = [...foundCurrencySet];
-
-        // Fallback: If no currency has active movement (e.g., initial 0-balance view), fall back to default currency.
-        if (foundCurrencies.length === 0) {
-          const allCurrencies = new Set();
-          (rawCleaned.left_table || []).forEach((row) => {
-            const cur = String(row?.currency || "").toUpperCase().trim();
-            if (cur) allCurrencies.add(cur);
-          });
-          (rawCleaned.right_table || []).forEach((row) => {
-            const cur = String(row?.currency || "").toUpperCase().trim();
-            if (cur) allCurrencies.add(cur);
-          });
-          const allList = [...allCurrencies];
-          const defaultCode = pickTransactionDefaultCurrency(allList.length > 0 ? allList : txCurrencyCodes);
-          foundCurrencies = defaultCode ? [defaultCode] : allList.length > 0 ? [allList[0]] : ["MYR"];
+        if (foundCurrencies.length >= 2) {
+          // Multiple currencies with transactions — show all of them.
+          suppressCrossPageCurrencyRef.current = true;
+          setShowAllCurrencies(true);
+          setSelectedCurrencies([]);
+        } else if (foundCurrencies.length === 1) {
+          // Only one currency with transactions — select it.
+          suppressCrossPageCurrencyRef.current = false;
+          setShowAllCurrencies(false);
+          setSelectedCurrencies(foundCurrencies);
         }
 
         const displayed =
           (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
-
-        // Commit search data and set typeSearchActive to true so the Refresh button is displayed.
-        flushSync(() => {
-          setTypeSearchActive(true);
-          setTypeSearchFormType(normalizedType || "ALL");
-          setTypeSearchAccountIds([]);
-          setRawSearchData(cleaned);
-
-          if (foundCurrencies.length >= 2) {
-            // 2+ currencies have actual transactions today -> show all currencies.
-            suppressCrossPageCurrencyRef.current = true;
-            setShowAllCurrencies(true);
-            setSelectedCurrencies([]);
-          } else {
-            // Only 1 currency has actual transactions today -> show only that currency.
-            suppressCrossPageCurrencyRef.current = false;
-            setShowAllCurrencies(false);
-            setSelectedCurrencies(foundCurrencies);
-          }
-
-          setTablesVisible(displayed > 0);
-        });
-
-        // Cancel any auto-search timer that effects scheduled during state changes above.
-        if (autoSearchTimerRef.current) {
-          clearTimeout(autoSearchTimerRef.current);
-          autoSearchTimerRef.current = null;
-        }
-
+        setTablesVisible(displayed > 0);
         if (!silent && displayed > 0) {
           pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
         }
@@ -1352,31 +1333,15 @@ export function useTransactionSearch({
     const codesOrdered = currencyRowsOrdered.map((c) => String(c.code || "").toUpperCase().trim()).filter(Boolean);
 
     if (!multi) {
-      const singleCode =
-        selectedCurrencies.length === 1 ? String(selectedCurrencies[0] || "").toUpperCase().trim() : null;
-      const title = singleCode ? `Currency: ${singleCode}` : null;
-
-      // Filter rows to only include rows matching the selected single currency.
-      const singleLeft = singleCode
-        ? sortedLeft.filter((row) => String(row?.currency || "").toUpperCase().trim() === singleCode)
-        : sortedLeft;
-      const singleRight = singleCode
-        ? sortedRight.filter((row) => String(row?.currency || "").toUpperCase().trim() === singleCode)
-        : sortedRight;
-
-      const singleTotalsLeft = calculateTotals(singleLeft);
-      const singleTotalsRight = calculateTotals(singleRight);
-      const singleTotalsSummary = applySummaryWinLossDisplayTolerance(
-        calculateTotals([...singleLeft, ...singleRight]),
-      );
-
+      const title =
+        selectedCurrencies.length === 1 ? `Currency: ${selectedCurrencies[0]}` : null;
       return {
         mode: "default",
-        defaultLeft: singleLeft,
-        defaultRight: singleRight,
-        totalsLeft: singleTotalsLeft,
-        totalsRight: singleTotalsRight,
-        totalsSummary: singleTotalsSummary,
+        defaultLeft: sortedLeft,
+        defaultRight: sortedRight,
+        totalsLeft,
+        totalsRight,
+        totalsSummary,
         grouped: [],
         singleCurrencyTitle: title,
       };
