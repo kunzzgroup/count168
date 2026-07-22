@@ -3,6 +3,12 @@
  * Dashboard bootstrap: one HTTP request returns current KPI, previous period, and multi-currency earnings.
  * Reuses dashboard_api.php in-process via dashboard_api_capture() — same logic as
  * GET /api/transactions/dashboard_api.php (not a separate calculation path).
+ *
+ * Performance (multi-currency):
+ * - Primary currency on bootstrap_scope=full runs the chart-capable capture once.
+ * - Secondary currencies always use kpi_only + earnings_only (pie/sidebar totals only).
+ * - full no longer runs chart GROUP BY for secondary currencies then strips daily_data.
+ * - full skips secondary earnings.previous (primary MoM reuses KPI previous payload).
  */
 
 session_start();
@@ -280,7 +286,10 @@ try {
             $currentJson = dashboard_bootstrap_capture_scoped($currentParams, 'kpi');
         }
 
-        $skipEarningsPrevious = ($bootstrapScope === 'earnings');
+        // earnings scope: no MoM rows (FE fills later). full: primary MoM reuses $previousData;
+        // skip secondary previous — each was a full dashboard capture (chart SQL thrown away by slim).
+        $skipAllEarningsPrevious = ($bootstrapScope === 'earnings');
+        $skipSecondaryEarningsPrevious = ($bootstrapScope === 'full');
 
         foreach ($currencyCodes as $code) {
             if ($code === $primaryCurrency) {
@@ -289,7 +298,7 @@ try {
                     'code' => $code,
                     'payload' => dashboard_bootstrap_slim_payload($primaryCurrent),
                 ];
-                if (!$skipEarningsPrevious) {
+                if (!$skipAllEarningsPrevious) {
                     $earningsPrevious[] = [
                         'code' => $code,
                         'payload' => dashboard_bootstrap_slim_payload($previousData),
@@ -298,18 +307,17 @@ try {
                 continue;
             }
 
+            // Pie / multi-currency sidebar only needs period KPI — never run chart GROUP BY then slim it away.
             $curParams = $baseParams;
             $curParams['currency'] = $code;
-            $curJson = $bootstrapScope === 'earnings'
-                ? dashboard_bootstrap_capture_scoped($curParams, 'earnings')
-                : dashboard_bootstrap_capture($curParams);
+            $curJson = dashboard_bootstrap_capture_scoped($curParams, 'earnings');
             $curPayload = (!empty($curJson['success']) && is_array($curJson['data']))
                 ? dashboard_bootstrap_slim_payload($curJson['data'])
                 : null;
 
             $earningsCurrent[] = ['code' => $code, 'payload' => $curPayload];
 
-            if ($skipEarningsPrevious) {
+            if ($skipAllEarningsPrevious || $skipSecondaryEarningsPrevious) {
                 continue;
             }
 
@@ -317,7 +325,7 @@ try {
             $prevCurParams['date_from'] = $prevRange['from'];
             $prevCurParams['date_to'] = $prevRange['to'];
             $prevCurParams['currency'] = $code;
-            $prevCurJson = dashboard_bootstrap_capture($prevCurParams);
+            $prevCurJson = dashboard_bootstrap_capture_scoped($prevCurParams, 'earnings');
             $prevCurPayload = (!empty($prevCurJson['success']) && is_array($prevCurJson['data']))
                 ? dashboard_bootstrap_slim_payload($prevCurJson['data'])
                 : null;
