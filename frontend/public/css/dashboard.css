@@ -871,13 +871,6 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     gap: var(--dashboard-section-gap);
 }
 
-/* Hide KPI + trend/pie until the same view is fully ready — reveal together. */
-.dashboard-content.is-panels-pending > .dashboard-kpi-grid,
-.dashboard-content.is-panels-pending > .dashboard-panels-row {
-    opacity: 0;
-    pointer-events: none;
-}
-
 .dashboard-card {
     background-color: var(--scd-card);
     border: 1px solid var(--scd-border);

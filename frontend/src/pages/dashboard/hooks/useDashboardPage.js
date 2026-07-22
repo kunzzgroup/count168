@@ -7259,7 +7259,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const earningsPanelStable =
     currencies.length <= 1 ||
     (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
-  /** KPI + trend + pie reveal together — no staggered paint. */
+  /**
+   * True when KPI + chart (+ multi-currency earnings) are ready for the active scope.
+   * Used for compare badges / panel stability — do not blank the layout while waiting.
+   */
   const dashboardViewReady = useMemo(() => {
     if (!dashboardScopeKey || scopeDataPending || loading) return false;
     if (!dashboardData || dashboardPayloadNeedsChartDaily(dashboardData)) return false;
@@ -7273,7 +7276,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     currencies.length,
     earningsPanelStable,
   ]);
-  const kpiLoading = !dashboardViewReady;
+  /** Keep previous paint visible while the next full view loads (no empty hole). */
+  const kpiLoading = Boolean(dashboardData) ? false : loading || !dashboardViewReady;
 
   useLayoutEffect(() => {
     if (

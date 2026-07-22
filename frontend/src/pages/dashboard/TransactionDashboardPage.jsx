@@ -41,10 +41,7 @@ export default function TransactionDashboardPage() {
           </div>
         )}
 
-        <div
-          id="app"
-          className={`dashboard-content${page.dashboardViewReady ? "" : " is-panels-pending"}`}
-        >
+        <div id="app" className="dashboard-content">
           <DashboardFilterPanel
             i18n={i18n}
             effectiveDateRangeText={effectiveDateRangeText}
