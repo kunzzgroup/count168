@@ -3935,10 +3935,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const isActiveScope = scopeKey === resolveDashboardScopeKey();
       if (isActiveScope) return;
       const codes = resolvePrefetchBootstrapCodes(id, vg, isActiveScope);
-      if (
-        !scopeKey ||
-        (existing?.current && cacheEntryHasFullEarnings(existing, codes))
-      ) {
+      const cacheReady =
+        existing?.current &&
+        !dashboardPayloadNeedsChartDaily(existing.current) &&
+        cacheEntryHasFullEarnings(existing, codes);
+      if (!scopeKey || cacheReady) {
         return;
       }
 
@@ -3946,48 +3947,103 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const subScope = Boolean(vg && !usesLedger);
       const rangeFrom = dateFromRef.current;
       const rangeTo = dateToRef.current;
-      const q = new URLSearchParams({
-        date_from: rangeFrom,
-        date_to: rangeTo,
-        bootstrap_scope: "kpi",
-        prefetch: "1",
-      });
-      if (usesLedger && vg) {
-        q.set("view_group", vg);
-        q.set("group_id", vg);
-      } else {
-        q.set("company_id", String(id));
-        if (subScope) appendDashboardSubsidiaryScopeParams(q, vg);
-        else if (vg) {
+      const longRange = shouldAggregateChartByMonth(rangeFrom, rangeTo);
+
+      const buildPrefetchParams = (scope) => {
+        const q = new URLSearchParams({
+          date_from: rangeFrom,
+          date_to: rangeTo,
+          bootstrap_scope: scope,
+          prefetch: "1",
+        });
+        if (usesLedger && vg) {
           q.set("view_group", vg);
           q.set("group_id", vg);
+        } else {
+          q.set("company_id", String(id));
+          if (subScope) appendDashboardSubsidiaryScopeParams(q, vg);
+          else if (vg) {
+            q.set("view_group", vg);
+            q.set("group_id", vg);
+          }
         }
-      }
-      if (cur) q.set("currency", cur);
-      if (codes?.length > 1) q.set("currencies", codes.join(","));
-      const requestKey = q.toString();
-      if (dashboardPrefetchFailedRef.current.has(requestKey)) return;
+        if (cur) q.set("currency", cur);
+        if (codes?.length > 1) q.set("currencies", codes.join(","));
+        if (scope === "chart" && longRange) q.set("chart_monthly", "1");
+        return q;
+      };
+
+      const fetchPrefetchScope = async (scope) => {
+        const q = buildPrefetchParams(scope);
+        const requestKey = q.toString();
+        if (dashboardPrefetchFailedRef.current.has(requestKey)) return null;
+        try {
+          const { res, json } = await fetchBootstrapHttpDeduped(
+            bootstrapInflightRef.current,
+            requestKey,
+            { credentials: "include" }
+          );
+          if (!res.ok || !json.success || !json.data) {
+            if (!res.ok) dashboardPrefetchFailedRef.current.add(requestKey);
+            return null;
+          }
+          return json.data;
+        } catch {
+          return null;
+        }
+      };
 
       try {
-        const { res, json } = await fetchBootstrapHttpDeduped(
-          bootstrapInflightRef.current,
-          requestKey,
-          { credentials: "include" }
-        );
-        if (!res.ok || !json.success || !json.data?.current) {
-          if (!res.ok) dashboardPrefetchFailedRef.current.add(requestKey);
-          return;
-        }
+        // Prefer chart-first on long ranges so sibling cache already has trend series.
+        const primaryScope = longRange ? "chart" : "kpi";
+        const primaryData = await fetchPrefetchScope(primaryScope);
+        if (!primaryData?.current) return;
 
-        const current = applyDashboardPayloadAdjustments(json.data.current, id, vg || null);
-        const previous = json.data.previous
-          ? applyDashboardPayloadAdjustments(json.data.previous, id, vg || null)
-          : null;
-        const earningsCurrent = earningsRowsFromBootstrapEntries(
-          json.data.earnings?.current,
+        let current = applyDashboardPayloadAdjustments(primaryData.current, id, vg || null);
+        let previous = primaryData.previous
+          ? applyDashboardPayloadAdjustments(primaryData.previous, id, vg || null)
+          : existing?.previous ?? null;
+        let earningsCurrent = earningsRowsFromBootstrapEntries(
+          primaryData.earnings?.current,
           id,
           vg || null
         );
+
+        const fillTasks = [];
+        if (dashboardPayloadNeedsChartDaily(current) && primaryScope !== "chart") {
+          fillTasks.push(
+            (async () => {
+              const chartData = await fetchPrefetchScope("chart");
+              if (chartData?.current?.daily_data) {
+                current = markDashboardChartSettled(
+                  applyDashboardPayloadAdjustments(
+                    { ...current, daily_data: chartData.current.daily_data },
+                    id,
+                    vg || null
+                  )
+                );
+              } else {
+                current = markDashboardChartSettled(current);
+              }
+            })()
+          );
+        } else {
+          current = markDashboardChartSettled(current);
+        }
+        if (Array.isArray(codes) && codes.length > 1 && !cacheEntryHasFullEarnings({ earnings: earningsCurrent }, codes)) {
+          fillTasks.push(
+            (async () => {
+              const earnData = await fetchPrefetchScope("earnings");
+              const rows = earningsRowsFromBootstrapEntries(
+                earnData?.earnings?.current,
+                id,
+                vg || null
+              );
+              if (rows.length > 1) earningsCurrent = rows;
+            })()
+          );
+        }
+        if (fillTasks.length) await Promise.all(fillTasks);
 
         if (current) {
           seedDashboardPayloadCacheForCompany(id, vg || null, rangeFrom, rangeTo, cur, current);
@@ -5310,10 +5366,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       currenciesScopeSig
     ) {
       earningsFetchGenRef.current += 1;
-      clearEarningsFromScopeKeys([
-        ...listCurrencyScopeKeys(currencies),
-        dashboardScopeKey,
-      ]);
+      // Only clear sibling *display-currency* keys. Never wipe dashboardScopeKey —
+      // company switches often change the currency set (AG 6 vs 95 9) and clearing
+      // the active scope forced a full earnings refetch on every switch (~0.7–1s).
+      clearEarningsFromScopeKeys(listCurrencyScopeKeys(currencies));
     }
     prevEarningsCurrenciesSigRef.current = currenciesScopeSig;
 
@@ -5869,6 +5925,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (gen !== dashboardFetchGenRef.current) return false;
       }
 
+      // Do not swap scope UI until pie is ready — avoids KPI/chart first, earnings later.
+      if (needsMultiCurrencyEarnings && !earningsCached) {
+        setLoading(true);
+        return false;
+      }
+
       setDashboardData(currentCached);
       dashboardDataRef.current = currentCached;
       setDashboardDataPrev(previousCached);
@@ -5899,8 +5961,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     };
 
     if (cached?.current) {
-      await materializeCachedDashboard(cached);
-      return;
+      if (await materializeCachedDashboard(cached)) return;
+      // Incomplete multi-currency pie — fall through to network bootstrap.
     }
 
     // Seed session cache only — do not paint partial KPI/chart (keeps previous company until ready).
@@ -5985,11 +6047,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const warmedGroupAll = groupAllMode ? getDashboardCache(cacheKey) : null;
     const latestCached = getDashboardCache(cacheKey);
     if (latestCached?.current) {
-      await materializeCachedDashboard(latestCached);
-      return;
+      if (await materializeCachedDashboard(latestCached)) return;
     }
 
-    const needsDashboardFetch = !latestCached?.current;
+    const needsDashboardFetch = !getDashboardCache(cacheKey)?.current;
     const scopeNeedsCurrency = dashboardScopeNeedsCurrency({
       companyId,
       usesGroupLedgerDashboard,
@@ -6021,8 +6082,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       if (canUseDashboardBootstrap) {
         try {
+          // This Year / long ranges: chart-first (includes KPI + monthly series) so we skip a second chart RTT.
+          const primaryBootstrapScope = shouldAggregateChartByMonth(dateFrom, dateTo)
+            ? "chart"
+            : "kpi";
           const boot = await loadDashboardViaBootstrap({
-            scope: "kpi",
+            scope: primaryBootstrapScope,
             currencyOverride: provisionalCurrency || undefined,
           });
           if (gen !== dashboardFetchGenRef.current) return;
@@ -6031,6 +6096,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           let previousPayload = boot.previous ?? null;
           let earningsCurrent = Array.isArray(boot?.earningsCurrent) ? boot.earningsCurrent : null;
           let earningsPrevious = Array.isArray(boot?.earningsPrevious) ? boot.earningsPrevious : null;
+
+          if (primaryBootstrapScope === "chart" && currentPayload) {
+            currentPayload = markDashboardChartSettled(
+              applyDashboardPayloadAdjustments(currentPayload, companyId, selectedGroup)
+            );
+          }
 
           const panelTasks = [];
 
@@ -6065,7 +6136,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
                 }
               })()
             );
-          } else {
+          } else if (currentPayload) {
             currentPayload = markDashboardChartSettled(currentPayload);
           }
 
@@ -6123,17 +6194,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
               resolveDashboardScopeKey
             );
           } else if (needsMultiCurrencyEarnings) {
-            const primary = currencyCode;
-            const codes = codesForEarnings || currenciesRef.current;
-            const primaryMetrics = computeCurrencyMetricsFromPayload(current);
-            setEarningsByCurrency(
-              buildSeededEarningsRows(
-                codes,
-                primary,
-                primaryMetrics.netProfit,
-                primaryMetrics.earnings
-              )
-            );
+            // Should be rare after panelTasks — keep prior pie until upgrade finishes.
             setEarningsByCurrencyLoading(true);
             void upgradeActiveScopeEarnings();
           } else {
