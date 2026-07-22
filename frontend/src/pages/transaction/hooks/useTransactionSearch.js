@@ -859,10 +859,7 @@ export function useTransactionSearch({
         pushToast(m.pleaseSelectDateRange, "error");
         return;
       }
-      if (!showAllCurrencies && selectedCurrencies.length === 0) {
-        pushToast(m.pleaseSelectAtLeastOneCurrency, "info");
-        return;
-      }
+      // Type Search: skip currency pre-check — we fetch all currencies and auto-detect from results.
 
       setSearchLoading(true);
       try {
@@ -874,10 +871,8 @@ export function useTransactionSearch({
         const subsidiarySearch =
           scopeApi.subsidiaryAccountsOnly ||
           (scopeApi.companyId != null && Number(scopeApi.companyId) > 0);
-        const currencyCodes =
-          !showAllCurrencies && selectedCurrencies.length > 0
-            ? selectedCurrencies.map((c) => String(c || "").toUpperCase().trim()).filter(Boolean)
-            : undefined;
+        // Type Search: do not restrict by currency — let the API return all currencies with transactions.
+        const currencyCodes = undefined;
         const scopeParams = {
           ...scopeApi,
           viewGroup: subsidiarySearch ? undefined : scopeApi.viewGroup,
@@ -942,6 +937,30 @@ export function useTransactionSearch({
         setTypeSearchFormType(normalizedType);
         setTypeSearchAccountIds(typeAccountIds);
         setRawSearchData(cleaned);
+
+        // Auto-detect currencies present in the returned data and update the filter state.
+        const foundCurrencySet = new Set();
+        (cleaned.left_table || []).forEach((row) => {
+          const cur = String(row?.currency || "").toUpperCase().trim();
+          if (cur) foundCurrencySet.add(cur);
+        });
+        (cleaned.right_table || []).forEach((row) => {
+          const cur = String(row?.currency || "").toUpperCase().trim();
+          if (cur) foundCurrencySet.add(cur);
+        });
+        const foundCurrencies = [...foundCurrencySet];
+
+        if (foundCurrencies.length >= 2) {
+          // Multiple currencies with transactions — show all of them.
+          suppressCrossPageCurrencyRef.current = true;
+          setShowAllCurrencies(true);
+          setSelectedCurrencies([]);
+        } else if (foundCurrencies.length === 1) {
+          // Only one currency with transactions — select it.
+          suppressCrossPageCurrencyRef.current = false;
+          setShowAllCurrencies(false);
+          setSelectedCurrencies(foundCurrencies);
+        }
 
         const displayed =
           (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
