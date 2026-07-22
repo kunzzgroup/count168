@@ -857,11 +857,6 @@ export function useTransactionSearch({
         prevServerSideFiltersRef.current = clearedState;
       }
 
-      // Enable all-currencies mode upfront so UI & table grouping are active from start of search
-      suppressCrossPageCurrencyRef.current = true;
-      setShowAllCurrencies(true);
-      setSelectedCurrencies([]);
-
       if (!scopeReady || !scopeCacheCompanyKey) return;
       const queryDateFrom = String(dateFromOverride ?? effectiveDateFrom ?? "").trim();
       const queryDateTo = String(dateToOverride ?? effectiveDateTo ?? "").trim();
