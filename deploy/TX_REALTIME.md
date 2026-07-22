@@ -47,6 +47,15 @@ npm run dev
 
 `includes/config.local.php` 设同一 `$tx_realtime_secret`。未设置 secret 时 realtime **自动关闭**（Submit 不受影响）。
 
+**权限（必查）**：Amazon Linux 上 php-fpm 用户是 `apache`。`config.local.php` 若为 `640` + 组 `nginx`，apache **读不到** secret，ticket 会一直 `enabled:false`，浏览器也不会连 `/realtime/sse`。部署脚本会设为 `ec2-user:apache` + `640`。手动修复：
+
+```bash
+sudo chown ec2-user:apache /var/www/count168/includes/config.local.php
+sudo chmod 640 /var/www/count168/includes/config.local.php
+```
+
+排障：`/realtime/health` 的 `clients` 应 ≥ 开着 Transaction Payment 的浏览器数；access log 里应有 `/realtime/sse`（不只 `realtime_ticket_api.php`）。
+
 ## 验收
 
 1. 两浏览器同公司、Capture Date 含交易日  

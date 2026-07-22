@@ -82,6 +82,13 @@ if [[ -f "$CFG_LOCAL" ]]; then
       echo "==> config.local.php already has non-empty tx_realtime_secret"
     fi
   fi
+  # php-fpm runs as apache on Amazon Linux — must be able to read secrets.
+  # (640 + group nginx leaves apache unable to load $tx_realtime_secret → ticket enabled:false)
+  if id apache >/dev/null 2>&1; then
+    chgrp apache "$CFG_LOCAL" 2>/dev/null || sudo chgrp apache "$CFG_LOCAL" || true
+  fi
+  chmod 640 "$CFG_LOCAL" 2>/dev/null || sudo chmod 640 "$CFG_LOCAL" || true
+  echo "==> config.local.php perms: $(ls -l "$CFG_LOCAL" | awk '{print $1,$3,$4}')"
 else
   echo "WARN: ${CFG_LOCAL} missing — create it and set tx_realtime_secret"
 fi

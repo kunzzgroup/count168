@@ -1,4 +1,3 @@
-import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { fetchRealtimeTicket } from "./transactionApi.js";
 
 /**
@@ -20,6 +19,7 @@ export function subscribeTransactionLedgerRealtime({
   let reconnectTimer = null;
   let debounceTimer = null;
   let attempt = 0;
+  let warnedDisabled = false;
 
   const clearTimers = () => {
     if (reconnectTimer) {
@@ -63,15 +63,25 @@ export function subscribeTransactionLedgerRealtime({
       if (closed) return;
       const data = ticketRes?.data;
       if (!ticketRes?.success || !data?.enabled || !data?.ticket) {
+        if (!warnedDisabled) {
+          warnedDisabled = true;
+          console.warn(
+            "[tx-realtime] ticket disabled or failed:",
+            ticketRes?.message || ticketRes?.error || "enabled=false",
+          );
+        }
         // Realtime off on server — quiet retry later (config may be enabled after deploy).
         attempt += 1;
         const delay = Math.min(60_000, 5_000 * attempt);
         reconnectTimer = setTimeout(connect, delay);
         return;
       }
+      warnedDisabled = false;
 
-      const ssePath = String(data.sse_path || "/realtime/sse").replace(/^\//, "");
-      const url = buildApiUrl(`${ssePath}?ticket=${encodeURIComponent(data.ticket)}`);
+      // Site-root absolute URL — avoid SPA path / basePath resolving to wrong host path.
+      const ssePath = String(data.sse_path || "/realtime/sse");
+      const path = ssePath.startsWith("/") ? ssePath : `/${ssePath}`;
+      const url = `${window.location.origin}${path}?ticket=${encodeURIComponent(data.ticket)}`;
       es = new EventSource(url);
 
       es.addEventListener("ledger_changed", () => {
@@ -80,6 +90,8 @@ export function subscribeTransactionLedgerRealtime({
       });
 
       es.onerror = () => {
+        // EventSource auto-reconnects while CONNECTING; only re-ticket when fully closed.
+        if (es && es.readyState !== EventSource.CLOSED) return;
         closeEs();
         if (closed) return;
         attempt += 1;

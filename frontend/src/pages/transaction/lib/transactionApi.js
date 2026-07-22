@@ -357,10 +357,17 @@ export async function fetchRealtimeTicket({
   viewGroup,
   groupId,
   groupAggregate,
+  subsidiaryAccountsOnly,
   signal,
 } = {}) {
   const params = new URLSearchParams();
-  appendTransactionScope(params, { companyId, viewGroup, groupId, groupAggregate });
+  appendTransactionScope(params, {
+    companyId,
+    viewGroup,
+    groupId,
+    groupAggregate,
+    subsidiaryAccountsOnly,
+  });
   const res = await fetch(buildApiUrl(`api/transactions/realtime_ticket_api.php?${params}`), {
     credentials: "include",
     cache: "no-cache",

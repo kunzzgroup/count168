@@ -157,11 +157,9 @@ export function useTransactionSync({
 
   // Cross-device live sync: SSE ledger_changed → silent refresh (keeps submit-focus filter).
   useEffect(() => {
-    if (loading || forbidden) return;
+    // Do not gate on `loading` — tearing SSE down on every data reload drops the live channel.
+    if (forbidden) return;
     if (!transactionScopeIsReady(transactionScope)) return;
-    if (!initialSearchDoneRef?.current) {
-      // Wait until first list load finished, then effect re-runs via poll below.
-    }
 
     let unsubscribe = () => {};
     let waitId = null;
@@ -244,7 +242,6 @@ export function useTransactionSync({
       unsubscribe();
     };
   }, [
-    loading,
     forbidden,
     transactionScope,
     transactionScopeCacheCompanyKey(transactionScope),
