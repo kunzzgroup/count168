@@ -131,6 +131,8 @@ export function useTransactionSearch({
   /** First approved submit may jump Capture Date to the tx date; later submits keep the current range. */
   const hasAutoJumpedCaptureDateOnSubmitRef = useRef(false);
   const lastInitialSearchKeyRef = useRef("");
+  /** Set while Type Search auto-applies currency (ALL / detected codes) — blocks default list re-fetch. */
+  const suppressCurrencyDefaultSearchRef = useRef(false);
   const earlyCurrencyScopeRef = useRef(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
 
@@ -839,6 +841,12 @@ export function useTransactionSearch({
       const normalizedType = String(formTxType || "").toUpperCase().trim();
       if (!normalizedType) return;
 
+      if (autoSearchTimerRef.current) {
+        clearTimeout(autoSearchTimerRef.current);
+        autoSearchTimerRef.current = null;
+      }
+      latestRunTokenRef.current += 1;
+
       setSubmitFocusByCurrency({});
       setSubmitFocusRangeKey(null);
 
@@ -985,13 +993,33 @@ export function useTransactionSearch({
         const displayed =
           (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
 
+        const nextShowAll = foundCurrencies.length >= 2;
+        const nextSelectedCurrencies = nextShowAll ? [] : foundCurrencies;
+        const nextSelectedCurrenciesKey = nextSelectedCurrencies
+          .map((c) => String(c || "").toUpperCase().trim())
+          .join(",");
+        const categoryKey = [...selectedCategories]
+          .map((x) => String(x || "").toUpperCase().trim())
+          .filter(Boolean)
+          .sort()
+          .join(",");
+        const scopeKeyForInit = transactionScopeCacheKey(transactionScope) || "";
+        const currencyFilterChanged =
+          nextShowAll !== showAllCurrencies || nextSelectedCurrenciesKey !== selectedCurrenciesKey;
+
         flushSync(() => {
           setTypeSearchActive(true);
           setTypeSearchFormType(normalizedType);
           setTypeSearchAccountIds(typeAccountIds);
           setRawSearchData(cleaned);
 
-          if (foundCurrencies.length >= 2) {
+          bootCurrencyDefaultRef.current = false;
+          if (nextShowAll) {
+            if (!showAllCurrencies) {
+              currenciesBeforeAllRef.current = selectedCurrencies
+                .map((c) => String(c || "").toUpperCase().trim())
+                .filter(Boolean);
+            }
             suppressCrossPageCurrencyRef.current = true;
             setShowAllCurrencies(true);
             setSelectedCurrencies([]);
@@ -1004,9 +1032,21 @@ export function useTransactionSearch({
           setTablesVisible(displayed > 0);
         });
 
-        if (autoSearchTimerRef.current) {
-          clearTimeout(autoSearchTimerRef.current);
-          autoSearchTimerRef.current = null;
+        if (currencyFilterChanged) {
+          suppressCurrencyDefaultSearchRef.current = true;
+          lastInitialSearchKeyRef.current = [
+            scopeKeyForInit,
+            nextShowAll ? "ALL" : nextSelectedCurrenciesKey,
+            categoryKey,
+            queryDateFrom,
+            queryDateTo,
+          ].join("|");
+          persistCurrencyFilter(
+            scopeCacheCompanyKey,
+            nextShowAll,
+            nextSelectedCurrencies,
+            transactionScope?.selectedGroup,
+          );
         }
 
         if (!silent && displayed > 0) {
@@ -1026,11 +1066,13 @@ export function useTransactionSearch({
       scopeReady,
       scopeCacheCompanyKey,
       scopeApi,
+      transactionScope,
       effectiveDateFrom,
       effectiveDateTo,
       showAllCurrencies,
       selectedCurrencies,
       selectedCategories,
+      persistCurrencyFilter,
       pushToast,
       m,
       t,
@@ -1664,6 +1706,16 @@ export function useTransactionSearch({
 
     if (lastInitialSearchKeyRef.current === initSearchKey) return;
 
+    if (suppressCurrencyDefaultSearchRef.current) {
+      suppressCurrencyDefaultSearchRef.current = false;
+      lastInitialSearchKeyRef.current = initSearchKey;
+      return;
+    }
+    if (typeSearchActive) {
+      lastInitialSearchKeyRef.current = initSearchKey;
+      return;
+    }
+
     let hadReplay = false;
     let pendingInvalidate = false;
     try {
@@ -1730,6 +1782,7 @@ export function useTransactionSearch({
     effectiveDateFrom,
     effectiveDateTo,
     selectedCategoriesKey,
+    typeSearchActive,
   ]);
 
   useEffect(() => {
