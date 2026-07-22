@@ -887,14 +887,19 @@ export function useTransactionSearch({
         if (PERIOD_TYPE_SEARCH_TYPES.has(normalizedType)) {
           typeAccountIds = await fetchTypeAccountSearch({
             ...scopeParams,
-            transactionType: normalizedType,
+            transactionType: "ALL",
           });
           if (typeAccountIds.length === 0) {
-            setTypeSearchActive(true);
-            setTypeSearchFormType(normalizedType);
-            setTypeSearchAccountIds([]);
-            setRawSearchData({ left_table: [], right_table: [], totals: null });
-            setTablesVisible(false);
+            flushSync(() => {
+              setTypeSearchActive(true);
+              setTypeSearchFormType(normalizedType);
+              setTypeSearchAccountIds([]);
+              setRawSearchData({ left_table: [], right_table: [], totals: null });
+              setTablesVisible(false);
+            });
+            if (!silent) {
+              pushToast(t("searchCompletedFoundRecords", { displayed: 0 }), "info");
+            }
             return;
           }
 
@@ -932,13 +937,25 @@ export function useTransactionSearch({
           }
         }
 
-        const cleaned = sanitizeSearchApiData(payload);
-        setTypeSearchActive(true);
-        setTypeSearchFormType(normalizedType);
-        setTypeSearchAccountIds(typeAccountIds);
-        setRawSearchData(cleaned);
+        const rawCleaned = sanitizeSearchApiData(payload);
 
-        // Auto-detect currencies present in the returned data and update the filter state.
+        // Keep rows that have actual payment transaction movement (Cr/Dr != 0)
+        const hasPaymentMovement = (row) => {
+          if (!row) return false;
+          const crDr = parseFloat(String(row?.cr_dr ?? "").replace(/,/g, "")) || 0;
+          return Math.abs(crDr) > 0.0001;
+        };
+
+        const activeLeft = (rawCleaned.left_table || []).filter(hasPaymentMovement);
+        const activeRight = (rawCleaned.right_table || []).filter(hasPaymentMovement);
+
+        const cleaned = sanitizeSearchApiData({
+          ...rawCleaned,
+          left_table: activeLeft,
+          right_table: activeRight,
+        });
+
+        // Auto-detect currencies present in the returned active payment rows.
         const foundCurrencySet = new Set();
         (cleaned.left_table || []).forEach((row) => {
           const cur = String(row?.currency || "").toUpperCase().trim();
@@ -948,25 +965,54 @@ export function useTransactionSearch({
           const cur = String(row?.currency || "").toUpperCase().trim();
           if (cur) foundCurrencySet.add(cur);
         });
-        const foundCurrencies = [...foundCurrencySet];
+        let foundCurrencies = [...foundCurrencySet];
 
-        if (foundCurrencies.length >= 2) {
-          // Multiple currencies with transactions — show all of them.
-          suppressCrossPageCurrencyRef.current = true;
-          setShowAllCurrencies(true);
-          setSelectedCurrencies([]);
-        } else if (foundCurrencies.length === 1) {
-          // Only one currency with transactions — select it.
-          suppressCrossPageCurrencyRef.current = false;
-          setShowAllCurrencies(false);
-          setSelectedCurrencies(foundCurrencies);
+        if (foundCurrencies.length === 0) {
+          const allCurrencies = new Set();
+          (rawCleaned.left_table || []).forEach((row) => {
+            const cur = String(row?.currency || "").toUpperCase().trim();
+            if (cur) allCurrencies.add(cur);
+          });
+          (rawCleaned.right_table || []).forEach((row) => {
+            const cur = String(row?.currency || "").toUpperCase().trim();
+            if (cur) allCurrencies.add(cur);
+          });
+          const allList = [...allCurrencies];
+          const defaultCode = pickTransactionDefaultCurrency(allList.length > 0 ? allList : txCurrencyCodes);
+          foundCurrencies = defaultCode ? [defaultCode] : allList.length > 0 ? [allList[0]] : ["MYR"];
         }
 
         const displayed =
           (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
-        setTablesVisible(displayed > 0);
+
+        flushSync(() => {
+          setTypeSearchActive(true);
+          setTypeSearchFormType(normalizedType);
+          setTypeSearchAccountIds(typeAccountIds);
+          setRawSearchData(cleaned);
+
+          if (foundCurrencies.length >= 2) {
+            suppressCrossPageCurrencyRef.current = true;
+            setShowAllCurrencies(true);
+            setSelectedCurrencies([]);
+          } else {
+            suppressCrossPageCurrencyRef.current = false;
+            setShowAllCurrencies(false);
+            setSelectedCurrencies(foundCurrencies);
+          }
+
+          setTablesVisible(displayed > 0);
+        });
+
+        if (autoSearchTimerRef.current) {
+          clearTimeout(autoSearchTimerRef.current);
+          autoSearchTimerRef.current = null;
+        }
+
         if (!silent && displayed > 0) {
           pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
+        } else if (!silent && displayed === 0) {
+          pushToast(t("searchCompletedFoundRecords", { displayed: 0 }), "info");
         }
       } catch (e) {
         if (e?.name === "AbortError" || isCancelledError(e)) return;
@@ -1333,15 +1379,30 @@ export function useTransactionSearch({
     const codesOrdered = currencyRowsOrdered.map((c) => String(c.code || "").toUpperCase().trim()).filter(Boolean);
 
     if (!multi) {
-      const title =
-        selectedCurrencies.length === 1 ? `Currency: ${selectedCurrencies[0]}` : null;
+      const singleCode =
+        selectedCurrencies.length === 1 ? String(selectedCurrencies[0] || "").toUpperCase().trim() : null;
+      const title = singleCode ? `Currency: ${singleCode}` : null;
+
+      const singleLeft = singleCode
+        ? sortedLeft.filter((row) => String(row?.currency || "").toUpperCase().trim() === singleCode)
+        : sortedLeft;
+      const singleRight = singleCode
+        ? sortedRight.filter((row) => String(row?.currency || "").toUpperCase().trim() === singleCode)
+        : sortedRight;
+
+      const singleTotalsLeft = calculateTotals(singleLeft);
+      const singleTotalsRight = calculateTotals(singleRight);
+      const singleTotalsSummary = applySummaryWinLossDisplayTolerance(
+        calculateTotals([...singleLeft, ...singleRight]),
+      );
+
       return {
         mode: "default",
-        defaultLeft: sortedLeft,
-        defaultRight: sortedRight,
-        totalsLeft,
-        totalsRight,
-        totalsSummary,
+        defaultLeft: singleLeft,
+        defaultRight: singleRight,
+        totalsLeft: singleTotalsLeft,
+        totalsRight: singleTotalsRight,
+        totalsSummary: singleTotalsSummary,
         grouped: [],
         singleCurrencyTitle: title,
       };
