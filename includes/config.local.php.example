@@ -8,3 +8,10 @@ $host = '127.0.0.1';
 $dbname = 'u857194726_c168site';
 $dbuser = 'admin';
 $dbpass = 'C168_site';
+
+// Transaction Payment realtime (SSE hub). Empty secret = disabled.
+// Must match services/tx-realtime/.env TX_REALTIME_SECRET
+$tx_realtime_secret = '';
+$tx_realtime_publish_url = 'http://127.0.0.1:3911/publish';
+// Optional explicit toggle; omit or null = enabled when secret is non-empty
+// $tx_realtime_enabled = true;

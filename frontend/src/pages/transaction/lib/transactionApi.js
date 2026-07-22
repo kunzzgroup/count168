@@ -351,6 +351,25 @@ export async function searchTransactions({
   return body;
 }
 
+/** Short-lived SSE ticket for Transaction Payment live sync. */
+export async function fetchRealtimeTicket({
+  companyId,
+  viewGroup,
+  groupId,
+  groupAggregate,
+  signal,
+} = {}) {
+  const params = new URLSearchParams();
+  appendTransactionScope(params, { companyId, viewGroup, groupId, groupAggregate });
+  const res = await fetch(buildApiUrl(`api/transactions/realtime_ticket_api.php?${params}`), {
+    credentials: "include",
+    cache: "no-cache",
+    headers: { "Cache-Control": "no-cache" },
+    signal,
+  });
+  return safeJson(res);
+}
+
 export async function submitTransaction({
   companyId,
   viewGroup,
