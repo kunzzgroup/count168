@@ -630,16 +630,13 @@ function dashboardPayloadNeedsChartDaily(data) {
   );
 }
 
-/** Cache key segments 1–2 are dateFrom|dateTo — used to detect This Year / range swaps. */
-function dashboardCacheKeyDateSig(key) {
-  if (!key) return "";
-  const parts = String(key).split("|");
-  return `${parts[1] || ""}|${parts[2] || ""}`;
-}
-
-/** Date-range change: KPI + trend + pie must paint in one atomic swap. */
+/**
+ * Any painted→target scope change (company / date / group / All):
+ * KPI + trend + pie must swap in one frame — never paint cards/chart ahead of pie.
+ */
 function dashboardRequiresPieAtomicPaint(displayKey, targetKey) {
-  return dashboardCacheKeyDateSig(displayKey) !== dashboardCacheKeyDateSig(targetKey);
+  if (!targetKey) return false;
+  return String(displayKey || "") !== String(targetKey || "");
 }
 
 /** Mark payload so empty years do not re-fetch chart forever. */
@@ -6114,8 +6111,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       if (canUseDashboardBootstrap) {
         try {
-          // Long range (This Year): one `full` pack (KPI + monthly chart + previous + earnings).
-          // Date-range change: never paint until pie is ready (atomic KPI+trend+pie).
+          // Long range / any scope swap: prefer `full` so KPI+chart+earnings arrive together.
           const longRange = shouldAggregateChartByMonth(dateFrom, dateTo);
           const requirePie = dashboardRequiresPieAtomicPaint(
             displayScopeKeyRef.current,
@@ -6186,7 +6182,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
                 resolveDashboardScopeKey
               );
             } else if (needsMultiCurrencyEarnings) {
-              // Company switch only — date change never reaches here (gated above).
+              // Should not paint partial pie on scope swap (gated above).
               const primary = currencyCodeRef.current;
               const metrics = computeCurrencyMetricsFromPayload(current);
               setEarningsByCurrency(
@@ -6208,7 +6204,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             return true;
           };
 
-          // Company switch: may paint KPI+chart early. Date change: wait for pie.
+          // Only paint early when already on this scope (same-key refresh).
           if (!requirePie) {
             paintBootstrap();
           }
