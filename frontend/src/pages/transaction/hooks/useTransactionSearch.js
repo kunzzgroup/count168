@@ -837,6 +837,8 @@ export function useTransactionSearch({
         forceRefresh = false,
       } = opts;
 
+      const normalizedType = String(formTxType || "").toUpperCase().trim();
+
       setSubmitFocusByCurrency({});
       setSubmitFocusRangeKey(null);
 
@@ -892,24 +894,72 @@ export function useTransactionSearch({
             ? [...selectedCategories].sort().join(",")
             : undefined;
 
-        // Query all transaction types for the selected Capture Date range across all currencies (no type filtering)
-        const result = await searchTransactionsApi({
-          ...scopeParams,
-          dateFrom: queryDateFrom,
-          dateTo: queryDateTo,
-          showInactive: false,
-          showCaptureOnly: false,
-          hideZeroBalance: false,
-          categories: categoryParam ? categoryParam.split(",") : undefined,
-          currencyCodes: undefined,
-        });
+        let payload = null;
+        let typeAccountIds = [];
 
-        if (!result?.success || !result?.data) {
-          pushToast(result?.message || result?.error || m.searchFailed, "error");
-          return;
+        if (normalizedType && PERIOD_TYPE_SEARCH_TYPES.has(normalizedType)) {
+          typeAccountIds = await fetchTypeAccountSearch({
+            ...scopeParams,
+            transactionType: normalizedType,
+          });
+          if (typeAccountIds.length === 0) {
+            flushSync(() => {
+              setTypeSearchActive(true);
+              setTypeSearchFormType(normalizedType);
+              setTypeSearchAccountIds([]);
+              setRawSearchData({ left_table: [], right_table: [], totals: null });
+              setTablesVisible(false);
+            });
+            return;
+          }
+
+          const result = await searchTransactionsApi({
+            ...scopeParams,
+            dateFrom: queryDateFrom,
+            dateTo: queryDateTo,
+            showInactive: false,
+            showCaptureOnly: false,
+            hideZeroBalance: false,
+            categories: categoryParam ? categoryParam.split(",") : undefined,
+            currencyCodes: undefined,
+            typeSearch: true,
+            typeAccountIds,
+            typeSearchFormType: normalizedType,
+          });
+          if (!result?.success || !result?.data) {
+            pushToast(result?.message || result?.error || m.searchFailed, "error");
+            return;
+          }
+          payload = result.data;
+        } else if (normalizedType) {
+          payload = await fetchTypeTransactionSearch({
+            ...scopeParams,
+            transactionType: normalizedType,
+            currencyCodes: undefined,
+          });
+          if (!payload) {
+            pushToast(m.searchFailed, "error");
+            return;
+          }
+        } else {
+          const result = await searchTransactionsApi({
+            ...scopeParams,
+            dateFrom: queryDateFrom,
+            dateTo: queryDateTo,
+            showInactive: false,
+            showCaptureOnly: false,
+            hideZeroBalance: false,
+            categories: categoryParam ? categoryParam.split(",") : undefined,
+            currencyCodes: undefined,
+          });
+          if (!result?.success || !result?.data) {
+            pushToast(result?.message || result?.error || m.searchFailed, "error");
+            return;
+          }
+          payload = result.data;
         }
 
-        const cleaned = sanitizeSearchApiData(result.data);
+        const cleaned = sanitizeSearchApiData(payload);
 
         // Auto-detect currencies present in the returned data.
         const foundCurrencySet = new Set();
@@ -926,11 +976,13 @@ export function useTransactionSearch({
         const displayed =
           (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
 
-        // Commit search data and finalize currency selection synchronously.
+        // Commit type search data, activate typeSearchActive mode, and finalize currency selection synchronously.
         flushSync(() => {
-          setTypeSearchActive(false);
-          setTypeSearchFormType(null);
-          setTypeSearchAccountIds([]);
+          if (normalizedType) {
+            setTypeSearchActive(true);
+            setTypeSearchFormType(normalizedType);
+            setTypeSearchAccountIds(typeAccountIds);
+          }
           setRawSearchData(cleaned);
 
           if (foundCurrencies.length < 2) {
