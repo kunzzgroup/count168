@@ -926,10 +926,10 @@ export function useTransactionSearch({
         const displayed =
           (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
 
-        // Commit search data and finalize currency selection synchronously.
+        // Commit search data and set typeSearchActive to true so the Refresh button is displayed.
         flushSync(() => {
-          setTypeSearchActive(false);
-          setTypeSearchFormType(null);
+          setTypeSearchActive(true);
+          setTypeSearchFormType(normalizedType || "ALL");
           setTypeSearchAccountIds([]);
           setRawSearchData(cleaned);
 
