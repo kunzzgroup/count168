@@ -380,6 +380,15 @@
     }
 
     // ==================== Contra Inbox（Manager+） ====================
+    /** null = 尚未建立基线（首次不弹「新单」）；之后用 id 检测跨设备新提交 */
+    let contraInboxKnownIds = null;
+    let contraInboxSig = '';
+    let contraInboxLoadInFlight = false;
+    let contraInboxWaitController = null;
+    let contraInboxWaitGeneration = 0;
+    let contraInboxLiveEnabled = false;
+    const CONTRA_INBOX_WAIT_TIMEOUT_SEC = 25;
+
     function isContraInboxOpen() {
         const pop = document.getElementById('contraInboxPopover');
         return !!pop && pop.style.display !== 'none';
@@ -388,11 +397,39 @@
         const pop = document.getElementById('contraInboxPopover');
         if (!pop) return;
         pop.style.display = 'block';
+        clearContraInboxAttention();
     }
     function closeContraInbox() {
         const pop = document.getElementById('contraInboxPopover');
         if (!pop) return;
         pop.style.display = 'none';
+    }
+
+    function clearContraInboxAttention() {
+        const btn = document.getElementById('contraInboxBtn');
+        if (btn) btn.classList.remove('contra-inbox-has-new');
+        document.querySelectorAll('.contra-inbox-badge').forEach((el) => {
+            el.classList.remove('contra-inbox-badge-pulse');
+        });
+    }
+
+    function markContraInboxAttention() {
+        const btn = document.getElementById('contraInboxBtn');
+        if (btn) btn.classList.add('contra-inbox-has-new');
+        document.querySelectorAll('.contra-inbox-badge').forEach((el) => {
+            el.classList.add('contra-inbox-badge-pulse');
+        });
+    }
+
+    function notifyNewContraInboxItems(newCount) {
+        const n = Math.max(1, parseInt(newCount, 10) || 1);
+        showNotification(
+            n === 1
+                ? 'New pending approval in Contra Inbox'
+                : `${n} new pending approvals in Contra Inbox`,
+            'info'
+        );
+        markContraInboxAttention();
     }
 
     function renderContraInbox(items) {
@@ -404,6 +441,9 @@
         const count = Array.isArray(items) ? items.length : 0;
         countEl.textContent = String(count);
         if (countEl2) countEl2.textContent = String(count);
+        if (count === 0) {
+            clearContraInboxAttention();
+        }
 
         if (count === 0) {
             tbody.innerHTML = '<tr><td colspan="8" style="padding:10px 8px; color:#6b7280;">No pending contra.</td></tr>';
@@ -429,31 +469,134 @@
         }).join('');
     }
 
+    function applyContraInboxItems(items, opts) {
+        opts = opts || {};
+        const list = Array.isArray(items) ? items : [];
+        const ids = list.map((row) => parseInt(row && row.id, 10)).filter((id) => id > 0);
+
+        if (contraInboxKnownIds === null) {
+            contraInboxKnownIds = new Set(ids);
+        } else {
+            const newIds = ids.filter((id) => !contraInboxKnownIds.has(id));
+            contraInboxKnownIds = new Set(ids);
+            if (newIds.length > 0 && opts.notifyNew !== false) {
+                notifyNewContraInboxItems(newIds.length);
+            }
+        }
+        // 仅采用服务端 sha1 签名，保证与长轮询 wait_api 比对一致
+        if (typeof opts.sig === 'string' && opts.sig) {
+            contraInboxSig = opts.sig;
+        }
+        renderContraInbox(list);
+    }
+
     function buildContraInboxUrl() {
         let url = transactionsApiUrl('api/transactions/contra_inbox_api.php');
         if (currentCompanyId) {
-            url += `?company_id=${currentCompanyId}`;
+            url += `?company_id=${encodeURIComponent(currentCompanyId)}`;
         }
+        url += (url.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
         return url;
+    }
+
+    function buildContraInboxWaitUrl() {
+        let url = transactionsApiUrl('api/transactions/contra_inbox_wait_api.php');
+        const params = [];
+        if (currentCompanyId) {
+            params.push('company_id=' + encodeURIComponent(currentCompanyId));
+        }
+        if (contraInboxSig) {
+            params.push('sig=' + encodeURIComponent(contraInboxSig));
+        }
+        params.push('timeout=' + CONTRA_INBOX_WAIT_TIMEOUT_SEC);
+        params.push('_t=' + Date.now());
+        url += (url.indexOf('?') >= 0 ? '&' : '?') + params.join('&');
+        return url;
+    }
+
+    function stopContraInboxLiveSync() {
+        contraInboxLiveEnabled = false;
+        contraInboxWaitGeneration += 1;
+        if (contraInboxWaitController) {
+            try { contraInboxWaitController.abort(); } catch (e) { /* ignore */ }
+            contraInboxWaitController = null;
+        }
+    }
+
+    function pumpContraInboxWait(generation) {
+        if (!canApproveContra || !contraInboxLiveEnabled) return;
+        if (generation !== contraInboxWaitGeneration) return;
+        if (document.visibilityState !== 'visible') return;
+
+        if (contraInboxWaitController) {
+            try { contraInboxWaitController.abort(); } catch (e) { /* ignore */ }
+        }
+        const controller = new AbortController();
+        contraInboxWaitController = controller;
+
+        fetch(buildContraInboxWaitUrl(), {
+            method: 'GET',
+            cache: 'no-cache',
+            signal: controller.signal
+        })
+            .then((r) => r.json())
+            .then((data) => {
+                if (generation !== contraInboxWaitGeneration || !contraInboxLiveEnabled) return;
+                if (data && data.success && data.data) {
+                    const payload = data.data;
+                    const items = Array.isArray(payload.items) ? payload.items : [];
+                    const sig = typeof payload.sig === 'string' ? payload.sig : '';
+                    applyContraInboxItems(items, { sig: sig, notifyNew: true });
+                }
+            })
+            .catch((err) => {
+                if (err && err.name === 'AbortError') return;
+                console.error('❌ Contra inbox wait failed:', err);
+            })
+            .finally(() => {
+                if (generation !== contraInboxWaitGeneration || !contraInboxLiveEnabled) return;
+                if (document.visibilityState !== 'visible') return;
+                // 有变化立刻再挂；超时无变化也立刻再挂，保持近实时
+                setTimeout(() => pumpContraInboxWait(generation), 50);
+            });
+    }
+
+    function startContraInboxLiveSync() {
+        if (!canApproveContra) return;
+        contraInboxLiveEnabled = true;
+        contraInboxWaitGeneration += 1;
+        const generation = contraInboxWaitGeneration;
+        if (contraInboxWaitController) {
+            try { contraInboxWaitController.abort(); } catch (e) { /* ignore */ }
+            contraInboxWaitController = null;
+        }
+        pumpContraInboxWait(generation);
     }
 
     function loadContraInbox() {
         if (!canApproveContra) return Promise.resolve();
+        if (contraInboxLoadInFlight) return Promise.resolve();
+        contraInboxLoadInFlight = true;
 
         return fetch(buildContraInboxUrl(), { method: 'GET', cache: 'no-cache' })
             .then(r => r.json())
             .then(data => {
                 if (data && data.success) {
-                    renderContraInbox(data.data || []);
+                    const items = Array.isArray(data.data) ? data.data : [];
+                    applyContraInboxItems(items, {
+                        sig: typeof data.sig === 'string' ? data.sig : '',
+                        notifyNew: true
+                    });
                 } else {
-                    renderContraInbox([]);
+                    applyContraInboxItems([], { sig: '', notifyNew: false });
                 }
             })
             .catch(err => {
                 console.error('❌ Contra inbox load failed:', err);
-                // 不弹出 error，避免干扰主流程
             })
-            .finally(() => { });
+            .finally(() => {
+                contraInboxLoadInFlight = false;
+            });
     }
 
     function approveContra(transactionId) {
@@ -688,9 +831,22 @@
         }
 
         // Maintenance / Post 对交易有变更后，回到本页自动静默重搜，清掉残留 Win/Loss 展示。
+        // Manager+：隐藏标签页时中断长轮询；切回后立刻拉 Inbox 并重新挂起 wait，跨设备近实时。
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState !== 'visible') return;
+            if (document.visibilityState !== 'visible') {
+                if (canApproveContra) {
+                    contraInboxWaitGeneration += 1;
+                    if (contraInboxWaitController) {
+                        try { contraInboxWaitController.abort(); } catch (e) { /* ignore */ }
+                        contraInboxWaitController = null;
+                    }
+                }
+                return;
+            }
             refreshTransactionDataFromExternalChange();
+            if (canApproveContra) {
+                loadContraInbox().finally(() => startContraInboxLiveSync());
+            }
         });
         // Other tabs write invalidate timestamp to localStorage; this tab should refresh immediately.
         window.addEventListener('storage', (e) => {
@@ -785,9 +941,9 @@
             });
         }
 
-        // 页面初始化时先拉一次 pending 数量，避免未点开前角标一直显示 0
+        // 先拉 pending 基线，再挂长轮询：CS 另一台设备一提交，Manager 约 0.5s 内收到通知
         if (canApproveContra) {
-            loadContraInbox();
+            loadContraInbox().finally(() => startContraInboxLiveSync());
         }
 
         // 点击外部关闭 Popover

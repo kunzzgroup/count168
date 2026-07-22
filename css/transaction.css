@@ -1089,6 +1089,27 @@ body.transaction-page .expiration-countdown-text {
     font-weight: 800;
 }
 
+/* 长轮询发现新的 pending：主按钮提示 + 角标跳动 */
+.contra-inbox-btn.contra-inbox-main.contra-inbox-has-new {
+    border-color: #ef4444;
+    background: #fff7f7;
+    animation: contra-inbox-attention 1.4s ease-in-out infinite;
+}
+
+.contra-inbox-badge.contra-inbox-badge-pulse {
+    animation: contra-inbox-badge-pulse 1s ease-in-out infinite;
+}
+
+@keyframes contra-inbox-attention {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-1px); }
+}
+
+@keyframes contra-inbox-badge-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+}
+
 .contra-inbox-btn {
     padding: 6px 10px;
     border: 1px solid #d0d7de;
