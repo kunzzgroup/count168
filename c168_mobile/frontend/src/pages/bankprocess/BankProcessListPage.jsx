@@ -8,7 +8,9 @@ import {
   bankTypeLabel,
   companyHasBankPermission,
   dismissAccountingDueRows,
+  EMPTY_BANK_FORM,
   fetchAccountingInbox,
+  fetchBankProcessDetail,
   fetchBankProcessList,
   filterBankProcessRowsByDate,
   filterBankProcessRowsBySearch,
@@ -27,6 +29,7 @@ import { canAccessBankProcess } from "../../utils/mobilePermissions.js";
 import { MaintenanceFilterBar, MaintenanceFilterSheet } from "../maintenance/MaintenanceSheets.jsx";
 import "../maintenance/maintenance.css";
 import "../transaction/add-transaction-sheet.css";
+import { BankProcessFormSheet } from "./BankProcessFormSheet.jsx";
 import {
   BankProcessActionsSheet,
   BankProcessDueSheet,
@@ -92,6 +95,9 @@ export default function BankProcessListPage() {
   const [dueRows, setDueRows] = useState([]);
   const [dueLoading, setDueLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formEditMode, setFormEditMode] = useState(false);
+  const [formInitial, setFormInitial] = useState(null);
 
   const seqRef = useRef(0);
   const dueSeqRef = useRef(0);
@@ -229,6 +235,36 @@ export default function BankProcessListPage() {
     setRemarkOpen(false);
     setResendOpen(false);
     setDueOpen(false);
+    setFormOpen(false);
+  };
+
+  const openAddForm = () => {
+    if (!scope?.companyId || !bankReady) {
+      notify(i18n.bankNeedCompany, "error");
+      return;
+    }
+    closeAllSheets();
+    setFormEditMode(false);
+    setFormInitial({ ...EMPTY_BANK_FORM });
+    setFormOpen(true);
+  };
+
+  const openEditForm = async () => {
+    if (!actionRow?.id || busy) return;
+    setBusy(true);
+    try {
+      const detail = await fetchBankProcessDetail(actionRow.id);
+      setFormEditMode(true);
+      setFormInitial(detail);
+      setActionRow(null);
+      setRemarkOpen(false);
+      setResendOpen(false);
+      setFormOpen(true);
+    } catch (e) {
+      notify(e?.message || i18n.bankLoadFormFailed, "error");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleApplyStatus = async (target) => {
@@ -366,7 +402,7 @@ export default function BankProcessListPage() {
     </div>
   );
 
-  const overlayOpen = filterOpen || !!actionRow || remarkOpen || resendOpen || dueOpen;
+  const overlayOpen = filterOpen || !!actionRow || remarkOpen || resendOpen || dueOpen || formOpen;
 
   if (s.blocked) return null;
 
@@ -385,6 +421,18 @@ export default function BankProcessListPage() {
       lang={s.lang}
       onLangChange={s.setLang}
       overlayOpen={overlayOpen}
+      floatingAction={
+        bankReady && scope?.mode === "company" ? (
+          <button
+            type="button"
+            className="m-bp-fab tap-scale"
+            onClick={openAddForm}
+            aria-label={i18n.bankAdd}
+          >
+            <i className="fas fa-plus" aria-hidden="true" />
+          </button>
+        ) : null
+      }
       overlay={
         <>
           <MaintenanceFilterSheet
@@ -447,7 +495,7 @@ export default function BankProcessListPage() {
             }}
           />
           <BankProcessActionsSheet
-            open={!!actionRow && !remarkOpen && !resendOpen}
+            open={!!actionRow && !remarkOpen && !resendOpen && !formOpen}
             onClose={() => setActionRow(null)}
             row={actionRow}
             i18n={i18n}
@@ -455,6 +503,7 @@ export default function BankProcessListPage() {
             onApplyStatus={handleApplyStatus}
             onOpenRemark={() => setRemarkOpen(true)}
             onOpenResend={() => setResendOpen(true)}
+            onOpenEdit={() => void openEditForm()}
           />
           <BankProcessRemarkSheet
             open={remarkOpen}
@@ -482,6 +531,22 @@ export default function BankProcessListPage() {
             onRefresh={(restore) => loadDue({ restoreDismissed: !!restore })}
             onPost={handlePostDue}
             onDismiss={handleDismissDue}
+          />
+          <BankProcessFormSheet
+            open={formOpen}
+            onClose={() => setFormOpen(false)}
+            i18n={i18n}
+            companyId={scope?.companyId}
+            editMode={formEditMode}
+            initialForm={formInitial}
+            busy={busy}
+            onBusy={setBusy}
+            onSaved={() => {
+              notify(i18n.bankSaveOk);
+              void loadList();
+              void loadDue({ silent: true });
+            }}
+            onError={(msg) => notify(msg || i18n.bankSaveFailed, "error")}
           />
         </>
       }

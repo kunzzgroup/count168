@@ -387,3 +387,283 @@ export function formatDueDisplayDate(raw) {
   return s;
 }
 
+/** Roles allowed in Bank Process account picks (desktop BANK_PICK_ACCOUNT_ROLES). */
+export const BANK_PICK_ACCOUNT_ROLES = [
+  "PARTNER",
+  "SUPPLIER",
+  "UPLINE",
+  "STAFF",
+  "AGENT",
+  "MEMBER",
+  "PROFIT",
+];
+
+export const BANK_PROCESS_TYPES = ["PERSONAL", "ENTERPRISE", "BUSINESS"];
+
+export const BANK_PROCESS_CONTRACT_OPTIONS = [
+  "1 MONTH",
+  "2 MONTHS",
+  "3 MONTHS",
+  "6 MONTHS",
+  "1+1",
+  "1+2",
+  "1+3",
+];
+
+export const EMPTY_BANK_FORM = {
+  id: "",
+  country: "",
+  bank: "",
+  type: "",
+  name: "",
+  card_merchant_id: "",
+  customer_id: "",
+  profit_account_id: "",
+  contract: "",
+  insurance: "",
+  cost: "",
+  price: "",
+  profit: "",
+  profit_sharing: "",
+  day_start: "",
+  day_end: "",
+  day_end_monthly_cap_enabled: false,
+  day_start_frequency: "1st_of_every_month",
+  status: "active",
+  remark: "",
+  sop: "",
+};
+
+export function formatBankMoneyFixed2(value, { emptyAsZero = true } = {}) {
+  const raw = String(value ?? "")
+    .trim()
+    .replace(/,/g, "");
+  if (!raw) return emptyAsZero ? "0.00" : "";
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return emptyAsZero ? "0.00" : "";
+  return n.toFixed(2);
+}
+
+export function sanitizeBankMoneyTyping(value) {
+  return String(value ?? "").replace(/,/g, "");
+}
+
+function sumProfitSharingAmounts(profitSharingStr) {
+  const str = String(profitSharingStr || "").trim();
+  if (!str) return 0;
+  let sum = 0;
+  for (const part of str.split(",")) {
+    const t = part.trim();
+    const dash = t.lastIndexOf(" - ");
+    if (dash === -1) continue;
+    const amt = Number(String(t.slice(dash + 3).trim()).replace(/,/g, ""));
+    if (Number.isFinite(amt)) sum += amt;
+  }
+  return sum;
+}
+
+/** Profit = max(0, sell - buy - sharing); empty when all blank. */
+export function calcBankNetProfitDisplay(cost, price, profitSharingStr) {
+  const costStr = String(cost ?? "").trim();
+  const priceStr = String(price ?? "").trim();
+  const psStr = String(profitSharingStr ?? "").trim();
+  if (!costStr && !priceStr && !psStr) return "";
+  const costN = Number(String(costStr).replace(/,/g, "")) || 0;
+  const priceN = Number(String(priceStr).replace(/,/g, "")) || 0;
+  const net = Math.max(0, priceN - costN - sumProfitSharingAmounts(psStr));
+  return formatBankMoneyFixed2(net);
+}
+
+export function formatProfitSharingStringFixed2(s) {
+  const str = String(s || "").trim();
+  if (!str) return "";
+  return str
+    .split(",")
+    .map((part) => {
+      const t = part.trim();
+      const dash = t.lastIndexOf(" - ");
+      if (dash === -1) return t;
+      const label = t.slice(0, dash).trim();
+      const amt = formatBankMoneyFixed2(t.slice(dash + 3).trim());
+      return label ? `${label} - ${amt}` : null;
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
+  const code = String(codeRaw || "").trim();
+  const name = String(nameRaw || "").trim();
+  const fallback = String(fallbackRaw || "").trim();
+  if (code) return `${code} [${name || code}]`;
+  if (name) return name;
+  return fallback;
+}
+
+export function filterBankPickAccounts(accounts) {
+  if (!Array.isArray(accounts)) return [];
+  const allow = new Set(BANK_PICK_ACCOUNT_ROLES);
+  return accounts.filter((a) => {
+    const role = String(a?.role || "")
+      .trim()
+      .toUpperCase();
+    const status = String(a?.status || "")
+      .trim()
+      .toLowerCase();
+    return status === "active" && allow.has(role);
+  });
+}
+
+export function bankProcessDetailToForm(d) {
+  return {
+    ...EMPTY_BANK_FORM,
+    id: String(d?.id || ""),
+    country: d?.country || "",
+    bank: d?.bank || "",
+    type: d?.type || "",
+    name: d?.name || "",
+    card_merchant_id: d?.card_merchant_id ? String(d.card_merchant_id) : "",
+    customer_id: d?.customer_id ? String(d.customer_id) : "",
+    profit_account_id: d?.profit_account_id ? String(d.profit_account_id) : "",
+    contract: d?.contract || "",
+    insurance: d?.insurance ?? "",
+    cost: d?.cost != null && d.cost !== "" ? formatBankMoneyFixed2(d.cost) : "",
+    price: d?.price != null && d.price !== "" ? formatBankMoneyFixed2(d.price) : "",
+    profit: d?.profit != null && d.profit !== "" ? formatBankMoneyFixed2(d.profit) : "",
+    profit_sharing: formatProfitSharingStringFixed2(d?.profit_sharing || ""),
+    day_start: d?.day_start ? String(d.day_start).slice(0, 10) : "",
+    day_end: d?.day_end ? String(d.day_end).slice(0, 10) : "",
+    day_end_monthly_cap_enabled:
+      bankProcessFrequencyNormalized(d?.day_start_frequency) === "1st_of_every_month" &&
+      (d?.day_end_monthly_cap_enabled === 1 ||
+        d?.day_end_monthly_cap_enabled === true ||
+        String(d?.day_end_monthly_cap_enabled) === "1"),
+    day_start_frequency: bankProcessFrequencyNormalized(d?.day_start_frequency),
+    status: d?.status || "active",
+    remark: d?.remark || "",
+    sop: d?.sop || "",
+  };
+}
+
+export async function fetchBankProcessDetail(id, { signal } = {}) {
+  const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
+  url.searchParams.set("action", "get_process");
+  url.searchParams.set("id", String(id));
+  url.searchParams.set("permission", "Bank");
+  const { res, json } = await fetchJson(url.toString(), { signal });
+  assertApiOk(res, json, "Failed to load process");
+  if (!json?.data) throw new Error("Process not found");
+  return bankProcessDetailToForm(json.data);
+}
+
+export async function fetchBankPickAccounts(companyId, { signal } = {}) {
+  const cid = Number(companyId);
+  if (!Number.isFinite(cid) || cid <= 0) return [];
+  const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
+  url.searchParams.set("company_id", String(cid));
+  url.searchParams.set("roles", BANK_PICK_ACCOUNT_ROLES.join(","));
+  url.searchParams.set("showAll", "1");
+  const { res, json } = await fetchJson(url.toString(), { signal });
+  if (!res.ok || !json?.success) return [];
+  return filterBankPickAccounts(Array.isArray(json?.data?.accounts) ? json.data.accounts : []);
+}
+
+export async function fetchBankCountries(companyId, { signal } = {}) {
+  const cid = Number(companyId);
+  if (!Number.isFinite(cid) || cid <= 0) return [];
+  const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
+  url.searchParams.set("action", "get_countries");
+  url.searchParams.set("company_id", String(cid));
+  const { res, json } = await fetchJson(url.toString(), { signal });
+  if (!res.ok || !json?.success || !Array.isArray(json.data)) return [];
+  return json.data.map((c) => String(c || "").trim()).filter(Boolean);
+}
+
+export async function fetchBanksByCountry(companyId, country, { signal } = {}) {
+  const cid = Number(companyId);
+  const c = String(country || "").trim();
+  if (!Number.isFinite(cid) || cid <= 0 || !c) return [];
+  const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
+  url.searchParams.set("action", "get_banks_by_country");
+  url.searchParams.set("company_id", String(cid));
+  url.searchParams.set("country", c);
+  const { res, json } = await fetchJson(url.toString(), { signal });
+  if (!res.ok || !json?.success || !Array.isArray(json.data)) return [];
+  return json.data.map((b) => String(b || "").trim()).filter(Boolean);
+}
+
+/**
+ * Validate + POST add or update Bank process.
+ * @returns {{ editMode: boolean }}
+ */
+export async function submitBankProcess(form, { companyId, editMode }) {
+  const rawFreq = bankProcessFrequencyNormalized(form.day_start_frequency);
+  const isOnce = rawFreq === "once";
+  const isWeek = rawFreq === "week";
+  const isDay = rawFreq === "day";
+  const dayStart = String(form.day_start || "").trim();
+  const dayEnd = String(form.day_end || "").trim();
+
+  if (dayStart && dayEnd && dayEnd < dayStart) {
+    throw new Error("DAY_END_BEFORE_START");
+  }
+
+  let dayEndMonthlyCapEnabled = !!form.day_end_monthly_cap_enabled;
+  if (rawFreq !== "1st_of_every_month" || !dayEnd) dayEndMonthlyCapEnabled = false;
+  if (dayEndMonthlyCapEnabled && !/^\d{4}-\d{2}-\d{2}$/.test(dayEnd)) {
+    throw new Error("DAY_END_REQUIRED_FOR_CAP");
+  }
+  if (!isOnce && !isWeek && !isDay && !String(form.contract || "").trim()) {
+    throw new Error("CONTRACT_REQUIRED");
+  }
+  if (!editMode) {
+    if (!String(form.country || "").trim()) throw new Error("SELECT_COUNTRY");
+    if (!String(form.type || "").trim()) throw new Error("SELECT_TYPE");
+    if (!String(form.bank || "").trim()) throw new Error("SELECT_BANK");
+    if (!String(form.name || "").trim()) throw new Error("NAME_REQUIRED");
+  }
+
+  const moneyNormalized = {
+    ...form,
+    cost: formatBankMoneyFixed2(form.cost),
+    price: formatBankMoneyFixed2(form.price),
+    profit: calcBankNetProfitDisplay(form.cost, form.price, form.profit_sharing),
+    profit_sharing: formatProfitSharingStringFixed2(form.profit_sharing),
+  };
+
+  const fd = new FormData();
+  Object.entries(moneyNormalized).forEach(([k, v]) => {
+    if (k === "id" && !editMode) return;
+    if (k === "day_end_monthly_cap_enabled") return;
+    if (k === "day_start_frequency") {
+      fd.append(k, rawFreq);
+      return;
+    }
+    if (isOnce && (k === "day_end" || k === "contract" || k === "insurance")) {
+      fd.append(k, "");
+      return;
+    }
+    if ((isWeek || isDay) && (k === "day_end" || k === "contract")) {
+      fd.append(k, "");
+      return;
+    }
+    if (typeof v === "boolean") {
+      fd.append(k, v ? "1" : "0");
+      return;
+    }
+    fd.append(k, v ?? "");
+  });
+  if (editMode) {
+    fd.append("day_end_monthly_cap_enabled", dayEndMonthlyCapEnabled ? "1" : "0");
+  }
+  if (companyId) fd.append("company_id", String(companyId));
+  fd.append("permission", "Bank");
+
+  const endpoint = editMode
+    ? "api/processes/processlist_api.php?action=update_process"
+    : "api/processes/addprocess_api.php";
+  const { res, json } = await fetchJson(buildApiUrl(endpoint), { method: "POST", body: fd });
+  if (!res.ok || !json?.success) throw new Error(apiErrorMessage(json, "Save failed"));
+  return { editMode: !!editMode, json };
+}
+

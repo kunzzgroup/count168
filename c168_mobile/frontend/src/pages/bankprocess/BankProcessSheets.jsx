@@ -98,6 +98,7 @@ export function BankProcessActionsSheet({
   onApplyStatus,
   onOpenRemark,
   onOpenResend,
+  onOpenEdit,
 }) {
   const current = bankProcessUiStatusKey(row);
   const [draftStatus, setDraftStatus] = useState(current);
@@ -180,6 +181,12 @@ export function BankProcessActionsSheet({
       </div>
 
       <div className="m-bp-action-row">
+        {onOpenEdit ? (
+          <button type="button" className="m-bp-action-btn tap-scale" onClick={onOpenEdit} disabled={busy}>
+            <i className="fas fa-pen" aria-hidden="true" />
+            {i18n.bankEdit}
+          </button>
+        ) : null}
         <button type="button" className="m-bp-action-btn tap-scale" onClick={onOpenRemark} disabled={busy}>
           <i className="fas fa-comment" aria-hidden="true" />
           {i18n.bankRemark}
