@@ -10,11 +10,15 @@ import {
   fetchBanksByCountry,
   formatBankAccountDisplay,
   formatBankMoneyFixed2,
+  parseProfitSharingToRows,
+  profitSharingDisplayLabel,
   sanitizeBankMoneyTyping,
+  serializeProfitSharingRows,
   submitBankProcess,
 } from "../../lib/bankProcessApi.js";
 import { formatDisplayDate } from "../../lib/dashboardDateUtils.js";
 import { Pill } from "../dashboard/FilterSheet.jsx";
+import { BankProcessProfitSharingSheet } from "./BankProcessProfitSharingSheet.jsx";
 
 const FREQ_OPTIONS = [
   { value: "1st_of_every_month", labelKey: "bankFreqFirstOfMonth" },
@@ -24,18 +28,21 @@ const FREQ_OPTIONS = [
   { value: "once", labelKey: "bankFreqOnce" },
 ];
 
-const STEPS = [
-  { id: 0, labelKey: "bankFormStepIdentity" },
-  { id: 1, labelKey: "bankFormStepMoney" },
-  { id: 2, labelKey: "bankFormStepSchedule" },
-];
-
 function Field({ label, children }) {
   return (
     <label className="m-bp-field">
       <span>{label}</span>
       {children}
     </label>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <section className="m-bp-form-section">
+      <h3 className="m-bp-form-section-title">{title}</h3>
+      <div className="m-bp-form-block">{children}</div>
+    </section>
   );
 }
 
@@ -63,7 +70,7 @@ function DateTapRow({ label, value, onChange, disabled }) {
 }
 
 function accountLabel(a) {
-  return formatBankAccountDisplay(a.code || a.account_code, a.name || a.account_name, String(a.id));
+  return formatBankAccountDisplay(a.account_id || a.code, a.name, String(a.id));
 }
 
 function mapSubmitError(code, i18n) {
@@ -88,7 +95,7 @@ function mapSubmitError(code, i18n) {
 }
 
 /**
- * Add / Edit Bank Process — 3-step tall sheet.
+ * Add / Edit Bank Process — single scroll, desktop-aligned sections.
  */
 export function BankProcessFormSheet({
   open,
@@ -102,17 +109,21 @@ export function BankProcessFormSheet({
   onSaved,
   onError,
 }) {
-  useOverlayLock(open, onClose);
-  const [step, setStep] = useState(0);
   const [form, setForm] = useState({ ...EMPTY_BANK_FORM });
   const [countries, setCountries] = useState([]);
   const [banks, setBanks] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [loadingMeta, setLoadingMeta] = useState(false);
+  const [psOpen, setPsOpen] = useState(false);
+  const [psSeed, setPsSeed] = useState(null);
+
+  useOverlayLock(open && !psOpen, onClose);
 
   useEffect(() => {
-    if (!open) return;
-    setStep(0);
+    if (!open) {
+      setPsOpen(false);
+      return;
+    }
     setForm(initialForm ? { ...EMPTY_BANK_FORM, ...initialForm } : { ...EMPTY_BANK_FORM });
   }, [open, initialForm]);
 
@@ -167,6 +178,11 @@ export function BankProcessFormSheet({
   const showCap =
     editMode && fq === "1st_of_every_month" && String(form.day_end || "").trim().length > 0;
 
+  const profitSharingRows = useMemo(
+    () => parseProfitSharingToRows(form.profit_sharing, accounts),
+    [form.profit_sharing, accounts],
+  );
+
   const patch = (partial) => setForm((prev) => ({ ...prev, ...partial }));
 
   const blurMoney = (key) => {
@@ -179,10 +195,24 @@ export function BankProcessFormSheet({
 
   const title = editMode ? i18n.bankEditTitle : i18n.bankAddTitle;
 
-  const canNextIdentity = useMemo(() => {
-    if (editMode) return true;
-    return !!(form.country && form.bank && form.type && String(form.name || "").trim());
-  }, [editMode, form.country, form.bank, form.type, form.name]);
+  const openProfitSharing = () => {
+    setPsSeed(
+      profitSharingRows.length
+        ? profitSharingRows
+        : [{ accountId: "", accountLabel: "", amount: "" }],
+    );
+    setPsOpen(true);
+  };
+
+  const removeProfitSharingAt = (idx) => {
+    const next = profitSharingRows.filter((_, i) => i !== idx);
+    patch({ profit_sharing: serializeProfitSharingRows(next, accounts) });
+  };
+
+  const handlePsConfirm = (rows) => {
+    patch({ profit_sharing: serializeProfitSharingRows(rows, accounts) });
+    setPsOpen(false);
+  };
 
   const handleSave = async () => {
     if (busy) return;
@@ -192,105 +222,54 @@ export function BankProcessFormSheet({
       onSaved?.(editMode);
       onClose?.();
     } catch (e) {
-      const msg = mapSubmitError(e?.message, i18n);
-      onError?.(msg);
+      onError?.(mapSubmitError(e?.message, i18n));
     } finally {
       onBusy?.(false);
     }
   };
 
-  const footer = (
-    <>
-      {step > 0 ? (
-        <button
-          type="button"
-          className="m-sheet-footer-btn m-sheet-footer-btn--muted tap-scale"
-          disabled={busy}
-          onClick={() => setStep((s) => s - 1)}
-        >
-          {i18n.bankFormBack}
-        </button>
-      ) : (
-        <button
-          type="button"
-          className="m-sheet-footer-btn m-sheet-footer-btn--muted tap-scale"
-          disabled={busy}
-          onClick={onClose}
-        >
-          {i18n.cancel}
-        </button>
-      )}
-      {step < STEPS.length - 1 ? (
-        <button
-          type="button"
-          className="m-sheet-footer-btn m-sheet-footer-btn--primary tap-scale"
-          disabled={busy || (step === 0 && !canNextIdentity)}
-          onClick={() => setStep((s) => s + 1)}
-        >
-          {i18n.bankFormNext}
-        </button>
-      ) : (
-        <button
-          type="button"
-          className="m-sheet-footer-btn m-sheet-footer-btn--primary tap-scale"
-          disabled={busy || loadingMeta}
-          onClick={() => void handleSave()}
-        >
-          {i18n.save}
-        </button>
-      )}
-    </>
-  );
-
   return (
-    <div
-      className={`m-sheet-overlay${open ? " m-sheet-overlay--open" : " m-sheet-overlay--closed"}`}
-      aria-hidden={!open}
-      inert={open ? undefined : ""}
-    >
-      <button type="button" className="m-sheet-backdrop" onClick={onClose} aria-label="Close" />
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className={`m-sheet-panel m-sheet-panel--tall${open ? " m-sheet-panel--open" : " m-sheet-panel--closed"}`}
+    <>
+      <div
+        className={`m-sheet-overlay${open ? " m-sheet-overlay--open" : " m-sheet-overlay--closed"}`}
+        aria-hidden={!open}
+        inert={open ? undefined : ""}
       >
-        <div className="m-sheet-handle-wrap" aria-hidden="true">
-          <span className="m-sheet-handle" />
-        </div>
-        <header className="m-sheet-header">
-          <h2 className="m-sheet-title">{title}</h2>
-          <button type="button" className="m-sheet-close tap-scale" onClick={onClose} aria-label="Close">
-            <i className="fas fa-xmark" aria-hidden="true" />
-          </button>
-        </header>
-        <div className="m-sheet-body m-sheet-body--spaced">
-          <div className="m-bp-form-steps" role="tablist">
-            {STEPS.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                role="tab"
-                aria-selected={step === s.id}
-                className={`m-bp-form-step tap-scale${step === s.id ? " is-active" : ""}`}
-                onClick={() => setStep(s.id)}
-                disabled={busy}
-              >
-                {i18n[s.labelKey] || s.id + 1}
-              </button>
-            ))}
+        <button
+          type="button"
+          className="m-sheet-backdrop"
+          onClick={() => {
+            if (!psOpen) onClose?.();
+          }}
+          aria-label="Close"
+        />
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          className={`m-sheet-panel m-sheet-panel--tall${
+            open ? " m-sheet-panel--open" : " m-sheet-panel--closed"
+          }`}
+        >
+          <div className="m-sheet-handle-wrap" aria-hidden="true">
+            <span className="m-sheet-handle" />
           </div>
+          <header className="m-sheet-header">
+            <h2 className="m-sheet-title">{title}</h2>
+            <button type="button" className="m-sheet-close tap-scale" onClick={onClose} aria-label="Close">
+              <i className="fas fa-xmark" aria-hidden="true" />
+            </button>
+          </header>
+          <div className="m-sheet-body m-sheet-body--spaced">
+            {loadingMeta ? (
+              <div className="m-mt-state">
+                <i className="fas fa-spinner fa-spin" aria-hidden="true" />
+                <p>{i18n.loading}</p>
+              </div>
+            ) : null}
 
-          {loadingMeta && step === 0 ? (
-            <div className="m-mt-state">
-              <i className="fas fa-spinner fa-spin" aria-hidden="true" />
-              <p>{i18n.loading}</p>
-            </div>
-          ) : null}
-
-          {step === 0 ? (
-            <div className="m-bp-form-block">
-              <Field label={i18n.currency}>
+            <Section title={i18n.bankSectionBankInfo}>
+              <Field label={i18n.bankCountryCurrency}>
                 {editMode ? (
                   <input type="text" readOnly value={form.country || ""} />
                 ) : (
@@ -307,7 +286,7 @@ export function BankProcessFormSheet({
                   </select>
                 )}
               </Field>
-              <Field label={i18n.bankBank || "Bank"}>
+              <Field label={i18n.bankBank}>
                 {editMode ? (
                   <input type="text" readOnly value={form.bank || ""} />
                 ) : (
@@ -347,11 +326,9 @@ export function BankProcessFormSheet({
                   placeholder={i18n.bankCardOwnerPlaceholder}
                 />
               </Field>
-            </div>
-          ) : null}
+            </Section>
 
-          {step === 1 ? (
-            <div className="m-bp-form-block">
+            <Section title={i18n.bankSectionDetail}>
               <Field label={i18n.bankSupplier}>
                 <select
                   value={form.card_merchant_id || ""}
@@ -364,6 +341,16 @@ export function BankProcessFormSheet({
                     </option>
                   ))}
                 </select>
+              </Field>
+              <Field label={i18n.bankBuyPrice}>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={form.cost || ""}
+                  onChange={(e) => patch({ cost: sanitizeBankMoneyTyping(e.target.value) })}
+                  onBlur={() => blurMoney("cost")}
+                  placeholder="0.00"
+                />
               </Field>
               <Field label={i18n.bankCustomer}>
                 <select
@@ -378,6 +365,16 @@ export function BankProcessFormSheet({
                   ))}
                 </select>
               </Field>
+              <Field label={i18n.bankSellPrice}>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={form.price || ""}
+                  onChange={(e) => patch({ price: sanitizeBankMoneyTyping(e.target.value) })}
+                  onBlur={() => blurMoney("price")}
+                  placeholder="0.00"
+                />
+              </Field>
               <Field label={i18n.bankProfitAccount}>
                 <select
                   value={form.profit_account_id || ""}
@@ -391,56 +388,21 @@ export function BankProcessFormSheet({
                   ))}
                 </select>
               </Field>
-              <Field label={i18n.bankCost}>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={form.cost || ""}
-                  onChange={(e) => patch({ cost: sanitizeBankMoneyTyping(e.target.value) })}
-                  onBlur={() => blurMoney("cost")}
-                  placeholder="0.00"
-                />
-              </Field>
-              <Field label={i18n.bankPrice}>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={form.price || ""}
-                  onChange={(e) => patch({ price: sanitizeBankMoneyTyping(e.target.value) })}
-                  onBlur={() => blurMoney("price")}
-                  placeholder="0.00"
-                />
-              </Field>
               <Field label={i18n.bankProfit}>
                 <input type="text" readOnly value={form.profit || ""} placeholder="0.00" />
               </Field>
-              <Field label={i18n.bankProfitSharing}>
-                <textarea
-                  rows={3}
-                  value={form.profit_sharing || ""}
-                  onChange={(e) => patch({ profit_sharing: e.target.value })}
-                  placeholder={i18n.bankProfitSharingHint}
-                />
-              </Field>
-              <Field label={i18n.bankInsurance}>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={form.insurance || ""}
-                  disabled={fq === "once"}
-                  onChange={(e) => patch({ insurance: e.target.value })}
-                  placeholder="0.00"
-                />
-              </Field>
-            </div>
-          ) : null}
+            </Section>
 
-          {step === 2 ? (
-            <div className="m-bp-form-block">
+            <Section title={i18n.bankSectionSchedule}>
               <DateTapRow
                 label={i18n.bankDayStart}
                 value={form.day_start || ""}
-                onChange={(v) => patch({ day_start: v })}
+                onChange={(v) =>
+                  patch({
+                    day_start: v,
+                    day_end: v && form.day_end && form.day_end < v ? "" : form.day_end,
+                  })
+                }
               />
               <DateTapRow
                 label={i18n.bankDayEnd}
@@ -448,6 +410,16 @@ export function BankProcessFormSheet({
                 onChange={(v) => patch({ day_end: v })}
                 disabled={dayEndDisabled}
               />
+              {showCap ? (
+                <label className="m-bp-check-row">
+                  <input
+                    type="checkbox"
+                    checked={!!form.day_end_monthly_cap_enabled}
+                    onChange={(e) => patch({ day_end_monthly_cap_enabled: e.target.checked })}
+                  />
+                  <span>{i18n.bankMonthlyCap}</span>
+                </label>
+              ) : null}
               <p className="m-bp-section-label">{i18n.bankFrequency}</p>
               <div className="m-filter-pill-wrap">
                 {FREQ_OPTIONS.map((opt) => (
@@ -458,7 +430,10 @@ export function BankProcessFormSheet({
                       patch({
                         day_start_frequency: opt.value,
                         ...(opt.value === "once" || opt.value === "week" || opt.value === "day"
-                          ? { day_end: "", contract: opt.value === "once" ? "" : form.contract }
+                          ? {
+                              day_end: "",
+                              contract: opt.value === "once" ? "" : form.contract,
+                            }
                           : {}),
                         ...(opt.value === "once" ? { insurance: "" } : {}),
                         ...(opt.value !== "1st_of_every_month"
@@ -485,24 +460,61 @@ export function BankProcessFormSheet({
                   ))}
                 </select>
               </Field>
-              {showCap ? (
-                <label className="m-bp-check-row">
-                  <input
-                    type="checkbox"
-                    checked={!!form.day_end_monthly_cap_enabled}
-                    onChange={(e) => patch({ day_end_monthly_cap_enabled: e.target.checked })}
-                  />
-                  <span>{i18n.bankMonthlyCap}</span>
-                </label>
-              ) : null}
-              <Field label={i18n.bankRemark}>
-                <textarea
-                  rows={3}
-                  value={form.remark || ""}
-                  onChange={(e) => patch({ remark: e.target.value })}
-                  placeholder={i18n.bankRemarkPlaceholder}
+              <Field label={i18n.bankInsurance}>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={form.insurance || ""}
+                  disabled={fq === "once"}
+                  onChange={(e) => patch({ insurance: e.target.value })}
+                  placeholder="0.00"
                 />
               </Field>
+            </Section>
+
+            <section className="m-bp-form-section">
+              <div className="m-bp-ps-section-head">
+                <h3 className="m-bp-form-section-title">{i18n.bankSelectedProfitSharing}</h3>
+                <button
+                  type="button"
+                  className="m-bp-ps-plus tap-scale"
+                  onClick={openProfitSharing}
+                  disabled={busy}
+                  aria-label={i18n.bankAddProfitSharing}
+                  title={i18n.bankAddProfitSharing}
+                >
+                  <i className="fas fa-plus" aria-hidden="true" />
+                </button>
+              </div>
+              <div className="m-bp-form-block">
+                {profitSharingRows.length === 0 ? (
+                  <p className="m-bp-ps-empty">{i18n.bankNoProfitSharing}</p>
+                ) : (
+                  <ul className="m-bp-ps-list">
+                    {profitSharingRows.map((row, idx) => (
+                      <li key={`${row.accountId || row.accountLabel}-${idx}`} className="m-bp-ps-item">
+                        <span className="m-bp-ps-item-name">
+                          {profitSharingDisplayLabel(row, accounts)}
+                        </span>
+                        <span className="m-bp-ps-item-amt">
+                          {formatBankMoneyFixed2(row.amount)}
+                        </span>
+                        <button
+                          type="button"
+                          className="m-bp-ps-item-remove tap-scale"
+                          onClick={() => removeProfitSharingAt(idx)}
+                          aria-label={i18n.bankRemoveRow}
+                        >
+                          ×
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </section>
+
+            <Section title={i18n.bankSectionNotes}>
               <Field label={i18n.bankSop}>
                 <textarea
                   rows={3}
@@ -511,11 +523,45 @@ export function BankProcessFormSheet({
                   placeholder={i18n.bankSopPlaceholder}
                 />
               </Field>
-            </div>
-          ) : null}
-        </div>
-        <div className="m-sheet-footer">{footer}</div>
-      </section>
-    </div>
+              <Field label={i18n.bankRemark}>
+                <textarea
+                  rows={3}
+                  value={form.remark || ""}
+                  onChange={(e) => patch({ remark: e.target.value })}
+                  placeholder={i18n.bankRemarkPlaceholder}
+                />
+              </Field>
+            </Section>
+          </div>
+          <div className="m-sheet-footer">
+            <button
+              type="button"
+              className="m-sheet-footer-btn m-sheet-footer-btn--muted tap-scale"
+              disabled={busy}
+              onClick={onClose}
+            >
+              {i18n.cancel}
+            </button>
+            <button
+              type="button"
+              className="m-sheet-footer-btn m-sheet-footer-btn--primary tap-scale"
+              disabled={busy || loadingMeta}
+              onClick={() => void handleSave()}
+            >
+              {i18n.save}
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <BankProcessProfitSharingSheet
+        open={psOpen}
+        onClose={() => setPsOpen(false)}
+        i18n={i18n}
+        accounts={accounts}
+        initialRows={psSeed}
+        onConfirm={handlePsConfirm}
+      />
+    </>
   );
 }

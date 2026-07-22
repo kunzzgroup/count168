@@ -491,6 +491,60 @@ export function formatProfitSharingStringFixed2(s) {
     .join(", ");
 }
 
+/** Match desktop parseProfitSharingToRows — label is account_id (code). */
+export function parseProfitSharingToRows(s, accounts) {
+  const out = [];
+  const str = String(s || "").trim();
+  if (!str) return out;
+  for (const part of str.split(",")) {
+    const t = part.trim();
+    const dash = t.lastIndexOf(" - ");
+    if (dash === -1) continue;
+    const label = t.slice(0, dash).trim();
+    const amountRaw = t.slice(dash + 3).trim();
+    const amountN = Number(String(amountRaw).replace(/,/g, ""));
+    if (!label || !Number.isFinite(amountN)) continue;
+    const acc = (accounts || []).find(
+      (a) =>
+        String(a.account_id || a.code || "")
+          .toLowerCase() === label.toLowerCase() ||
+        String(a.name || "")
+          .toLowerCase() === label.toLowerCase(),
+    );
+    out.push({
+      accountId: acc ? String(acc.id) : "",
+      accountLabel: label,
+      amount: formatBankMoneyFixed2(String(amountN), { emptyAsZero: false }),
+    });
+  }
+  return out;
+}
+
+/** Match desktop serializeProfitSharingRows. */
+export function serializeProfitSharingRows(rows, accounts) {
+  return (rows || [])
+    .map((r) => {
+      const acc = (accounts || []).find((a) => String(a.id) === String(r.accountId));
+      const label = String(acc?.account_id || acc?.code || r.accountLabel || "")
+        .trim();
+      const rawAmt = String(r.amount ?? "").trim();
+      if (!label || !rawAmt) return null;
+      const amtN = Number(rawAmt.replace(/,/g, ""));
+      if (!Number.isFinite(amtN) || amtN <= 0) return null;
+      return `${label} - ${formatBankMoneyFixed2(rawAmt)}`;
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+export function profitSharingDisplayLabel(row, accounts) {
+  const acc = (accounts || []).find((a) => String(a.id) === String(row?.accountId));
+  if (acc) {
+    return formatBankAccountDisplay(acc.account_id || acc.code, acc.name, row?.accountLabel);
+  }
+  return String(row?.accountLabel || "").trim() || "—";
+}
+
 export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
   const code = String(codeRaw || "").trim();
   const name = String(nameRaw || "").trim();
