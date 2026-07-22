@@ -1375,7 +1375,13 @@ export function useTransactionSearch({
     const totalsRight = calculateTotals(sortedRight);
     const totalsSummary = applySummaryWinLossDisplayTolerance(calculateTotals([...sortedLeft, ...sortedRight]));
 
-    const multi = showAllCurrencies || selectedCurrencies.length > 1;
+    const activeCurrencies = new Set();
+    [...sortedLeft, ...sortedRight].forEach((row) => {
+      const cur = String(row?.currency || "").toUpperCase().trim();
+      if (cur) activeCurrencies.add(cur);
+    });
+    const typeSearchForcesMulti = typeSearchActive && activeCurrencies.size >= 2;
+    const multi = showAllCurrencies || selectedCurrencies.length > 1 || typeSearchForcesMulti;
     const codesOrdered = currencyRowsOrdered.map((c) => String(c.code || "").toUpperCase().trim()).filter(Boolean);
 
     if (!multi) {
