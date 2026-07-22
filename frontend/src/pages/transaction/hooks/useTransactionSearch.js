@@ -997,11 +997,13 @@ export function useTransactionSearch({
 
         const hasTypeSearchMovement = (row) => {
           if (!row) return false;
-          if (normalizedType === "PROFIT") {
-            const wl = parseFloat(String(row?.win_loss ?? "").replace(/,/g, "")) || 0;
-            const wlFull = parseFloat(String(row?.win_loss_full ?? "").replace(/,/g, "")) || 0;
-            if (Math.abs(wl) > 0.0001 || Math.abs(wlFull) > 0.0001) return true;
+          if (Number(row?.has_crdr_transactions) === 1 || Number(row?.has_win_loss_transactions) === 1) {
+            return true;
           }
+          if (Number(row?.has_contra_clear_period) === 1) return true;
+          const wl = parseFloat(String(row?.win_loss ?? "").replace(/,/g, "")) || 0;
+          const wlFull = parseFloat(String(row?.win_loss_full ?? "").replace(/,/g, "")) || 0;
+          if (Math.abs(wl) > 0.0001 || Math.abs(wlFull) > 0.0001) return true;
           const crDr = parseFloat(String(row?.cr_dr ?? "").replace(/,/g, "")) || 0;
           return Math.abs(crDr) > 0.0001;
         };
@@ -1015,6 +1017,9 @@ export function useTransactionSearch({
           right_table: activeRight,
         });
 
+        const currencySourceLeft = rawCleaned.left_table || [];
+        const currencySourceRight = rawCleaned.right_table || [];
+
         const categoryKey = [...selectedCategories]
           .map((x) => String(x || "").toUpperCase().trim())
           .filter(Boolean)
@@ -1026,11 +1031,11 @@ export function useTransactionSearch({
         let nextSelectedCurrencies = queryShowAll ? [] : [...querySelected];
         if (!preserveCurrencyFilter) {
           const foundCurrencySet = new Set();
-          (cleaned.left_table || []).forEach((row) => {
+          currencySourceLeft.forEach((row) => {
             const cur = String(row?.currency || "").toUpperCase().trim();
             if (cur) foundCurrencySet.add(cur);
           });
-          (cleaned.right_table || []).forEach((row) => {
+          currencySourceRight.forEach((row) => {
             const cur = String(row?.currency || "").toUpperCase().trim();
             if (cur) foundCurrencySet.add(cur);
           });
@@ -1038,11 +1043,11 @@ export function useTransactionSearch({
 
           if (foundCurrencies.length === 0) {
             const allCurrencies = new Set();
-            (rawCleaned.left_table || []).forEach((row) => {
+            currencySourceLeft.forEach((row) => {
               const cur = String(row?.currency || "").toUpperCase().trim();
               if (cur) allCurrencies.add(cur);
             });
-            (rawCleaned.right_table || []).forEach((row) => {
+            currencySourceRight.forEach((row) => {
               const cur = String(row?.currency || "").toUpperCase().trim();
               if (cur) allCurrencies.add(cur);
             });
@@ -1051,7 +1056,7 @@ export function useTransactionSearch({
             foundCurrencies = defaultCode ? [defaultCode] : allList.length > 0 ? [allList[0]] : ["MYR"];
           }
 
-          nextShowAll = foundCurrencies.length >= 2;
+          nextShowAll = foundCurrencies.length >= 1;
           nextSelectedCurrencies = nextShowAll ? [] : foundCurrencies;
         }
 
