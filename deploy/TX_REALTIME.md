@@ -1,6 +1,6 @@
 # Transaction Payment 实时同步（SSE + 可选 Redis）
 
-一边 Submit（APPROVED）后，其他开着 Transaction Payment 的浏览器经 SSE 收到 `ledger_changed`，静默重搜列表（约 &lt;1s）。`PENDING` 不广播。
+一边 Submit 后，其他开着 Transaction Payment 的浏览器经 SSE 收到 `ledger_changed`，静默重搜列表（约 &lt;1s）。`PENDING` 也会广播，以便 Manager+ 的 Contra Inbox 徽章即时更新；审批通过/拒绝同样广播。
 
 ## 组件
 
