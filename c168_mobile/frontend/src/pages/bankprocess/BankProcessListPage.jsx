@@ -3,14 +3,20 @@ import MobileShell from "../../components/layout/MobileShell.jsx";
 import { useIncrementalList } from "../../hooks/useIncrementalList.js";
 import { useMaintenanceSession } from "../../hooks/useMaintenanceSession.js";
 import {
+  applyBankProcessStatus,
   bankProcessDisplayStatus,
   bankTypeLabel,
   companyHasBankPermission,
+  dismissAccountingDueRows,
+  fetchAccountingInbox,
   fetchBankProcessList,
   filterBankProcessRowsByDate,
   filterBankProcessRowsBySearch,
   formatBankMoney,
   matchesBankProcessStatusFilters,
+  postAccountingDueRows,
+  resendAccountingDue,
+  updateBankRemark,
 } from "../../lib/bankProcessApi.js";
 import { periodPresetRange } from "../../lib/dashboardDateUtils.js";
 import {
@@ -20,6 +26,13 @@ import {
 import { canAccessBankProcess } from "../../utils/mobilePermissions.js";
 import { MaintenanceFilterBar, MaintenanceFilterSheet } from "../maintenance/MaintenanceSheets.jsx";
 import "../maintenance/maintenance.css";
+import "../transaction/add-transaction-sheet.css";
+import {
+  BankProcessActionsSheet,
+  BankProcessDueSheet,
+  BankProcessRemarkSheet,
+  BankProcessResendSheet,
+} from "./BankProcessSheets.jsx";
 import "./bankprocess.css";
 
 const DEFAULT_STATUS = {
@@ -41,11 +54,11 @@ function statusToneClass(status) {
 }
 
 function statusLabel(status, i18n) {
-  const s = String(status || "").toUpperCase();
+  const s = String(status || "").toUpperCase().replace(/-/g, "_");
   if (s === "ACTIVE") return i18n.bankStatusActive;
   if (s === "INACTIVE") return i18n.bankStatusInactive;
   if (s === "OFFICIAL") return i18n.bankStatusOfficial;
-  if (s === "E-INVOICE" || s === "E_INVOICE") return i18n.bankStatusEInvoice;
+  if (s === "E_INVOICE") return i18n.bankStatusEInvoice;
   if (s === "BLOCK") return i18n.bankStatusBlock;
   return s;
 }
@@ -56,7 +69,7 @@ function rowKey(row, idx) {
 
 export default function BankProcessListPage() {
   const s = useMaintenanceSession({ canAccess: canAccessBankProcess });
-  const { i18n, scope } = s;
+  const { i18n, scope, notify } = s;
 
   const yearRange = periodPresetRange("thisYear") || { dateFrom: "", dateTo: "" };
   const [dateFrom, setDateFrom] = useState(yearRange.dateFrom);
@@ -72,12 +85,20 @@ export default function BankProcessListPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [bankReady, setBankReady] = useState(false);
 
+  const [actionRow, setActionRow] = useState(null);
+  const [remarkOpen, setRemarkOpen] = useState(false);
+  const [resendOpen, setResendOpen] = useState(false);
+  const [dueOpen, setDueOpen] = useState(false);
+  const [dueRows, setDueRows] = useState([]);
+  const [dueLoading, setDueLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+
   const seqRef = useRef(0);
+  const dueSeqRef = useRef(0);
   const bankCacheRef = useRef(new Map());
   const scopeReady = maintenanceScopeIsReady(scope);
   const scopeCacheKey = maintenanceScopeKey(scope);
 
-  /** Prefer a Bank-category company when session lands on Games-only. */
   useEffect(() => {
     if (!s.me || s.loading || !s.companies.length) return undefined;
     const ac = new AbortController();
@@ -151,10 +172,34 @@ export default function BankProcessListPage() {
     [scope, scopeReady, i18n.bankNeedCompany, i18n.bankUnauthorizedCompany, i18n.loadFailed],
   );
 
+  const loadDue = useCallback(
+    async ({ restoreDismissed = false, silent = false } = {}) => {
+      if (!scope?.companyId) {
+        setDueRows([]);
+        return;
+      }
+      const seq = ++dueSeqRef.current;
+      if (!silent) setDueLoading(true);
+      try {
+        const list = await fetchAccountingInbox(scope.companyId, { restoreDismissed });
+        if (seq !== dueSeqRef.current) return;
+        setDueRows(list);
+      } catch (e) {
+        if (e?.name === "AbortError" || seq !== dueSeqRef.current) return;
+        if (!silent) notify(e?.message || i18n.loadFailed, "error");
+        setDueRows([]);
+      } finally {
+        if (!silent && seq === dueSeqRef.current) setDueLoading(false);
+      }
+    },
+    [scope?.companyId, notify, i18n.loadFailed],
+  );
+
   useEffect(() => {
     if (!s.me || !scopeReady || !bankReady) return undefined;
     const ac = new AbortController();
     loadList(ac.signal);
+    loadDue({ silent: true });
     return () => ac.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.me, scopeCacheKey, bankReady]);
@@ -172,9 +217,108 @@ export default function BankProcessListPage() {
 
   const { visible, hasMore, sentinelRef, shown, total } = useIncrementalList(displayRows);
 
+  const dueCount = dueRows.filter((r) => !r.already_posted_today).length;
+
   const scopeLabel = s.groupMode
     ? s.selectedGroup || i18n.group
     : String(s.selectedCompany?.company_id || "").toUpperCase() || i18n.company;
+
+  const closeAllSheets = () => {
+    setFilterOpen(false);
+    setActionRow(null);
+    setRemarkOpen(false);
+    setResendOpen(false);
+    setDueOpen(false);
+  };
+
+  const handleApplyStatus = async (target) => {
+    if (!actionRow || busy) return;
+    setBusy(true);
+    const prev = actionRow;
+    const patch = { status: prev.status, issue_flag: prev.issue_flag };
+    try {
+      const nextPatch = await applyBankProcessStatus(prev, target);
+      setRows((list) => list.map((r) => (Number(r.id) === Number(prev.id) ? { ...r, ...nextPatch } : r)));
+      setActionRow((r) => (r && Number(r.id) === Number(prev.id) ? { ...r, ...nextPatch } : r));
+      notify(i18n.bankStatusUpdated);
+      void loadDue({ silent: true });
+      void loadList();
+    } catch (e) {
+      setRows((list) => list.map((r) => (Number(r.id) === Number(prev.id) ? { ...r, ...patch } : r)));
+      notify(e?.message || i18n.bankStatusFailed, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSaveRemark = async (draft) => {
+    if (!actionRow || busy) return;
+    setBusy(true);
+    try {
+      await updateBankRemark(actionRow.id, draft);
+      setRows((list) =>
+        list.map((r) => (Number(r.id) === Number(actionRow.id) ? { ...r, remark: draft } : r)),
+      );
+      setActionRow((r) => (r ? { ...r, remark: draft } : r));
+      notify(i18n.bankRemarkUpdated);
+      setRemarkOpen(false);
+    } catch (e) {
+      notify(e?.message || i18n.bankRemarkFailed, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResend = async ({ dayStart, dayEnd, frequency }) => {
+    if (!actionRow || busy) return;
+    setBusy(true);
+    try {
+      await resendAccountingDue({
+        bankProcessId: actionRow.id,
+        dayStart,
+        dayEnd,
+        frequency,
+      });
+      notify(i18n.bankResendOk);
+      setResendOpen(false);
+      void loadDue({ silent: true });
+      void loadList();
+    } catch (e) {
+      notify(e?.message || i18n.bankResendFailed, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handlePostDue = async (selectedRows) => {
+    if (!selectedRows?.length || busy) return;
+    setBusy(true);
+    try {
+      await postAccountingDueRows(selectedRows);
+      notify(i18n.bankPostOk);
+      await loadDue();
+      void loadList();
+    } catch (e) {
+      notify(e?.message || i18n.bankPostFailed, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDismissDue = async (selectedRows) => {
+    if (!selectedRows?.length || busy) return;
+    setBusy(true);
+    try {
+      await dismissAccountingDueRows(selectedRows);
+      notify(i18n.bankDismissOk);
+      await loadDue();
+      void loadList();
+    } catch (e) {
+      notify(e?.message || i18n.bankDismissFailed, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const stickyBar = (
     <div className="m-mt-sticky">
@@ -185,8 +329,26 @@ export default function BankProcessListPage() {
         groupMode={s.groupMode}
         selectedGroup={s.selectedGroup}
         selectedCompany={s.selectedCompany}
-        onOpen={() => setFilterOpen(true)}
+        onOpen={() => {
+          closeAllSheets();
+          setFilterOpen(true);
+        }}
       />
+      <div className="m-bp-due-bar">
+        <button
+          type="button"
+          className="m-bp-due-entry tap-scale"
+          onClick={() => {
+            closeAllSheets();
+            setDueOpen(true);
+            void loadDue();
+          }}
+        >
+          <i className="fas fa-file-invoice-dollar" aria-hidden="true" />
+          <span>{i18n.bankAccountingDue}</span>
+          {dueCount > 0 ? <em>{dueCount}</em> : null}
+        </button>
+      </div>
       <div className="m-mt-search">
         <i className="fas fa-magnifying-glass" aria-hidden="true" />
         <input
@@ -204,6 +366,8 @@ export default function BankProcessListPage() {
     </div>
   );
 
+  const overlayOpen = filterOpen || !!actionRow || remarkOpen || resendOpen || dueOpen;
+
   if (s.blocked) return null;
 
   return (
@@ -212,72 +376,114 @@ export default function BankProcessListPage() {
       me={s.me}
       companyCode={scopeLabel}
       onLogout={s.logout}
-      onRefresh={() => loadList()}
+      onRefresh={() => {
+        void loadList();
+        void loadDue({ silent: true });
+      }}
       refreshing={listLoading}
       stickyBar={stickyBar}
       lang={s.lang}
       onLangChange={s.setLang}
-      overlayOpen={filterOpen}
+      overlayOpen={overlayOpen}
       overlay={
-        <MaintenanceFilterSheet
-          open={filterOpen}
-          onClose={() => setFilterOpen(false)}
-          i18n={i18n}
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          activePreset={activePreset}
-          groupMode={s.groupMode}
-          selectedGroup={s.selectedGroup}
-          companyId={s.companyId}
-          companies={s.companies}
-          groupIds={s.groupIds}
-          allowedGroupIds={s.allowedGroupIds}
-          currencies={currencyCodes}
-          currency={currency}
-          statusFilters={statusFilters}
-          withBankStatus
-          readOnlyNote
-          readOnlyNoteText={i18n.bankReadOnlyNote}
-          onApply={async (next) => {
-            const nextScope = next.scope;
-            const scopeChanged =
-              nextScope.mode !== scope?.mode ||
-              String(nextScope.groupId ?? "") !== String(scope?.groupId ?? "") ||
-              Number(nextScope.companyId ?? 0) !== Number(scope?.companyId ?? 0);
-            if (scopeChanged) {
-              if (nextScope.mode === "group") {
-                setListError(i18n.bankNeedCompany);
-                setBankReady(false);
-                setRows([]);
-              }
-              const ok = await s.applyScope(
-                nextScope.mode === "group"
-                  ? { mode: "group", groupId: nextScope.groupId }
-                  : { mode: "company", companyId: nextScope.companyId },
-              );
-              if (ok && nextScope.mode === "company") {
-                const row = s.companies.find((c) => Number(c.id) === Number(nextScope.companyId));
-                const code = String(row?.company_id || "").trim();
-                if (code) {
-                  const hasBank = await companyHasBankPermission(code);
-                  bankCacheRef.current.set(code, hasBank);
-                  setBankReady(hasBank);
-                  if (!hasBank) {
-                    setListError(i18n.bankUnauthorizedCompany);
-                    setRows([]);
+        <>
+          <MaintenanceFilterSheet
+            open={filterOpen}
+            onClose={() => setFilterOpen(false)}
+            i18n={i18n}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            activePreset={activePreset}
+            groupMode={s.groupMode}
+            selectedGroup={s.selectedGroup}
+            companyId={s.companyId}
+            companies={s.companies}
+            groupIds={s.groupIds}
+            allowedGroupIds={s.allowedGroupIds}
+            currencies={currencyCodes}
+            currency={currency}
+            statusFilters={statusFilters}
+            withBankStatus
+            readOnlyNote
+            readOnlyNoteText={i18n.bankReadOnlyNote}
+            onApply={async (next) => {
+              const nextScope = next.scope;
+              const scopeChanged =
+                nextScope.mode !== scope?.mode ||
+                String(nextScope.groupId ?? "") !== String(scope?.groupId ?? "") ||
+                Number(nextScope.companyId ?? 0) !== Number(scope?.companyId ?? 0);
+              if (scopeChanged) {
+                if (nextScope.mode === "group") {
+                  setListError(i18n.bankNeedCompany);
+                  setBankReady(false);
+                  setRows([]);
+                }
+                const ok = await s.applyScope(
+                  nextScope.mode === "group"
+                    ? { mode: "group", groupId: nextScope.groupId }
+                    : { mode: "company", companyId: nextScope.companyId },
+                );
+                if (ok && nextScope.mode === "company") {
+                  const row = s.companies.find((c) => Number(c.id) === Number(nextScope.companyId));
+                  const code = String(row?.company_id || "").trim();
+                  if (code) {
+                    const hasBank = await companyHasBankPermission(code);
+                    bankCacheRef.current.set(code, hasBank);
+                    setBankReady(hasBank);
+                    if (!hasBank) {
+                      setListError(i18n.bankUnauthorizedCompany);
+                      setRows([]);
+                    }
+                  } else {
+                    setBankReady(true);
                   }
-                } else {
-                  setBankReady(true);
                 }
               }
-            }
-            setDateFrom(next.dateFrom);
-            setDateTo(next.dateTo);
-            setActivePreset(next.activePreset);
-            setCurrency(next.currency ?? "");
-            if (next.statusFilters) setStatusFilters({ ...DEFAULT_STATUS, ...next.statusFilters });
-          }}
-        />
+              setDateFrom(next.dateFrom);
+              setDateTo(next.dateTo);
+              setActivePreset(next.activePreset);
+              setCurrency(next.currency ?? "");
+              if (next.statusFilters) setStatusFilters({ ...DEFAULT_STATUS, ...next.statusFilters });
+            }}
+          />
+          <BankProcessActionsSheet
+            open={!!actionRow && !remarkOpen && !resendOpen}
+            onClose={() => setActionRow(null)}
+            row={actionRow}
+            i18n={i18n}
+            busy={busy}
+            onApplyStatus={handleApplyStatus}
+            onOpenRemark={() => setRemarkOpen(true)}
+            onOpenResend={() => setResendOpen(true)}
+          />
+          <BankProcessRemarkSheet
+            open={remarkOpen}
+            onClose={() => setRemarkOpen(false)}
+            row={actionRow}
+            i18n={i18n}
+            busy={busy}
+            onSave={handleSaveRemark}
+          />
+          <BankProcessResendSheet
+            open={resendOpen}
+            onClose={() => setResendOpen(false)}
+            row={actionRow}
+            i18n={i18n}
+            busy={busy}
+            onSubmit={handleResend}
+          />
+          <BankProcessDueSheet
+            open={dueOpen}
+            onClose={() => setDueOpen(false)}
+            i18n={i18n}
+            rows={dueRows}
+            loading={dueLoading}
+            busy={busy}
+            onRefresh={(restore) => loadDue({ restoreDismissed: !!restore })}
+            onPost={handlePostDue}
+            onDismiss={handleDismissDue}
+          />
+        </>
       }
     >
       <div className="m-mt-content">
@@ -302,7 +508,15 @@ export default function BankProcessListPage() {
           <>
             <div className="m-mt-list">
               {visible.map((row, idx) => (
-                <BankProcessCard key={rowKey(row, idx)} row={row} i18n={i18n} />
+                <BankProcessCard
+                  key={rowKey(row, idx)}
+                  row={row}
+                  i18n={i18n}
+                  onOpen={() => {
+                    closeAllSheets();
+                    setActionRow(row);
+                  }}
+                />
               ))}
             </div>
             {hasMore ? (
@@ -320,7 +534,7 @@ export default function BankProcessListPage() {
   );
 }
 
-function BankProcessCard({ row, i18n }) {
+function BankProcessCard({ row, i18n, onOpen }) {
   const status = bankProcessDisplayStatus(row);
   const supplier = String(row.card_lower || row.supplier || "").trim() || "—";
   const owner = String(row.supplier || row.card_owner || "").trim() || "—";
@@ -331,7 +545,7 @@ function BankProcessCard({ row, i18n }) {
   ].join(" · ");
 
   return (
-    <article className="m-mt-card m-bp-card">
+    <button type="button" className="m-mt-card m-bp-card m-bp-card-btn tap-scale" onClick={onOpen}>
       <div className="m-bp-card-top">
         <div className="m-bp-card-key">
           {supplier} · {bankTypeLabel(row)}
@@ -354,6 +568,6 @@ function BankProcessCard({ row, i18n }) {
           <strong className="is-profit">{formatBankMoney(row.profit)}</strong>
         </div>
       </div>
-    </article>
+    </button>
   );
 }

@@ -198,3 +198,192 @@ export async function fetchBankProcessList(companyId, { signal } = {}) {
 
   return { rows, currencyCodes };
 }
+
+export function isBankInactiveLike(status, issueFlag) {
+  const s = normalizeBankProcessStatus(status);
+  const f = normalizeBankIssueFlag(issueFlag);
+  return s === "inactive" || f === "official" || f === "e_invoice" || f === "block";
+}
+
+export function canShowBankResend(row) {
+  const s = normalizeBankProcessStatus(row?.status);
+  return s === "active" && !isBankInactiveLike(row?.status, row?.issue_flag);
+}
+
+/** Normalize UI status key used in menus (E_INVOICE, not E-INVOICE). */
+export function bankProcessUiStatusKey(row) {
+  const flag = normalizeBankIssueFlag(row?.issue_flag);
+  if (flag === "official") return "OFFICIAL";
+  if (flag === "e_invoice") return "E_INVOICE";
+  if (flag === "block") return "BLOCK";
+  return normalizeBankProcessStatus(row?.status) === "inactive" ? "INACTIVE" : "ACTIVE";
+}
+
+export function bankProcessStatusTargetPatch(target) {
+  switch (String(target || "").toUpperCase().replace(/-/g, "_")) {
+    case "ACTIVE":
+      return { status: "active", issue_flag: "" };
+    case "INACTIVE":
+      return { status: "inactive", issue_flag: "" };
+    case "OFFICIAL":
+      return { issue_flag: "official" };
+    case "E_INVOICE":
+      return { issue_flag: "e_invoice" };
+    case "BLOCK":
+      return { issue_flag: "block" };
+    default:
+      return {};
+  }
+}
+
+export function bankProcessFrequencyNormalized(v) {
+  if (v === "monthly") return "monthly";
+  if (v === "week") return "week";
+  if (v === "day") return "day";
+  if (v === "once") return "once";
+  return "1st_of_every_month";
+}
+
+export function accountingDuePeriodType(r) {
+  if (r.is_once_one_off) return "once_one_off";
+  if (r.is_weekly) return "weekly";
+  if (r.is_daily && r.is_daily_consolidated) return "daily_consolidated";
+  if (r.is_daily) return "daily";
+  if (r.is_manual_inactive) return "manual_inactive";
+  if (r.is_resend_consolidated_range) return "resend_consolidated_range";
+  if (r.is_resend_monthly_reopen) return "resend_monthly_reopen";
+  if (r.is_partial_first_month) return "partial_first_month";
+  if (r.is_day_end_tail) return "day_end_tail";
+  return "monthly";
+}
+
+export function accountingDueBillingMonth(r) {
+  if (r.is_daily || r.is_daily_consolidated) {
+    return String(r.monthly_billing_month || r.daily_billing_start || "").trim();
+  }
+  return String(r.weekly_billing_start || r.monthly_billing_month || "").trim();
+}
+
+export function accountingDueRowKey(r) {
+  const id = Number(r?.id);
+  if (!Number.isFinite(id) || id <= 0) return "";
+  return `${id}|${accountingDuePeriodType(r)}|${accountingDueBillingMonth(r)}`;
+}
+
+function apiErrorMessage(json, fallback) {
+  return String(json?.message || json?.error || fallback || "Request failed");
+}
+
+async function postForm(path, fields) {
+  const fd = new FormData();
+  Object.entries(fields).forEach(([k, v]) => {
+    if (v === undefined || v === null) return;
+    fd.append(k, String(v));
+  });
+  const { res, json } = await fetchJson(buildApiUrl(path), { method: "POST", body: fd });
+  if (!res.ok || !json?.success) throw new Error(apiErrorMessage(json));
+  return json;
+}
+
+export async function applyBankProcessStatus(row, target) {
+  const id = row?.id;
+  if (id == null) throw new Error("Missing process id");
+  const key = String(target || "").toUpperCase().replace(/-/g, "_");
+  const st = normalizeBankProcessStatus(row?.status);
+  const hasFlag = !!normalizeBankIssueFlag(row?.issue_flag);
+
+  if (key === "ACTIVE") {
+    if (hasFlag) await postForm("api/processes/update_bank_issue_flag_api.php", { id, issue_flag: "" });
+    if (st !== "active") {
+      await postForm("api/processes/toggle_process_status_api.php", { id, permission: "Bank" });
+    }
+  } else if (key === "INACTIVE") {
+    if (hasFlag) await postForm("api/processes/update_bank_issue_flag_api.php", { id, issue_flag: "" });
+    if (st === "active") {
+      await postForm("api/processes/toggle_process_status_api.php", { id, permission: "Bank" });
+    }
+  } else if (key === "OFFICIAL") {
+    await postForm("api/processes/update_bank_issue_flag_api.php", { id, issue_flag: "official" });
+  } else if (key === "E_INVOICE") {
+    await postForm("api/processes/update_bank_issue_flag_api.php", { id, issue_flag: "e_invoice" });
+  } else if (key === "BLOCK") {
+    await postForm("api/processes/update_bank_issue_flag_api.php", { id, issue_flag: "block" });
+  } else {
+    throw new Error("Unknown status");
+  }
+  return bankProcessStatusTargetPatch(key);
+}
+
+export async function updateBankRemark(id, remark) {
+  return postForm("api/processes/update_bank_remark_api.php", { id, remark: remark ?? "" });
+}
+
+export async function fetchAccountingInbox(companyId, { restoreDismissed = false, signal } = {}) {
+  const cid = Number(companyId);
+  if (!Number.isFinite(cid) || cid <= 0) return [];
+  const url = new URL(buildApiUrl("api/processes/process_accounting_inbox_api.php"));
+  url.searchParams.set("company_id", String(cid));
+  if (restoreDismissed) url.searchParams.set("restore_dismissed", "1");
+  const { res, json } = await fetchJson(url.toString(), { signal });
+  if (!res.ok || !json?.success) return [];
+  return Array.isArray(json.data) ? json.data : [];
+}
+
+function appendDueSelection(fd, rows) {
+  rows.forEach((r) => {
+    fd.append("ids[]", String(r.id));
+    fd.append("period_types[]", accountingDuePeriodType(r));
+    fd.append("billing_months[]", accountingDueBillingMonth(r));
+  });
+}
+
+export async function postAccountingDueRows(rows) {
+  const fd = new FormData();
+  appendDueSelection(fd, rows);
+  fd.append("allow_future_monthly", "1");
+  const { res, json } = await fetchJson(buildApiUrl("api/processes/process_post_to_transaction_api.php"), {
+    method: "POST",
+    body: fd,
+  });
+  if (!res.ok || !json?.success) throw new Error(apiErrorMessage(json, "Post failed"));
+  return json;
+}
+
+export async function dismissAccountingDueRows(rows) {
+  const fd = new FormData();
+  appendDueSelection(fd, rows);
+  const { res, json } = await fetchJson(buildApiUrl("api/processes/dismiss_accounting_due_api.php"), {
+    method: "POST",
+    body: fd,
+  });
+  if (!res.ok || !json?.success) throw new Error(apiErrorMessage(json, "Dismiss failed"));
+  return json;
+}
+
+export async function resendAccountingDue({ bankProcessId, dayStart, dayEnd, frequency }) {
+  const fq = bankProcessFrequencyNormalized(frequency);
+  const omitDayEnd = fq === "once" || fq === "week" || fq === "day" || fq === "monthly";
+  const { res, json } = await fetchJson(buildApiUrl("api/bankprocess_maintenance/resend_accounting_due_api.php"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      bank_process_id: Number(bankProcessId),
+      day_start: dayStart || null,
+      day_end: omitDayEnd ? null : dayEnd || null,
+      day_start_frequency: fq,
+    }),
+  });
+  if (!res.ok || !json?.success) throw new Error(apiErrorMessage(json, "Resend failed"));
+  return json;
+}
+
+export function formatDueDisplayDate(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "—";
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const [y, m, d] = s.slice(0, 10).split("-");
+    return `${d}/${m}/${y}`;
+  }
+  return s;
+}
+
