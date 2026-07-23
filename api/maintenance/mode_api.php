@@ -12,6 +12,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/maintenance_gate.php';
+require_once __DIR__ . '/maintenance_common.php';
 
 function maintenance_mode_json_response(bool $success, string $message, $data = null, ?int $httpCode = null): void
 {
