@@ -6,16 +6,32 @@ php_value max_input_time 300
 php_value max_execution_time 300
 php_value memory_limit 256M
 
+DirectoryIndex index.php index.html
+
 <IfModule mod_headers.c>
   Header set X-Robots-Tag "noindex, nofollow"
 </IfModule>
 
-# React SPA (Hostinger / Apache). Legacy .php files still served when they exist.
+# React SPA (Hostinger / Apache)
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
   RewriteRule ^(includes|database|cron|services|deploy|\.git)(/|$) - [F,L]
 
+  # Legacy PHP bookmarks → React routes (before serving leftover .php files)
+  RewriteRule ^dashboard\.php$ /dashboard/f758d9be-bed3-4576-87c0-7c4c39331b87 [R=302,L]
+  RewriteRule ^login_process\.php$ /login/05659e0a-5121-427b-b5f2-7bbc43e14b23 [R=302,L]
+  RewriteRule ^transaction\.php$ /transaction/cc41ab63-4ef0-49c3-adf5-13f9e5d15c6b [R=302,L]
+  RewriteRule ^domain\.php$ /domain/312d9a6c-8f00-44e5-9b05-dfb64c9c356a [R=302,L]
+  RewriteRule ^announcement\.php$ /announcement/a4c78818-dd94-4668-8b1e-f6a57abdcfd2 [R=302,L]
+  RewriteRule ^account-list\.php$ /account-list/92a50b4f-6d9a-4e3a-b306-109a0361e9a3 [R=302,L]
+  RewriteRule ^userlist\.php$ /userlist/e7cf9194-62c9-4fc7-be66-1655421d117d [R=302,L]
+  RewriteRule ^ownership\.php$ /ownership/51299ec5-6f49-4714-b66f-59b5b76d8fbb [R=302,L]
+  RewriteRule ^member\.php$ /member/45793aa9-4637-452e-8820-2f4611d8b6f6 [R=302,L]
+  RewriteRule ^datacapture\.php$ /datacapture/b98093de-5939-4b90-befd-c47715b399d0 [R=302,L,QSA]
+  RewriteRule ^datacapturesummary\.php$ /datacapturesummary/35f3a1b3-8bc3-4dea-8e47-93844d4040c3 [R=302,L,QSA]
+
+  # Existing file or directory → serve as-is (api/, frontend/dist/, index.php, …)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
