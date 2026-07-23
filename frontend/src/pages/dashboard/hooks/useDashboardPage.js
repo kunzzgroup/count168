@@ -702,6 +702,8 @@ const CHART_DAILY_DEFER_MS = 250;
 /** Sibling currency KPI warm — shorter when This Year (chart/FX feel laggy otherwise). */
 const CURRENCY_PREFETCH_DELAY_MS = 3500;
 const CURRENCY_PREFETCH_DELAY_LONG_RANGE_MS = 800;
+/** After Company All settles, warm picker companies (behind currency warm). */
+const COMPANY_ALL_COMPANY_WARM_DELAY_MS = 2800;
 /** After picking a company, warm siblings quickly so cold CX/RS/VG feel hot. */
 const COMPANY_SWITCH_PREFETCH_DELAY_MS = 250;
 
@@ -4108,8 +4110,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       };
 
       try {
-        // Long range: one `full` pack. Short range: kpi then fill chart/earnings.
-        const primaryScope = longRange ? "full" : "kpi";
+        // Prefer one `full` pack so Company All → company clicks hit atomic-ready cache
+        // (kpi→chart→earnings fan-out was 3× HTTP and starved UI).
+        const primaryScope =
+          longRange || (Array.isArray(codes) && codes.length > 1) ? "full" : "kpi";
         const primaryData = await fetchPrefetchScope(primaryScope);
         if (!primaryData?.current) return;
 
@@ -6256,24 +6260,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
 
       if (!previousCached && !allCurrenciesActive) {
-        if (requirePie) {
-          try {
-            const prevBoot = await loadDashboardViaBootstrap({ scope: "previous" });
-            if (gen !== dashboardFetchGenRef.current) return false;
-            if (prevBoot?.previous) previousCached = prevBoot.previous;
-          } catch {
-            /* MoM optional */
-          }
-        } else {
-          void loadDashboardViaBootstrap({ scope: "previous" })
-            .then((prevBoot) => {
-              if (gen !== dashboardFetchGenRef.current) return;
-              if (!prevBoot?.previous) return;
-              setDashboardDataPrev(prevBoot.previous);
-              patchDashboardCache(cacheKey, { previous: prevBoot.previous });
-            })
-            .catch(() => {});
-        }
+        // MoM is optional — never block atomic KPI/trend/pie on previous-period fetch.
+        void loadDashboardViaBootstrap({ scope: "previous" })
+          .then((prevBoot) => {
+            if (gen !== dashboardFetchGenRef.current) return;
+            if (!prevBoot?.previous) return;
+            setDashboardDataPrev(prevBoot.previous);
+            patchDashboardCache(cacheKey, { previous: prevBoot.previous });
+          })
+          .catch(() => {});
       }
 
       setDashboardData(currentCached);
@@ -6555,24 +6550,25 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
           const panelTasks = [];
 
+          // MoM previous is optional for atomic paint — never block KPI/trend/pie on it.
+          const fillPrevious = async () => {
+            try {
+              const prevBoot = await loadDashboardViaBootstrap({ scope: "previous" });
+              if (gen !== dashboardFetchGenRef.current) return;
+              if (!prevBoot?.previous) return;
+              previousPayload = prevBoot.previous;
+              setDashboardDataPrev(previousPayload);
+              patchDashboardCache(cacheKey, { previous: previousPayload });
+            } catch {
+              /* MoM optional */
+            }
+          };
           if (!previousPayload) {
-            panelTasks.push(
-              (async () => {
-                try {
-                  const prevBoot = await loadDashboardViaBootstrap({ scope: "previous" });
-                  if (gen !== dashboardFetchGenRef.current) return;
-                  if (prevBoot?.previous) {
-                    previousPayload = prevBoot.previous;
-                    if (!requirePie) {
-                      setDashboardDataPrev(previousPayload);
-                      patchDashboardCache(cacheKey, { previous: previousPayload });
-                    }
-                  }
-                } catch {
-                  /* MoM optional */
-                }
-              })()
-            );
+            if (requirePie) {
+              void fillPrevious();
+            } else {
+              panelTasks.push(fillPrevious);
+            }
           }
 
           if (dashboardPayloadNeedsChartDaily(currentPayload)) {
@@ -7008,8 +7004,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       !dateFrom ||
       !dateTo ||
       groupsAllMode ||
-      // Company All already has group_all pack; fan-out per-company warm after every
-      // currency settle starved clicks (callback identity churn → re-warm storm).
       groupAllMode
     ) {
       return undefined;
@@ -7029,8 +7023,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         window.setTimeout(runGroupWarm, 600);
         return;
       }
-      // Always warm siblings while a company is selected — prefetchDashboardCompany
-      // already no-ops the active scope. Skipping here left CX/RS/VG cold.
       const rows = companiesForCompanyPicker(companies, activeGroup, groupIds);
       const tasks = [];
       for (const row of rows) {
@@ -7073,6 +7065,87 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     groupIds,
     companies,
     companyId,
+    shouldPrefetchCompanyScope,
+  ]);
+
+  /**
+   * Company All: low-priority warm of picker companies at the current currency so
+   * IG→95 / CX clicks hit atomic-ready cache (after sibling-currency warm starts).
+   */
+  useEffect(() => {
+    if (
+      !gcBootstrapReady ||
+      !groupAllMode ||
+      groupsAllMode ||
+      !selectedGroup ||
+      !companies.length ||
+      !dateFrom ||
+      !dateTo ||
+      !currencyCode
+    ) {
+      return undefined;
+    }
+    const activeGroup = String(selectedGroup).trim().toUpperCase();
+    let cancelled = false;
+    let waitRounds = 0;
+    const interactionGen = scopeInteractionGenRef.current;
+    const warmCurrency = String(currencyCode).trim().toUpperCase();
+
+    const run = () => {
+      if (cancelled || interactionGen !== scopeInteractionGenRef.current) return;
+      if (String(currencyCodeRef.current || "").trim().toUpperCase() !== warmCurrency) return;
+      if (
+        !dashboardDataRef.current ||
+        dashboardBootstrapInFlightRef.current ||
+        dashboardFetchInFlightScopeRef.current
+      ) {
+        waitRounds += 1;
+        if (waitRounds >= PREFETCH_WAIT_MAX_ROUNDS) return;
+        window.setTimeout(run, 700);
+        return;
+      }
+      const rows = companiesForCompanyPicker(companies, activeGroup, groupIds);
+      const tasks = [];
+      for (const row of rows) {
+        if (isVirtualGroupLinkCompanyRow(row)) continue;
+        if (companyRowIsGroupEntity(row, activeGroup)) continue;
+        const rid = parseInt(row.id, 10);
+        if (!Number.isFinite(rid) || rid <= 0) continue;
+        if (!shouldPrefetchCompanyScope(rid, activeGroup)) continue;
+        tasks.push(() => prefetchDashboardCompanyRef.current?.(row, activeGroup));
+      }
+      let idx = 0;
+      const drain = () => {
+        if (cancelled || interactionGen !== scopeInteractionGenRef.current) return;
+        if (String(currencyCodeRef.current || "").trim().toUpperCase() !== warmCurrency) return;
+        const batch = tasks.slice(idx, idx + 1);
+        idx += batch.length;
+        if (!batch.length) return;
+        void Promise.allSettled(batch.map((fn) => fn())).then(() => {
+          if (idx < tasks.length && !cancelled) {
+            window.setTimeout(drain, 350);
+          }
+        });
+      };
+      drain();
+    };
+
+    const timer = window.setTimeout(run, COMPANY_ALL_COMPANY_WARM_DELAY_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    gcBootstrapReady,
+    groupAllMode,
+    groupsAllMode,
+    selectedGroup,
+    companiesSig,
+    dateFrom,
+    dateTo,
+    currencyCode,
+    groupIds,
+    companies,
     shouldPrefetchCompanyScope,
   ]);
 
