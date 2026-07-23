@@ -42,15 +42,71 @@ function maintenance_mode_require_it(PDO $pdo): void
     }
 }
 
+/**
+ * Hostinger / fresh DBs may lack org migrations — create flags + IT allowlist if missing.
+ */
+function maintenance_mode_ensure_schema(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS `system_runtime_flags` (
+          `id` TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+          `maintenance_mode_enabled` TINYINT(1) NOT NULL DEFAULT 0,
+          `maintenance_message_id` INT NULL,
+          `updated_by` VARCHAR(50) NULL,
+          `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+    $pdo->exec(
+        "INSERT IGNORE INTO `system_runtime_flags` (
+          `id`, `maintenance_mode_enabled`, `maintenance_message_id`, `updated_by`
+        ) VALUES (1, 0, NULL, 'system-init')"
+    );
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS `system_it_allowlist` (
+          `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          `login_id` VARCHAR(50) NOT NULL,
+          `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+          `remark` VARCHAR(255) NULL,
+          `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY `uq_system_it_allowlist_login_id` (`login_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+    $pdo->exec(
+        "INSERT IGNORE INTO `system_it_allowlist` (`login_id`, `enabled`, `remark`) VALUES
+          ('IT_JK', 1, 'maintenance IT allowlist'),
+          ('IT_JS', 1, 'maintenance IT allowlist'),
+          ('IT_MS', 1, 'maintenance IT allowlist')"
+    );
+
+    $done = true;
+}
+
 function maintenance_mode_load_state(PDO $pdo): array
 {
-    $stmt = $pdo->query(
-        "SELECT maintenance_mode_enabled, maintenance_message_id, updated_by, updated_at
-         FROM system_runtime_flags
-         WHERE id = 1
-         LIMIT 1"
-    );
-    $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+    try {
+        $stmt = $pdo->query(
+            "SELECT maintenance_mode_enabled, maintenance_message_id, updated_by, updated_at
+             FROM system_runtime_flags
+             WHERE id = 1
+             LIMIT 1"
+        );
+        $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+    } catch (Throwable $e) {
+        error_log('maintenance_mode_load_state: ' . $e->getMessage());
+        return [
+            'enabled' => false,
+            'maintenance_message_id' => null,
+            'updated_by' => null,
+            'updated_at' => null,
+            'message_preview' => '',
+        ];
+    }
     if (!$row) {
         return [
             'enabled' => false,
@@ -153,6 +209,7 @@ if (!($pdo instanceof PDO)) {
 }
 
 try {
+    maintenance_mode_ensure_schema($pdo);
     maintenance_mode_require_it($pdo);
 
     $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
