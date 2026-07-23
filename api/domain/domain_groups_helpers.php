@@ -5,12 +5,17 @@
 
 function domainApiHasGroupsTable(PDO $pdo): bool
 {
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
     try {
         $stmt = $pdo->query("SHOW TABLES LIKE 'groups'");
-        return $stmt && $stmt->fetchColumn() !== false;
+        $cache = $stmt && $stmt->fetchColumn() !== false;
     } catch (PDOException $e) {
-        return false;
+        $cache = false;
     }
+    return $cache;
 }
 
 /**

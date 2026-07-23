@@ -371,14 +371,21 @@ function auto_renew_ensure_request_table_columns(PDO $pdo): void
                 AFTER `company_id`
         ");
     }
+    // Avoid unconditional MODIFY on every request — Hostinger locks the table.
+    // Only tighten nullability when company_id is still NOT NULL.
     try {
-        $pdo->exec("
-            ALTER TABLE `company_auto_renew_request`
-            MODIFY COLUMN `company_id` INT UNSIGNED NULL
-                COMMENT 'FK company.id when entity_type=company'
-        ");
+        $col = $pdo->query("SHOW COLUMNS FROM `company_auto_renew_request` LIKE 'company_id'");
+        $info = $col ? $col->fetch(PDO::FETCH_ASSOC) : null;
+        $isNullable = strtoupper((string) ($info['Null'] ?? '')) === 'YES';
+        if (!$isNullable) {
+            $pdo->exec("
+                ALTER TABLE `company_auto_renew_request`
+                MODIFY COLUMN `company_id` INT UNSIGNED NULL
+                    COMMENT 'FK company.id when entity_type=company'
+            ");
+        }
     } catch (Exception $e) {
-        // may already be nullable
+        // ignore
     }
     if (auto_renew_request_table_has_index($pdo, 'uq_auto_renew_tenant_exp')) {
         auto_renew_drop_request_foreign_key($pdo, 'fk_car_company');
@@ -1192,6 +1199,22 @@ function auto_renew_count_pending(PDO $pdo): int
 {
     $byEntity = auto_renew_count_pending_by_entity($pdo);
     return $byEntity['company'] + $byEntity['group'];
+}
+
+/**
+ * Sidebar / current_user hot path — count only, no DDL or window sync.
+ * Schema ensure + sync belong on Auto Renew page / cron, not every poll.
+ */
+function auto_renew_count_pending_fast(PDO $pdo): int
+{
+    try {
+        $stmt = $pdo->query(
+            "SELECT COUNT(*) FROM company_auto_renew_request WHERE status = 'pending'"
+        );
+        return (int) ($stmt ? ($stmt->fetchColumn() ?: 0) : 0);
+    } catch (Throwable $e) {
+        return 0;
+    }
 }
 
 /**
