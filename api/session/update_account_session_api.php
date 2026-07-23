@@ -18,7 +18,7 @@ define('SESSION_KEEP_OPEN', true);
 
 
 
-require_once __DIR__ . '/../../session_check.php';
+require_once __DIR__ . '/../../includes/session_check.php';
 
 require_once __DIR__ . '/../includes/member_linked_closure.php';
 

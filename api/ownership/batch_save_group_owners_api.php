@@ -3,9 +3,11 @@
  * Group Earnings API — Batch save group ownership
  * POST body: { "group_id": "AP", "owners": [{ "account_id": "O_1", "percentage": 30, "read_only": 1 }] }
  */
-require_once '../../session_check.php';
-require_once '../../config.php';
+require_once '../../includes/session_check.php';
+require_once '../../includes/config.php';
 require_once '../includes/money_decimal.php';
+require_once '../includes/ownership_history.php';
+require_once '../includes/ownership_schema.php';
 
 header('Content-Type: application/json');
 
@@ -41,15 +43,34 @@ function ownershipPctOut($value): string {
     return money_out($value, 2);
 }
 
-// Validate total percentage
+$nativeOwnerId = 0;
+if (strtolower($_SESSION['role'] ?? '') === 'owner') {
+    $nativeOwnerId = (int) ($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+}
+if ($nativeOwnerId <= 0) {
+    $stmtOwn = $pdo->prepare('SELECT DISTINCT owner_id FROM company WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?)) LIMIT 1');
+    $stmtOwn->execute([$group_id]);
+    $nativeOwnerId = (int) $stmtOwn->fetchColumn();
+}
+if ($nativeOwnerId <= 0) {
+    $nativeOwnerId = ownership_history_resolve_group_owner_id($pdo, (string) $group_id);
+}
+ownership_enrich_external_partner_flags($owners, $nativeOwnerId);
+
+// Validate total percentage (external partners may hold equity; 0% allowed while unallocated)
 $total_percentage = '0.00';
 foreach ($owners as $owner) {
     if (!isset($owner['account_id']) || !isset($owner['percentage'])) {
         echo json_encode(['status' => 'error', 'message' => 'Invalid owner data format']);
         exit();
     }
+    $isExternal = !empty($owner['is_external_partner']);
     $pct = ownershipPct($owner['percentage']);
     if (money_cmp($pct, '0', 2) < 0 || money_cmp($pct, '100', 2) > 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Percentage must be between 0 and 100']);
+        exit();
+    }
+    if (!$isExternal && money_cmp($pct, '0', 2) <= 0) {
         echo json_encode(['status' => 'error', 'message' => 'Percentage must be between 0 and 100']);
         exit();
     }
@@ -58,6 +79,82 @@ foreach ($owners as $owner) {
 
 if (money_cmp($total_percentage, '100', 2) > 0) {
     echo json_encode(['status' => 'error', 'message' => 'Total allocation exceeds 100%']);
+    exit();
+}
+
+$monthRaw = $inputData['month'] ?? null;
+$parsedMonth = ownership_history_parse_month_param($monthRaw);
+$saveHistoryOnly = $parsedMonth !== null && ownership_history_is_past_month($parsedMonth['month_key']);
+
+if ($saveHistoryOnly) {
+    try {
+        ownership_history_ensure_tables($pdo);
+        $effectiveMonth = $parsedMonth['effective_month'];
+
+        $sessionRole = strtolower($_SESSION['role'] ?? '');
+        if ($sessionRole === 'owner') {
+            $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+        } else {
+            $stmtOwn = $pdo->prepare("SELECT DISTINCT owner_id FROM company WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?)) LIMIT 1");
+            $stmtOwn->execute([$group_id]);
+            $owner_id = (int) $stmtOwn->fetchColumn();
+        }
+        if ($owner_id <= 0) {
+            $owner_id = ownership_history_resolve_group_owner_id($pdo, $group_id);
+        }
+
+        $existingGroups = [];
+        $existingReadOnly = [];
+        $stmtGroups = $pdo->prepare("
+            SELECT account_id, partner_group_id, COALESCE(read_only, 1) as read_only
+            FROM group_ownership_history
+            WHERE group_id = ? AND effective_month = ? AND owner_type = 'owner'
+        ");
+        $stmtGroups->execute([$group_id, $effectiveMonth]);
+        while ($row = $stmtGroups->fetch(PDO::FETCH_ASSOC)) {
+            $existingGroups[(int) $row['account_id']] = $row['partner_group_id'];
+            $existingReadOnly[(int) $row['account_id']] = (int) $row['read_only'];
+        }
+
+        $existingGroupReadOnly = [];
+        $stmtGrp = $pdo->prepare("
+            SELECT partner_group_id, COALESCE(read_only, 1) as read_only
+            FROM group_ownership_history
+            WHERE group_id = ? AND effective_month = ? AND owner_type = 'group'
+        ");
+        $stmtGrp->execute([$group_id, $effectiveMonth]);
+        while ($row = $stmtGrp->fetch(PDO::FETCH_ASSOC)) {
+            $key = strtoupper(trim((string) $row['partner_group_id']));
+            if ($key !== '') {
+                $existingGroupReadOnly[$key] = (int) $row['read_only'];
+            }
+        }
+
+        $historyRows = ownership_build_group_history_rows_from_payload(
+            $owners,
+            $existingGroups,
+            $existingReadOnly,
+            $existingGroupReadOnly
+        );
+        $savedBy = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+
+        $pdo->beginTransaction();
+        ownership_history_save_group_for_month($pdo, $group_id, $owner_id, $historyRows, $savedBy, $effectiveMonth);
+        $pdo->commit();
+
+        echo json_encode([
+            'status'  => 'success',
+            'message' => 'Historical group ownership saved successfully',
+        ]);
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        echo json_encode([
+            'status'  => 'error',
+            'message' => 'Database error: ' . $e->getMessage(),
+        ]);
+    }
     exit();
 }
 
@@ -94,6 +191,9 @@ try {
         exit();
     }
 
+    ownership_history_ensure_tables($pdo);
+    ownership_ensure_sort_order_column($pdo, 'group_ownership');
+
     $pdo->beginTransaction();
 
     // Preserve existing partner_group_id + read_only for owner-type rows
@@ -121,19 +221,22 @@ try {
     $stmt = $pdo->prepare("DELETE FROM group_ownership WHERE group_id = ?");
     $stmt->execute([$group_id]);
 
+    $historyRows = [];
+
     // Insert new rows
     if (count($owners) > 0) {
         $insertStmt = $pdo->prepare("
-            INSERT INTO group_ownership (group_id, owner_id, account_id, owner_type, percentage, partner_group_id, read_only)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO group_ownership (group_id, owner_id, account_id, owner_type, percentage, partner_group_id, read_only, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
-        foreach ($owners as $owner) {
+        foreach ($owners as $sortIdx => $owner) {
             $raw_id = (string) $owner['account_id'];
             $owner_type = 'owner';
             $real_id = 0;
             $pgid = null;
             $roVal = isset($owner['read_only']) ? (int) $owner['read_only'] : 1;
+            $sortOrder = isset($owner['sort_order']) ? (int) $owner['sort_order'] : (int) $sortIdx;
 
             if (strpos($raw_id, 'G_') === 0) {
                 // Self-group link: G_AP → owner_type='group', account_id=0, partner_group_id='AP'
@@ -164,7 +267,16 @@ try {
                 $real_id = (int) $raw_id;
             }
 
-            $insertStmt->execute([$group_id, $owner_id, $real_id, $owner_type, ownershipPctOut($owner['percentage']), $pgid, $roVal]);
+            $pctOut = ownershipPctOut($owner['percentage']);
+            $insertStmt->execute([$group_id, $owner_id, $real_id, $owner_type, $pctOut, $pgid, $roVal, $sortOrder]);
+
+            $historyRows[] = [
+                'account_id' => $real_id,
+                'owner_type' => $owner_type,
+                'percentage' => $pctOut,
+                'partner_group_id' => $pgid,
+                'read_only' => $roVal,
+            ];
 
             // Sync read_only to user table
             if ($owner_type === 'user') {
@@ -172,6 +284,14 @@ try {
                 $uStmt->execute([$roVal, $real_id]);
             }
         }
+    }
+
+    $savedBy = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+    ownership_history_save_group($pdo, $group_id, $owner_id, $historyRows, $savedBy);
+
+    $retrofillMonths = $inputData['retrofill_months'] ?? [];
+    if (is_array($retrofillMonths) && count($retrofillMonths) > 0) {
+        ownership_history_apply_group_retrofill_months($pdo, $group_id, $owner_id, $historyRows, $savedBy, $retrofillMonths);
     }
 
     $pdo->commit();

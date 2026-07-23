@@ -1,0 +1,250 @@
+import { useEffect, useMemo, useState } from "react";
+import MobileShell from "../../components/layout/MobileShell.jsx";
+import { useMobileDashboard } from "../../hooks/useMobileDashboard.js";
+import CurrencyDistributionCard from "./CurrencyDistributionCard.jsx";
+import CurrencyListCard from "./CurrencyListCard.jsx";
+import DashboardKpiCard from "./DashboardKpiCard.jsx";
+import DashboardTrendChart from "./DashboardTrendChart.jsx";
+import FilterSheet from "./FilterSheet.jsx";
+import HeroSummaryCard from "./HeroSummaryCard.jsx";
+import ScopeBreadcrumb from "./ScopeBreadcrumb.jsx";
+import "./dashboard.css";
+
+export default function DashboardPage() {
+  const dash = useMobileDashboard();
+  const { i18n, kpi, loading, refreshing, error, me, blocked, compareLabel } = dash;
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [ratesHintDismissed, setRatesHintDismissed] = useState(false);
+  const ratesHint = dash.ratesWarning && !ratesHintDismissed ? dash.ratesWarning : "";
+
+  useEffect(() => {
+    if (!dash.ratesWarning) setRatesHintDismissed(false);
+  }, [dash.ratesWarning]);
+
+  const sparklineValues = useMemo(() => {
+    const rows = dash.chartRows || [];
+    if (rows.length < 2) return [];
+    const step = Math.max(1, Math.floor(rows.length / 24));
+    return rows.filter((_, i) => i % step === 0 || i === rows.length - 1).map((r) => Number(r.netProfit) || 0);
+  }, [dash.chartRows]);
+
+  if (blocked) return null;
+
+  const kpiCards = [
+    { variant: "profit", label: i18n.profit, value: kpi?.profit, compare: kpi?.comparisons?.profit },
+    { variant: "expense", label: i18n.expenses, value: kpi?.expenses, compare: kpi?.comparisons?.expenses },
+    { variant: "net", label: i18n.netProfit, value: kpi?.netProfit, compare: kpi?.comparisons?.netProfit },
+  ];
+  if (kpi?.showEarnings) {
+    kpiCards.push({
+      variant: "earnings",
+      label: i18n.earnings,
+      value: kpi?.kpiCardEarnings,
+      compare: kpi?.comparisons?.earnings,
+    });
+  }
+
+  const companyCode = String(dash.selectedCompany?.company_id || "").toUpperCase();
+  const groupId = String(
+    dash.selectedGroup || dash.selectedCompany?.group_id || dash.selectedCompany?.link_source_group || "",
+  )
+    .trim()
+    .toUpperCase();
+
+  const viewingCompanyCode = dash.groupsAllMode || dash.groupAllMode
+    ? i18n.all
+    : dash.groupOnlyMode
+      ? groupId
+      : companyCode;
+  const sidebarGroupId = dash.groupOnlyMode ? "" : groupId;
+
+  const scopeTitle = [
+    dash.groupsAllMode ? i18n.all : groupId,
+    dash.groupOnlyMode ? i18n.groupIdShort || "Group" : dash.groupAllMode ? i18n.all : companyCode,
+  ]
+    .filter(Boolean)
+    .join(" › ");
+
+  const stickyBar = (
+    <button
+      type="button"
+      onClick={() => setFilterOpen(true)}
+      className="m-filter-bar tap-scale"
+      aria-label={i18n.filter}
+    >
+      <div className="m-filter-bar-row">
+        <i className="far fa-calendar m-filter-bar-icon" aria-hidden="true" />
+        <span className="m-filter-bar-dates">{dash.dateRangeText}</span>
+        <span className="m-filter-bar-currency">{dash.currency}</span>
+        <span className="m-filter-bar-action">
+          <i className="fas fa-filter" aria-hidden="true" />
+        </span>
+      </div>
+
+      <div className="m-filter-bar-scope m-filter-bar-scope-row" title={scopeTitle}>
+        <div className="m-filter-bar-scope-main">
+          <ScopeBreadcrumb
+            i18n={i18n}
+            groupId={groupId}
+            companyCode={companyCode}
+            groupsAllMode={dash.groupsAllMode}
+            groupAllMode={dash.groupAllMode}
+            groupOnlyMode={dash.groupOnlyMode}
+          />
+        </div>
+        <span className="m-filter-bar-switch">{i18n.switchCompany || "Switch"}</span>
+      </div>
+    </button>
+  );
+
+  return (
+    <MobileShell
+      i18n={i18n}
+      me={me}
+      companyCode={viewingCompanyCode}
+      groupId={sidebarGroupId}
+      onLogout={dash.logout}
+      onRefresh={dash.retry}
+      refreshing={Boolean(refreshing)}
+      stickyBar={stickyBar}
+      lang={dash.lang}
+      onLangChange={dash.setLang}
+      onChromeOpen={() => setFilterOpen(false)}
+      overlayOpen={filterOpen}
+      overlay={<FilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} dash={dash} />}
+    >
+      <div className="m-dash-page">
+        <div className="m-dash-glow" aria-hidden="true" />
+
+        {error && dash.hasData ? (
+          <div className="m-dash-error-banner">
+            <i className="fas fa-circle-exclamation" aria-hidden="true" />
+            <div className="m-dash-error-main">
+              <p className="m-dash-error-title">{i18n.loadError}</p>
+              <p className="m-dash-error-body">{error}</p>
+            </div>
+            <button type="button" onClick={dash.retry} className="m-dash-error-retry">
+              {i18n.retry || "Retry"}
+            </button>
+          </div>
+        ) : null}
+
+        {ratesHint && (
+          <div className="m-dash-rates-hint" role="status">
+            <i className="fas fa-exclamation-triangle" aria-hidden="true" />
+            <p>{ratesHint}</p>
+            <button
+              type="button"
+              onClick={() => setRatesHintDismissed(true)}
+              className="m-dash-rates-dismiss"
+              aria-label={i18n.closeMenu || "Close"}
+            >
+              <i className="fas fa-xmark" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
+        <div className="m-dash-content">
+          <HeroSummaryCard
+            i18n={i18n}
+            currency={dash.currency}
+            value={dash.summaryValue}
+            compare={dash.heroCompare}
+            compareLabel={compareLabel}
+            multiCurrency={dash.showMultiCurrencyNote}
+            loading={loading}
+            empty={!loading && !dash.hasData}
+            emptyLabel={false}
+            sparklineValues={sparklineValues}
+          />
+
+          {!loading && !dash.hasData && (
+            <div className="m-dash-empty">
+              <div className="m-dash-empty-icon">
+                <i className={`fas ${error ? "fa-lock" : "fa-chart-line"}`} aria-hidden="true" />
+              </div>
+              <p className="m-dash-empty-title">
+                {error ? i18n.emptyErrorTitle || i18n.loadError : i18n.emptyTitle || i18n.noData}
+              </p>
+              <p className="m-dash-empty-hint">{error ? error : i18n.emptyHint || i18n.noData}</p>
+              {error ? (
+                <button type="button" className="m-dash-empty-action tap-scale" onClick={dash.retry}>
+                  {i18n.retry || "Retry"}
+                </button>
+              ) : dash.activePreset !== "thisYear" ? (
+                <button
+                  type="button"
+                  className="m-dash-empty-action tap-scale"
+                  disabled={Boolean(refreshing)}
+                  onClick={() => dash.applyPreset("thisYear")}
+                >
+                  {refreshing ? i18n.loading : i18n.viewThisYear || i18n.thisYear}
+                </button>
+              ) : refreshing ? (
+                <p className="m-dash-empty-loading">{i18n.loading}</p>
+              ) : null}
+            </div>
+          )}
+
+          {(loading || dash.hasData) && (
+            <>
+          <section>
+            <h2 className="m-dash-section-title">{i18n.overview}</h2>
+            <div className="m-dash-kpi-scroller no-scrollbar">
+              {kpiCards.map((card) => (
+                <DashboardKpiCard
+                  key={card.variant}
+                  variant={card.variant}
+                  label={card.label}
+                  value={card.value}
+                  compare={card.compare}
+                  compareLabel={compareLabel}
+                  loading={loading}
+                />
+              ))}
+            </div>
+          </section>
+
+          <DashboardTrendChart
+            rows={dash.chartRows}
+            series={dash.chartSeries}
+            visible={dash.chartVisible}
+            onToggleSeries={dash.toggleChartSeries}
+            label={i18n.trendChart}
+            dateRangeText={dash.dateRangeShort}
+            xAxisLayout={dash.chartXAxisLayout}
+            emptyText={loading ? i18n.loading : i18n.chartSelectSeries || i18n.noData}
+          />
+
+          <CurrencyDistributionCard
+            i18n={i18n}
+            currencyCode={dash.currency}
+            rows={dash.earningsCurrencyRows}
+            useConverted={dash.useConvertedEarnings}
+            loading={loading}
+            note={dash.useConvertedEarnings ? i18n.multiCurrencyNote : ""}
+          />
+
+          <CurrencyListCard
+            i18n={i18n}
+            lang={dash.lang}
+            currencyCode={dash.currency}
+            rows={dash.earningsCurrencyRows}
+            exchangeRates={dash.exchangeRates}
+            exchangeRatesLoading={dash.exchangeRatesLoading}
+            useConverted={dash.useConvertedEarnings}
+            loading={loading}
+          />
+            </>
+          )}
+        </div>
+
+        {loading && !dash.hasData && (
+          <div className="m-dash-loading-pill" aria-live="polite">
+            <span>{i18n.loading}</span>
+          </div>
+        )}
+      </div>
+    </MobileShell>
+  );
+}

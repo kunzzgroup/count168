@@ -3,8 +3,10 @@
  * 添加账户 API
  */
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/password_hashing.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -178,6 +180,11 @@ try {
         throw new Exception('用户未登录');
     }
 
+    if (is_partnership_audit_read_only_active($pdo)) {
+        jsonResponse(false, '只读账号无法添加账户', null);
+        exit;
+    }
+
     $company_id = null;
     if (isset($_POST['company_id']) && $_POST['company_id'] !== '') {
         $company_id = (int)$_POST['company_id'];
@@ -260,7 +267,7 @@ try {
             'account_id' => $account_id,
             'name' => $name,
             'role' => $role,
-            'password' => $password,
+            'password' => secure_hash_password($password),
             'payment_alert' => $payment_alert,
             'alert_day' => $alert_day,
             'alert_specific_date' => $alert_specific_date,

@@ -1,7 +1,8 @@
 <?php
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
-require_once '../../config.php';
+require_once '../../includes/config.php';
+require_once '../includes/ownership_history.php';
 
 header('Content-Type: application/json');
 
@@ -108,15 +109,15 @@ try {
     $partner = null;
     $matched_by_group = null;
 
-    if ($partnerByLogin && $partnerByGroup && (int)$partnerByLogin['id'] !== (int)$partnerByGroup['id']) {
-        // Collision: Match found in both Login ID and Group ID. 
-        // We prompt the user so they can decide whether to just share (Login) or formally join the group.
+    if ($partnerByLogin && $partnerByGroup && $force_type === '') {
+        // Collision: input matches both Login ID and Group ID — let user pick semantics.
         echo json_encode([
-            'status' => 'conflict', 
+            'status' => 'conflict',
             'message' => 'Multiple matches found.',
             'data' => [
                 'login_partner' => $partnerByLogin['name'] . ' (' . $partnerByLogin['owner_code'] . ')',
-                'group_partner' => $partnerByGroup['name'] . ' (Group: ' . $partnerByGroup['group_id'] . ')'
+                'group_partner' => $partnerByGroup['name'] . ' (Group: ' . $partnerByGroup['group_id'] . ')',
+                'same_owner' => (int) $partnerByLogin['id'] === (int) $partnerByGroup['id'],
             ]
         ]);
         exit();
@@ -185,6 +186,9 @@ try {
         $stmtInsert->execute([$company_id, $partnerId]);
     }
 
+    $savedBy = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+    ownership_history_snapshot_company_from_live_safe($pdo, (int) $company_id, $savedBy);
+
     echo json_encode([
         'status' => 'success',
         'message' => $isSameOwnerGroupLink
@@ -192,7 +196,6 @@ try {
             : "Partner '{$partner['name']}' linked successfully"
     ]);
 
-} catch (PDOException $e) {
+} catch (Throwable $e) {
     echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
 }
-?>

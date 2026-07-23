@@ -13,7 +13,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/password_hashing.php';
+require_once __DIR__ . '/../../includes/email_validation.php';
+require_once __DIR__ . '/../../includes/auth_invalidation.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'Method not allowed']);
@@ -23,17 +26,22 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 try {
     $input = json_decode(file_get_contents('php://input'), true) ?: [];
     $company_id_raw = trim($input['company_id'] ?? $_POST['company_id'] ?? '');
-    $email = trim($input['email'] ?? $_POST['email'] ?? '');
+    $emailValidation = validate_email($input['email'] ?? $_POST['email'] ?? '');
     $tac = trim($input['tac'] ?? $_POST['tac'] ?? '');
     $new_password = $input['new_password'] ?? $_POST['new_password'] ?? '';
 
-    if (!$company_id_raw || !$email || !$tac || $new_password === '' || $new_password === null) {
+    if (!$company_id_raw || !$emailValidation['normalized'] || !$tac || $new_password === '' || $new_password === null) {
         echo json_encode(['success' => false, 'message' => 'Company ID, email, TAC and new password are required']);
+        exit;
+    }
+    if (!$emailValidation['ok']) {
+        echo json_encode(['success' => false, 'message' => 'Invalid email format']);
         exit;
     }
 
     $company_id_upper = strtoupper($company_id_raw);
-    $email_lower = strtolower($email);
+    $email = $emailValidation['normalized'];
+    $email_lower = $email;
 
     // 1) 尝试验证普通用户的 TAC（支持 Company ID 或 Group ID）
     $stmt = $pdo->prepare("
@@ -67,8 +75,9 @@ try {
             exit;
         }
 
-        $hashed = password_hash($new_password, PASSWORD_DEFAULT);
+        $hashed = secure_hash_password($new_password);
         $pdo->prepare("UPDATE user SET password = ? WHERE id = ?")->execute([$hashed, $user_id]);
+        invalidate_user_remember_token($pdo, (int) $user_id);
         $pdo->prepare("DELETE FROM password_reset_tac WHERE email = ? AND company_id = ?")->execute([$email, $company_numeric_id]);
         echo json_encode(['success' => true, 'message' => 'Password reset successful']);
         exit;
@@ -100,7 +109,7 @@ try {
         exit;
     }
 
-    $hashed = password_hash($new_password, PASSWORD_DEFAULT);
+    $hashed = secure_hash_password($new_password);
     $pdo->prepare("UPDATE owner SET password = ? WHERE id = ?")->execute([$hashed, $owner_id]);
     $pdo->prepare("DELETE FROM password_reset_tac_owner WHERE email = ? AND owner_id = ?")->execute([$email_lower, $owner_id]);
     echo json_encode(['success' => true, 'message' => 'Password reset successful']);

@@ -7,9 +7,10 @@
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../includes/c168_domain_access.php';
-require_once __DIR__ . '/../../includes/maintenance_marquee_lib.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../c168/c168_domain_access.php';
+require_once __DIR__ . '/maintenance_common.php';
+require_once __DIR__ . '/../includes/rich_text_sanitizer.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -45,20 +46,32 @@ function countActiveMaintenance(PDO $pdo) {
 /**
  * 插入新维护内容
  */
-function insertMaintenance(PDO $pdo, string $content, string $labelType, $createdBy, string $userType) {
-    $sql = "INSERT INTO maintenance_marquee (content, label_type, company_code, created_by, user_type, status)
-            VALUES (?, ?, 'C168', ?, ?, 'active')";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$content, $labelType, $createdBy, $userType]);
+function insertMaintenance(PDO $pdo, string $prefix, string $content, $createdBy, string $userType) {
+    ensureMaintenanceMarqueePrefixColumn($pdo);
+    if (maintenanceMarqueeHasPrefixColumn($pdo)) {
+        $sql = "INSERT INTO maintenance_marquee (prefix, content, company_code, created_by, user_type, status)
+                VALUES (?, ?, 'C168', ?, ?, 'active')";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$prefix, $content, $createdBy, $userType]);
+    } else {
+        $sql = "INSERT INTO maintenance_marquee (content, company_code, created_by, user_type, status)
+                VALUES (?, 'C168', ?, ?, 'active')";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$prefix !== '' ? ($prefix . ' ' . $content) : $content, $createdBy, $userType]);
+    }
     return (int) $pdo->lastInsertId();
 }
 
 try {
     requireC168InformationManagementAccess($pdo);
 
-    $content = trim($_POST['content'] ?? '');
-    $labelType = normalizeMaintenanceLabelType($_POST['label_type'] ?? 'maintenance');
-    if ($content === '') {
+    $prefix = trim($_POST['prefix'] ?? '');
+    $content = sanitizeRichTextHtml((string)($_POST['content'] ?? ''));
+    $contentPlain = richTextHtmlToPlainText($content);
+    if ($prefix === '') {
+        throw new Exception('Prefix cannot be empty');
+    }
+    if ($contentPlain === '') {
         throw new Exception('Content cannot be empty');
     }
 
@@ -70,7 +83,7 @@ try {
     $user_type = $_SESSION['user_type'] ?? 'user';
     $created_by = ($user_type === 'owner') ? ($_SESSION['owner_id'] ?? $user_id) : $user_id;
 
-    $id = insertMaintenance($pdo, $content, $labelType, $created_by, $user_type);
+    $id = insertMaintenance($pdo, $prefix, $content, $created_by, $user_type);
     jsonResponse(true, 'Maintenance content created successfully', ['id' => $id]);
 } catch (PDOException $e) {
     jsonResponse(false, 'Database error: ' . $e->getMessage(), null, 500);

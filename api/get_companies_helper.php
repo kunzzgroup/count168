@@ -4,6 +4,7 @@
  * Prevents code duplication and ensures consistent filtering.
  */
 
+require_once __DIR__ . '/../includes/group_scope_resolve.php';
 require_once __DIR__ . '/../includes/maintenance_gate.php';
 
 if (!function_exists('_getSystemItScopedCompanies')) {
@@ -17,7 +18,7 @@ if (!function_exists('_getSystemItScopedCompanies')) {
         $itGroups = maintenance_gate_it_scope_groups();
         $placeholders = implode(',', array_fill(0, count($itGroups), '?'));
         $stmt = $pdo->prepare("
-            SELECT id, company_id, group_id, expiration_date
+            SELECT id, company_id, group_id, expiration_date, permissions
             FROM company
             WHERE UPPER(TRIM(company_id)) = 'C168'
                OR UPPER(TRIM(group_id)) IN ($placeholders)
@@ -25,7 +26,40 @@ if (!function_exists('_getSystemItScopedCompanies')) {
         ");
         $stmt->execute($itGroups);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        return $rows ?: [];
+        if (!$rows) {
+            return [];
+        }
+        $mapped = array_map(static function (array $row): array {
+            return [
+                'id' => (int) ($row['id'] ?? 0),
+                'company_id' => (string) ($row['company_id'] ?? ''),
+                'group_id' => $row['group_id'] ?? null,
+                'expiration_date' => $row['expiration_date'] ?? null,
+                'permissions' => $row['permissions'] ?? null,
+            ];
+        }, $rows);
+        $mapped = array_values(array_filter($mapped, static fn(array $row): bool => (int) $row['id'] > 0));
+        if ($fetchAll) {
+            return array_map(static function (array $row): array {
+                return [
+                'id' => $row['id'],
+                'company_id' => $row['company_id'],
+                'native_group_id' => $row['group_id'],
+                'group_id' => $row['group_id'],
+                'expiration_date' => $row['expiration_date'],
+                'permissions' => $row['permissions'],
+                'is_external' => 0,
+                ];
+            }, $mapped);
+        }
+        return array_map(static function (array $row): array {
+            return [
+                'id' => $row['id'],
+                'company_id' => $row['company_id'],
+                'group_id' => $row['group_id'],
+                'expiration_date' => $row['expiration_date'],
+            ];
+        }, $mapped);
     }
 }
 
@@ -46,7 +80,7 @@ if (!function_exists('getCompaniesByUser')) {
 
         if ($fetchAll) {
             $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id, c.group_id, c.expiration_date
+                SELECT DISTINCT c.id, c.company_id, c.group_id AS native_group_id, c.group_id, c.expiration_date, c.permissions
                 FROM company c
                 INNER JOIN user_company_map ucm ON c.id = ucm.company_id
                 WHERE ucm.user_id = ? AND c.company_id != ''
@@ -54,6 +88,30 @@ if (!function_exists('getCompaniesByUser')) {
             ");
             $stmt->execute([$userId]);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Domain "Selected Companies" (e.g. independent ABC) live under the same owner_id
+            // as mapped group subsidiaries — include the full owner portfolio for dashboard pills.
+            $ownerScopeStmt = $pdo->prepare("
+                SELECT DISTINCT c.id, c.company_id, c.group_id AS native_group_id, c.group_id, c.expiration_date, c.permissions
+                FROM company c
+                WHERE c.company_id != ''
+                  AND c.owner_id IN (
+                    SELECT DISTINCT c2.owner_id
+                    FROM company c2
+                    INNER JOIN user_company_map ucm ON c2.id = ucm.company_id
+                    WHERE ucm.user_id = ? AND c2.owner_id IS NOT NULL
+                  )
+                ORDER BY c.company_id ASC
+            ");
+            $ownerScopeStmt->execute([$userId]);
+            $ownerRows = $ownerScopeStmt->fetchAll(PDO::FETCH_ASSOC);
+            if (!empty($ownerRows)) {
+                $byId = [];
+                foreach (array_merge($rows, $ownerRows) as $r) {
+                    $byId[(int) ($r['id'] ?? 0)] = $r;
+                }
+                $rows = array_values($byId);
+            }
 
             if ($includeGroupLinkVirtualRows) {
                 // Derive the set of owner ids this admin is managing via user_company_map
@@ -326,7 +384,7 @@ if (!function_exists('getCompaniesByOwner')) {
      *   also appears with `group_id = T`. Dashboard views only — do NOT enable for
      *   ownership-management pages.
      */
-    function getCompaniesByOwner(PDO $pdo, int $ownerId, bool $fetchAll, bool $includeGroupLinkVirtualRows = false): array {
+    function getCompaniesByOwner(PDO $pdo, int $ownerId, bool $fetchAll, bool $includeGroupLinkVirtualRows = false, bool $ownershipNativeGroupsOnly = false): array {
         // Check if group_ownership table exists (group-level partner linking)
         $hasGroupOwnership = false;
         try {
@@ -352,6 +410,7 @@ if (!function_exists('getCompaniesByOwner')) {
         if ($fetchAll) {
             $sql = "
                 SELECT DISTINCT c.id, c.company_id, c.expiration_date,
+                       c.group_id AS native_group_id,
                        COALESCE(co.partner_group_id, c.group_id) as group_id,
                        IF(c.owner_id = ?, 0, 1) as is_external
                 FROM company c
@@ -370,6 +429,10 @@ if (!function_exists('getCompaniesByOwner')) {
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if (!$ownershipNativeGroupsOnly) {
+                $rows = gc_enrich_owner_company_rows_with_group_map($pdo, $ownerId, $rows);
+            }
 
             if ($includeGroupLinkVirtualRows) {
                 // Real-owner session — only their own group-links produce virtual rows.

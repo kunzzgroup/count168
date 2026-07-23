@@ -1,2 +1,0 @@
--- Deprecated: replaced by database/data_capture_draft.sql
--- Run: mysql -u <user> -p <database> < database/data_capture_draft.sql

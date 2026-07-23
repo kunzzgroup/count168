@@ -8,7 +8,8 @@
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -33,14 +34,15 @@ function getCompanyIdForRequest(PDO $pdo) {
             if (!$ownerId) {
                 throw new Exception('缺少 Owner 信息');
             }
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ? LIMIT 1");
-            $stmt->execute([$requestedCompanyId, $ownerId]);
-            if (!$stmt->fetchColumn()) {
+            if (!gc_owner_has_company_access($pdo, $requestedCompanyId, (int)$ownerId)) {
                 throw new Exception('无权访问该公司');
             }
             return $requestedCompanyId;
         }
-        if (!maintenance_gate_non_owner_can_use_company($pdo, $requestedCompanyId)) {
+        if (!isset($_SESSION['company_id'])) {
+            throw new Exception('缺少公司信息');
+        }
+        if ($requestedCompanyId !== (int)$_SESSION['company_id']) {
             throw new Exception('无权访问该公司');
         }
         return $requestedCompanyId;
@@ -54,22 +56,39 @@ function getCompanyIdForRequest(PDO $pdo) {
 /**
  * 查询 Data Capture 记录（未删除）
  */
-function fetchCaptureRecords(PDO $pdo, int $company_id, string $date_from_db, string $date_to_db, ?int $process_id, ?string $process_name) {
-    $where_conditions = ["dc.capture_date BETWEEN ? AND ?", "p.company_id = ?"];
-    $params = [$company_id, $company_id, $date_from_db, $date_to_db, $company_id];
+function fetchCaptureRecords(
+    PDO $pdo,
+    array $scopeCtx,
+    string $date_from_db,
+    string $date_to_db,
+    ?int $process_id,
+    ?string $process_name,
+    string $scopeProcessFilter = ''
+) {
+    $ledgerDc = dcBuildCaptureLedgerFilter($pdo, $scopeCtx, 'dc', 'data_captures');
+    $ledgerDcd = dcBuildCaptureLedgerFilter($pdo, $scopeCtx, 'dcd', 'data_capture_details');
+    $processCompanyId = dcCaptureProcessCompanyId($scopeCtx);
+
+    $where_conditions = ['dc.capture_date BETWEEN ? AND ?', 'p.company_id = ?'];
+    $params = array_merge(
+        dcCaptureLedgerBindParams($ledgerDc),
+        dcCaptureLedgerBindParams($ledgerDcd),
+        [$date_from_db, $date_to_db, $processCompanyId]
+    );
     if ($process_id !== null) {
-        $where_conditions[] = "p.id = ?";
+        $where_conditions[] = 'p.id = ?';
         $params[] = $process_id;
     } elseif ($process_name) {
-        $where_conditions[] = "p.process_id = ?";
+        $where_conditions[] = 'p.process_id = ?';
         $params[] = $process_name;
     }
     $where_sql = 'AND ' . implode(' AND ', $where_conditions);
+    $productLabelSql = dcSqlCaptureProductLabel('p', 'd');
 
-    $sql = "SELECT dc.id as capture_id, p.process_id, COALESCE(d.name, p.process_id) as product_name,
+    $sql = "SELECT dc.id as capture_id, p.process_id, {$productLabelSql} as product_name,
             MIN(dcd.currency_id) as currency_id, MIN(c.code) as currency_code,
             dc.capture_date, DATE_FORMAT(dc.created_at, '%d/%m/%Y %H:%i:%s') as dts_created,
-            COALESCE(d.name, p.process_id) as wl_group, MAX(COALESCE(u.login_id, o.owner_code)) as submitted_by
+            {$productLabelSql} as wl_group, MAX(COALESCE(u.login_id, o.owner_code)) as submitted_by
             FROM data_captures dc
             INNER JOIN process p ON dc.process_id = p.id
             LEFT JOIN description d ON p.description_id = d.id
@@ -77,9 +96,9 @@ function fetchCaptureRecords(PDO $pdo, int $company_id, string $date_from_db, st
             INNER JOIN currency c ON dcd.currency_id = c.id
             LEFT JOIN user u ON dc.created_by = u.id AND dc.user_type = 'user'
             LEFT JOIN owner o ON dc.created_by = o.id AND dc.user_type = 'owner'
-            WHERE dc.company_id = ? AND dcd.company_id = ? $where_sql
-            GROUP BY dc.id, p.process_id, COALESCE(d.name, p.process_id), dc.capture_date, dc.created_at
-            ORDER BY dc.capture_date DESC, p.process_id, COALESCE(d.name, p.process_id)";
+            WHERE 1=1 {$ledgerDc['sql']} {$ledgerDcd['sql']} $where_sql $scopeProcessFilter
+            GROUP BY dc.id, p.process_id, {$productLabelSql}, dc.capture_date, dc.created_at
+            ORDER BY dc.capture_date DESC, p.process_id, {$productLabelSql}";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -88,7 +107,16 @@ function fetchCaptureRecords(PDO $pdo, int $company_id, string $date_from_db, st
 /**
  * 查询已删除记录（data_captures_deleted 表存在时）
  */
-function fetchDeletedRecords(PDO $pdo, int $company_id, string $date_from_db, string $date_to_db, ?int $process_id, ?string $process_name) {
+function fetchDeletedRecords(
+    PDO $pdo,
+    int $company_id,
+    string $date_from_db,
+    string $date_to_db,
+    ?int $process_id,
+    ?string $process_name,
+    string $scopeProcessFilter = '',
+    string $scopeCompanySql = ''
+) {
     $checkStmt = $pdo->query("SHOW TABLES LIKE 'data_captures_deleted'");
     if (!$checkStmt->rowCount()) {
         return [];
@@ -104,10 +132,11 @@ function fetchDeletedRecords(PDO $pdo, int $company_id, string $date_from_db, st
     }
     $deletedWhereSql = 'AND ' . implode(' AND ', $deletedWhereConditions);
     $deletedParams[] = $company_id;
+    $productLabelSql = dcSqlCaptureProductLabel('p', 'd');
 
-    $sql = "SELECT dcd.capture_id, p.process_id, COALESCE(d.name, p.process_id) as product_name, dcd.currency_id, c.code as currency_code,
+    $sql = "SELECT dcd.capture_id, p.process_id, {$productLabelSql} as product_name, dcd.currency_id, c.code as currency_code,
             dcd.capture_date, DATE_FORMAT(dcd.created_at, '%d/%m/%Y %H:%i:%s') as dts_created,
-            COALESCE(d.name, p.process_id) as wl_group, COALESCE(u.login_id, o.owner_code) as submitted_by,
+            {$productLabelSql} as wl_group, COALESCE(u.login_id, o.owner_code) as submitted_by,
             COALESCE(du.login_id, do.owner_code) as deleted_by,
             DATE_FORMAT(dcd.deleted_at, '%d/%m/%Y %H:%i:%s') as dts_deleted
             FROM data_captures_deleted dcd
@@ -118,11 +147,40 @@ function fetchDeletedRecords(PDO $pdo, int $company_id, string $date_from_db, st
             LEFT JOIN owner o ON dcd.created_by = o.id AND dcd.user_type = 'owner'
             LEFT JOIN user du ON dcd.deleted_by_user_id = du.id
             LEFT JOIN owner do ON dcd.deleted_by_owner_id = do.id
-            WHERE dcd.company_id = ? AND dcd.capture_date BETWEEN ? AND ? $deletedWhereSql
-            ORDER BY dcd.capture_date DESC, p.process_id, COALESCE(d.name, p.process_id)";
+            WHERE dcd.company_id = ? AND dcd.capture_date BETWEEN ? AND ? $deletedWhereSql $scopeProcessFilter $scopeCompanySql
+            ORDER BY dcd.capture_date DESC, p.process_id, {$productLabelSql}";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($deletedParams);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Post-fetch text filter (aligned with payment_maintenance search `q`).
+ */
+function captureMaintenanceItemMatchesSearch(array $item, ?string $raw): bool
+{
+    if ($raw === null || trim($raw) === '') {
+        return true;
+    }
+    $q = strtoupper(trim($raw));
+    $fields = [
+        'process',
+        'product',
+        'currency',
+        'wl_group',
+        'submitted_by',
+        'deleted_by',
+        'capture_id',
+        'dts_created',
+        'dts_deleted',
+    ];
+    foreach ($fields as $field) {
+        $value = strtoupper(trim((string) ($item[$field] ?? '')));
+        if ($value !== '' && strpos($value, $q) !== false) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
@@ -178,24 +236,89 @@ function formatAndMergeResults(array $results, array $deletedResults, ?string $p
 }
 
 try {
-    $company_id = getCompanyIdForRequest($pdo);
+    if (!isset($_SESSION['user_id'])) {
+        throw new Exception('用户未登录');
+    }
+
+    $scopeParams = $_GET;
+    $capture_scope_group = false;
+    $hasExplicitScope = dcRequestHasExplicitScope($scopeParams);
+
+    $requestedViewGroup = dcNormalizeGroupId(
+        $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
+    );
+
+    if ($hasExplicitScope) {
+        $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
+        $scopeCtx = dcFinalizeCaptureMaintenanceScope($pdo, $scopeResolved, $scopeParams);
+        $company_id = (int) $scopeCtx['company_id'];
+        $capture_scope_group = (bool) $scopeCtx['is_group_scope'];
+        $scopeProcessFilter = (string) $scopeCtx['scope_process_sql'];
+        $scopeCompanySqlDeleted = (string) ($scopeCtx['scope_company_sql_deleted'] ?? '');
+        if ($scopeCompanySqlDeleted === '' && !$capture_scope_group && empty($scopeCtx['dual_tenant'])) {
+            $scopeCompanySqlDeleted = dcSqlCaptureOnSubsidiaryCompany('dcd');
+        }
+        dcAssertUserCanAccessCompany(
+            $pdo,
+            $company_id,
+            $requestedViewGroup !== '' ? $requestedViewGroup : null
+        );
+    } else {
+        $company_id = getCompanyIdForRequest($pdo);
+        $capture_scope_group = false;
+        $scopeCtx = [
+            'company_id' => $company_id,
+            'anchor_company_id' => $company_id,
+            'is_group_scope' => false,
+            'dual_tenant' => tenant_table_has_scope_columns($pdo, 'data_captures'),
+            'scope_process_sql' => dcSqlCompanyProcessFilter('p'),
+            'scope_company_sql_deleted' => dcSqlCaptureOnSubsidiaryCompany('dcd'),
+        ];
+        $scopeProcessFilter = dcSqlCompanyProcessFilter('p');
+        $scopeCompanySqlDeleted = dcSqlCaptureOnSubsidiaryCompany('dcd');
+    }
+
+    if ($capture_scope_group) {
+        if ($company_id <= 0) {
+            jsonResponse(true, 'OK', []);
+            return;
+        }
+    } elseif (
+        !$capture_scope_group
+        && $company_id > 0
+        && dcCompanyIdIsGroupEntity($pdo, $company_id)
+        && empty($scopeCtx['dual_tenant'])
+    ) {
+        jsonResponse(true, 'OK', []);
+        return;
+    }
+
+    // $scopeProcessFilter set above
 
     $date_from = $_GET['date_from'] ?? null;
     $date_to = $_GET['date_to'] ?? null;
-    $process_param = isset($_GET['process']) && $_GET['process'] !== '' ? trim((string)$_GET['process']) : null;
+    $process_param = isset($_GET['process']) && $_GET['process'] !== '' ? trim((string) $_GET['process']) : null;
     $process_id = null;
     $process_name = null;
     // 优先按唯一 process.id 精确过滤，避免同 process_id(代码) 下多条 process 混在一起
     if ($process_param !== null && $process_param !== '') {
         if (preg_match('/^\d+$/', $process_param)) {
-            $stmt = $pdo->prepare("SELECT id, process_id FROM process WHERE id = ? AND company_id = ? LIMIT 1");
-            $stmt->execute([(int)$process_param, $company_id]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($row) {
-                $process_id = (int)$row['id'];
-                $process_name = (string)$row['process_id'];
-            } else {
-                // 传入非法/越权 id 时返回空结果，避免回退成全量
+            $process_id = (int) $process_param;
+            try {
+                dcAssertProcessIdInCaptureScope(
+                    $pdo,
+                    $process_id,
+                    (int) $company_id,
+                    (bool) $capture_scope_group
+                );
+            } catch (Exception $e) {
+                jsonResponse(true, 'OK', []);
+                return;
+            }
+            $stmt = $pdo->prepare('SELECT process_id FROM process WHERE id = ? AND company_id = ? LIMIT 1');
+            $stmt->execute([$process_id, $company_id]);
+            $process_name = (string) ($stmt->fetchColumn() ?: '');
+            if ($process_name === '') {
                 jsonResponse(true, 'OK', []);
                 return;
             }
@@ -207,6 +330,18 @@ try {
             }
             if ($process_name === '') {
                 $process_name = null;
+            } else {
+                $resolvedPid = dcResolveProcessIdByCode(
+                    $pdo,
+                    (int) $company_id,
+                    $process_name,
+                    (bool) $capture_scope_group
+                );
+                if ($resolvedPid === null) {
+                    jsonResponse(true, 'OK', []);
+                    return;
+                }
+                $process_id = $resolvedPid;
             }
         }
     }
@@ -217,15 +352,51 @@ try {
     $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
     $date_to_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
 
-    $results = fetchCaptureRecords($pdo, $company_id, $date_from_db, $date_to_db, $process_id, $process_name);
+    $results = fetchCaptureRecords(
+        $pdo,
+        $scopeCtx,
+        $date_from_db,
+        $date_to_db,
+        $process_id,
+        $process_name,
+        $scopeProcessFilter
+    );
     $deletedResults = [];
     try {
-        $deletedResults = fetchDeletedRecords($pdo, $company_id, $date_from_db, $date_to_db, $process_id, $process_name);
+        $deletedResults = fetchDeletedRecords(
+            $pdo,
+            $company_id,
+            $date_from_db,
+            $date_to_db,
+            $process_id,
+            $process_name,
+            $scopeProcessFilter,
+            $scopeCompanySqlDeleted
+        );
     } catch (Exception $e) {
         error_log('查询已删除记录失败: ' . $e->getMessage());
     }
 
     $formattedResults = formatAndMergeResults($results, $deletedResults, $process_name);
+
+    $text_search = isset($_GET['q']) && $_GET['q'] !== ''
+        ? (string) $_GET['q']
+        : (isset($_GET['search']) ? (string) $_GET['search'] : '');
+    if (trim($text_search) !== '') {
+        $formattedResults = array_values(array_filter(
+            $formattedResults,
+            static fn(array $item): bool => captureMaintenanceItemMatchesSearch($item, $text_search)
+        ));
+        foreach ($formattedResults as $index => &$result) {
+            $result['no'] = $index + 1;
+        }
+        unset($result);
+    }
+
+    if (empty($formattedResults)) {
+        jsonResponse(true, 'No data found', []);
+        return;
+    }
     jsonResponse(true, 'OK', $formattedResults);
 } catch (PDOException $e) {
     jsonResponse(false, '数据库错误: ' . $e->getMessage(), null, 500);

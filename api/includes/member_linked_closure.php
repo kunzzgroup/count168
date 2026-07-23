@@ -4,6 +4,28 @@
  * Member：登录身份与 Win/Loss「查看」账号（session 键）的读取。
  * 「可关联账户」闭包枚举与 account_link_api ::getLinkedAccountsForMember() 一致。
  */
+/**
+ * 旧 session 可能缺少 member_* 键；登录后 bootstrap 前补齐，避免 current_user_api 等 fatal。
+ */
+if (!function_exists('member_ensure_login_session_fields')) {
+    function member_ensure_login_session_fields(): void
+    {
+        if (!isset($_SESSION['user_type']) || strtolower((string) $_SESSION['user_type']) !== 'member') {
+            return;
+        }
+        $uid = (int) ($_SESSION['user_id'] ?? 0);
+        if ($uid <= 0) {
+            return;
+        }
+        if (empty($_SESSION['member_login_account_id'])) {
+            $_SESSION['member_login_account_id'] = $uid;
+        }
+        if (empty($_SESSION['member_winloss_view_account_id'])) {
+            $_SESSION['member_winloss_view_account_id'] = (int) $_SESSION['member_login_account_id'];
+        }
+    }
+}
+
 if (!function_exists('member_session_canonical_account_id')) {
     function member_session_canonical_account_id(): int
     {

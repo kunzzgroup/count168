@@ -7,33 +7,6 @@
  * - IT bypass requires user.status = 'active'.
  */
 
-if (!function_exists('maintenance_gate_should_skip_enforcement')) {
-    /**
-     * 登录页、公开接口等不做已登录维护拦截。
-     */
-    function maintenance_gate_should_skip_enforcement(): bool
-    {
-        $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_FILENAME'] ?? ''));
-        if ($script === '') {
-            return false;
-        }
-
-        $skipSuffixes = [
-            '/login_process.php',
-            '/index.php',
-            '/api/maintenance/get_public_api.php',
-        ];
-
-        foreach ($skipSuffixes as $suffix) {
-            if (str_ends_with($script, $suffix)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-}
-
 if (!function_exists('maintenance_gate_it_allowlist')) {
     /**
      * Hardcoded IT login_id allowlist.
@@ -43,18 +16,6 @@ if (!function_exists('maintenance_gate_it_allowlist')) {
     function maintenance_gate_it_allowlist(): array
     {
         return ['it_jk', 'it_js', 'it_ms'];
-    }
-}
-
-if (!function_exists('maintenance_gate_protected_login_ids_upper')) {
-    /**
-     * 维护模式开启时保留 remember_token 的 login_id（大写）。
-     *
-     * @return string[]
-     */
-    function maintenance_gate_protected_login_ids_upper(): array
-    {
-        return array_map('strtoupper', maintenance_gate_it_allowlist());
     }
 }
 
@@ -104,6 +65,7 @@ if (!function_exists('maintenance_gate_is_allowlisted_login_db')) {
             $stmt->execute([$norm]);
             return (bool) $stmt->fetchColumn();
         } catch (Throwable $e) {
+            // Table may not exist before migration.
             return false;
         }
     }
@@ -122,20 +84,9 @@ if (!function_exists('maintenance_gate_is_enabled')) {
             $value = $stmt ? $stmt->fetchColumn() : null;
             return (int) $value === 1;
         } catch (Throwable $e) {
+            // Table may not exist before migration; default to disabled.
             return false;
         }
-    }
-}
-
-if (!function_exists('maintenance_gate_format_message_row')) {
-    function maintenance_gate_format_message_row(array $row): string
-    {
-        if (!function_exists('maintenanceMarqueeLabelText')) {
-            require_once __DIR__ . '/maintenance_marquee_lib.php';
-        }
-        $prefix = maintenanceMarqueeLabelText($row['label_type'] ?? 'maintenance');
-        $content = trim(html_entity_decode(strip_tags((string) ($row['content'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-        return trim($prefix . ' ' . $content);
     }
 }
 
@@ -155,7 +106,7 @@ if (!function_exists('maintenance_gate_fetch_message')) {
 
             if ($messageId > 0) {
                 $msgStmt = $pdo->prepare(
-                    "SELECT label_type, content
+                    "SELECT prefix, content
                      FROM maintenance_marquee
                      WHERE id = ?
                      LIMIT 1"
@@ -163,7 +114,10 @@ if (!function_exists('maintenance_gate_fetch_message')) {
                 $msgStmt->execute([$messageId]);
                 $row = $msgStmt->fetch(PDO::FETCH_ASSOC);
                 if ($row) {
-                    $message = maintenance_gate_format_message_row($row);
+                    $prefix = trim((string) ($row['prefix'] ?? ''));
+                    $content = trim((string) ($row['content'] ?? ''));
+                    $plain = trim(html_entity_decode(strip_tags($content), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                    $message = trim($prefix . ' ' . $plain);
                     if ($message !== '') {
                         return $message;
                     }
@@ -171,7 +125,7 @@ if (!function_exists('maintenance_gate_fetch_message')) {
             }
 
             $latestStmt = $pdo->query(
-                "SELECT label_type, content
+                "SELECT prefix, content
                  FROM maintenance_marquee
                  WHERE company_code = 'C168' AND status = 'active'
                  ORDER BY created_at DESC
@@ -179,7 +133,10 @@ if (!function_exists('maintenance_gate_fetch_message')) {
             );
             $latest = $latestStmt ? $latestStmt->fetch(PDO::FETCH_ASSOC) : null;
             if ($latest) {
-                $message = maintenance_gate_format_message_row($latest);
+                $prefix = trim((string) ($latest['prefix'] ?? ''));
+                $content = trim((string) ($latest['content'] ?? ''));
+                $plain = trim(html_entity_decode(strip_tags($content), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                $message = trim($prefix . ' ' . $plain);
                 if ($message !== '') {
                     return $message;
                 }
@@ -226,6 +183,10 @@ if (!function_exists('maintenance_gate_is_active_user_login')) {
 if (!function_exists('maintenance_gate_clear_session_state')) {
     function maintenance_gate_clear_session_state(): void
     {
+        if (function_exists('session_user_payload_cache_clear')) {
+            session_user_payload_cache_clear();
+        }
+
         if (session_status() === PHP_SESSION_ACTIVE) {
             $_SESSION = [];
             if (ini_get('session.use_cookies')) {
@@ -242,7 +203,11 @@ if (!function_exists('maintenance_gate_clear_session_state')) {
             session_destroy();
         }
 
-        setcookie('remember_token', '', time() - 42000, '/');
+        if (function_exists('clear_remember_token_cookie')) {
+            clear_remember_token_cookie();
+        } else {
+            setcookie('remember_token', '', time() - 42000, '/');
+        }
     }
 }
 
@@ -264,15 +229,16 @@ if (!function_exists('maintenance_gate_emit_blocked_response')) {
                 'success' => false,
                 'status' => 'error',
                 'message' => $message,
-                'redirect' => 'index.php',
+                'redirect' => '/login',
                 'maintenance_mode' => true,
                 'data' => null,
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
+        $redirect = '/login?maintenance=1';
         if (!headers_sent()) {
-            header('Location: index.php?maintenance=1');
+            header('Location: ' . $redirect);
         }
         exit;
     }
@@ -415,36 +381,6 @@ if (!function_exists('maintenance_gate_is_it_allowed_company_id')) {
     }
 }
 
-if (!function_exists('maintenance_gate_allowlisted_can_access_company')) {
-    /**
-     * IT 白名单账号是否可访问该公司（C168 或 group AP/IG）。
-     */
-    function maintenance_gate_allowlisted_can_access_company(PDO $pdo, int $companyId): bool
-    {
-        $loginId = (string) ($_SESSION['login_id'] ?? '');
-        if (!maintenance_gate_is_allowlisted_login($loginId)) {
-            return false;
-        }
-        return maintenance_gate_is_it_allowed_company_id($pdo, $companyId);
-    }
-}
-
-if (!function_exists('maintenance_gate_non_owner_can_use_company')) {
-    /**
-     * 非 owner：session 当前公司匹配，或 IT 白名单在 C168/AP/IG 范围内。
-     */
-    function maintenance_gate_non_owner_can_use_company(PDO $pdo, int $requestedCompanyId): bool
-    {
-        if ($requestedCompanyId <= 0) {
-            return false;
-        }
-        if (maintenance_gate_allowlisted_can_access_company($pdo, $requestedCompanyId)) {
-            return true;
-        }
-        return isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === $requestedCompanyId;
-    }
-}
-
 if (!function_exists('maintenance_gate_apply_it_company_session')) {
     /**
      * @param array{id:int, company_id:string, group_id:?string} $company
@@ -453,6 +389,10 @@ if (!function_exists('maintenance_gate_apply_it_company_session')) {
     {
         $_SESSION['company_id'] = (int) $company['id'];
         $_SESSION['company_code'] = (string) $company['company_id'];
+        $_SESSION['login_scope'] = 'company';
+        $_SESSION['login_identifier'] = (string) $company['company_id'];
+        $_SESSION['login_group_id'] = $company['group_id'] ?? null;
+        $_SESSION['login_group_scope_id'] = null;
     }
 }
 

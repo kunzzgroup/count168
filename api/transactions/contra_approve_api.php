@@ -7,7 +7,8 @@
 
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/transaction_scope.php';
 require_once __DIR__ . '/../api_response.php';
 
 header('Content-Type: application/json');
@@ -27,57 +28,16 @@ function canApproveTransactionType(string $transactionType): bool {
     return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'ADJUSTMENT', 'PROFIT', 'WIN', 'LOSE'], true);
 }
 
-/**
- * 清理 Transaction List 搜索缓存（须与 search_api.php 的 count168_tx_search_cache 一致）
- */
-function clearTransactionSearchCache(): void {
-    $dirs = [
-        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search_cache',
-        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search',
-    ];
-    foreach ($dirs as $cacheDir) {
-        if (!is_dir($cacheDir)) {
-            continue;
-        }
-        foreach (scandir($cacheDir) as $file) {
-            if ($file === '.' || $file === '..') {
-                continue;
-            }
-            $fullPath = $cacheDir . DIRECTORY_SEPARATOR . $file;
-            if (is_file($fullPath)) {
-                @unlink($fullPath);
-            }
-        }
-    }
-}
-
-function resolveContraCompanyIdPost(PDO $pdo): int {
-    $userRole = strtolower($_SESSION['role'] ?? '');
-    $rid = isset($_POST['company_id']) ? trim($_POST['company_id']) : '';
-    if ($rid !== '') {
-        $rid = (int)$rid;
-        if ($userRole === 'owner') {
-            $oid = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$rid, $oid]);
-            if ($stmt->fetchColumn()) return $rid;
-            throw new Exception('无权访问该公司');
-        }
-        if (isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] === $rid) return $rid;
-        throw new Exception('无权访问该公司');
-    }
-    if (!isset($_SESSION['company_id'])) throw new Exception('缺少公司信息');
-    return (int)$_SESSION['company_id'];
-}
-
-function approveContraTransaction(PDO $pdo, int $transactionId, int $companyId, string $userType): void {
+function approveContraTransaction(PDO $pdo, int $transactionId, array $scope, string $userType): void {
     $hasApprovedBy = tableHasColumn($pdo, 'transactions', 'approved_by');
     $hasApprovedByOwner = tableHasColumn($pdo, 'transactions', 'approved_by_owner');
     $hasApprovedAt = tableHasColumn($pdo, 'transactions', 'approved_at');
-    $stmt = $pdo->prepare("SELECT id, company_id, transaction_type, approval_status FROM transactions WHERE id = ? AND company_id = ? FOR UPDATE");
-    $stmt->execute([$transactionId, $companyId]);
+    $scopeWhere = tx_sql_transaction_scope_where($scope, 't');
+    $scopeBind = tx_bind_transaction_scope_id($scope);
+    $stmt = $pdo->prepare("SELECT id, company_id, transaction_type, approval_status FROM transactions t WHERE t.id = ? AND {$scopeWhere} FOR UPDATE");
+    $stmt->execute([$transactionId, $scopeBind]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$row) throw new Exception('记录不存在或不属于当前公司');
+    if (!$row) throw new Exception('记录不存在或不属于当前范围');
     if (!canApproveTransactionType((string)($row['transaction_type'] ?? ''))) throw new Exception('该类型不在审批范围内');
     if (strtoupper((string)$row['approval_status']) === 'APPROVED') return;
     $setParts = ["approval_status = 'APPROVED'"];
@@ -86,8 +46,8 @@ function approveContraTransaction(PDO $pdo, int $transactionId, int $companyId, 
     if ($hasApprovedByOwner) { $setParts[] = "approved_by_owner = ?"; $params[] = ($userType === 'owner') ? (int)($_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0) : null; }
     if ($hasApprovedAt) $setParts[] = "approved_at = NOW()";
     $params[] = $transactionId;
-    $params[] = $companyId;
-    $sql = "UPDATE transactions SET " . implode(', ', $setParts) . " WHERE id = ? AND company_id = ?";
+    $params[] = $scopeBind;
+    $sql = "UPDATE transactions t SET " . implode(', ', $setParts) . " WHERE t.id = ? AND {$scopeWhere}";
     $pdo->prepare($sql)->execute($params);
 }
 
@@ -103,13 +63,15 @@ try {
         api_error('系统未启用 Contra 审批字段（approval_status），请先更新数据库', 400);
         exit;
     }
-    $companyId = resolveContraCompanyIdPost($pdo);
+    $scope = tx_resolve_transaction_list_scope($pdo, $_POST);
     $pdo->beginTransaction();
     try {
-        approveContraTransaction($pdo, $transactionId, $companyId, $userType);
+        approveContraTransaction($pdo, $transactionId, $scope, $userType);
         $pdo->commit();
-        // 批准后立即失效列表缓存，避免前端 forceRefresh 仍读到 PENDING 时的旧余额
-        clearTransactionSearchCache();
+        require_once __DIR__ . '/../includes/ledger_realtime.php';
+        tx_ledger_realtime_publish_scope($scope, 'approve', [
+            'transaction_id' => $transactionId,
+        ]);
         api_success(null, 'Approved');
     } catch (Exception $e) {
         $pdo->rollBack();

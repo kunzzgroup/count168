@@ -1,7 +1,9 @@
 <?php
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
+require_once __DIR__ . '/../includes/process_modified_by.php';
 require_once __DIR__ . '/../api_response.php';
 
 header('Content-Type: application/json');
@@ -12,11 +14,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 /**
- * 判断角色是否为 manager 及以上（manager / admin / owner）
+ * 判断角色是否可执行 Bank inactive -> active
+ * （只读拦截在上层统一处理）
  */
-function isManagerOrAboveRole(string $role): bool {
+function canReactivateBankProcessRole(string $role): bool {
     $role = strtolower(trim($role));
-    return in_array($role, ['manager', 'admin', 'owner'], true);
+    return in_array($role, ['manager', 'admin', 'owner', 'partnership'], true);
 }
 
 function getBankProcessCurrent(PDO $pdo, int $id, int $companyId): ?array {
@@ -43,8 +46,17 @@ function getProcessCurrent(PDO $pdo, int $id, int $companyId): ?array {
 }
 
 function updateProcessStatus(PDO $pdo, string $newStatus, int $id, int $companyId): void {
-    $stmt = $pdo->prepare("UPDATE process SET status = ? WHERE id = ? AND company_id = ?");
-    $stmt->execute([$newStatus, $id, $companyId]);
+    $modifier = resolveProcessModifierFromSession($pdo);
+    $stmt = $pdo->prepare(
+        'UPDATE process SET status = ?'
+        . processModifiedBySqlSuffix()
+        . ' WHERE id = ? AND company_id = ?'
+    );
+    $stmt->execute(array_merge(
+        [$newStatus],
+        processModifiedByBindParams($modifier),
+        [$id, $companyId]
+    ));
     if ($stmt->rowCount() == 0) throw new Exception('状态更新失败');
 }
 
@@ -59,6 +71,10 @@ try {
         api_error('无效的流程ID', 400);
         exit;
     }
+    if (is_partnership_audit_read_only_active($pdo)) {
+        api_error('只读账号无法执行此操作', 403);
+        exit;
+    }
     $permission = trim($_POST['permission'] ?? '');
 
     if ($permission === 'Bank') {
@@ -70,10 +86,10 @@ try {
         $status = $current['status'];
         // Bank：不再限制 INACTIVE → ACTIVE 的切换，也不依赖 Transaction 记录
         if ($status === 'inactive') {
-            // 只有 manager 及以上（manager / admin / owner）可以将 inactive 切回 active
+            // 角色允许名单可将 inactive 切回 active（只读账号在上层已拦截）
             $sessionRole = isset($_SESSION['role']) ? (string) $_SESSION['role'] : '';
-            if (!isManagerOrAboveRole($sessionRole)) {
-                api_error('Only manager or above can change Bank Process from INACTIVE to ACTIVE', 403);
+            if (!canReactivateBankProcessRole($sessionRole)) {
+                api_error('Only manager/admin/owner/partnership can change Bank Process from INACTIVE to ACTIVE', 403);
                 exit;
             }
             $newStatus = 'active';

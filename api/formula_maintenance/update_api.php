@@ -7,8 +7,9 @@
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/formula_fields_helper.php';
+require_once __DIR__ . '/formula_maintenance_scope.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -24,43 +25,17 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
  * 从 JSON 请求体中解析并验证 company_id
  */
 function getCompanyIdFromInput(PDO $pdo, array $input) {
-    $requested = isset($input['company_id']) ? trim((string)$input['company_id']) : '';
-    if ($requested !== '') {
-        $requested = (int)$requested;
-        $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
-        if ($userRole === 'owner') {
-            $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$requested, $owner_id]);
-            if ($stmt->fetchColumn()) {
-                return $requested;
-            }
-            throw new Exception('无权访问该公司');
-        }
-        if (!maintenance_gate_non_owner_can_use_company($pdo, $requested)) {
-            throw new Exception('无权访问该公司');
-        }
-        return $requested;
-    }
-    if (!isset($_SESSION['company_id'])) {
-        throw new Exception('用户未登录或缺少公司信息');
-    }
-    return (int)$_SESSION['company_id'];
+    $scope = formulaMaintenanceResolveRequestScope($pdo, $input);
+
+    return (int) $scope['company_id'];
 }
 
 /**
- * 验证模板是否属于当前公司（使用 process 表）
+ * 验证模板是否属于当前 scope（group/company ledger）
  */
-function validateTemplateBelongsToCompany(PDO $pdo, int $templateId, int $companyId) {
-    $stmt = $pdo->prepare("
-        SELECT dct.id
-        FROM data_capture_templates dct
-        INNER JOIN process p ON dct.process_id = p.id
-        WHERE dct.id = ? AND p.company_id = ?
-    ");
-    $stmt->execute([$templateId, $companyId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$row) {
+function validateTemplateBelongsToCompany(PDO $pdo, int $templateId, array $scopeCtx) {
+    $validIds = formulaMaintenanceValidateTemplateIdsInScope($pdo, [$templateId], $scopeCtx);
+    if ($validIds === []) {
         throw new Exception('模板不存在或不属于当前公司');
     }
 }
@@ -103,13 +78,9 @@ function getTemplateProcessInfo(PDO $pdo, int $templateId) {
  * 更新主模板记录（可选同步 source_percent / enable_source_percent）
  */
 function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accountDisplay,
-    string $sourceColumns, string $sourceDisplay, string $inputMethod, string $formulaBase, string $description,
+    string $sourceColumns, string $sourceDisplay, string $inputMethod,
+    string $formulaOperators, string $formulaDisplay, string $lastSourceValue, string $description,
     $sourcePercent = null, $enableSourcePercent = null) {
-    $formulaDisplay = buildFormulaDisplayParenFromParts(
-        $formulaBase,
-        $sourcePercent !== null ? (string) $sourcePercent : '',
-        $sourcePercent !== null ? (int) $enableSourcePercent : 0
-    );
     if ($sourcePercent !== null && $enableSourcePercent !== null) {
         $sql = "UPDATE data_capture_templates
             SET account_id = :account_id,
@@ -133,8 +104,8 @@ function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accou
             ':columns_display' => $sourceDisplay,
             ':input_method' => $inputMethod ?: null,
             ':formula_display' => $formulaDisplay,
-            ':formula_operators' => $formulaBase,
-            ':last_source_value' => $formulaBase,
+            ':formula_operators' => $formulaOperators,
+            ':last_source_value' => $lastSourceValue,
             ':source_percent' => (string) $sourcePercent,
             ':enable_source_percent' => (int) $enableSourcePercent,
             ':description' => $description,
@@ -162,8 +133,8 @@ function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accou
         ':columns_display' => $sourceDisplay,
         ':input_method' => $inputMethod ?: null,
         ':formula_display' => $formulaDisplay,
-        ':formula_operators' => $formulaBase,
-        ':last_source_value' => $formulaBase,
+        ':formula_operators' => $formulaOperators,
+        ':last_source_value' => $lastSourceValue,
         ':description' => $description,
         ':id' => $templateId
     ]);
@@ -187,7 +158,7 @@ function getSyncedProcesses(PDO $pdo, int $sourceProcessId, int $companyId) {
  */
 function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateInfo,
     int $accountId, string $accountDisplay, string $sourceColumns, string $sourceDisplay,
-    string $inputMethod, string $formulaBase, string $description,
+    string $inputMethod, string $formulaOperators, string $formulaDisplay, string $lastSourceValue, string $description,
     $sourcePercent = null, $enableSourcePercent = null) {
     $syncedProcesses = getSyncedProcesses($pdo, (int)$templateInfo['process_id'], $companyId);
     if (empty($syncedProcesses)) {
@@ -236,11 +207,6 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
         WHERE id = ?
     ");
     }
-    $formulaDisplay = buildFormulaDisplayParenFromParts(
-        $formulaBase,
-        $sourcePercent !== null ? (string) $sourcePercent : '',
-        $sourcePercent !== null ? (int) $enableSourcePercent : 0
-    );
     foreach ($syncedProcesses as $proc) {
         $targetProcessId = $proc['id'];
         $findStmt->execute([
@@ -261,8 +227,8 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
                     $sourceDisplay,
                     $inputMethod ?: null,
                     $formulaDisplay,
-                    $formulaBase,
-                    $formulaBase,
+                    $formulaOperators,
+                    $lastSourceValue,
                     (string) $sourcePercent,
                     (int) $enableSourcePercent,
                     $description,
@@ -276,8 +242,8 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
                     $sourceDisplay,
                     $inputMethod ?: null,
                     $formulaDisplay,
-                    $formulaBase,
-                    $formulaBase,
+                    $formulaOperators,
+                    $lastSourceValue,
                     $description,
                     $target['id']
                 ]);
@@ -299,14 +265,16 @@ try {
         throw new Exception('无效的请求数据');
     }
 
-    $companyId = getCompanyIdFromInput($pdo, $input);
+    $scopeCtx = formulaMaintenanceResolveRequestScope($pdo, $input);
+    $companyId = (int) $scopeCtx['company_id'];
+    $formula_scope_group = (bool) $scopeCtx['is_group_scope'];
     $templateId = isset($input['template_id']) ? (int)$input['template_id'] : 0;
     $accountId = isset($input['account_id']) ? (int)$input['account_id'] : 0;
     $sourceColumns = isset($input['source_columns']) ? trim($input['source_columns']) : '';
     $sourceDisplay = isset($input['source_display']) ? trim($input['source_display']) : $sourceColumns;
+    $sourcePercentInput = isset($input['source_percent']) ? trim((string) $input['source_percent']) : '';
     $inputMethod = isset($input['input_method']) ? trim($input['input_method']) : '';
     $formulaRaw = isset($input['formula']) ? trim($input['formula']) : '';
-    $sourcePercentInput = array_key_exists('source_percent', $input) ? $input['source_percent'] : null;
     $description = isset($input['description']) ? trim($input['description']) : '';
 
     if ($templateId <= 0) {
@@ -316,37 +284,50 @@ try {
         throw new Exception('Account 是必填项');
     }
 
-    validateTemplateBelongsToCompany($pdo, $templateId, $companyId);
+    if ($formula_scope_group) {
+        if ($companyId <= 0) {
+            throw new Exception('集团范围无效或未配置集团公司');
+        }
+    } elseif ($companyId > 0 && dcCompanyIdIsGroupEntity($pdo, $companyId)) {
+        throw new Exception('公司范围不能操作集团实体公式');
+    }
+
+    validateTemplateBelongsToCompany($pdo, $templateId, $scopeCtx);
     $accountDisplay = getAccountDisplay($pdo, $accountId, $companyId);
     $templateInfo = getTemplateProcessInfo($pdo, $templateId);
     $sourceProcessId = $templateInfo ? (int)$templateInfo['process_id'] : null;
 
-    $parsed = parseMaintenanceFormulaInput($formulaRaw, $sourcePercentInput);
+    $parsed = parseMaintenanceFormulaInput($formulaRaw);
     $formulaBase = $parsed['base'];
     $sp = $parsed['source_percent'];
     $en = $parsed['enable_source_percent'];
-
-    if ($sp === null && $templateInfo) {
-        $sp = isset($templateInfo['source_percent']) ? trim((string) $templateInfo['source_percent']) : '1';
-        $en = isset($templateInfo['enable_source_percent']) ? (int) $templateInfo['enable_source_percent'] : 1;
+    // Source 列编辑的是 source_percent；显式传入时优先
+    if ($sourcePercentInput !== '') {
+        $sp = $sourcePercentInput;
+        $compact = str_replace([' ', '%'], '', $sp);
+        $en = ($compact === '0' || $compact === '0.0' || $compact === '-0') ? 0 : 1;
+    } elseif ($sp === null) {
+        $sp = '1';
+        $en = 0;
     }
+
+    $formulaDisplay = buildFormulaDisplayParenFromParts($formulaBase, $sp !== null ? $sp : '1', $sp !== null ? $en : 0);
+    $lastSourceValue = $formulaBase;
 
     $pdo->beginTransaction();
     try {
         if ($sp !== null && $en !== null) {
-            updateTemplate($pdo, $templateId, $accountId, $accountDisplay, $sourceColumns, $sourceDisplay, $inputMethod, $formulaBase, $description, $sp, $en);
+            updateTemplate($pdo, $templateId, $accountId, $accountDisplay, $sourceColumns, $sourceDisplay, $inputMethod, $formulaBase, $formulaDisplay, $lastSourceValue, $description, $sp, $en);
         } else {
-            updateTemplate($pdo, $templateId, $accountId, $accountDisplay, $sourceColumns, $sourceDisplay, $inputMethod, $formulaBase, $description);
+            updateTemplate($pdo, $templateId, $accountId, $accountDisplay, $sourceColumns, $sourceDisplay, $inputMethod, $formulaBase, $formulaDisplay, $lastSourceValue, $description);
         }
         if ($sourceProcessId && $templateInfo) {
-            syncFormulaToTargetTemplates($pdo, $companyId, $templateInfo, $accountId, $accountDisplay, $sourceColumns, $sourceDisplay, $inputMethod, $formulaBase, $description, $sp, $en);
+            syncFormulaToTargetTemplates($pdo, $companyId, $templateInfo, $accountId, $accountDisplay, $sourceColumns, $sourceDisplay, $inputMethod, $formulaBase, $formulaDisplay, $lastSourceValue, $description, $sp, $en);
         }
         $pdo->commit();
-        $respEn = $en !== null ? (int) $en : 0;
-        $respSp = $sp !== null ? (string) $sp : '';
         $respData = [
-            'formula_display_paren' => buildFormulaDisplayParenFromParts($formulaBase, $respSp, $respEn),
-            'formula_edit' => buildFormulaEditFromParts($formulaBase, $respSp, $respEn),
+            'formula_display_paren' => $formulaDisplay,
+            'formula_edit' => buildFormulaEditFromParts($formulaBase, $sp !== null ? $sp : '', $sp !== null ? $en : 0),
         ];
         $stmtFresh = $pdo->prepare('SELECT source_percent, columns_display, source_columns FROM data_capture_templates WHERE id = ?');
         $stmtFresh->execute([$templateId]);

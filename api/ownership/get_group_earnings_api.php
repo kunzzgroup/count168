@@ -3,9 +3,11 @@
  * Group Earnings API — List all groups for the current owner
  * Returns group_id, total_allocation, remaining, company count
  */
-require_once '../../session_check.php';
-require_once '../../config.php';
+require_once '../../includes/session_check.php';
+require_once '../../includes/config.php';
 require_once '../includes/money_decimal.php';
+require_once '../includes/ownership_history.php';
+require_once '../includes/ownership_schema.php';
 
 header('Content-Type: application/json');
 
@@ -15,25 +17,11 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $current_user_role = $_SESSION['role'] ?? '';
+$parsedMonth = ownership_history_parse_month_param($_GET['month'] ?? null);
+$useHistory = $parsedMonth !== null && ownership_history_is_past_month($parsedMonth['month_key']);
 
 try {
-    // Auto-create group_ownership table if it doesn't exist
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS group_ownership (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            group_id VARCHAR(50) NOT NULL,
-            owner_id INT NOT NULL,
-            account_id INT NOT NULL,
-            owner_type ENUM('owner','user','group') NOT NULL DEFAULT 'owner',
-            percentage DECIMAL(6,2) NOT NULL DEFAULT 0.00,
-            partner_group_id VARCHAR(50) DEFAULT NULL,
-            read_only TINYINT(1) NOT NULL DEFAULT 1,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ");
-    try { $pdo->exec("ALTER TABLE group_ownership MODIFY COLUMN owner_type ENUM('owner','user','group') NOT NULL DEFAULT 'owner'"); } catch (Exception $e) {}
-    try { $pdo->exec("ALTER TABLE group_ownership DROP INDEX uq_group_account"); } catch (Exception $e) {}
+    ownership_ensure_group_ownership_table($pdo);
 
     // Get companies with groups for this user
     require_once '../get_companies_helper.php';
@@ -96,18 +84,29 @@ try {
         }
     }
 
-    // Get total allocation for each group from group_ownership table (account-level shares)
+    // Get total allocation for each group
     $groupIds = array_keys($groups);
     $totals = [];
     if (!empty($groupIds)) {
         $in = str_repeat('?,', count($groupIds) - 1) . '?';
-        $stmt = $pdo->prepare("
-            SELECT group_id, SUM(percentage) as total_percent
-            FROM group_ownership
-            WHERE group_id IN ($in)
-            GROUP BY group_id
-        ");
-        $stmt->execute($groupIds);
+        if ($useHistory) {
+            ownership_history_ensure_tables($pdo);
+            $stmt = $pdo->prepare("
+                SELECT group_id, SUM(percentage) as total_percent
+                FROM group_ownership_history
+                WHERE group_id IN ($in) AND effective_month = ?
+                GROUP BY group_id
+            ");
+            $stmt->execute(array_merge($groupIds, [$parsedMonth['effective_month']]));
+        } else {
+            $stmt = $pdo->prepare("
+                SELECT group_id, SUM(percentage) as total_percent
+                FROM group_ownership
+                WHERE group_id IN ($in)
+                GROUP BY group_id
+            ");
+            $stmt->execute($groupIds);
+        }
         $totals = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
     }
 
@@ -135,7 +134,11 @@ try {
 
     echo json_encode([
         'status' => 'success',
-        'data'   => $result
+        'data'   => $result,
+        'meta'   => [
+            'is_historical' => $useHistory,
+            'effective_month' => $useHistory ? $parsedMonth['month_key'] : ownership_history_current_month_key(),
+        ],
     ]);
 
 } catch (PDOException $e) {

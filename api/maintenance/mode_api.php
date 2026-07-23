@@ -10,8 +10,8 @@ session_start();
 session_write_close();
 header('Content-Type: application/json; charset=utf-8');
 
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../includes/maintenance_marquee_lib.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/maintenance_gate.php';
 
 function maintenance_mode_json_response(bool $success, string $message, $data = null, ?int $httpCode = null): void
 {
@@ -65,7 +65,7 @@ function maintenance_mode_load_state(PDO $pdo): array
     $preview = '';
     if ($messageId > 0) {
         $msgStmt = $pdo->prepare(
-            "SELECT label_type, content
+            "SELECT prefix, content
              FROM maintenance_marquee
              WHERE id = ?
              LIMIT 1"
@@ -73,7 +73,9 @@ function maintenance_mode_load_state(PDO $pdo): array
         $msgStmt->execute([$messageId]);
         $msg = $msgStmt->fetch(PDO::FETCH_ASSOC);
         if ($msg) {
-            $preview = maintenance_gate_format_message_row($msg);
+            $prefix = trim((string) ($msg['prefix'] ?? ''));
+            $content = trim((string) ($msg['content'] ?? ''));
+            $preview = trim($prefix . ' ' . trim(html_entity_decode(strip_tags($content), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
         }
     }
 
@@ -135,36 +137,14 @@ function maintenance_mode_upsert(PDO $pdo, int $enabled, ?int $messageId, string
 
 function maintenance_mode_invalidate_non_it_remember_tokens(PDO $pdo): void
 {
-    $protected = maintenance_gate_protected_login_ids_upper();
-    try {
-        $stmt = $pdo->query(
-            "SELECT UPPER(TRIM(login_id)) AS login_id
-             FROM system_it_allowlist
-             WHERE enabled = 1"
-        );
-        foreach ($stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [] as $loginId) {
-            $norm = strtoupper(trim((string) $loginId));
-            if ($norm !== '') {
-                $protected[] = $norm;
-            }
-        }
-    } catch (Throwable $e) {
-        // Table may not exist before migration.
-    }
-
-    $protected = array_values(array_unique($protected));
-    if (!$protected) {
-        return;
-    }
-
-    $placeholders = implode(',', array_fill(0, count($protected), '?'));
-    $invalidate = $pdo->prepare(
+    // Cannot kill in-memory PHP sessions across all workers instantly,
+    // but clearing remember tokens prevents silent re-login and enforces logout on next heartbeat/request.
+    $pdo->exec(
         "UPDATE user
          SET remember_token = NULL,
              remember_token_expires = NULL
-         WHERE UPPER(TRIM(login_id)) NOT IN ($placeholders)"
+         WHERE UPPER(TRIM(login_id)) NOT IN ('IT_JK', 'IT_JS', 'IT_MS')"
     );
-    $invalidate->execute($protected);
 }
 
 if (!($pdo instanceof PDO)) {

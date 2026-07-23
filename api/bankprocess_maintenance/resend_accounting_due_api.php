@@ -8,10 +8,8 @@
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/maintenance_accounting_resend_lib.php';
-require_once __DIR__ . '/../includes/money_decimal.php';
-require_once __DIR__ . '/../processes/contract_billing_addon.php';
 
 /** 与 processlist / 前端 isBankInactiveLike：Official、E-INVOICE、Block 不可 Resend（这些在 DB 里常为 status=active） */
 
@@ -111,19 +109,34 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
     ], JSON_UNESCAPED_UNICODE);
 }
 
-function bank_resend_hasSameDayRecord(PDO $pdo, int $companyId, int $bankProcessId, string $dayStartYmd): bool
+function bank_resend_isLockedToday(PDO $pdo, int $companyId, int $bankProcessId, string $dayStartYmd): bool
 {
-    $stmt = $pdo->prepare(
-        "SELECT 1
-         FROM bank_process_accounting_resend_daily_guard
-         WHERE company_id = ?
-           AND bank_process_id = ?
-           AND resend_day_start = ?
-           AND guard_date = CURDATE()
-         LIMIT 1"
-    );
-    $stmt->execute([$companyId, $bankProcessId, $dayStartYmd]);
-    return (bool) $stmt->fetchColumn();
+    return bmp_accountingResendIsLockedToday($pdo, $companyId, $bankProcessId, $dayStartYmd);
+}
+
+/** Due 已 Delete/Skip 但 open anchor 仍占位时，Resend 前自动清掉陈旧锚点。 */
+function bank_resend_reconcileStaleOpenAnchor(PDO $pdo, int $companyId, int $processId, string $anchorYmd): void
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
+        return;
+    }
+    bmp_ensureBankProcessAccountingResendOpenAnchorsColumn($pdo);
+    if (!bmp_resendOpenAnchorAlreadyExists($pdo, $processId, $companyId, $anchorYmd)) {
+        return;
+    }
+    bmp_ensureAccountingDueDismissedTable($pdo);
+    $handled = bmp_hasMonthlyPostedOrSkippedForDueYmd($pdo, $companyId, $processId, $anchorYmd);
+    if (!$handled) {
+        foreach (['resend_monthly_reopen', 'monthly', 'weekly', 'daily'] as $pt) {
+            if (bmp_isAccountingDueSoftDismissed($pdo, $companyId, $processId, $pt, $anchorYmd)) {
+                $handled = true;
+                break;
+            }
+        }
+    }
+    if ($handled) {
+        bmp_maybeClearResendRelaxAfterAnchorHandled($pdo, $processId, $companyId, $anchorYmd);
+    }
 }
 
 /** @return string|null */
@@ -176,9 +189,13 @@ try {
         }
         bmp_ensureAccountingResendDailyGuardTable($pdo);
         bmp_pruneStaleAccountingResendDailyGuardsForProcess($pdo, $company_id, $bankProcessId);
-        $locked = bank_resend_hasSameDayRecord($pdo, $company_id, $bankProcessId, $dayStartYmd);
+        $locked = bank_resend_isLockedToday($pdo, $company_id, $bankProcessId, $dayStartYmd);
+        bmp_ensureBankProcessAccountingResendOpenAnchorsColumn($pdo);
+        bank_resend_reconcileStaleOpenAnchor($pdo, $company_id, $bankProcessId, $dayStartYmd);
+        $duplicateOpen = bmp_resendOpenAnchorAlreadyExists($pdo, $bankProcessId, $company_id, $dayStartYmd);
         jsonResponse(true, '', [
             'locked' => $locked,
+            'duplicate_open_anchor' => $duplicateOpen,
             'day_start' => $dayStartYmd,
         ]);
         return;
@@ -191,21 +208,33 @@ try {
     $newDayEnd = null;
     $newFrequency = '1st_of_every_month';
     if ($scheduleFromClient) {
-        $newDayStart = bank_resend_normalizeOptionalYmd($payload['day_start'] ?? null);
-        $newDayEnd = bank_resend_normalizeOptionalYmd($payload['day_end'] ?? null);
+        $rawDayStart = $payload['day_start'] ?? null;
+        if ($rawDayStart === null || trim((string) $rawDayStart) === '') {
+            $newDayStart = null;
+        } else {
+            $newDayStart = bank_resend_parse_ymd_from_any_raw_or_dmy($rawDayStart);
+            if ($newDayStart === null) {
+                throw new Exception('日期格式无效（需 YYYY-MM-DD 或 DD/MM/YYYY）');
+            }
+        }
+        $rawDayEnd = $payload['day_end'] ?? null;
+        if ($rawDayEnd === null || trim((string) $rawDayEnd) === '') {
+            $newDayEnd = null;
+        } else {
+            $newDayEnd = bank_resend_parse_ymd_from_any_raw_or_dmy($rawDayEnd);
+            if ($newDayEnd === null) {
+                throw new Exception('日期格式无效（需 YYYY-MM-DD 或 DD/MM/YYYY）');
+            }
+        }
         $newFrequency = trim((string) ($payload['day_start_frequency'] ?? '1st_of_every_month'));
-        if (!in_array($newFrequency, ['1st_of_every_month', 'monthly', 'once', 'week', 'day'], true)) {
+        if (!in_array($newFrequency, ['1st_of_every_month', 'monthly', 'week', 'day', 'once'], true)) {
             $newFrequency = '1st_of_every_month';
         }
-        if ($newFrequency === 'once' || $newFrequency === 'week' || $newFrequency === 'day') {
+        if ($newFrequency === 'once' || $newFrequency === 'week' || $newFrequency === 'day' || $newFrequency === 'monthly') {
             $newDayEnd = null;
         }
         if ($newDayStart !== null && $newDayEnd !== null && $newDayEnd < $newDayStart) {
             throw new Exception('Day end 不能早于 Day start');
-        }
-        if ($newFrequency === 'monthly' && $newDayStart !== null && $newDayEnd !== null
-            && !billingMonthlyResendRangeComplete($newDayStart, $newDayEnd)) {
-            throw new Exception('Monthly：Day end 必须是完整的月账期结束日');
         }
         // Resend 弹窗允许与 Edit 不同的组合（仅本次入账/Inbox），不再把「有 day_end + monthly」强制改为 1st。
     }
@@ -236,6 +265,8 @@ try {
     bmp_ensureMaintenanceResendPendingTable($pdo);
     bmp_ensureBankProcessAccountingResendRelaxColumn($pdo);
     bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
+    bmp_ensureBankProcessAccountingResendOpenAnchorsColumn($pdo);
+    bmp_ensureAccountingDueDismissedTable($pdo);
     bmp_ensureAccountingResendDailyGuardTable($pdo);
     // 若 Maintenance 已删除对应账单，guard 可能已无交易凭证，需先清理否则会误拦。
     bmp_pruneStaleAccountingResendDailyGuardsForProcess($pdo, $company_id, $bankProcessId);
@@ -246,8 +277,13 @@ try {
     if ($effectiveDayStartYmd === null) {
         throw new Exception('无法识别 Day start，Resend 仅支持按 Day start 当月补单月记录。');
     }
-    if (bank_resend_hasSameDayRecord($pdo, $company_id, $bankProcessId, $effectiveDayStartYmd)) {
-        throw new Exception('This process has already been resent for this Day start today. Duplicate resends are not allowed.');
+    if (bank_resend_isLockedToday($pdo, $company_id, $bankProcessId, $effectiveDayStartYmd)) {
+        throw new Exception('This process already has a transaction posted for this Day start today. Delete it from Bank Process Maintenance before resending.');
+    }
+    bmp_ensureBankProcessAccountingResendOpenAnchorsColumn($pdo);
+    bank_resend_reconcileStaleOpenAnchor($pdo, $company_id, $bankProcessId, $effectiveDayStartYmd);
+    if (bmp_resendOpenAnchorAlreadyExists($pdo, $bankProcessId, $company_id, $effectiveDayStartYmd)) {
+        throw new Exception('This process already has an open Resend bill for this Day start in Accounting Due. Transaction or delete it before resending the same date.');
     }
 
     $pdo->beginTransaction();
@@ -259,18 +295,11 @@ try {
     );
     $delOncePap->execute([$company_id, $bankProcessId]);
 
-    // 清除本 process 全部 Resend 合并账期标记（含旧锚点），避免仅按 BETWEEN 删漏导致 Inbox 锚点与 pap.posted_date 不一致、Dismiss 无法写入 *_skipped。
-    $delAllResendConsolidatedPap = $pdo->prepare(
-        "DELETE FROM process_accounting_posted
-         WHERE company_id = ? AND process_id = ?
-           AND period_type IN ('resend_consolidated_range','resend_consolidated_range_skipped')"
-    );
-    $delAllResendConsolidatedPap->execute([$company_id, $bankProcessId]);
-
     $targetYear = (int) substr($effectiveDayStartYmd, 0, 4);
     $targetMonth = (int) substr($effectiveDayStartYmd, 5, 2);
-    // 弹窗同时填 day_start + day_end：清除该区间内各月 monthly 及 partial / tail / 合并期标记，便于生成单笔合并账单。
-    if ($scheduleFromClient && $newDayStart !== null && $newDayEnd !== null) {
+    // Monthly 弹窗同时填 day_start + day_end：清除该区间内各月 monthly 及 partial / tail / 合并期标记，便于生成单笔合并账单。
+    // 1st_of_every_month 不走此分支，避免误删同月正常流程账单。
+    if ($scheduleFromClient && $newDayStart !== null && $newDayEnd !== null && $newFrequency === 'monthly') {
         $startYmInt = (int) substr($newDayStart, 0, 4) * 100 + (int) substr($newDayStart, 5, 2);
         $endYmInt = (int) substr($newDayEnd, 0, 4) * 100 + (int) substr($newDayEnd, 5, 2);
         $delMonthPap = $pdo->prepare(
@@ -292,22 +321,60 @@ try {
                )"
         );
         $delMonthPap->execute([$company_id, $bankProcessId, $newDayStart, $newDayEnd, $startYmInt, $endYmInt]);
-    } elseif ($scheduleFromClient && $newFrequency === 'week' && $newDayStart !== null) {
-        $delMonthPap = $pdo->prepare(
+        // Due Delete 留下的 consolidated *_skipped（锚日可能不在区间内）须一并清除，否则 Inbox 仍视为已处理。
+        $delAnchorConsolidated = $pdo->prepare(
+            "DELETE FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ?
+               AND period_type IN ('resend_consolidated_range','resend_consolidated_range_skipped')
+               AND DATE(posted_date) = ?"
+        );
+        $delAnchorConsolidated->execute([$company_id, $bankProcessId, $effectiveDayStartYmd]);
+        $removedPap = $delMonthPap->rowCount();
+    } elseif ($scheduleFromClient && $newFrequency === 'week') {
+        // Week：仅清除该周锚点的 weekly / weekly_skipped，避免按整月误删同月其他周。
+        $delWeekPap = $pdo->prepare(
             "DELETE FROM process_accounting_posted
              WHERE company_id = ? AND process_id = ?
                AND period_type IN ('weekly','weekly_skipped')
-               AND DATE(posted_date) = DATE(?)"
+               AND DATE(posted_date) = ?"
         );
-        $delMonthPap->execute([$company_id, $bankProcessId, $newDayStart]);
-    } elseif ($scheduleFromClient && $newFrequency === 'day' && $newDayStart !== null) {
-        $delMonthPap = $pdo->prepare(
+        $delWeekPap->execute([$company_id, $bankProcessId, $effectiveDayStartYmd]);
+        $removedPap = $delWeekPap->rowCount();
+    } elseif ($scheduleFromClient && $newFrequency === 'day') {
+        // Day：仅清除该自然日的 daily / daily_skipped，避免按整月误删同月其他天。
+        $delDayPap = $pdo->prepare(
             "DELETE FROM process_accounting_posted
              WHERE company_id = ? AND process_id = ?
                AND period_type IN ('daily','daily_skipped')
-               AND DATE(posted_date) = DATE(?)"
+               AND DATE(posted_date) = ?"
         );
-        $delMonthPap->execute([$company_id, $bankProcessId, $newDayStart]);
+        $delDayPap->execute([$company_id, $bankProcessId, $effectiveDayStartYmd]);
+        $removedPap = $delDayPap->rowCount();
+    } elseif ($scheduleFromClient && ($newFrequency === 'monthly' || $newFrequency === '1st_of_every_month')) {
+        // Monthly / 1st_of_every_month：仅清除该应付日锚点的 monthly，避免误删同月正常流程账单。
+        $deleteAnchorYmd = $effectiveDayStartYmd;
+        if ($newFrequency === 'monthly') {
+            $dueAnchorTry = bmp_monthlyDueYmdFromBillingAnchor($effectiveDayStartYmd, $effectiveDayStartYmd, 'monthly');
+            if ($dueAnchorTry !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueAnchorTry)) {
+                $deleteAnchorYmd = $dueAnchorTry;
+            }
+        }
+        $delMonthlyPap = $pdo->prepare(
+            "DELETE FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ?
+               AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '')
+               AND DATE(posted_date) = ?"
+        );
+        $delMonthlyPap->execute([$company_id, $bankProcessId, $deleteAnchorYmd]);
+        $removedPap = $delMonthlyPap->rowCount();
+        $delAnchorConsolidated = $pdo->prepare(
+            "DELETE FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ?
+               AND period_type IN ('resend_consolidated_range','resend_consolidated_range_skipped')
+               AND DATE(posted_date) = ?"
+        );
+        $delAnchorConsolidated->execute([$company_id, $bankProcessId, $deleteAnchorYmd]);
+        $removedPap += $delAnchorConsolidated->rowCount();
     } else {
         // 仅清除 day_start 所在月份的 posted 标记，避免一次 Resend 把整合同期都补回。
         // 兜底：
@@ -322,8 +389,15 @@ try {
                )"
         );
         $delMonthPap->execute([$company_id, $bankProcessId, $targetYear, $targetMonth]);
+        $delAnchorConsolidated = $pdo->prepare(
+            "DELETE FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ?
+               AND period_type IN ('resend_consolidated_range','resend_consolidated_range_skipped')
+               AND DATE(posted_date) = ?"
+        );
+        $delAnchorConsolidated->execute([$company_id, $bankProcessId, $effectiveDayStartYmd]);
+        $removedPap = $delMonthPap->rowCount();
     }
-    $removedPap = $delMonthPap->rowCount();
 
     $delPend = $pdo->prepare(
         'DELETE FROM bank_process_maintenance_resend_pending WHERE company_id = ? AND bank_process_id = ?'
@@ -371,20 +445,13 @@ try {
         );
         $flg->execute([$bankProcessId, $company_id]);
     }
-    $insGuard = $pdo->prepare(
-        "INSERT INTO bank_process_accounting_resend_daily_guard
-         (company_id, bank_process_id, resend_day_start, guard_date)
-         VALUES (?, ?, ?, CURDATE())"
-    );
-    try {
-        $insGuard->execute([$company_id, $bankProcessId, $effectiveDayStartYmd]);
-    } catch (PDOException $e) {
-        if ((string) $e->getCode() === '23000') {
-            throw new Exception('This process has already been resent for this Day start today. Duplicate resends are not allowed.');
-        }
-        throw $e;
+    // 单期 Resend（非 monthly 合并区间）：追加 open 锚点，多笔并存、同锚点拒绝重复。
+    if ($scheduleFromClient
+        && $effectiveDayStartYmd !== null
+        && !($newFrequency === 'monthly' && $newDayStart !== null && $newDayEnd !== null)) {
+        bmp_appendResendOpenAnchor($pdo, $bankProcessId, $company_id, $effectiveDayStartYmd, $newFrequency);
     }
-
+    bmp_clearResendAnchorAccountingDueSideEffects($pdo, $bankProcessId, $company_id, $effectiveDayStartYmd);
     $pdo->commit();
     jsonResponse(true, 'Done: This process can appear in Accounting Due again.', [
         'bank_process_id' => $bankProcessId,

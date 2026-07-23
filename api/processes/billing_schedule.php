@@ -58,7 +58,7 @@ function billingContractExclusiveEndYmdFirstOfMonth(string $dayStartYmd, int $te
     }
 }
 
-/** monthly + 非1号：次月起首应付日 + N 月 exclusive（与 inbox / post 一致）。 */
+/** monthly + 非1号：次月起首应付日（链式首段末日）+ N 月 exclusive（与 inbox / post 一致）。 */
 function billingContractExclusiveEndYmdMonthlyAfterPartialFirst(string $dayStartYmd, int $termMonths): ?string
 {
     if ($termMonths < 1) {
@@ -69,17 +69,12 @@ function billingContractExclusiveEndYmdMonthlyAfterPartialFirst(string $dayStart
         if ((int) $start->format('j') === 1) {
             return billingContractExclusiveEndYmd($dayStartYmd, $termMonths);
         }
-        $nextMo = $start->modify('first day of next month');
-        $y = (int) $nextMo->format('Y');
-        $mo = (int) $nextMo->format('n');
-        $startDay = (int) $start->format('j');
-        if ($startDay === 1) {
-            $firstContractDue = sprintf('%04d-%02d-01', $y, $mo);
-        } else {
-            $last = (int) date('t', mktime(0, 0, 0, $mo, 1, $y));
-            $d = min(max(1, $startDay), $last);
-            $onStartDay = sprintf('%04d-%02d-%02d', $y, $mo, $d);
-            $firstContractDue = (new DateTimeImmutable($onStartDay))->modify('-1 day')->format('Y-m-d');
+        if (!function_exists('billingMonthlyFirstContractDueAfterPartialFirst')) {
+            require_once __DIR__ . '/contract_billing_addon.php';
+        }
+        $firstContractDue = billingMonthlyFirstContractDueAfterPartialFirst($dayStartYmd);
+        if ($firstContractDue === null) {
+            return null;
         }
 
         return (new DateTimeImmutable($firstContractDue))->modify("+{$termMonths} months")->format('Y-m-d');
@@ -101,21 +96,29 @@ function contractExclusiveEndYmdForFrequency(string $startYmd, ?string $contract
 }
 
 /**
- * @return string[] Y-m-d, length = $termMonths (same day-of-month as start, +0 … +(term-1) months)
+ * @return string[] Y-m-d chained monthly due dates for contract term (after partial first month)
  */
 function generateMonthlyBillingDueDates(string $dayStartYmd, int $termMonths): array
 {
     if ($termMonths < 1) {
         return [];
     }
-    try {
-        $start = new DateTimeImmutable($dayStartYmd);
-    } catch (Throwable $e) {
+    if (!function_exists('billingMonthlyFirstContractDueAfterPartialFirst')) {
+        require_once __DIR__ . '/contract_billing_addon.php';
+    }
+    $firstDue = billingMonthlyFirstContractDueAfterPartialFirst($dayStartYmd);
+    if ($firstDue === null) {
         return [];
     }
     $dates = [];
+    $due = $firstDue;
     for ($i = 0; $i < $termMonths; $i++) {
-        $dates[] = $start->modify("+{$i} month")->format('Y-m-d');
+        $dates[] = $due;
+        $next = billingMonthlyChainedNextDueYmd($due, $dayStartYmd);
+        if ($next === null || $next <= $due) {
+            break;
+        }
+        $due = $next;
     }
     return $dates;
 }
@@ -168,4 +171,46 @@ function isWithinRecurringBillingWindow(
         return $todayYmd <= $dayEndInc;
     }
     return $todayYmd <= min($contractLastInclusive, $dayEndInc);
+}
+
+/** Week frequency：收费周期为 periodStart 起连续 7 天（含首尾共 7 日）。 */
+function weekPeriodEndInclusiveYmd(string $periodStartYmd): ?string
+{
+    try {
+        return (new DateTimeImmutable($periodStartYmd))->modify('+6 days')->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/** 收费周期是否与指定自然月有日期重叠。 */
+function weekPeriodOverlapsCalendarMonth(string $periodStartYmd, string $periodEndYmd, int $year, int $month): bool
+{
+    if ($month < 1 || $month > 12 || $year < 1970) {
+        return false;
+    }
+    try {
+        $monthStart = sprintf('%04d-%02d-01', $year, $month);
+        $monthEnd = (new DateTimeImmutable($monthStart))->modify('last day of this month')->format('Y-m-d');
+        return $periodStartYmd <= $monthEnd && $periodEndYmd >= $monthStart;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/** 该周收费周期（以 periodStart 为锚）是否已入账或已跳过。 */
+function hasWeeklyPostedForPeriodStart(PDO $pdo, int $companyId, int $processId, string $periodStartYmd): bool
+{
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?)
+               AND period_type IN ('weekly','weekly_skipped')
+             LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $periodStartYmd]);
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
 }

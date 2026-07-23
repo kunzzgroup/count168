@@ -6,8 +6,8 @@
  * Returns all owners/users from all companies belonging to this group,
  * so the "+ Add Account" dropdown in Group Earnings has the full list.
  */
-require_once '../../session_check.php';
-require_once '../../config.php';
+require_once '../../includes/session_check.php';
+require_once '../../includes/config.php';
 
 header('Content-Type: application/json');
 
@@ -184,6 +184,13 @@ try {
 
     // Sort by account_name
     $combined = array_values($accountMap);
+    // External linked owners belong in Link Partner only, not "+ Add Account".
+    $combined = array_values(array_filter($combined, static function ($row) {
+        if (strtolower((string) ($row['type'] ?? '')) !== 'owner') {
+            return true;
+        }
+        return (int) ($row['is_main_owner'] ?? 0) === 1;
+    }));
     usort($combined, function ($a, $b) {
         return strcmp($a['account_name'], $b['account_name']);
     });

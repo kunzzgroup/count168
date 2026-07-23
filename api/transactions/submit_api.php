@@ -16,8 +16,10 @@ session_start();
 header('Content-Type: application/json');
 
 try {
-    require_once __DIR__ . '/../../config.php';
+    require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/transaction_scope.php';
     require_once __DIR__ . '/../includes/money_decimal.php';
+    require_once __DIR__ . '/../includes/transaction_approval.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode([
@@ -29,38 +31,22 @@ try {
     exit;
 }
 
-/**
- * 角色与权限工具
- * 说明：这里的 role 指 user 表中的 role（admin/manager/supervisor/.../owner）
- */
+/** @deprecated use tx_is_manager_or_above_role */
 function isManagerOrAboveRole(string $role): bool
 {
-    $role = strtolower(trim($role));
-    // manager 以上：manager / admin / owner
-    return in_array($role, ['manager', 'admin', 'owner'], true);
+    return tx_is_manager_or_above_role($role);
 }
 
-/**
- * 是否需要交易审批：
- * - manager 以下：只要是“今天及之前”的交易日期，就需要审批
- */
+/** @deprecated use tx_requires_transaction_approval */
 function requiresTransactionApproval(string $role, string $transactionDateDb): bool
 {
-    if (isManagerOrAboveRole($role)) {
-        return false;
-    }
-    $today = date('Y-m-d');
-    return $transactionDateDb < $today;
+    return tx_requires_transaction_approval($role, $transactionDateDb);
 }
 
-/**
- * 需要审批的交易类型：
- * CONTRA / PAYMENT / CLAIM / CLEAR / ADJUSTMENT / PROFIT(实际落库为 WIN/LOSE)
- */
+/** @deprecated use tx_requires_approval_for_type */
 function requiresApprovalForType(string $transactionType): bool
 {
-    $type = strtoupper(trim($transactionType));
-    return in_array($type, ['CONTRA', 'PAYMENT', 'CLAIM', 'CLEAR', 'ADJUSTMENT', 'PROFIT', 'WIN', 'LOSE'], true);
+    return tx_requires_approval_for_type($transactionType);
 }
 
 function tableHasColumn(PDO $pdo, string $table, string $column): bool
@@ -85,21 +71,12 @@ function insertTransactionRow(PDO $pdo, array $data): int
 }
 
 /**
- * 删除 Transaction List 搜索缓存
- *
- * Transaction List 使用 api/transactions/search_api.php，并在系统临时目录下
- * 的 count168_tx_search_cache 目录里做短时文件缓存（约 3–15 秒）。
- * 当这里提交新交易（PAYMENT / CONTRA / RATE 等）后，需要清掉这些缓存文件，
- * 不然在缓存过期前再次搜索会拿到旧数据，看不到刚提交的余额变化。
+ * 删除 Transaction List 搜索缓存（含 search_api 微缓存目录 count168_tx_search_cache）。
  */
 function clearTransactionSearchCache(): void
 {
-    // search_api.php 实际目录为 count168_tx_search_cache；旧错误名一并清理
-    $dirs = [
-        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search_cache',
-        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search',
-    ];
-    foreach ($dirs as $cacheDir) {
+    foreach (['count168_tx_search', 'count168_tx_search_cache'] as $dirName) {
+        $cacheDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $dirName;
         if (!is_dir($cacheDir)) {
             continue;
         }
@@ -165,6 +142,20 @@ function submitDecimalPlaces($value): int
     return strlen(rtrim(substr(strrchr($clean, '.'), 1), " \t\n\r\0\x0B"));
 }
 
+function submitEnsureNumericOrEmpty($value, string $fieldName): void
+{
+    if ($value === null) {
+        return;
+    }
+    $raw = trim((string) $value);
+    if ($raw === '') {
+        return;
+    }
+    if (!money_is_valid($raw)) {
+        throw new Exception($fieldName . ' 只能输入数字');
+    }
+}
+
 /**
  * 基于 session 的轻量幂等缓存（防止同一次点击重复提交）
  */
@@ -219,9 +210,6 @@ try {
         throw new Exception('请先登录');
     }
     
-    // 确定要操作的 company_id（支持 owner 切换公司）
-    $company_id = null;
-    $requested_company_id = isset($_POST['company_id']) ? trim($_POST['company_id']) : '';
     $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
     // Audit / Partnership 在 read_only=1（或未设置时默认只读）时禁止写入
     if (in_array($userRole, ['audit', 'partnership'], true)) {
@@ -231,30 +219,15 @@ try {
         }
     }
 
-    if ($requested_company_id !== '') {
-        $requested_company_id = (int)$requested_company_id;
-        if ($userRole === 'owner') {
-            $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$requested_company_id, $owner_id]);
-            if ($stmt->fetchColumn()) {
-                $company_id = $requested_company_id;
-            } else {
-                throw new Exception('无权访问该公司');
-            }
-        } else {
-            if (!isset($_SESSION['company_id']) || (int)$_SESSION['company_id'] !== $requested_company_id) {
-                throw new Exception('无权访问该公司');
-            }
-            $company_id = (int)$_SESSION['company_id'];
-        }
-    } else {
-        if (!isset($_SESSION['company_id'])) {
-            throw new Exception('用户未登录或缺少公司信息');
-        }
-        $company_id = (int)$_SESSION['company_id'];
+    $listScope = tx_resolve_transaction_list_scope($pdo, $_POST);
+    $company_id = (int) ($listScope['company_id'] ?? 0);
+    if ($company_id <= 0) {
+        $company_id = tx_permission_company_id_for_scope($pdo, $listScope);
     }
-    
+    if ($company_id <= 0 && ($listScope['mode'] ?? '') !== 'group') {
+        throw new Exception('缺少 company_id');
+    }
+
     // 检查请求方法
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         throw new Exception('只支持 POST 请求');
@@ -266,7 +239,7 @@ try {
     }
     $idempotencyKey = '';
     if ($client_request_id !== '') {
-        $idempotencyKey = (string)$company_id . ':' . $client_request_id;
+        $idempotencyKey = tx_idempotency_scope_key($listScope) . ':' . $client_request_id;
         $cachedResponse = getSubmitIdempotencyCache($idempotencyKey);
         if ($cachedResponse !== null) {
             session_write_close(); // 命中缓存，无需继续持有 session 锁
@@ -282,7 +255,9 @@ try {
     $transaction_type = trim($_POST['transaction_type'] ?? '');
     $account_id = (int)($_POST['account_id'] ?? 0);
     $from_account_id = !empty($_POST['from_account_id']) ? (int)$_POST['from_account_id'] : null;
-    $amount = submitStoreAmount($_POST['amount'] ?? '0', 8);
+    $rawAmount = $_POST['amount'] ?? '0';
+    submitEnsureNumericOrEmpty($rawAmount, 'Amount');
+    $amount = submitStoreAmount($rawAmount, 8);
     $transaction_date = trim($_POST['transaction_date'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $sms = trim($_POST['sms'] ?? '');
@@ -309,6 +284,10 @@ try {
         throw new Exception('请选择交易类型');
     }
     
+    if ($transaction_type === 'RECEIVE') {
+        throw new Exception('RECEIVE 交易类型已停用');
+    }
+
     if (!in_array($transaction_type, ['WIN', 'LOSE', 'PAYMENT', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR', 'ADJUSTMENT'])) {
         throw new Exception('无效的交易类型');
     }
@@ -359,7 +338,14 @@ try {
     $is_pending_approval = false;
 
     if ($has_approval_status && requiresApprovalForType($transaction_type)) {
-        if (requiresTransactionApproval($userRole, $transaction_date_db)) {
+        $skipApproval = tx_submit_skips_transaction_approval(
+            $pdo,
+            $userRole,
+            $transaction_type,
+            $account_id,
+            $from_account_id
+        );
+        if (!$skipApproval && requiresTransactionApproval($userRole, $transaction_date_db)) {
             $approval_status = 'PENDING';
             $approved_by = null;
             $approved_by_owner = null;
@@ -380,67 +366,29 @@ try {
         }
     }
     
-    // 验证账户是否存在且属于当前公司（非 RATE 类型）
-    // 支持 account 通过 company_id 或 account_company 表关联到公司
+    // 验证账户是否属于当前 scope（集团账套 vs 子公司）
     if (!$is_rate) {
-        // 验证 To Account（只使用 account_company 表）
-        $stmt = $pdo->prepare("
-            SELECT a.id, a.account_id, a.name 
-            FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE a.id = ? AND ac.company_id = ?
-        ");
-        $stmt->execute([$account_id, $company_id]);
-        $to_account = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+        $to_account = tx_fetch_account_row($pdo, $account_id, $listScope);
         if (!$to_account) {
-            throw new Exception('To Account 不存在或不属于当前公司');
+            throw new Exception('To Account 不存在或不属于当前范围');
         }
-        
-        // 验证 From Account（只使用 account_company 表）
+
         if ($from_account_id) {
-            $stmt = $pdo->prepare("
-                SELECT a.id, a.account_id, a.name 
-                FROM account a
-                INNER JOIN account_company ac ON a.id = ac.account_id
-                WHERE a.id = ? AND ac.company_id = ?
-            ");
-            $stmt->execute([$from_account_id, $company_id]);
-            $from_account = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+            $from_account = tx_fetch_account_row($pdo, (int) $from_account_id, $listScope);
             if (!$from_account) {
-                throw new Exception('From Account 不存在或不属于当前公司');
+                throw new Exception('From Account 不存在或不属于当前范围');
             }
         }
     }
-    
+
     // 验证 currency 并获取 currency_id，如果不存在则自动创建
     $currency_id = null;
     if (!empty($currency)) {
-        $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
-        $stmt->execute([$currency, $company_id]);
-        $currency_id = $stmt->fetchColumn();
-        
-        // 如果 currency 不存在于该公司，自动创建
-        if (!$currency_id) {
-            $currencyCode = strtoupper(trim($currency));
-            if (strlen($currencyCode) > 10) {
-                throw new Exception('Currency code 长度不能超过 10 个字符');
-            }
-            
-            // 检查该 currency code 是否在其他公司存在（用于验证格式）
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM currency WHERE code = ?");
-            $stmt->execute([$currencyCode]);
-            $existsElsewhere = $stmt->fetchColumn() > 0;
-            
-            // 自动创建 currency 到当前公司
-            $stmt = $pdo->prepare("INSERT INTO currency (code, company_id) VALUES (?, ?)");
-            $stmt->execute([$currencyCode, $company_id]);
-            $currency_id = $pdo->lastInsertId();
+        $currencyCode = strtoupper(trim($currency));
+        if (strlen($currencyCode) > 10) {
+            throw new Exception('Currency code 长度不能超过 10 个字符');
         }
-        
-        // 注意：不再检查账户是否在 data_capture_details 中有记录
-        // 允许即使没有 data_capture 记录也可以提交交易
+        $currency_id = tx_resolve_currency_id_for_scope($pdo, $currencyCode, $listScope);
     }
     
     // 自动生成 description（如果为空）
@@ -557,6 +505,23 @@ try {
             $rate_transfer_to_account_id = !empty($_POST['rate_transfer_to_account_id']) ? (int)$_POST['rate_transfer_to_account_id'] : null;
             $rate_transfer_from_amount = !empty($_POST['rate_transfer_from_amount']) ? submitRateRound2($_POST['rate_transfer_from_amount']) : null;
             $rate_transfer_to_amount = !empty($_POST['rate_transfer_to_amount']) ? submitRateRound2($_POST['rate_transfer_to_amount']) : null;
+
+            // If rate_middleman_input_amount is positive, execute target amount deduction on the backend
+            $rate_middleman_input_amount = !empty($_POST['rate_middleman_input_amount']) ? money_normalize($_POST['rate_middleman_input_amount']) : null;
+            if ($rate_middleman_input_amount !== null && money_cmp($rate_middleman_input_amount, '0') > 0) {
+                $converted_input_amount = submitRateRound2(money_mul($rate_middleman_input_amount, $rate_exchange_rate, 8));
+                if ($rate_transfer_to_amount !== null) {
+                    $rate_transfer_to_amount = submitRateRound2(money_sub($rate_transfer_to_amount, $converted_input_amount, 8));
+                }
+                if ($rate_from_currency !== '') {
+                    $feeDisplay = $rate_middleman_input_amount;
+                    if (strpos($feeDisplay, '.') !== false) {
+                        $feeDisplay = rtrim(rtrim($feeDisplay, '0'), '.');
+                    }
+                    $sms = 'charge ' . strtoupper(trim($rate_from_currency)) . ' ' . $feeDisplay . ' Service Fees';
+                }
+            }
+
             $rate_transfer_from_description = trim($_POST['rate_transfer_from_description'] ?? '');
             $rate_transfer_to_description = trim($_POST['rate_transfer_to_description'] ?? '');
             $rate_transfer_from_currency = trim($_POST['rate_transfer_from_currency'] ?? '');
@@ -964,6 +929,12 @@ try {
 
             // 提交成功后，清理 Transaction List 搜索缓存，保证前端立刻能搜到最新余额
             clearTransactionSearchCache();
+            // RATE writes are always APPROVED — notify other open Transaction Payment clients.
+            require_once __DIR__ . '/../includes/ledger_realtime.php';
+            tx_ledger_realtime_publish_scope($listScope, 'submit_rate', [
+                'transaction_type' => $transaction_type,
+                'transaction_date' => $transaction_date_db ?? null,
+            ]);
 
             // 返回成功响应
             $responsePayload = [
@@ -1015,6 +986,7 @@ try {
                     $txnRow['approved_at'] = $approved_at;
                 }
             }
+            tx_apply_scope_columns_to_row($pdo, $txnRow, $listScope);
 
             $transaction_id = insertTransactionRow($pdo, $txnRow);
         
@@ -1023,6 +995,14 @@ try {
 
         // 提交成功后，清理 Transaction List 搜索缓存，保证前端立刻能搜到最新余额
         clearTransactionSearchCache();
+        // Broadcast always: APPROVED refreshes ledgers; PENDING refreshes Manager Contra Inbox badges.
+        require_once __DIR__ . '/../includes/ledger_realtime.php';
+        tx_ledger_realtime_publish_scope($listScope, $is_pending_approval ? 'submit_pending' : 'submit', [
+            'transaction_type' => $transaction_type,
+            'transaction_date' => $transaction_date_db ?? null,
+            'transaction_id' => $transaction_id,
+            'approval_status' => $is_pending_approval ? 'PENDING' : 'APPROVED',
+        ]);
 
         // 返回成功响应
         $responsePayload = [

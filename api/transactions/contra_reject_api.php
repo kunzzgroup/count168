@@ -7,7 +7,8 @@
 
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/transaction_scope.php';
 require_once __DIR__ . '/../api_response.php';
 
 header('Content-Type: application/json');
@@ -21,54 +22,13 @@ function canRejectTransactionType(string $transactionType): bool {
     return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'ADJUSTMENT', 'PROFIT', 'WIN', 'LOSE'], true);
 }
 
-/**
- * 清理 Transaction List 搜索缓存（须与 search_api.php 的 count168_tx_search_cache 一致）
- */
-function clearTransactionSearchCache(): void {
-    $dirs = [
-        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search_cache',
-        sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search',
-    ];
-    foreach ($dirs as $cacheDir) {
-        if (!is_dir($cacheDir)) {
-            continue;
-        }
-        foreach (scandir($cacheDir) as $file) {
-            if ($file === '.' || $file === '..') {
-                continue;
-            }
-            $fullPath = $cacheDir . DIRECTORY_SEPARATOR . $file;
-            if (is_file($fullPath)) {
-                @unlink($fullPath);
-            }
-        }
-    }
-}
-
-function resolveContraCompanyIdPost(PDO $pdo): int {
-    $userRole = strtolower($_SESSION['role'] ?? '');
-    $rid = isset($_POST['company_id']) ? trim($_POST['company_id']) : '';
-    if ($rid !== '') {
-        $rid = (int)$rid;
-        if ($userRole === 'owner') {
-            $oid = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$rid, $oid]);
-            if ($stmt->fetchColumn()) return $rid;
-            throw new Exception('无权访问该公司');
-        }
-        if (isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] === $rid) return $rid;
-        throw new Exception('无权访问该公司');
-    }
-    if (!isset($_SESSION['company_id'])) throw new Exception('缺少公司信息');
-    return (int)$_SESSION['company_id'];
-}
-
-function deleteContraTransaction(PDO $pdo, int $transactionId, int $companyId): void {
-    $stmt = $pdo->prepare("SELECT id, company_id, transaction_type FROM transactions WHERE id = ? AND company_id = ? FOR UPDATE");
-    $stmt->execute([$transactionId, $companyId]);
+function deleteContraTransaction(PDO $pdo, int $transactionId, array $scope): void {
+    $scopeWhere = tx_sql_transaction_scope_where($scope, 't');
+    $scopeBind = tx_bind_transaction_scope_id($scope);
+    $stmt = $pdo->prepare("SELECT id, company_id, transaction_type FROM transactions t WHERE t.id = ? AND {$scopeWhere} FOR UPDATE");
+    $stmt->execute([$transactionId, $scopeBind]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$row) throw new Exception('记录不存在或不属于当前公司');
+    if (!$row) throw new Exception('记录不存在或不属于当前范围');
     if (!canRejectTransactionType((string)($row['transaction_type'] ?? ''))) throw new Exception('该类型不在审批范围内');
 
     // 先删除 transaction_entry（若存在），避免外键约束失败
@@ -82,8 +42,8 @@ function deleteContraTransaction(PDO $pdo, int $transactionId, int $companyId): 
         // 兼容旧环境：忽略
     }
 
-    $del = $pdo->prepare("DELETE FROM transactions WHERE id = ? AND company_id = ?");
-    $del->execute([$transactionId, $companyId]);
+    $del = $pdo->prepare("DELETE t FROM transactions t WHERE t.id = ? AND {$scopeWhere}");
+    $del->execute([$transactionId, $scopeBind]);
     if ($del->rowCount() === 0) throw new Exception('删除失败，记录可能已被删除');
 }
 
@@ -95,12 +55,15 @@ try {
     if ($userType === 'member' || !isManagerOrAboveRole($userRole)) { api_error('无权操作', 403); exit; }
     $transactionId = (int)($_POST['transaction_id'] ?? 0);
     if ($transactionId <= 0) { api_error('transaction_id 无效', 400); exit; }
-    $companyId = resolveContraCompanyIdPost($pdo);
+    $scope = tx_resolve_transaction_list_scope($pdo, $_POST);
     $pdo->beginTransaction();
     try {
-        deleteContraTransaction($pdo, $transactionId, $companyId);
+        deleteContraTransaction($pdo, $transactionId, $scope);
         $pdo->commit();
-        clearTransactionSearchCache();
+        require_once __DIR__ . '/../includes/ledger_realtime.php';
+        tx_ledger_realtime_publish_scope($scope, 'reject', [
+            'transaction_id' => $transactionId,
+        ]);
         api_success(null, 'Rejected and deleted');
     } catch (Exception $e) {
         $pdo->rollBack();

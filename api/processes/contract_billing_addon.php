@@ -83,48 +83,219 @@ function billingCalendarMonthDueYmd(int $year, int $month, int $dueDay): string
 }
 
 /**
- * Monthly 应付日（按 billing 自然月 Y-m）：
- * - 起租当月：day_start；
- * - day_start 非 1 号时其后各月：该月 day_start 日号减 1 日（上期结束日，例 5/22 起 → 6 月应付 6/21）；
- * - day_start 为 1 号时：仍为每月 1 号。
+ * Frequency=monthly（先付 / prepaid）：应付日当天付连续 1 个月服务。
+ * 首期（due=day_start）：[due, due+1月-1日]（5/22→5/22–6/21）。
+ * 链式后续期（due>首段）：[due, due+1月]（6/21→6/21–7/21）；下一期应付 = 上期末日。
+ *
+ * @return array{0:string,1:string}
  */
-function billingMonthlyDueYmdForBillingMonth(string $dayStartYmd, int $billYear, int $billMonth): ?string
+function billingMonthlyChainedInclusiveRangeFromDue(string $dueYmd, string $contractStartYmd): array
 {
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayStartYmd) || $billYear < 1970 || $billMonth < 1 || $billMonth > 12) {
-        return null;
-    }
     try {
-        $start = new DateTimeImmutable($dayStartYmd);
-    } catch (Throwable $e) {
-        return null;
-    }
-    $billYm = sprintf('%04d-%02d', $billYear, $billMonth);
-    if ($billYm === $start->format('Y-m')) {
-        return $dayStartYmd;
-    }
-    $startDay = (int) $start->format('j');
-    if ($startDay === 1) {
-        return billingCalendarMonthDueYmd($billYear, $billMonth, 1);
-    }
-    $onStartDay = billingCalendarMonthDueYmd($billYear, $billMonth, $startDay);
+        $due = new DateTimeImmutable($dueYmd);
+        if ($dueYmd === $contractStartYmd) {
+            return [$dueYmd, $due->modify('+1 month')->modify('-1 day')->format('Y-m-d')];
+        }
 
-    return (new DateTimeImmutable($onStartDay))->modify('-1 day')->format('Y-m-d');
+        return [$dueYmd, $due->modify('+1 month')->format('Y-m-d')];
+    } catch (Throwable $e) {
+        return [$dueYmd, $dueYmd];
+    }
 }
 
 /**
- * Frequency=monthly（按同一日对月）：应付日 = 本期起始日，区间为 [due, due+1月-1日]。
- *
+ * @deprecated Use billingMonthlyChainedInclusiveRangeFromDue for frequency=monthly.
  * @return array{0:string,1:string}
  */
 function billingMonthlyAnniversaryInclusiveRangeFromDue(string $dueYmd, string $contractStartYmd): array
 {
-    try {
-        $due = new DateTimeImmutable($dueYmd);
+    return billingMonthlyChainedInclusiveRangeFromDue($dueYmd, $contractStartYmd);
+}
 
-        return [$dueYmd, $due->modify('+1 month')->modify('-1 day')->format('Y-m-d')];
-    } catch (Throwable $e) {
-        return [$dueYmd, $dueYmd];
+/** 链式 monthly：本期末日 = 下一期应付日。 */
+function billingMonthlyChainedPeriodEndYmd(string $dueYmd, string $contractStartYmd): ?string
+{
+    [, $end] = billingMonthlyChainedInclusiveRangeFromDue($dueYmd, $contractStartYmd);
+
+    return $end;
+}
+
+function billingMonthlyChainedNextDueYmd(string $currentDueYmd, string $contractStartYmd): ?string
+{
+    return billingMonthlyChainedPeriodEndYmd($currentDueYmd, $contractStartYmd);
+}
+
+/**
+ * 从 day_start 起按链式 monthly 推算，落在指定自然月内的应付日（若无则 null）。
+ */
+function billingMonthlyChainedDueYmdInCalendarMonth(string $dayStartYmd, int $year, int $month): ?string
+{
+    if ($year < 1970 || $month < 1 || $month > 12 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayStartYmd)) {
+        return null;
     }
+    try {
+        $monthFirst = sprintf('%04d-%02d-01', $year, $month);
+        $monthLast = (new DateTimeImmutable($monthFirst))->modify('last day of this month')->format('Y-m-d');
+        $due = $dayStartYmd;
+        $guard = 0;
+        while ($guard < 520) {
+            if ($due >= $monthFirst && $due <= $monthLast) {
+                return $due;
+            }
+            if ($due > $monthLast) {
+                return null;
+            }
+            $next = billingMonthlyChainedNextDueYmd($due, $dayStartYmd);
+            if ($next === null || $next <= $due) {
+                return null;
+            }
+            $due = $next;
+            $guard++;
+        }
+    } catch (Throwable $e) {
+        return null;
+    }
+
+    return null;
+}
+
+/** monthly + 非1号：起租首段不计入合同 N 个月；合同首笔应付 = 首段末日（链式）。 */
+function billingMonthlyFirstContractDueAfterPartialFirst(string $dayStartYmd): ?string
+{
+    try {
+        $start = new DateTimeImmutable($dayStartYmd);
+        if ((int) $start->format('j') === 1) {
+            return $dayStartYmd;
+        }
+
+        return billingMonthlyChainedPeriodEndYmd($dayStartYmd, $dayStartYmd);
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
+ * Monthly 先付链式：收集应付日锚点（Y-m-d），规则与 process_accounting_inbox_api::inboxCollectMonthlyPrepaidBillingAnchors 一致。
+ *
+ * @param callable(string,int,int,string):bool $shouldCollect ($dueYmd, $year, $month, $dueYm)
+ * @return string[]
+ */
+function billingCollectMonthlyChainedDueAnchors(
+    string $startDate,
+    string $today,
+    string $createdYmd,
+    ?string $exclusiveEnd,
+    bool $resendRelax,
+    bool $resendSinglePeriod,
+    ?string $onlyAnchorYm,
+    callable $shouldCollect
+): array {
+    if ($startDate === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate)) {
+        return [];
+    }
+    if (!($resendRelax || $today >= $createdYmd)) {
+        return [];
+    }
+
+    $anchors = [];
+    $due = $startDate;
+    $guard = 0;
+    $todayYm = (new DateTimeImmutable($today))->format('Y-n');
+
+    try {
+        $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
+        if ($resendRelax) {
+            $startMonthFirst = (new DateTimeImmutable($startDate))->modify('first day of this month');
+            if ($startMonthFirst > $endCap) {
+                $endCap = $startMonthFirst;
+            }
+        }
+        $endCapYmd = $endCap->format('Y-m-d');
+    } catch (Throwable $e) {
+        return [];
+    }
+
+    while ($guard < 520) {
+        if (!$resendSinglePeriod && $exclusiveEnd !== null && $due >= $exclusiveEnd) {
+            break;
+        }
+
+        try {
+            $dueDt = new DateTimeImmutable($due);
+        } catch (Throwable $e) {
+            break;
+        }
+
+        $dueYm = $dueDt->format('Y-n');
+        $dueMonthFirst = $dueDt->modify('first day of this month')->format('Y-m-d');
+
+        if ($onlyAnchorYm !== null && $dueYm !== $onlyAnchorYm) {
+            $next = billingMonthlyChainedNextDueYmd($due, $startDate);
+            if ($next === null || $next <= $due) {
+                break;
+            }
+            $due = $next;
+            $guard++;
+            continue;
+        }
+
+        if ($resendRelax && $dueMonthFirst > $endCapYmd) {
+            break;
+        }
+
+        if (!$resendRelax && !$resendSinglePeriod && $dueYm !== $todayYm) {
+            $next = billingMonthlyChainedNextDueYmd($due, $startDate);
+            if ($next === null || $next <= $due) {
+                break;
+            }
+            $due = $next;
+            $guard++;
+            continue;
+        }
+
+        if (!$resendRelax && $due < $createdYmd) {
+            try {
+                $createdYmOnly = (new DateTimeImmutable($createdYmd))->format('Y-n');
+                if ($dueYm !== $createdYmOnly) {
+                    $next = billingMonthlyChainedNextDueYmd($due, $startDate);
+                    if ($next === null || $next <= $due) {
+                        break;
+                    }
+                    $due = $next;
+                    $guard++;
+                    continue;
+                }
+            } catch (Throwable $e) {
+                $next = billingMonthlyChainedNextDueYmd($due, $startDate);
+                if ($next === null || $next <= $due) {
+                    break;
+                }
+                $due = $next;
+                $guard++;
+                continue;
+            }
+        }
+
+        $y = (int) $dueDt->format('Y');
+        $mo = (int) $dueDt->format('n');
+
+        if (($today >= $due || $resendRelax) && $shouldCollect($due, $y, $mo, $dueYm)) {
+            $anchors[] = $due;
+        }
+
+        if (!$resendRelax && !$resendSinglePeriod) {
+            break;
+        }
+
+        $next = billingMonthlyChainedNextDueYmd($due, $startDate);
+        if ($next === null || $next <= $due) {
+            break;
+        }
+        $due = $next;
+        $guard++;
+    }
+
+    return $anchors;
 }
 
 /** 含首尾两日的天数；无效或 from>to 时返回 0 */
@@ -172,305 +343,38 @@ function prorateMonthlyAnniversaryPeriodLinear(
     ];
 }
 
-/**
- * Monthly 对日对月：在整期 [p0,p1] 内仅对 [from,to]（与区间求交）占整期比例缩放。
- *
- * @return array{cost:string,price:string,profit:string,ratio:?string}
- */
-function prorateMonthlyAnniversaryPeriodLinearBounded(
-    string $p0,
-    string $p1,
-    string $from,
-    string $to,
-    string $cost,
-    string $price,
-    string $profit
-): array {
-    if ($from > $to || $to < $p0 || $from > $p1) {
-        return ['cost' => '0.00000000', 'price' => '0.00000000', 'profit' => '0.00000000', 'ratio' => null];
-    }
-    $adjFrom = $from < $p0 ? $p0 : $from;
-    $adjTo = $to > $p1 ? $p1 : $to;
-    if ($adjFrom > $adjTo) {
-        return ['cost' => '0.00000000', 'price' => '0.00000000', 'profit' => '0.00000000', 'ratio' => null];
-    }
-    $fullD = billingInclusiveDaysBetween($p0, $p1);
-    $useD = billingInclusiveDaysBetween($adjFrom, $adjTo);
-    if ($fullD <= 0 || $useD <= 0) {
-        return ['cost' => '0.00000000', 'price' => '0.00000000', 'profit' => '0.00000000', 'ratio' => null];
-    }
-    $r = money_div((string) $useD, (string) $fullD, MONEY_CALC_SCALE);
-
-    return [
-        'cost' => money_mul($cost, $r, 2),
-        'price' => money_mul($price, $r, 2),
-        'profit' => money_mul($profit, $r, 2),
-        'ratio' => $r,
-    ];
-}
-
-/**
- * Resend consolidated / 任意闭区间：按 day_start 锚点逐期 [anchor, anchor+1月-1日] 累加；整期=整月价，尾段不足一期再比例。
- *
- * @return array{cost:string,price:string,profit:string}
- */
-function sumMonthlyAnniversaryInclusiveRangeAmounts(
-    string $rangeFromYmd,
-    string $rangeToYmd,
-    string $contractStartYmd,
-    string $cost,
-    string $price,
-    string $profit
-): array {
-    $zero = ['cost' => '0.00000000', 'price' => '0.00000000', 'profit' => '0.00000000'];
-    if ($rangeFromYmd > $rangeToYmd || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $contractStartYmd)) {
-        return $zero;
-    }
-    try {
-        $anchor = new DateTimeImmutable($contractStartYmd);
-    } catch (Throwable $e) {
-        return $zero;
-    }
-    $tc = '0.00000000';
-    $tp = '0.00000000';
-    $tf = '0.00000000';
-    for ($i = 0; $i < 600; $i++) {
-        $p0 = $anchor->format('Y-m-d');
-        $p1 = $anchor->modify('+1 month')->modify('-1 day')->format('Y-m-d');
-        if ($p1 < $rangeFromYmd) {
-            $anchor = new DateTimeImmutable($p1);
-            continue;
-        }
-        if ($p0 > $rangeToYmd) {
-            break;
-        }
-        $chunk = prorateMonthlyAnniversaryPeriodLinearBounded(
-            $p0,
-            $p1,
-            $rangeFromYmd,
-            $rangeToYmd,
-            $cost,
-            $price,
-            $profit
-        );
-        $tc = money_add($tc, $chunk['cost'], MONEY_CALC_SCALE);
-        $tp = money_add($tp, $chunk['price'], MONEY_CALC_SCALE);
-        $tf = money_add($tf, $chunk['profit'], MONEY_CALC_SCALE);
-        if ($p1 >= $rangeToYmd) {
-            break;
-        }
-        $anchor = new DateTimeImmutable($p1);
-    }
-
-    return [
-        'cost' => money_normalize($tc, 2),
-        'price' => money_normalize($tp, 2),
-        'profit' => money_normalize($tf, 2),
-    ];
-}
-
-/** Monthly 对日对月：从锚点 day_start 起一期的 inclusive 结束日（anchor+1月-1日）。 */
-function billingMonthlyAnniversaryPeriodEndFromAnchor(string $anchorYmd): ?string
+/** Week：单期 [start, start+6]（含首尾 7 日）。 */
+function weekPeriodEndInclusiveYmd(string $periodStartYmd): ?string
 {
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
-        return null;
-    }
     try {
-        return (new DateTimeImmutable($anchorYmd))->modify('+1 month')->modify('-1 day')->format('Y-m-d');
+        return (new DateTimeImmutable($periodStartYmd))->modify('+6 days')->format('Y-m-d');
     } catch (Throwable $e) {
         return null;
     }
 }
 
-/** Resend Monthly + day_start/day_end：day_end 须为从 day_start 起第 1/2/3… 期的标准结束日。 */
-function billingMonthlyResendRangeComplete(string $dayStartYmd, string $dayEndYmd): bool
+/** 下一期起点 = 上一期结束日次日（周期间不重叠，如 6/1–6/7 后接 6/8–6/14）。 */
+function weekPeriodNextStartYmd(string $currentPeriodStartYmd): ?string
 {
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayStartYmd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayEndYmd)) {
-        return false;
-    }
-    if ($dayEndYmd < $dayStartYmd) {
-        return false;
-    }
     try {
-        $anchor = new DateTimeImmutable($dayStartYmd);
-    } catch (Throwable $e) {
-        return false;
-    }
-    for ($i = 0; $i < 600; $i++) {
-        $periodEnd = billingMonthlyAnniversaryPeriodEndFromAnchor($anchor->format('Y-m-d'));
-        if ($periodEnd === null) {
-            return false;
-        }
-        if ($dayEndYmd === $periodEnd) {
-            return true;
-        }
-        if ($dayEndYmd < $periodEnd) {
-            return false;
-        }
-        $anchor = new DateTimeImmutable($periodEnd);
-    }
-
-    return false;
-}
-
-/** Week frequency: inclusive period end (start + 6 days). */
-function weekPeriodEndInclusiveYmd(string $startYmd): ?string
-{
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startYmd)) {
-        return null;
-    }
-    try {
-        return (new DateTimeImmutable($startYmd))->modify('+6 days')->format('Y-m-d');
+        return (new DateTimeImmutable($currentPeriodStartYmd))->modify('+7 days')->format('Y-m-d');
     } catch (Throwable $e) {
         return null;
     }
 }
 
-/** Next period start = day after current period end (6/1–6/7 → next 6/8, not 6/7). */
-function weekPeriodNextStartYmd(string $startYmd): ?string
-{
-    $end = weekPeriodEndInclusiveYmd($startYmd);
-    if ($end === null) {
-        return null;
-    }
-
-    return dailyNextDayYmd($end);
-}
-
-function weekPeriodIsReadyForAccounting(string $dueYmd, string $periodEndYmd, bool $resendRelax, ?string $todayYmd = null): bool
+/** 非 Resend：仅当今天 >= 周期开始日，该周才进入 Accounting Due / 允许入账（例：6/1–6/7 在 6/1 出现）。 */
+function weekPeriodIsReadyForAccounting(string $periodStartYmd, string $todayYmd, bool $resendRelax): bool
 {
     if ($resendRelax) {
         return true;
     }
-    $today = ($todayYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $todayYmd))
-        ? $todayYmd
-        : date('Y-m-d');
-
-    // Week 账单在周期起点日即可进入 Accounting Due（Due Date = 周起点），不必等周末。
-    return $today >= $dueYmd;
+    return $todayYmd >= $periodStartYmd;
 }
 
-/** 周期 [due, periodEnd] 是否与指定自然月有重叠 */
-function weekPeriodOverlapsCalendarMonth(string $dueYmd, string $periodEndYmd, int $year, int $month): bool
-{
-    $monthFirst = sprintf('%04d-%02d-01', $year, $month);
-    $ts = mktime(0, 0, 0, $month, 1, $year);
-    if ($ts === false) {
-        return false;
-    }
-    $monthLast = date('Y-m-t', $ts);
-
-    return $dueYmd <= $monthLast && $periodEndYmd >= $monthFirst;
-}
-
-function weekHasPostedOrSkippedForPeriodStart(PDO $pdo, int $companyId, int $processId, string $periodStartYmd): bool
-{
-    if ($periodStartYmd === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $periodStartYmd)) {
-        return false;
-    }
-    try {
-        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
-        if (!$stmtCheck || $stmtCheck->rowCount() === 0) {
-            return false;
-        }
-        $stmtCol = $pdo->query("SHOW COLUMNS FROM process_accounting_posted LIKE 'period_type'");
-        $hasPeriodType = $stmtCol && $stmtCol->rowCount() > 0;
-        if (!$hasPeriodType) {
-            $stmt = $pdo->prepare(
-                'SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) LIMIT 1'
-            );
-            $stmt->execute([$companyId, $processId, $periodStartYmd]);
-
-            return (bool) $stmt->fetch();
-        }
-        $stmt = $pdo->prepare(
-            "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
-             AND DATE(posted_date) = DATE(?)
-             AND period_type IN ('weekly','weekly_skipped') LIMIT 1"
-        );
-        $stmt->execute([$companyId, $processId, $periodStartYmd]);
-
-        return (bool) $stmt->fetch();
-    } catch (Throwable $e) {
-        return false;
-    }
-}
-
-/**
- * 与 Inbox 一致：返回当前应入账的最早未结清周起点（Y-m-d）。
- */
-function weekInferEarliestOpenBillingStartYmd(
-    PDO $pdo,
-    int $companyId,
-    int $processId,
-    string $contractStartYmd,
-    string $createdYmd,
-    string $today,
-    bool $resendRelax = false
-): ?string {
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $contractStartYmd)) {
-        return null;
-    }
-    $todayYear = (int) date('Y', strtotime($today));
-    $todayMonth = (int) date('n', strtotime($today));
-    $due = $contractStartYmd;
-    for ($wi = 0; $wi < 520; $wi++) {
-        $periodEnd = weekPeriodEndInclusiveYmd($due);
-        if ($periodEnd === null) {
-            break;
-        }
-        if (!$resendRelax && $due > $today) {
-            break;
-        }
-        $eligible = false;
-        if (weekPeriodIsReadyForAccounting($due, $periodEnd, $resendRelax, $today)
-            && weekPeriodOverlapsCalendarMonth($due, $periodEnd, $todayYear, $todayMonth)) {
-            if (!$resendRelax && $due < $createdYmd) {
-                try {
-                    $cy = (int) date('Y', strtotime($createdYmd));
-                    $cm = (int) date('n', strtotime($createdYmd));
-                    if (!weekPeriodOverlapsCalendarMonth($due, $periodEnd, $cy, $cm)) {
-                        $nextDue = weekPeriodNextStartYmd($due);
-                        if ($nextDue === null || $nextDue <= $due) {
-                            break;
-                        }
-                        $due = $nextDue;
-                        continue;
-                    }
-                } catch (Throwable $e) {
-                    $nextDue = weekPeriodNextStartYmd($due);
-                    if ($nextDue === null || $nextDue <= $due) {
-                        break;
-                    }
-                    $due = $nextDue;
-                    continue;
-                }
-            }
-            $eligible = true;
-        }
-        if ($eligible && !weekHasPostedOrSkippedForPeriodStart($pdo, $companyId, $processId, $due)) {
-            return $due;
-        }
-        $nextDue = weekPeriodNextStartYmd($due);
-        if ($nextDue === null || $nextDue <= $due) {
-            break;
-        }
-        $due = $nextDue;
-    }
-
-    return null;
-}
-
-function calendarMonthFirstYmd(int $year, int $month): string
-{
-    return sprintf('%04d-%02d-01', $year, $month);
-}
-
+/** Day frequency：下一自然日 Y-m-d。 */
 function dailyNextDayYmd(string $ymd): ?string
 {
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
-        return null;
-    }
     try {
         return (new DateTimeImmutable($ymd))->modify('+1 day')->format('Y-m-d');
     } catch (Throwable $e) {
@@ -478,85 +382,51 @@ function dailyNextDayYmd(string $ymd): ?string
     }
 }
 
-function dailyAmountsForDayCount(string $cost, string $price, string $profit, int $dayCount): array
+/** 指定自然月首日 Y-m-d。 */
+function calendarMonthFirstYmd(int $year, int $month): string
 {
-    $dayCount = max(1, $dayCount);
-    $mult = (string) $dayCount;
+    return sprintf('%04d-%02d-01', $year, max(1, min(12, $month)));
+}
 
+/** Day frequency：按天数累乘 cost / price / profit（单日全额 × N）。 */
+function dailyAmountsForDayCount(string $cost, string $price, string $profit, int $days): array
+{
+    $d = (string) max(1, $days);
     return [
-        'cost' => money_mul($cost, $mult, 2),
-        'price' => money_mul($price, $mult, 2),
-        'profit' => money_mul($profit, $mult, 2),
+        'cost' => money_mul($cost, $d, 2),
+        'price' => money_mul($price, $d, 2),
+        'profit' => money_mul($profit, $d, 2),
     ];
 }
 
-/** @return array{start:string,end:string}|null */
+/** 解析 daily consolidated billing_month 锚点 `start|end`（均为 Y-m-d）。 */
 function dailyParseConsolidatedBillingRange(?string $billingMonth): ?array
 {
-    $s = trim((string) $billingMonth);
-    if ($s === '' || strpos($s, '|') === false) {
+    $raw = trim((string) $billingMonth);
+    if ($raw === '' || strpos($raw, '|') === false) {
         return null;
     }
-    $parts = explode('|', $s, 2);
-    $start = trim($parts[0] ?? '');
-    $end = trim($parts[1] ?? '');
+    [$start, $end] = array_map('trim', explode('|', $raw, 2));
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) {
         return null;
     }
     if ($start > $end) {
         return null;
     }
-
     return ['start' => $start, 'end' => $end];
 }
 
+/** 含首尾的自然日天数。 */
 function dailyInclusiveDayCount(string $startYmd, string $endYmd): int
 {
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startYmd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $endYmd)) {
-        return 0;
-    }
     try {
-        $s = new DateTimeImmutable($startYmd);
-        $e = new DateTimeImmutable($endYmd);
-        if ($e < $s) {
+        $a = new DateTimeImmutable($startYmd);
+        $b = new DateTimeImmutable($endYmd);
+        if ($b < $a) {
             return 0;
         }
-
-        return (int) $s->diff($e)->days + 1;
+        return (int) $a->diff($b)->days + 1;
     } catch (Throwable $e) {
         return 0;
-    }
-}
-
-function dayHasPostedOrSkippedForDay(PDO $pdo, int $companyId, int $processId, string $dayYmd): bool
-{
-    if ($dayYmd === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayYmd)) {
-        return false;
-    }
-    try {
-        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
-        if (!$stmtCheck || $stmtCheck->rowCount() === 0) {
-            return false;
-        }
-        $stmtCol = $pdo->query("SHOW COLUMNS FROM process_accounting_posted LIKE 'period_type'");
-        $hasPeriodType = $stmtCol && $stmtCol->rowCount() > 0;
-        if (!$hasPeriodType) {
-            $stmt = $pdo->prepare(
-                'SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) LIMIT 1'
-            );
-            $stmt->execute([$companyId, $processId, $dayYmd]);
-
-            return (bool) $stmt->fetch();
-        }
-        $stmt = $pdo->prepare(
-            "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
-             AND DATE(posted_date) = DATE(?)
-             AND period_type IN ('daily','daily_skipped') LIMIT 1"
-        );
-        $stmt->execute([$companyId, $processId, $dayYmd]);
-
-        return (bool) $stmt->fetch();
-    } catch (Throwable $e) {
-        return false;
     }
 }

@@ -1,0 +1,63 @@
+# Secrets / local overrides
+config.local.php
+includes/config.local.php
+.env
+.env.*
+!.env.example
+!services/tx-realtime/.env.example
+.env.local
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+c168_mobile/frontend/node_modules/
+**/node_modules/
+.vite/
+**/.vite/
+
+# Logs / OS
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE / agent tooling (local only)
+.cursor/
+.agents/
+.playwright-mcp/
+.scratch/
+.idea/
+.vscode/
+.claude/
+.continue/
+.devin/
+.windsurf/
+.goose/
+.roo/
+.crush/
+.codex/
+skills/
+AGENTS.md
+skills-lock.json
+
+# Screenshots / verify artifacts (never commit)
+*.png
+!images/**/*.png
+!frontend/**/*.png
+!c168_mobile/**/*.png
+!favicon.ico
+verify-*/
+.tmp-*
+_php_subtotal_snip.txt
+
+# EC2 / local deploy overrides (Hostinger does not use these)
+deploy/
+deploy/local/
+.github/workflows/deploy-ec2.yml
+
+# Database regenerable / dumps
+database/generated/*.sql
+!database/generated/.keep
+database/backups/
+database/archive/legacy_dumps/
+database/ops/sql-merge-audit-*/
+database/ops/import_com29_to_c168_org/

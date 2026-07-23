@@ -6,7 +6,6 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/money_decimal.php';
-require_once __DIR__ . '/../includes/profit_sharing_account_label.php';
 require_once __DIR__ . '/../processes/contract_billing_addon.php';
 
 /**
@@ -50,6 +49,42 @@ function bankProcessBillFormatTripartNumber($amt): string
     return money_out($amt ?? '0', 2);
 }
 
+/**
+ * 关联 bank_process 的 Bank 列（history: bank_name；maintenance: process_bank）。
+ */
+function bankProcessResolveLinkedBankName(array $t): string
+{
+    foreach (['bank_name', 'process_bank', 'bp_bank', 'bank'] as $key) {
+        $v = trim((string) ($t[$key] ?? ''));
+        if ($v !== '') {
+            return $v;
+        }
+    }
+
+    return '';
+}
+
+/**
+ * Payment History / Maintenance：Bank process 账单类 Description 末尾追加「 | {bank}」。
+ */
+function bankProcessAppendBankSuffixToDescription(string $description, array $t): string
+{
+    $description = trim($description);
+    if ($description === '' || $description === '-') {
+        return $description;
+    }
+    $bank = bankProcessResolveLinkedBankName($t);
+    if ($bank === '') {
+        return $description;
+    }
+    $suffix = ' | ' . $bank;
+    if (preg_match('/\s\|\s' . preg_quote($bank, '/') . '$/iu', $description)) {
+        return $description;
+    }
+
+    return $description . $suffix;
+}
+
 function bankProcessProfitSharingOriginalAmountByAccount(array $t): ?string
 {
     $profitSharingRaw = trim((string) ($t['process_profit_sharing'] ?? ''));
@@ -74,7 +109,7 @@ function bankProcessProfitSharingOriginalAmountByAccount(array $t): ?string
         if ($accountText === '' || $amountStr === '') {
             continue;
         }
-        if (profitSharingLabelMatchesAccountReference($accountText, $currentCode)) {
+        if (strcasecmp($accountText, $currentCode) === 0) {
             return money_normalize($amountStr, 2);
         }
     }
@@ -171,16 +206,14 @@ function bankProcessOnceOneOffHistoryDescription(array $t): string
 }
 
 /**
- * Payment History：Frequency=week 入账行描述。
- * WEEK (DD/MM/YYYY - DD/MM/YYYY) @ <对应账户金额>
- *
- * @param array $t 需含 account_id、card_merchant_id、customer_id、profit_account_id、process_*；transaction_date 为周起点
+ * Payment History / Maintenance：Frequency=week 入账行描述。
+ * WEEK (DD/MM/YYYY - DD/MM/YYYY) @ 对应账单价格
  */
 function bankProcessWeeklyHistoryDescription(array $t): string
 {
     $startYmd = null;
     $td = trim((string) ($t['transaction_date'] ?? ''));
-    if ($td !== '' && stripos($td, '0000-00-00') !== 0) {
+    if ($td !== '') {
         if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $td, $m)) {
             $startYmd = $m[1];
         } else {
@@ -193,22 +226,13 @@ function bankProcessWeeklyHistoryDescription(array $t): string
     if ($startYmd === null) {
         $startYmd = bankProcessParseDayStartToYmd($t['bp_day_start'] ?? null);
     }
-    $startDmy = date('d/m/Y');
-    $endDmy = $startDmy;
-    if ($startYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $startYmd)) {
-        $ts = strtotime($startYmd);
-        if ($ts !== false) {
-            $startDmy = date('d/m/Y', $ts);
-        }
-        $endYmd = weekPeriodEndInclusiveYmd($startYmd);
-        if ($endYmd !== null) {
-            $tsEnd = strtotime($endYmd);
-            if ($tsEnd !== false) {
-                $endDmy = date('d/m/Y', $tsEnd);
-            }
-        }
+    if ($startYmd === null) {
+        $startYmd = date('Y-m-d');
     }
-    $prefix = 'WEEK (' . $startDmy . ' - ' . $endDmy . ')';
+    $endYmd = weekPeriodEndInclusiveYmd($startYmd) ?? $startYmd;
+    $startDm = date('d/m/Y', strtotime($startYmd));
+    $endDm = date('d/m/Y', strtotime($endYmd));
+    $prefix = 'WEEK (' . $startDm . ' - ' . $endDm . ')';
     $txAccountId = (int) ($t['account_id'] ?? 0);
     $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
     $customerId = (int) ($t['customer_id'] ?? 0);
@@ -227,59 +251,46 @@ function bankProcessWeeklyHistoryDescription(array $t): string
     if ($psAmount !== null) {
         return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($psAmount);
     }
-
     return $prefix;
 }
 
 /**
- * Payment History：Frequency=day 入账行描述。
- * DAY (DD/MM/YYYY) @ <金额> 或 DAY (DD/MM/YYYY - DD/MM/YYYY) @ <金额>
- *
- * @param array $t 需含 account_id、card_merchant_id、customer_id、profit_account_id、process_*；description 可含 [DAILY_RANGE=…]
+ * Payment History / Maintenance：Frequency=day 入账行描述。
+ * DAY (DD/MM/YYYY) 或 DAY (DD/MM/YYYY - DD/MM/YYYY) @ 对应账单价格
  */
+function bankProcessParseDailyRangeFromDescription(?string $desc): ?array
+{
+    if (!preg_match('/\[DAILY_RANGE=(\d{4}-\d{2}-\d{2})\|(\d{4}-\d{2}-\d{2})\]/', (string) $desc, $m)) {
+        return null;
+    }
+    return ['start' => $m[1], 'end' => $m[2]];
+}
+
 function bankProcessDailyHistoryDescription(array $t): string
 {
-    $startYmd = null;
-    $endYmd = null;
-    $desc = trim((string) ($t['description'] ?? ''));
-    if (preg_match('/\[DAILY_RANGE=(\d{4}-\d{2}-\d{2})\|(\d{4}-\d{2}-\d{2})\]/', $desc, $m)) {
-        $startYmd = $m[1];
-        $endYmd = $m[2];
-    }
-    if ($startYmd === null) {
+    $range = bankProcessParseDailyRangeFromDescription($t['description'] ?? null);
+    if ($range !== null) {
+        $startDm = date('d/m/Y', strtotime($range['start']));
+        $endDm = date('d/m/Y', strtotime($range['end']));
+        $prefix = 'DAY (' . $startDm . ' - ' . $endDm . ')';
+    } else {
+        $dayYmd = null;
         $td = trim((string) ($t['transaction_date'] ?? ''));
-        if ($td !== '' && stripos($td, '0000-00-00') !== 0) {
-            if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $td, $m2)) {
-                $startYmd = $m2[1];
+        if ($td !== '') {
+            if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $td, $m)) {
+                $dayYmd = $m[1];
             } else {
                 $ts = strtotime(str_replace('/', '-', $td));
                 if ($ts !== false) {
-                    $startYmd = date('Y-m-d', $ts);
+                    $dayYmd = date('Y-m-d', $ts);
                 }
             }
         }
-        if ($startYmd === null) {
-            $startYmd = bankProcessParseDayStartToYmd($t['bp_day_start'] ?? null);
+        if ($dayYmd === null) {
+            $dayYmd = bankProcessParseDayStartToYmd($t['bp_day_start'] ?? null) ?? date('Y-m-d');
         }
-        $endYmd = $startYmd;
+        $prefix = 'DAY (' . date('d/m/Y', strtotime($dayYmd)) . ')';
     }
-    $startDmy = date('d/m/Y');
-    $endDmy = $startDmy;
-    if ($startYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $startYmd)) {
-        $ts = strtotime($startYmd);
-        if ($ts !== false) {
-            $startDmy = date('d/m/Y', $ts);
-        }
-    }
-    if ($endYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $endYmd)) {
-        $tsEnd = strtotime($endYmd);
-        if ($tsEnd !== false) {
-            $endDmy = date('d/m/Y', $tsEnd);
-        }
-    }
-    $prefix = ($startYmd !== null && $endYmd !== null && $startYmd !== $endYmd)
-        ? ('DAY (' . $startDmy . ' - ' . $endDmy . ')')
-        : ('DAY (' . $startDmy . ')');
     $txAccountId = (int) ($t['account_id'] ?? 0);
     $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
     $customerId = (int) ($t['customer_id'] ?? 0);
@@ -298,12 +309,10 @@ function bankProcessDailyHistoryDescription(array $t): string
     if ($psAmount !== null) {
         return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($psAmount);
     }
-
     return $prefix;
 }
 
 /**
- * 首月比例账单描述：Pro-rated(dd/mm - dd/mm)@monthly <对应账单价格>
  * 仅显示当前这条记录对应的价格：
  * - Supplier(card_merchant): buy price
  * - Customer: sell price（始终负号）
