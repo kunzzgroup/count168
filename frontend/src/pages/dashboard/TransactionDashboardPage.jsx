@@ -44,10 +44,14 @@ export default function TransactionDashboardPage() {
         <div id="app" className="dashboard-content">
           <DashboardFilterPanel
             i18n={i18n}
-            effectiveDateRangeText={effectiveDateRangeText}
+            effectiveDateRangeText={
+              page.displayEffectiveDateRangeText ?? effectiveDateRangeText
+            }
             groupIds={page.groupIds}
             selectedGroup={page.selectedGroup}
+            displaySelectedGroup={page.displaySelectedGroup}
             groupsAllMode={page.groupsAllMode}
+            displayGroupsAllMode={page.displayGroupsAllMode}
             groupAllMode={page.groupAllMode}
             displayGroupAllMode={page.displayGroupAllMode}
             companiesForPicker={page.companiesForPicker}
@@ -89,8 +93,8 @@ export default function TransactionDashboardPage() {
             />
             <DashboardEarningsSummary
               i18n={i18n}
-              currencyCode={page.currencyCode}
-              currencies={page.currencies}
+              currencyCode={page.displayFilterCurrencyCode ?? page.currencyCode}
+              currencies={page.displayCurrencies ?? page.currencies}
               panelCurrencyRows={page.panelCurrencyRows}
               useConvertedEarnings={page.useConvertedEarnings}
               earningsBreakdownShowsRate={page.earningsBreakdownShowsRate}
