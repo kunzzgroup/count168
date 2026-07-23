@@ -51,6 +51,19 @@ if (!is_array($input)) {
 $action = strtolower(trim((string) ($input['action'] ?? 'list')));
 
 try {
+    // Sidebar polls pending_count every ~45s — never run DDL / window sync here.
+    // Those belong on Auto Renew page actions (list / approve / reject / …).
+    if ($action === 'pending_count') {
+        if (!auto_renew_page_access($pdo, $_SESSION)) {
+            session_write_close();
+            auto_renew_json_response(false, 'Access denied', null, 403);
+        }
+        session_write_close();
+        auto_renew_json_response(true, 'success', [
+            'pending_count' => auto_renew_count_pending_fast($pdo),
+        ]);
+    }
+
     auto_renew_ensure_columns($pdo);
     auto_renew_ensure_request_table($pdo);
 
@@ -117,13 +130,6 @@ try {
         session_write_close();
         auto_renew_json_response(true, 'success', [
             'status_map' => auto_renew_status_map($pdo),
-        ]);
-    }
-
-    if ($action === 'pending_count') {
-        session_write_close();
-        auto_renew_json_response(true, 'success', [
-            'pending_count' => auto_renew_count_pending($pdo),
         ]);
     }
 

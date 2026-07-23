@@ -11,6 +11,10 @@ const AUTO_RENEW_VALID_PERIODS = ['7days', '1month', '3months', '6months', '1yea
 
 function auto_renew_ensure_columns(PDO $pdo): void
 {
+    static $ensured = false;
+    if ($ensured) {
+        return;
+    }
     $columns = [
         'auto_renew_enabled' => 'TINYINT(1) NOT NULL DEFAULT 0',
         'auto_renew_period' => 'VARCHAR(20) NULL DEFAULT NULL',
@@ -27,6 +31,7 @@ function auto_renew_ensure_columns(PDO $pdo): void
             $pdo->exec("ALTER TABLE company ADD COLUMN `$name` $definition");
         }
     }
+    $ensured = true;
 }
 
 function auto_renew_is_valid_period(?string $period): bool
