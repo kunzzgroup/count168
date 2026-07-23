@@ -121,18 +121,24 @@ function maintenance_mode_load_state(PDO $pdo): array
     $messageId = isset($row['maintenance_message_id']) ? (int) $row['maintenance_message_id'] : 0;
     $preview = '';
     if ($messageId > 0) {
-        $msgStmt = $pdo->prepare(
-            "SELECT prefix, content
-             FROM maintenance_marquee
-             WHERE id = ?
-             LIMIT 1"
-        );
-        $msgStmt->execute([$messageId]);
-        $msg = $msgStmt->fetch(PDO::FETCH_ASSOC);
-        if ($msg) {
-            $prefix = trim((string) ($msg['prefix'] ?? ''));
-            $content = trim((string) ($msg['content'] ?? ''));
-            $preview = trim($prefix . ' ' . trim(html_entity_decode(strip_tags($content), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        try {
+            maintenanceMarqueeEnsurePrefixColumn($pdo);
+            $prefixSelect = maintenanceMarqueeHasPrefixColumn($pdo) ? 'prefix' : "'' AS prefix";
+            $msgStmt = $pdo->prepare(
+                "SELECT {$prefixSelect}, content
+                 FROM maintenance_marquee
+                 WHERE id = ?
+                 LIMIT 1"
+            );
+            $msgStmt->execute([$messageId]);
+            $msg = $msgStmt->fetch(PDO::FETCH_ASSOC);
+            if ($msg) {
+                $prefix = trim((string) ($msg['prefix'] ?? ''));
+                $content = trim((string) ($msg['content'] ?? ''));
+                $preview = trim($prefix . ' ' . trim(html_entity_decode(strip_tags($content), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+            }
+        } catch (Throwable $e) {
+            error_log('maintenance_mode_load_state preview: ' . $e->getMessage());
         }
     }
 
