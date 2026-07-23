@@ -1,11 +1,11 @@
 <?php
 
-// 默认连接参数（可被 config.local.php 覆盖，服务器上请用 config.local.php 放真实密码）
-
-$host = '127.0.0.1';
-$dbname = 'u857194726_c168site';
-$dbuser = 'admin';
-$dbpass = 'C168_site';
+// 默认连接参数（可被 config.local.php 覆盖）
+// count168.com / Hostinger 生产库；其他环境请用 includes/config.local.php
+$host = 'localhost';
+$dbname = 'u857194726_count168';
+$dbuser = 'u857194726_count168';
+$dbpass = 'Kholdings1688@';
 
 $configLocal = __DIR__ . '/config.local.php';
 if (is_readable($configLocal)) {
