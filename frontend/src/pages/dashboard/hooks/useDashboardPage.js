@@ -6524,6 +6524,44 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           // Recompute readiness after fills (earningsCurrent may have updated).
           const painted = paintBootstrap();
           if (requirePie && !painted) {
+            // Last resort: paint KPI+chart with seeded currency rows (loading) so we do not
+            // freeze forever without CURRENCY pills / pie amounts. Upgrade fills amounts next.
+            if (currentPayload && !dashboardPayloadNeedsChartDaily(currentPayload)) {
+              const codes = codesForEarnings || currenciesRef.current;
+              const primary = currencyCodeRef.current;
+              const metrics = computeCurrencyMetricsFromPayload(currentPayload);
+              current = currentPayload;
+              setMultiCurrencyKpi(null);
+              setMultiCurrencyKpiPrev(null);
+              setDashboardData(current);
+              dashboardDataRef.current = current;
+              setDashboardDataPrev(previousPayload);
+              setDisplayScopeKey(cacheKey);
+              if (needsMultiCurrencyEarnings && codes?.length > 1) {
+                setEarningsByCurrency(
+                  buildSeededEarningsRows(
+                    codes,
+                    primary,
+                    metrics.netProfit,
+                    metrics.earnings
+                  )
+                );
+                setEarningsByCurrencyLoading(true);
+                setDashboardCache(cacheKey, {
+                  current,
+                  previous: previousPayload,
+                });
+                void upgradeActiveScopeEarnings();
+              } else {
+                setEarningsByCurrencyLoading(false);
+                setDashboardCache(cacheKey, {
+                  current,
+                  previous: previousPayload,
+                });
+              }
+              setLoading(false);
+              return;
+            }
             setLoading(true);
             return;
           }
@@ -6636,8 +6674,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
               dashboardEarningsRowsComplete(bootEarnings, codesForPie)
             )
           ) {
-            setLoading(true);
-            return;
+            // Keep going: paint KPI/chart with seeded pie rows + loading, then upgrade.
+            // Avoid freezing the previous scope forever without currency amounts.
           }
         }
 
@@ -6686,7 +6724,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
               primaryMetrics.earnings
             )
           );
-          setEarningsByCurrencyLoading(false);
+          setEarningsByCurrencyLoading(true);
           // Prefer cache synthesize for pie — never kick off N×currency merges.
           void upgradeActiveScopeEarnings();
         }
@@ -7726,7 +7764,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (!left || !right) return null;
     return `${left} - ${right}`;
   }, [scopeDataPending, displayScopeKey]);
-  /** Freeze currency pills while next scope paints — avoid empty/flash mid-switch. */
+  /** Freeze currency *selection* while next scope paints — but never hide the pill list.
+   *  `primeCurrenciesFromCache` intentionally shows codes first on company switch; freezing
+   *  an empty clear() made the CURRENCY row disappear until (or unless) paint finished. */
   const paintedCurrencyFilterRef = useRef({
     currencies,
     currencyCode: displayCurrencyCode,
@@ -7736,9 +7776,19 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       currencies,
       currencyCode: displayCurrencyCode,
     };
+  } else if (currencies.length > 0 && !paintedCurrencyFilterRef.current.currencies?.length) {
+    paintedCurrencyFilterRef.current = {
+      ...paintedCurrencyFilterRef.current,
+      currencies,
+    };
   }
-  const displayCurrencies = paintedCurrencyFilterRef.current.currencies;
-  const displayFilterCurrencyCode = paintedCurrencyFilterRef.current.currencyCode;
+  const displayCurrencies =
+    paintedCurrencyFilterRef.current.currencies?.length > 0
+      ? paintedCurrencyFilterRef.current.currencies
+      : currencies;
+  const displayFilterCurrencyCode = scopeDataPending
+    ? paintedCurrencyFilterRef.current.currencyCode || displayCurrencyCode
+    : displayCurrencyCode;
   const chartDataStable = useMemo(
     () =>
       !scopeDataPending &&

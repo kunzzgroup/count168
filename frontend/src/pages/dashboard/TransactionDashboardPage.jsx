@@ -58,7 +58,11 @@ export default function TransactionDashboardPage() {
             companyId={page.companyId}
             displayCompanyId={page.displayCompanyId}
             mergedSubsetIds={page.mergedSubsetIds}
-            currencies={page.displayCurrencies ?? page.currencies}
+            currencies={
+              page.displayCurrencies?.length
+                ? page.displayCurrencies
+                : page.currencies
+            }
             currencyCode={page.displayFilterCurrencyCode ?? page.currencyCode}
             onPickGroup={page.handlePickGroup}
             onPickAllGroups={page.handlePickAllGroups}
