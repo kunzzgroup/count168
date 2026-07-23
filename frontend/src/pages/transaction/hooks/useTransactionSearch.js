@@ -487,6 +487,7 @@ export function useTransactionSearch({
   ]);
 
   // Show 0 balance / Payment Only / Win-Loss Only 均影响 API 参数或组合范围，切换后必须重搜。
+  // Type Search / submit-focus: chips may toggle for UI only — do not re-search or leave the mode.
   useEffect(() => {
     if (!initialSearchDoneRef.current) return;
     if (!scopeReady) return;
@@ -514,6 +515,7 @@ export function useTransactionSearch({
     prevServerSideFiltersRef.current = current;
 
     if (!filtersChanged) return;
+    if (typeSearchActive || submitFocusActive) return;
 
     scheduleAutoSearch({ delayMs: 80, forceRefresh: zeroBalanceChanged });
   }, [
@@ -526,6 +528,8 @@ export function useTransactionSearch({
     showAllCurrencies,
     selectedCurrenciesKey,
     scheduleAutoSearch,
+    typeSearchActive,
+    submitFocusActive,
   ]);
 
   const saveTxListToSession = useCallback(
@@ -1724,7 +1728,8 @@ export function useTransactionSearch({
     });
 
     const activeCodes = rawSearchData.active_currency_codes;
-    if (searchState.showZeroBalance && Array.isArray(activeCodes) && activeCodes.length > 0) {
+    const effectiveShowZeroBalance = listPresentationModeActive ? true : searchState.showZeroBalance;
+    if (effectiveShowZeroBalance && Array.isArray(activeCodes) && activeCodes.length > 0) {
       const activeSet = new Set(activeCodes.map((c) => String(c || "").toUpperCase()));
       orderedCurrs = orderedCurrs.filter((code) => activeSet.has(String(code || "").toUpperCase()));
     }
@@ -1789,21 +1794,6 @@ export function useTransactionSearch({
     currencyRowsOrdered,
     submitFocusActive,
     submitFocusByCurrency,
-  ]);
-
-  useEffect(() => {
-    if (!typeSearchActive) return;
-    if (searchState.showPaymentOnly || searchState.showCaptureOnly || searchState.showZeroBalance) {
-      setTypeSearchActive(false);
-      setTypeSearchAccountIds([]);
-      setTypeSearchFormType(null);
-      void runSearchRef.current?.({ forceRefresh: true, silent: false, typeSearchOverride: false });
-    }
-  }, [
-    searchState.showPaymentOnly,
-    searchState.showCaptureOnly,
-    searchState.showZeroBalance,
-    typeSearchActive,
   ]);
 
   /** 切换 scope（含 group/company 模式）：中止旧请求、清空列表，后台重搜。 */
