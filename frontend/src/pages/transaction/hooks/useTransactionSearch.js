@@ -103,8 +103,13 @@ export function useTransactionSearch({
   /**
    * Left filters as of last Type Search entry — restored on exit.
    * Snapshot taken once per entry; silent/preserveCurrencyFilter re-runs do not overwrite.
+   * Never overwritten by in-session Submit focus (tx date / currency).
    */
   const filtersBeforeTypeSearchRef = useRef(null);
+  /** True from Type Search entry until exit (includes post-submit submit-focus within that session). */
+  const typeSearchSessionActiveRef = useRef(false);
+  /** First Submit inside a Type Search session already applied tx-date + tx-currency focus. */
+  const typeSearchFirstSubmitFocusDoneRef = useRef(false);
   const [rawSearchData, setRawSearchData] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [tablesVisible, setTablesVisible] = useState(false);
@@ -910,6 +915,8 @@ export function useTransactionSearch({
               },
             };
           }
+          typeSearchSessionActiveRef.current = true;
+          typeSearchFirstSubmitFocusDoneRef.current = false;
 
           didApplyTypeSearchEntryClear = true;
           categoriesForQuery = [];
@@ -1247,7 +1254,11 @@ export function useTransactionSearch({
   );
   runTypeSearchRef.current = runTypeSearch;
 
-  /** After successful submit/approval: focus submitted accounts; first submit may jump Capture Date to tx date. */
+  /**
+   * After successful submit/approval: focus submitted accounts.
+   * Inside a Type Search session, only the first Submit clears left filters to tx date + tx currency
+   * (does not touch filtersBeforeTypeSearchRef). Later submits keep that focused filter set.
+   */
   const applySubmitFocusAndRefresh = useCallback(
     async ({
       accountIds,
@@ -1264,64 +1275,125 @@ export function useTransactionSearch({
       if (!effectiveDateFrom || !effectiveDateTo) return;
 
       const txDate = String(transactionDate || "").trim();
+      const currencyCode = String(submitCurrency || "").toUpperCase().trim();
+
+      const inTypeSearchSession =
+        typeSearchSessionActiveRef.current || typeSearchActiveRef.current;
+      const applyTypeSearchFirstSubmitFocus =
+        inTypeSearchSession && !typeSearchFirstSubmitFocusDoneRef.current && !!txDate && !!currencyCode;
+
       let searchDateFrom = effectiveDateFrom;
       let searchDateTo = effectiveDateTo;
       let rangeKey = `${effectiveDateFrom}|${effectiveDateTo}`;
       let didJumpCaptureDate = false;
-
-      // Only the first successful submit on this page visit may jump Capture Date to the tx date.
-      if (!hasAutoJumpedCaptureDateOnSubmitRef.current) {
-        hasAutoJumpedCaptureDateOnSubmitRef.current = true;
-        if (txDate && (txDate !== effectiveDateFrom || txDate !== effectiveDateTo)) {
-          didJumpCaptureDate = true;
-          searchDateFrom = txDate;
-          searchDateTo = txDate;
-          rangeKey = `${txDate}|${txDate}`;
-          // Prevent the Capture Date effect from clearing submit-focus / double-searching.
-          prevCaptureDateRangeKeyRef.current = rangeKey;
-        }
-      }
-
-      const currencyCode = String(submitCurrency || "").toUpperCase().trim();
-
       let currencyOverrides = {};
-      if (currencyCode && !showAllCurrencies) {
-        const current = selectedCurrencies
-          .map((c) => String(c || "").toUpperCase().trim())
-          .filter(Boolean);
-        const alreadySelected = current.includes(currencyCode);
+      let categoriesOverride;
+      let searchStateOverride = {
+        ...searchState,
+        showPaymentOnly: false,
+        showCaptureOnly: false,
+        showZeroBalance: true,
+      };
 
-        if (!alreadySelected) {
-          const merged = [...current, currencyCode];
-          const order = (currencyRowsOrdered || [])
-            .map((r) => String(r.code || "").toUpperCase().trim())
-            .filter(Boolean);
-          const nextSel = merged.sort((a, b) => {
-            const ia = order.indexOf(a);
-            const ib = order.indexOf(b);
-            if (ia === -1 && ib === -1) return a.localeCompare(b);
-            if (ia === -1) return 1;
-            if (ib === -1) return -1;
-            return ia - ib;
-          });
+      if (applyTypeSearchFirstSubmitFocus) {
+        // First Submit in Type Search session — focus on this tx; keep entry snapshot untouched.
+        typeSearchFirstSubmitFocusDoneRef.current = true;
+        typeSearchSessionActiveRef.current = true;
+        hasAutoJumpedCaptureDateOnSubmitRef.current = true;
 
-          suppressCrossPageCurrencyRef.current = nextSel.length !== 1;
-          setShowAllCurrencies(false);
-          setSelectedCurrencies(nextSel);
-          persistCurrencyFilter(scopeCacheCompanyKey, false, nextSel, transactionScope?.selectedGroup);
-          if (nextSel.length === 1) {
-            notifySingleCurrencyIfNeeded(nextSel);
+        didJumpCaptureDate =
+          txDate !== effectiveDateFrom || txDate !== effectiveDateTo;
+        searchDateFrom = txDate;
+        searchDateTo = txDate;
+        rangeKey = `${txDate}|${txDate}`;
+        prevCaptureDateRangeKeyRef.current = rangeKey;
+
+        categoriesOverride = [];
+        searchStateOverride = {
+          ...INITIAL_TRANSACTION_SEARCH_STATE,
+          showZeroBalance: true,
+        };
+        currencyOverrides = {
+          showAllCurrenciesOverride: false,
+          selectedCurrenciesOverride: [currencyCode],
+        };
+      } else if (!inTypeSearchSession) {
+        // Outside Type Search: legacy first-submit date jump + optional currency merge.
+        if (!hasAutoJumpedCaptureDateOnSubmitRef.current) {
+          hasAutoJumpedCaptureDateOnSubmitRef.current = true;
+          if (txDate && (txDate !== effectiveDateFrom || txDate !== effectiveDateTo)) {
+            didJumpCaptureDate = true;
+            searchDateFrom = txDate;
+            searchDateTo = txDate;
+            rangeKey = `${txDate}|${txDate}`;
+            prevCaptureDateRangeKeyRef.current = rangeKey;
           }
-          currencyOverrides = {
-            showAllCurrenciesOverride: false,
-            selectedCurrenciesOverride: nextSel,
-          };
         }
+
+        if (currencyCode && !showAllCurrencies) {
+          const current = selectedCurrencies
+            .map((c) => String(c || "").toUpperCase().trim())
+            .filter(Boolean);
+          const alreadySelected = current.includes(currencyCode);
+
+          if (!alreadySelected) {
+            const merged = [...current, currencyCode];
+            const order = (currencyRowsOrdered || [])
+              .map((r) => String(r.code || "").toUpperCase().trim())
+              .filter(Boolean);
+            const nextSel = merged.sort((a, b) => {
+              const ia = order.indexOf(a);
+              const ib = order.indexOf(b);
+              if (ia === -1 && ib === -1) return a.localeCompare(b);
+              if (ia === -1) return 1;
+              if (ib === -1) return -1;
+              return ia - ib;
+            });
+
+            suppressCrossPageCurrencyRef.current = nextSel.length !== 1;
+            setShowAllCurrencies(false);
+            setSelectedCurrencies(nextSel);
+            persistCurrencyFilter(scopeCacheCompanyKey, false, nextSel, transactionScope?.selectedGroup);
+            if (nextSel.length === 1) {
+              notifySingleCurrencyIfNeeded(nextSel);
+            }
+            currencyOverrides = {
+              showAllCurrenciesOverride: false,
+              selectedCurrenciesOverride: nextSel,
+            };
+          }
+        }
+      } else {
+        // 2nd+ Submit inside Type Search session: keep first-submit date/currency focus.
+        rangeKey = `${effectiveDateFrom}|${effectiveDateTo}`;
       }
 
       // Paint focused rows (+ optimistic balances when staying on the same capture range) before refresh.
       flushSync(() => {
-        if (didJumpCaptureDate) {
+        if (applyTypeSearchFirstSubmitFocus) {
+          setDateFrom(txDate);
+          setDateTo(txDate);
+          syncCaptureDateDom(txDate);
+          setSelectedCategories([]);
+          categoryChangedByUserRef.current = false;
+          setSearchState({ ...INITIAL_TRANSACTION_SEARCH_STATE });
+          prevServerSideFiltersRef.current = {
+            showPaymentOnly: false,
+            showCaptureOnly: false,
+            showZeroBalance: false,
+          };
+          bootCurrencyDefaultRef.current = false;
+          suppressCrossPageCurrencyRef.current = false;
+          setShowAllCurrencies(false);
+          setSelectedCurrencies([currencyCode]);
+          persistCurrencyFilter(
+            scopeCacheCompanyKey,
+            false,
+            [currencyCode],
+            transactionScope?.selectedGroup,
+          );
+          notifySingleCurrencyIfNeeded([currencyCode]);
+        } else if (didJumpCaptureDate) {
           setDateFrom(txDate);
           setDateTo(txDate);
           syncCaptureDateDom(txDate);
@@ -1331,17 +1403,19 @@ export function useTransactionSearch({
         setTypeSearchFormType(null);
         setTypeSearchAccountIds([]);
 
-        // Submit-focus shows Cr/Dr rows; clear Win/Loss / Payment Only so the fetch and UI match.
-        setSearchState((prev) => {
-          if (!prev.showPaymentOnly && !prev.showCaptureOnly) return prev;
-          return { ...prev, showPaymentOnly: false, showCaptureOnly: false };
-        });
-        if (prevServerSideFiltersRef.current) {
-          prevServerSideFiltersRef.current = {
-            ...prevServerSideFiltersRef.current,
-            showPaymentOnly: false,
-            showCaptureOnly: false,
-          };
+        if (!applyTypeSearchFirstSubmitFocus) {
+          // Submit-focus shows Cr/Dr rows; clear Win/Loss / Payment Only so the fetch and UI match.
+          setSearchState((prev) => {
+            if (!prev.showPaymentOnly && !prev.showCaptureOnly) return prev;
+            return { ...prev, showPaymentOnly: false, showCaptureOnly: false };
+          });
+          if (prevServerSideFiltersRef.current) {
+            prevServerSideFiltersRef.current = {
+              ...prevServerSideFiltersRef.current,
+              showPaymentOnly: false,
+              showCaptureOnly: false,
+            };
+          }
         }
 
         if (currencyCode) {
@@ -1388,15 +1462,12 @@ export function useTransactionSearch({
           forceRefresh: true,
           silent: true,
           typeSearchOverride: false,
-          // Submit-focus must fetch Cr/Dr accounts too (ignore Win/Loss Only / Payment Only).
-          searchStateOverride: {
-            ...searchState,
-            showPaymentOnly: false,
-            showCaptureOnly: false,
-            showZeroBalance: true,
-          },
-          ...(didJumpCaptureDate
+          searchStateOverride,
+          ...(didJumpCaptureDate || applyTypeSearchFirstSubmitFocus
             ? { dateFromOverride: searchDateFrom, dateToOverride: searchDateTo }
+            : {}),
+          ...(categoriesOverride !== undefined
+            ? { selectedCategoriesOverride: categoriesOverride }
             : {}),
           ...currencyOverrides,
         });
@@ -1432,6 +1503,8 @@ export function useTransactionSearch({
 
     const snap = filtersBeforeTypeSearchRef.current;
     filtersBeforeTypeSearchRef.current = null;
+    typeSearchSessionActiveRef.current = false;
+    typeSearchFirstSubmitFocusDoneRef.current = false;
 
     let restoreDateFrom;
     let restoreDateTo;
