@@ -3301,6 +3301,28 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           }
         }
       }
+
+      // Same-group siblings: hydrate currency lists so 95→AG prefetch can pack full pie in one `full`.
+      if (!cancelled && !groupsAllMode && activeGroup && Number.isFinite(activeId) && activeId > 0) {
+        for (const row of companiesForCompanyPicker(companies, activeGroup, groupIds)) {
+          if (cancelled) return;
+          if (isVirtualGroupLinkCompanyRow(row)) continue;
+          if (companyRowIsGroupEntity(row, activeGroup)) continue;
+          const rid = parseInt(row.id, 10);
+          if (!Number.isFinite(rid) || rid <= 0 || rid === activeId) continue;
+          if (currenciesByCompanyRef.current.has(rid)) continue;
+          if (!shouldPrefetchCompanyScope(rid, activeGroup)) continue;
+          const codes = await fetchCompanyCurrencySettingCodes(rid, row, activeGroup, groupIds);
+          if (!cancelled && codes?.length) {
+            const savedOrder = resolvePreferredCurrencyDisplayOrder(rid, {
+              displayOrderByCompanyRef: currencyDisplayOrderByCompanyRef,
+              sessionOrderRef: userCurrencyDisplayOrderRef,
+            }) ?? resolveSavedCurrencyOrder(rid, null);
+            const ordered = mergeCurrencyCodesWithSavedOrder(codes, savedOrder);
+            currenciesByCompanyRef.current.set(rid, ordered);
+          }
+        }
+      }
     };
 
     void warmActive();
@@ -3383,10 +3405,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const tasks = [];
       for (const gid of groupIds) {
         const g = String(gid).trim().toUpperCase();
-        if (!g || g === activeGroup) continue;
-        if (mayWarmGroupLedgerCurrencies(meRef.current, g, companies)) {
+        if (!g) continue;
+        // Other groups: also warm group-ledger currency union.
+        if (g !== activeGroup && mayWarmGroupLedgerCurrencies(meRef.current, g, companies)) {
           tasks.push(() => prefetchGroupOnlyCurrencies(gid));
         }
+        // Include active group — sibling company currency lists enable atomic-ready dashboard warm.
         for (const row of companiesForCompanyPicker(companies, gid, groupIds)) {
           if (!isSubsidiaryCompanyRow(row, groupIds)) continue;
           if (row?.id) tasks.push(() => prefetchCompanyCurrencies(row.id, gid));
@@ -4038,6 +4062,31 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!Number.isFinite(id) || id <= 0) return;
       if (!shouldPrefetchCompanyScope(id, viewGroup)) return;
       const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
+      const usesLedger = Boolean(vg && companyRowIsGroupEntity(targetRow, vg));
+      // Hydrate this company's currency list before `full` so pie lands in one pack (no second earnings).
+      if (!usesLedger && !currenciesByCompanyRef.current.has(id)) {
+        try {
+          const fetched = await fetchCompanyCurrencySettingCodes(
+            id,
+            targetRow,
+            vg || null,
+            groupIds
+          );
+          if (fetched?.length) {
+            const savedOrder =
+              resolvePreferredCurrencyDisplayOrder(id, {
+                displayOrderByCompanyRef: currencyDisplayOrderByCompanyRef,
+                sessionOrderRef: userCurrencyDisplayOrderRef,
+              }) ?? resolveSavedCurrencyOrder(id, null);
+            currenciesByCompanyRef.current.set(
+              id,
+              mergeCurrencyCodesWithSavedOrder(fetched, savedOrder)
+            );
+          }
+        } catch {
+          /* Best-effort — prefetch still runs with whatever codes we know. */
+        }
+      }
       const cur = currencyCodeRef.current;
       const scopeKey = resolveDashboardScopeKey({
         companyId: id,
@@ -4059,7 +4108,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return;
       }
 
-      const usesLedger = vg && companyRowIsGroupEntity(targetRow, vg);
       const subScope = Boolean(vg && !usesLedger);
       const rangeFrom = dateFromRef.current;
       const rangeTo = dateToRef.current;
@@ -4198,6 +4246,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       seedDashboardPayloadCacheForCompany,
       applyPrefetchCacheToActiveScope,
       shouldPrefetchCompanyScope,
+      groupIds,
     ]
   );
   prefetchDashboardCompanyRef.current = prefetchDashboardCompany;
@@ -6162,7 +6211,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       cacheKey
     );
     // Company switch: wait until currency list is known before painting.
-    // Avoids single-currency KPI paint then multi-currency pie fill.
+    // Avoids single-currency KPI/`full` then a second multi-currency earnings round-trip.
     if (
       requirePieEarly &&
       !groupAllMode &&
@@ -6175,13 +6224,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         Number.isFinite(cid) && cid > 0
           ? currenciesByCompanyRef.current.get(cid)
           : null;
-      const liveCodes = currenciesRef.current;
-      if (!cachedCodes?.length && liveCodes.length === 0) {
+      // Prefer hydrated company list — do not bootstrap on a provisional single code.
+      if (!Array.isArray(cachedCodes) || cachedCodes.length === 0) {
         setLoading(true);
         return;
       }
       if (
-        Array.isArray(cachedCodes) &&
         cachedCodes.length > 1 &&
         !(Array.isArray(codesForEarnings) && codesForEarnings.length > 1)
       ) {
