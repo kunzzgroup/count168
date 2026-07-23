@@ -101,6 +101,7 @@ function maintenance_mode_load_state(PDO $pdo): array
     } catch (Throwable $e) {
         error_log('maintenance_mode_load_state: ' . $e->getMessage());
         return [
+            'can_manage' => true,
             'enabled' => false,
             'maintenance_message_id' => null,
             'updated_by' => null,
@@ -110,6 +111,7 @@ function maintenance_mode_load_state(PDO $pdo): array
     }
     if (!$row) {
         return [
+            'can_manage' => true,
             'enabled' => false,
             'maintenance_message_id' => null,
             'updated_by' => null,
@@ -122,7 +124,7 @@ function maintenance_mode_load_state(PDO $pdo): array
     $preview = '';
     if ($messageId > 0) {
         try {
-            maintenanceMarqueeEnsurePrefixColumn($pdo);
+            ensureMaintenanceMarqueePrefixColumn($pdo);
             $prefixSelect = maintenanceMarqueeHasPrefixColumn($pdo) ? 'prefix' : "'' AS prefix";
             $msgStmt = $pdo->prepare(
                 "SELECT {$prefixSelect}, content
@@ -143,6 +145,7 @@ function maintenance_mode_load_state(PDO $pdo): array
     }
 
     return [
+        'can_manage' => true,
         'enabled' => ((int) ($row['maintenance_mode_enabled'] ?? 0)) === 1,
         'maintenance_message_id' => $messageId > 0 ? $messageId : null,
         'updated_by' => $row['updated_by'] ?? null,
@@ -216,10 +219,33 @@ if (!($pdo instanceof PDO)) {
 }
 
 try {
-    maintenance_mode_ensure_schema($pdo);
-    maintenance_mode_require_it($pdo);
-
     $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+
+    // Non-IT Announcement page probes mode on load — do not 403 (console noise)
+    // and do not run CREATE TABLE before the allowlist check (Hostinger metadata locks).
+    if (!isset($_SESSION['user_id'])) {
+        maintenance_mode_json_response(false, 'User not logged in', null, 401);
+        exit;
+    }
+    $loginId = (string) ($_SESSION['login_id'] ?? '');
+    if (!maintenance_gate_is_active_user_login($pdo, $loginId)) {
+        if ($method === 'GET') {
+            maintenance_mode_json_response(true, 'success', [
+                'can_manage' => false,
+                'enabled' => false,
+                'maintenance_message_id' => null,
+                'updated_by' => null,
+                'updated_at' => null,
+                'message_preview' => '',
+            ]);
+            exit;
+        }
+        maintenance_mode_json_response(false, 'No permission to manage maintenance mode', null, 403);
+        exit;
+    }
+
+    maintenance_mode_ensure_schema($pdo);
+
     if ($method === 'GET') {
         maintenance_mode_json_response(true, 'success', maintenance_mode_load_state($pdo));
         exit;

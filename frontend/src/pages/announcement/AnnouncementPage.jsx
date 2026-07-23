@@ -128,10 +128,16 @@ export default function AnnouncementPage() {
   }, [showNotice, t]);
 
   const loadMaintenanceMode = useCallback(async () => {
+    // Maintenance mode toggle is IT-only; skip probe for everyone else (avoids console 403).
+    const loginId = String(me?.login_id || "").trim().toUpperCase();
+    if (!["IT_JK", "IT_JS", "IT_MS"].includes(loginId)) {
+      setCanManageMaintenanceMode(false);
+      return;
+    }
     try {
       const res = await fetch(buildApiUrl("api/maintenance/mode_api.php"), { credentials: "include" });
       const json = await res.json();
-      if (res.status === 403) {
+      if (res.status === 403 || json?.data?.can_manage === false) {
         setCanManageMaintenanceMode(false);
         return;
       }
@@ -150,7 +156,7 @@ export default function AnnouncementPage() {
     } catch {
       setCanManageMaintenanceMode(false);
     }
-  }, []);
+  }, [me?.login_id]);
 
   const toggleMaintenanceMode = useCallback(
     async (nextEnabled) => {
