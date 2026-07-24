@@ -7,7 +7,7 @@
 | GitHub | https://github.com/kunzzgroups/count168 |
 | 代码目录 | `/var/www/count168.com` |
 | 域名 | `count168.com` / `www.count168.com` |
-| 数据库 | `c168_com`（用户 `c168_com`）— **禁止**共用 `u857194726_c168site` |
+| 数据库 | `c168_net`（用户 `c168_admin`）— **禁止**共用 `u857194726_c168site` |
 | Actions | push `main` → SSH → `bash /var/www/count168.com/deploy/deploy.sh` |
 | Secrets | `EC2_HOST` / `EC2_USER`=`ec2-user` / `EC2_SSH_KEY`（可与 .site 同机同密钥） |
 
@@ -59,8 +59,8 @@ sudo bash /var/www/count168.com/deploy/create-com-database.sh
 
 会创建：
 
-- 库：`c168_com`
-- 用户：`c168_com`@localhost / 127.0.0.1
+- 库：`c168_net`
+- 用户：`c168_admin`@localhost / 127.0.0.1
 - 若尚无 `includes/config.local.php`，会从 example 生成并写入密码
 
 然后按需导入 schema / 迁移（见仓库 `database/`）。
@@ -68,11 +68,11 @@ sudo bash /var/www/count168.com/deploy/create-com-database.sh
 ### 3B — 从 count168.site 复制一份数据（可选）
 
 ```bash
-sudo IMPORT_FROM_SITE=1 COM_DB_PASS='你的强密码' \
+sudo IMPORT_FROM_SITE=1 COM_DB_PASS='C168_site' \
   bash /var/www/count168.com/deploy/create-com-database.sh
 ```
 
-会 `mysqldump` 现有 `u857194726_c168site` 再导入 `c168_com`。之后两库独立演化，互不影响。
+会 `mysqldump` 现有 `u857194726_c168site` 再导入 `c168_net`。之后两库独立演化，互不影响。
 
 ### 3C — 手动核对 config
 
@@ -83,9 +83,9 @@ sudo nano /var/www/count168.com/includes/config.local.php
 确认：
 
 ```php
-$dbname = 'c168_com';
-$dbuser = 'c168_com';
-$dbpass = '...';
+$dbname = 'c168_net';
+$dbuser = 'c168_admin';
+$dbpass = 'C168_site';
 ```
 
 权限（Amazon Linux php-fpm 用户常为 `apache`）：
@@ -98,7 +98,7 @@ sudo chmod 640 /var/www/count168.com/includes/config.local.php
 测连接：
 
 ```bash
-mysql -u c168_com -p -h 127.0.0.1 c168_com -e "SELECT 1"
+mysql -u c168_admin -p -h 127.0.0.1 c168_net -e "SELECT 1"
 curl -sS -X POST https://count168.com/api/session/login_api.php \
   -F action=login -F company_id=TEST -F login_id=TEST -F password=x -F login_role=admin
 ```
@@ -163,7 +163,7 @@ curl -sS https://count168.com/frontend/dist/index.html | grep -o 'index-[A-Za-z0
 
 - [ ] 代码：`/var/www/count168.com` ≠ `/var/www/count168`
 - [ ] Nginx：`count168.com.conf` / `count168.com-le-ssl.conf`，无 `default_server`
-- [ ] DB：`c168_com`，`config.local.php` 未指向 `u857194726_c168site`
+- [ ] DB：`c168_net` / `c168_admin`，`config.local.php` 未指向 `u857194726_c168site`
 - [ ] Git remote：`origin` = `kunzzgroups/count168`
 - [ ] Actions Secrets 已配在 **kunzzgroups/count168** 仓库（不是 test）
 

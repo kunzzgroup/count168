@@ -7,8 +7,8 @@
 # 可选：从 .site 导出再导入（先设 IMPORT_FROM_SITE=1）
 set -euo pipefail
 
-DB_NAME="${COM_DB_NAME:-c168_com}"
-DB_USER="${COM_DB_USER:-c168_com}"
+DB_NAME="${COM_DB_NAME:-c168_net}"
+DB_USER="${COM_DB_USER:-c168_admin}"
 DB_PASS="${COM_DB_PASS:-}"
 SITE_DB="${SITE_DB_NAME:-u857194726_c168site}"
 IMPORT_FROM_SITE="${IMPORT_FROM_SITE:-0}"

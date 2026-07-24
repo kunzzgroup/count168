@@ -69,7 +69,7 @@ count168.com 基础环境已装好。还需手动完成：
 2) config.local.php
    sudo cp ${APP_ROOT}/includes/config.local.php.example ${APP_ROOT}/includes/config.local.php
    sudo nano ${APP_ROOT}/includes/config.local.php
-   # 填 c168_com / 用户 / 密码
+   # 填 c168_net / c168_admin / 密码
 
 3) DNS
    count168.com / www → 本机公网 IP
