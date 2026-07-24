@@ -1,6 +1,6 @@
 # Amazon Linux 2023 (EC2) 部署 count168
 
-> **count168.net**：请改读 [`deploy/EC2_COUNT168_NET.md`](./EC2_COUNT168_NET.md)（本文件保留给历史 `.site` / `.org` 说明）。
+> **count168.com**：请改读 [`deploy/EC2_COUNT168_COM.md`](./EC2_COUNT168_COM.md)（本文件保留给历史 `.site` / `.org` 说明）。
 
 你的实例：**Amazon Linux 2023 ARM64**（t4g.medium），公网 IP 示例：`56.68.48.190`。
 

@@ -3,10 +3,10 @@
 // 默认连接参数（可被 config.local.php 覆盖，服务器上请用 config.local.php 放真实密码）
 
 $host = '127.0.0.1';
-// count168.net 默认占位；生产务必用 config.local.php 指向独立库 c168_net
-$dbname = 'c168_net';
-$dbuser = 'c168_net';
-$dbpass = 'CHANGE_ME_NET_DB_PASSWORD';
+// count168.com 默认占位；生产务必用 config.local.php 指向独立库 c168_com
+$dbname = 'c168_com';
+$dbuser = 'c168_com';
+$dbpass = 'CHANGE_ME_COM_DB_PASSWORD';
 
 $configLocal = __DIR__ . '/config.local.php';
 if (is_readable($configLocal)) {

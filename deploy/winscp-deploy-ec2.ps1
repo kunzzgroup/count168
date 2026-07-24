@@ -111,18 +111,18 @@ $lines = @(
   "option confirm off",
   "option transfer binary",
   "open sftp://${UserName}@${HostName}/ -privatekey=`"${KeyUnix}`" -hostkey=`"${HostKey}`"",
-  "cd /var/www/count168.net",
+  "cd /var/www/count168.com",
   "lcd `"${RepoUnix}`"",
-  "call mkdir -p /var/www/count168.net/services/tx-realtime /var/www/count168.net/deploy /var/www/count168.net/api /var/www/count168.net/frontend/dist",
-  "synchronize remote -mirror -criteria=time,size `"${RepoUnix}/frontend/dist`" /var/www/count168.net/frontend/dist",
-  "synchronize remote -mirror -criteria=time,size -filemask=`"|node_modules/;.env`" `"${RepoUnix}/services/tx-realtime`" /var/www/count168.net/services/tx-realtime",
-  "synchronize remote -mirror -criteria=time,size `"${RepoUnix}/deploy`" /var/www/count168.net/deploy",
-  "synchronize remote -mirror -criteria=time,size `"${RepoUnix}/api`" /var/www/count168.net/api"
+  "call mkdir -p /var/www/count168.com/services/tx-realtime /var/www/count168.com/deploy /var/www/count168.com/api /var/www/count168.com/frontend/dist",
+  "synchronize remote -mirror -criteria=time,size `"${RepoUnix}/frontend/dist`" /var/www/count168.com/frontend/dist",
+  "synchronize remote -mirror -criteria=time,size -filemask=`"|node_modules/;.env`" `"${RepoUnix}/services/tx-realtime`" /var/www/count168.com/services/tx-realtime",
+  "synchronize remote -mirror -criteria=time,size `"${RepoUnix}/deploy`" /var/www/count168.com/deploy",
+  "synchronize remote -mirror -criteria=time,size `"${RepoUnix}/api`" /var/www/count168.com/api"
 )
 
 if (-not $SkipRealtime) {
   $lines += @(
-    "call bash -lc `"sed -i 's/\r$//' /var/www/count168.net/deploy/deploy-realtime.sh /var/www/count168.net/deploy/systemd/tx-realtime.service; chmod +x /var/www/count168.net/deploy/deploy-realtime.sh; bash /var/www/count168.net/deploy/deploy-realtime.sh`""
+    "call bash -lc `"sed -i 's/\r$//' /var/www/count168.com/deploy/deploy-realtime.sh /var/www/count168.com/deploy/systemd/tx-realtime.service; chmod +x /var/www/count168.com/deploy/deploy-realtime.sh; bash /var/www/count168.com/deploy/deploy-realtime.sh`""
   )
 }
 
@@ -145,6 +145,6 @@ try {
 
 Write-Host ""
 Write-Host "==> Deploy finished."
-Write-Host "    Site: https://count168.net/transaction/..."
+Write-Host "    Site: https://count168.com/transaction/..."
 Write-Host "    Health (on EC2): curl http://127.0.0.1:3911/health"
 Write-Host "    Log: $env:TEMP\winscp-count168.log"

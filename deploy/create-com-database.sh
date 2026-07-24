@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# 在 EC2 上创建 count168.net 专用 MariaDB 库与用户（与 .site 库隔离）
+# 在 EC2 上创建 count168.com 专用 MariaDB 库与用户（与 .site 库隔离）
 # 用法:
-#   sudo bash deploy/create-net-database.sh
-#   sudo NET_DB_PASS='强密码' bash deploy/create-net-database.sh
+#   sudo bash deploy/create-com-database.sh
+#   sudo COM_DB_PASS='强密码' bash deploy/create-com-database.sh
 #
 # 可选：从 .site 导出再导入（先设 IMPORT_FROM_SITE=1）
 set -euo pipefail
 
-DB_NAME="${NET_DB_NAME:-c168_net}"
-DB_USER="${NET_DB_USER:-c168_net}"
-DB_PASS="${NET_DB_PASS:-}"
+DB_NAME="${COM_DB_NAME:-c168_com}"
+DB_USER="${COM_DB_USER:-c168_com}"
+DB_PASS="${COM_DB_PASS:-}"
 SITE_DB="${SITE_DB_NAME:-u857194726_c168site}"
 IMPORT_FROM_SITE="${IMPORT_FROM_SITE:-0}"
 
@@ -41,10 +41,10 @@ if [[ "$IMPORT_FROM_SITE" == "1" ]]; then
   echo "==> import done"
 else
   echo "==> empty database ready（IMPORT_FROM_SITE=0）"
-  echo "    若要复制 .site 数据: sudo IMPORT_FROM_SITE=1 NET_DB_PASS='...' bash deploy/create-net-database.sh"
+  echo "    若要复制 .site 数据: sudo IMPORT_FROM_SITE=1 COM_DB_PASS='...' bash deploy/create-com-database.sh"
 fi
 
-APP_ROOT="${APP_ROOT:-/var/www/count168.net}"
+APP_ROOT="${APP_ROOT:-/var/www/count168.com}"
 EXAMPLE="${APP_ROOT}/includes/config.local.php.example"
 LOCAL_CFG="${APP_ROOT}/includes/config.local.php"
 
@@ -65,7 +65,7 @@ echo "DB_USER=${DB_USER}"
 if [[ "$GENERATED" == "1" ]]; then
   echo "DB_PASS=${DB_PASS}  (generated — save this)"
 else
-  echo "DB_PASS=(from NET_DB_PASS)"
+  echo "DB_PASS=(from COM_DB_PASS)"
 fi
 echo "config: ${LOCAL_CFG}"
 echo "========================================"

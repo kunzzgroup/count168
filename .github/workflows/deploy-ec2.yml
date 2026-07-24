@@ -5,11 +5,11 @@ on:
     branches: [main]
 
 jobs:
-  deploy-net:
-    name: count168.net
+  deploy-com:
+    name: count168.com
     runs-on: ubuntu-latest
     steps:
-      - name: SSH deploy to /var/www/count168.net
+      - name: SSH deploy to /var/www/count168.com
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -20,8 +20,8 @@ jobs:
           debug: true
           script: |
             set -euo pipefail
-            if [[ ! -f /var/www/count168.net/deploy/deploy.sh ]]; then
-              echo "ERROR: /var/www/count168.net/deploy/deploy.sh missing"
+            if [[ ! -f /var/www/count168.com/deploy/deploy.sh ]]; then
+              echo "ERROR: /var/www/count168.com/deploy/deploy.sh missing"
               exit 1
             fi
-            bash /var/www/count168.net/deploy/deploy.sh
+            bash /var/www/count168.com/deploy/deploy.sh

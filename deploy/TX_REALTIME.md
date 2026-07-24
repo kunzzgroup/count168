@@ -29,8 +29,8 @@ powershell -ExecutionPolicy Bypass -File deploy\winscp-deploy-ec2.ps1
 ### 仅在 EC2 上手动启用 SSE
 
 ```bash
-# 代码已在 /var/www/count168.net 后：
-bash /var/www/count168.net/deploy/deploy-realtime.sh
+# 代码已在 /var/www/count168.com 后：
+bash /var/www/count168.com/deploy/deploy-realtime.sh
 curl -s http://127.0.0.1:3911/health
 ```
 
@@ -52,8 +52,8 @@ npm run dev
 **权限（必查）**：Amazon Linux 上 php-fpm 用户是 `apache`。`config.local.php` 若为 `640` + 组 `nginx`，apache **读不到** secret，ticket 会一直 `enabled:false`，浏览器也不会连 `/realtime/sse`。部署脚本会设为 `ec2-user:apache` + `640`。手动修复：
 
 ```bash
-sudo chown ec2-user:apache /var/www/count168.net/includes/config.local.php
-sudo chmod 640 /var/www/count168.net/includes/config.local.php
+sudo chown ec2-user:apache /var/www/count168.com/includes/config.local.php
+sudo chmod 640 /var/www/count168.com/includes/config.local.php
 ```
 
 排障：`/realtime/health` 的 `clients` 应 ≥ 开着 Transaction Payment 的浏览器数；access log 里应有 `/realtime/sse`（不只 `realtime_ticket_api.php`）。

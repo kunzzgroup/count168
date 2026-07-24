@@ -3,14 +3,14 @@
 # Safe to re-run. Does not overwrite a non-empty existing secret.
 set -euo pipefail
 
-APP_ROOT="${APP_ROOT:-/var/www/count168.net}"
+APP_ROOT="${APP_ROOT:-/var/www/count168.com}"
 RT_DIR="${APP_ROOT}/services/tx-realtime"
 ENV_FILE="${RT_DIR}/.env"
 CFG_LOCAL="${APP_ROOT}/includes/config.local.php"
 UNIT_SRC="${APP_ROOT}/deploy/systemd/tx-realtime.service"
 UNIT_DST="/etc/systemd/system/tx-realtime.service"
-NGINX_SSL="/etc/nginx/conf.d/count168.net-le-ssl.conf"
-NGINX_PLAIN="/etc/nginx/conf.d/count168.net.conf"
+NGINX_SSL="/etc/nginx/conf.d/count168.com-le-ssl.conf"
+NGINX_PLAIN="/etc/nginx/conf.d/count168.com.conf"
 SNIPPET="${APP_ROOT}/deploy/nginx/realtime-location.inc"
 
 echo "==> tx-realtime deploy in ${RT_DIR}"

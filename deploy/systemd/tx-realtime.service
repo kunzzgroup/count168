@@ -7,8 +7,8 @@ Wants=redis.service
 Type=simple
 User=ec2-user
 Group=ec2-user
-WorkingDirectory=/var/www/count168.net/services/tx-realtime
-EnvironmentFile=-/var/www/count168.net/services/tx-realtime/.env
+WorkingDirectory=/var/www/count168.com/services/tx-realtime
+EnvironmentFile=-/var/www/count168.com/services/tx-realtime/.env
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/node server.mjs
 Restart=on-failure
