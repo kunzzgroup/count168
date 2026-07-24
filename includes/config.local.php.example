@@ -2,12 +2,14 @@
 /**
  * EC2 / 本地覆盖数据库（复制为 config.local.php，已在 .gitignore）
  *
+ * count168.net 必须使用独立库，禁止指向 count168.site 的 u857194726_c168site。
+ *
  *   cp includes/config.local.php.example includes/config.local.php
  */
 $host = '127.0.0.1';
-$dbname = 'u857194726_c168site';
-$dbuser = 'admin';
-$dbpass = 'C168_site';
+$dbname = 'c168_net';
+$dbuser = 'c168_net';
+$dbpass = 'CHANGE_ME_NET_DB_PASSWORD';
 
 // Transaction Payment realtime (SSE hub). Empty secret = disabled.
 // Must match services/tx-realtime/.env TX_REALTIME_SECRET

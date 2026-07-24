@@ -1,5 +1,7 @@
 # Amazon Linux 2023 (EC2) 部署 count168
 
+> **count168.net**：请改读 [`deploy/EC2_COUNT168_NET.md`](./EC2_COUNT168_NET.md)（本文件保留给历史 `.site` / `.org` 说明）。
+
 你的实例：**Amazon Linux 2023 ARM64**（t4g.medium），公网 IP 示例：`56.68.48.190`。
 
 我无法直接 SSH 进你的 EC2，请用 **EC2 控制台 → 连接 → EC2 Instance Connect** 粘贴命令。
