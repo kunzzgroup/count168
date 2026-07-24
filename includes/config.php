@@ -5,7 +5,7 @@
 $host = '127.0.0.1';
 // count168.com — 可被 config.local.php 覆盖；勿与 count168.site 的库共用
 $dbname = 'c168_net';
-$dbuser = 'c168_admin';
+$dbuser = 'admin';
 $dbpass = 'C168_site';
 
 $configLocal = __DIR__ . '/config.local.php';
