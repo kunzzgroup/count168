@@ -11,7 +11,7 @@
 | Actions | push `main` → SSH → `bash /var/www/count168.com/deploy/deploy.sh` |
 | Secrets | `EC2_HOST` / `EC2_USER`=`ec2-user` / `EC2_SSH_KEY`（可与 .site 同机同密钥） |
 
-同机参考：`.site` → `/var/www/count168`；`.org` → `/var/www/count168.org`（`default_server`）。**`.net` 不要 `default_server`。**
+同机参考：`.site` → `/var/www/count168`；`.org` → `/var/www/count168.org`（`default_server`）；`.net` → `/var/www/count168.net`。**`.com` 不要 `default_server`。**
 
 ---
 
@@ -155,7 +155,7 @@ curl -sS https://count168.com/frontend/dist/index.html | grep -o 'index-[A-Za-z0
 
 ## 五（附）、Transaction Payment SSE（可选）
 
-见 `deploy/TX_REALTIME.md`。同机 **.site 已跑 `tx-realtime`（3911）时，.net 先不要再起一份**，否则端口冲突。
+见 `deploy/TX_REALTIME.md`。同机 **.site / .net 已跑 `tx-realtime`（3911）时，.com 先不要再起一份**，否则端口冲突。
 
 ---
 
@@ -165,14 +165,14 @@ curl -sS https://count168.com/frontend/dist/index.html | grep -o 'index-[A-Za-z0
 - [ ] Nginx：`count168.com.conf` / `count168.com-le-ssl.conf`，无 `default_server`
 - [ ] DB：`c168_com`，`config.local.php` 未指向 `u857194726_c168site`
 - [ ] Git remote：`origin` = `kunzzgroups/count168`
-- [ ] Actions Secrets 已配在 **count168.com** 仓库（不是 test）
+- [ ] Actions Secrets 已配在 **kunzzgroups/count168** 仓库（不是 test）
 
 ---
 
 ## 七、常见问题
 
 **duplicate default_server**  
-只留给 `.org`；对 `.net`：`sudo sed -i 's/ default_server//g' /etc/nginx/conf.d/count168.com.conf`
+只留给 `.org`；对 `.com`：`sudo sed -i 's/ default_server//g' /etc/nginx/conf.d/count168.com.conf`
 
 **登录 500**  
 多半是 `config.local.php` 连错库或 php-fpm 读不到文件（权限组 `apache`）。
