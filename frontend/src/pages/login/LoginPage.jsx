@@ -11,6 +11,7 @@ import {
 import { useAuthBackground } from "./useAuthBackground.js";
 import { safeLocal, safeSession } from "../../utils/storage/safeStorage.js";
 import { extractPlainTextFromRichText } from "../../utils/content/richTextSanitizer.js";
+import PasswordInput from "../../components/PasswordInput.jsx";
 
 const LOGIN_ASSET_RETRY_KEY = "ec_login_asset_retry";
 
@@ -442,7 +443,8 @@ export default function LoginPage() {
                   placeholder={i18n.companyPlaceholder}
                   required
                   value={companyId}
-                  onChange={(e) => setCompanyId(e.target.value.toUpperCase())}
+                  onChange={(e) => setCompanyId(e.target.value)}
+                  style={{ textTransform: "uppercase" }}
                 />
               </div>
 
@@ -455,20 +457,23 @@ export default function LoginPage() {
                   placeholder={userPlaceholder}
                   required
                   value={userField}
-                  onChange={(e) => setUserField(e.target.value.toUpperCase())}
+                  onChange={(e) => setUserField(e.target.value)}
+                  style={{ textTransform: "uppercase" }}
                 />
               </div>
 
               <div className="sc-login-input-row">
                 <i className="fas fa-lock sc-login-input-icon" />
-                <input
+                <PasswordInput
                   id="password"
-                  type="password"
                   className="sc-login-input"
                   placeholder={i18n.passwordPlaceholder}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  showLabel={i18n.showPassword}
+                  hideLabel={i18n.hidePassword}
+                  autoComplete="current-password"
                 />
               </div>
 

@@ -4,30 +4,16 @@ import { LOGIN_I18N, localizeAuthApiMessage } from "../../translateFile/authTran
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import { resolveMobileLandingPath } from "../../utils/mobilePermissions.js";
 import { useAuthBackground } from "./useAuthBackground.js";
+import PasswordInput from "../../components/PasswordInput.jsx";
 
 const LOGIN_ASSET_RETRY_KEY = "ec_mobile_login_asset_retry";
 
-/** Uppercase without breaking mobile IME composition. */
+/** Uppercase display via CSS; keep raw value while typing so caret stays put. */
 function useUppercaseField(initial = "") {
   const [value, setValue] = useState(initial);
-  const composingRef = useRef(false);
 
   const onChange = useCallback((e) => {
-    const next = e.target.value;
-    if (composingRef.current) {
-      setValue(next);
-      return;
-    }
-    setValue(next.toUpperCase());
-  }, []);
-
-  const onCompositionStart = useCallback(() => {
-    composingRef.current = true;
-  }, []);
-
-  const onCompositionEnd = useCallback((e) => {
-    composingRef.current = false;
-    setValue(e.target.value.toUpperCase());
+    setValue(e.target.value);
   }, []);
 
   const onBlur = useCallback((e) => {
@@ -47,13 +33,12 @@ function useUppercaseField(initial = "") {
     fieldProps: {
       value,
       onChange,
-      onCompositionStart,
-      onCompositionEnd,
       onBlur,
       onFocus,
       autoCapitalize: "characters",
       autoCorrect: "off",
       spellCheck: false,
+      style: { textTransform: "uppercase" },
     },
   };
 }
@@ -475,9 +460,8 @@ export default function LoginPage() {
 
                 <div className="sc-login-input-row">
                   <i className="fas fa-lock sc-login-input-icon" />
-                  <input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     className="sc-login-input"
                     placeholder={i18n.passwordPlaceholder}
                     required
@@ -485,6 +469,8 @@ export default function LoginPage() {
                     enterKeyHint="go"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    showLabel={i18n.showPassword}
+                    hideLabel={i18n.hidePassword}
                     onFocus={(e) => {
                       requestAnimationFrame(() => {
                         e.target.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });

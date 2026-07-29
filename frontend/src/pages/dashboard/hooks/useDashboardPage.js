@@ -694,16 +694,18 @@ const CURRENCY_REFRESH_DEFER_MS = 600;
 /** Parallel company dashboard fetches when merging Group/Company "All". */
 const MERGE_DASHBOARD_PARALLEL_BATCH = 12;
 /** Idle delay before one-time session warm of picker companies (current currency only). */
-const SESSION_DASHBOARD_WARM_DELAY_MS = 1500;
+const SESSION_DASHBOARD_WARM_DELAY_MS = 600;
+/** Cross-group / independent company warm after active scope settles. */
+const CROSS_GROUP_COMPANY_WARM_DELAY_MS = 2000;
 /** Parallel kpi bootstrap requests when filling multi-currency earnings sidebar. */
 const EARNINGS_KPI_PARALLEL_BATCH = 3;
 /** Defer trend-chart daily fetch so MoM previous can use DB first (skip for month-bucket ranges). */
 const CHART_DAILY_DEFER_MS = 250;
-/** Sibling currency KPI warm — shorter when This Year (chart/FX feel laggy otherwise). */
-const CURRENCY_PREFETCH_DELAY_MS = 3500;
-const CURRENCY_PREFETCH_DELAY_LONG_RANGE_MS = 800;
+/** Sibling currency warm — start soon after settle so early currency clicks hit cache. */
+const CURRENCY_PREFETCH_DELAY_MS = 1200;
+const CURRENCY_PREFETCH_DELAY_LONG_RANGE_MS = 600;
 /** After Company All settles, warm picker companies (behind currency warm). */
-const COMPANY_ALL_COMPANY_WARM_DELAY_MS = 2800;
+const COMPANY_ALL_COMPANY_WARM_DELAY_MS = 1800;
 /** After picking a company, warm siblings quickly so cold CX/RS/VG feel hot. */
 const COMPANY_SWITCH_PREFETCH_DELAY_MS = 250;
 
@@ -5840,6 +5842,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       });
       setExchangeRatesError("");
       setExchangeRatesLoading(!cachedComplete);
+    } else if (displayScopeKeyRef.current) {
+      /**
+       * Currency/company swap still painting previous scope: do not blank rates.
+       * Wiping here made pie % / hero jump before KPI atomic paint landed.
+       */
+      setExchangeRatesLoading(true);
+      setExchangeRatesError("");
     } else {
       setExchangeRates({ rates: { [rateBase]: 1 }, date: null, unsupported: [], scopeKey: "" });
       setExchangeRatesLoading(true);
@@ -7264,7 +7273,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       drain();
     };
 
-    const timer = window.setTimeout(run, 4500);
+    const timer = window.setTimeout(run, CROSS_GROUP_COMPANY_WARM_DELAY_MS);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
@@ -7525,8 +7534,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     Boolean(dashboardScopeKey) && displayScopeKey !== dashboardScopeKey;
 
   /**
-   * Freeze summary inputs to the painted scope during pending — live `currencies` jumps
-   * on company pick (primeCurrenciesFromCache) and would make the pie/table update before KPI.
+   * Freeze summary inputs + FX to the painted scope during pending.
+   * Live currency reload of Frankfurter rates must not recompute pie/hero ahead of KPI.
    */
   const paintedSummaryRef = useRef({
     currencies: [],
@@ -7536,6 +7545,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     dateTo: "",
     selectedGroup: null,
     companyId: null,
+    exchangeRates: { rates: {}, date: null, unsupported: [], scopeKey: "" },
+    exchangeRatesLoading: false,
+    exchangeRatesError: "",
   });
   if (!scopeDataPending) {
     paintedSummaryRef.current = {
@@ -7546,6 +7558,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       dateTo: dateTo || "",
       selectedGroup,
       companyId,
+      exchangeRates,
+      exchangeRatesLoading,
+      exchangeRatesError,
     };
   }
   const summaryCurrencies = scopeDataPending
@@ -7555,7 +7570,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     ? paintedSummaryRef.current.earningsByCurrency
     : earningsByCurrency;
   const summaryCurrencyCode = scopeDataPending
-    ? paintedSummaryRef.current.currencyCode || currencyCode
+    ? paintedSummaryRef.current.currencyCode || ""
     : currencyCode;
   const summaryDateFrom = scopeDataPending
     ? paintedSummaryRef.current.dateFrom || dateFrom
@@ -7569,6 +7584,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const summaryCompanyId = scopeDataPending
     ? paintedSummaryRef.current.companyId
     : companyId;
+  const summaryExchangeRates = scopeDataPending
+    ? paintedSummaryRef.current.exchangeRates
+    : exchangeRates;
+  const summaryExchangeRatesLoading = scopeDataPending
+    ? false
+    : exchangeRatesLoading;
+  const summaryExchangeRatesError = scopeDataPending
+    ? paintedSummaryRef.current.exchangeRatesError
+    : exchangeRatesError;
 
   const kpi = useMemo(() => {
     const empty = {
@@ -7690,12 +7714,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     showAllCurrencies && canShowAllCurrencies ? conversionBaseCurrency : currencyCode;
 
   const kpiFooter = useMemo(() => {
+    /* Freeze caption to painted scope — live currency would update before KPI values. */
+    const paintedCurrency = summaryCurrencyCode || currencyCode;
     const cur =
       showAllCurrencies && canShowAllCurrencies
         ? `${i18n.all} · ${conversionBaseCurrency || "—"}`
-        : currencyCode || "—";
-    const from = parseYmd(dateFrom);
-    const to = parseYmd(dateTo);
+        : paintedCurrency || "—";
+    const from = parseYmd(summaryDateFrom || dateFrom);
+    const to = parseYmd(summaryDateTo || dateTo);
     if (from.getFullYear() === to.getFullYear() && from.getMonth() === to.getMonth()) {
       return `${cur} · ${formatDmyDash(to)}`;
     }
@@ -7703,11 +7729,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const right = formatDmyDash(to);
     return `${cur} · ${left} – ${right}`;
   }, [
+    summaryCurrencyCode,
     currencyCode,
     conversionBaseCurrency,
     showAllCurrencies,
     canShowAllCurrencies,
     i18n.all,
+    summaryDateFrom,
+    summaryDateTo,
     dateFrom,
     dateTo,
   ]);
@@ -7761,10 +7790,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     );
 
     const base = String(summaryCurrencyCode || "").toUpperCase();
-    const rates = exchangeRates.rates || {};
+    const rates = summaryExchangeRates.rates || {};
     const canConvert =
       summaryCurrencies.length > 1 &&
-      !exchangeRatesLoading &&
+      !summaryExchangeRatesLoading &&
       frankfurterRatesPartiallyUsable(base, summaryCurrencies, rates);
 
     return summaryCurrencies.map((code) => {
@@ -7801,9 +7830,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     kpi.showEarnings,
     kpi.earnings,
     kpi.netProfit,
-    exchangeRates.rates,
-    exchangeRatesError,
-    exchangeRatesLoading,
+    summaryExchangeRates.rates,
+    summaryExchangeRatesError,
+    summaryExchangeRatesLoading,
   ]);
 
   const allCurrencyEarningsReady = useMemo(
@@ -7820,18 +7849,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const useConvertedEarnings = useMemo(
     () =>
       summaryCurrencies.length > 1 &&
-      !exchangeRatesLoading &&
+      !summaryExchangeRatesLoading &&
       frankfurterRatesPartiallyUsable(
         summaryCurrencyCode || displayCurrencyCode,
         summaryCurrencies,
-        exchangeRates.rates || {}
+        summaryExchangeRates.rates || {}
       ),
     [
       summaryCurrencies.length,
       summaryCurrencyCode,
       displayCurrencyCode,
-      exchangeRatesLoading,
-      exchangeRates.rates,
+      summaryExchangeRatesLoading,
+      summaryExchangeRates.rates,
     ]
   );
 
@@ -7864,23 +7893,25 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       code: row.code,
       earnings: earningsPanelView === "earning" ? row.earnings : row.netProfit,
     }));
-    return sumConvertedEarnings(rows, displayCurrencyCode, exchangeRates.rates).total;
+    const base = summaryCurrencyCode || displayCurrencyCode;
+    return sumConvertedEarnings(rows, base, summaryExchangeRates.rates).total;
   }, [
     useConvertedEarnings,
     earningsCurrencyRows,
     earningsPanelView,
+    summaryCurrencyCode,
     displayCurrencyCode,
-    exchangeRates.rates,
+    summaryExchangeRates.rates,
   ]);
 
   const earningsCurrencyRowsPrev = useMemo(() => {
     if (!earningsByCurrencyPrev.length) return [];
-    const base = String(currencyCode || "").toUpperCase();
-    const rates = exchangeRates.rates || {};
+    const base = String(summaryCurrencyCode || currencyCode || "").toUpperCase();
+    const rates = summaryExchangeRates.rates || {};
     const canConvert =
-      currencies.length > 1 &&
-      !exchangeRatesLoading &&
-      frankfurterRatesPartiallyUsable(base, currencies, rates);
+      summaryCurrencies.length > 1 &&
+      !summaryExchangeRatesLoading &&
+      frankfurterRatesPartiallyUsable(base, summaryCurrencies, rates);
 
     return earningsByCurrencyPrev.map((row) => ({
       ...row,
@@ -7895,17 +7926,25 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }));
   }, [
     earningsByCurrencyPrev,
+    summaryCurrencyCode,
     currencyCode,
-    currencies.length,
-    exchangeRates.rates,
-    exchangeRatesError,
-    exchangeRatesLoading,
+    summaryCurrencies.length,
+    summaryExchangeRates.rates,
+    summaryExchangeRatesError,
+    summaryExchangeRatesLoading,
   ]);
 
   const convertedEarningsTotalPrev = useMemo(() => {
     if (!useConvertedEarnings || !earningsCurrencyRowsPrev.length) return null;
-    return sumConvertedEarnings(earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates).total;
-  }, [useConvertedEarnings, earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates]);
+    const base = summaryCurrencyCode || currencyCode;
+    return sumConvertedEarnings(earningsCurrencyRowsPrev, base, summaryExchangeRates.rates).total;
+  }, [
+    useConvertedEarnings,
+    earningsCurrencyRowsPrev,
+    summaryCurrencyCode,
+    currencyCode,
+    summaryExchangeRates.rates,
+  ]);
 
   const showNetProfitForTab = useMemo(
     () =>
@@ -7979,23 +8018,39 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }
   }, [showEarningPanelTab, showNetProfitForTab, earningsPanelView]);
 
+  /**
+   * Pie remount key — must stay on painted scope while pending.
+   * Live currency here remounts the pie before KPI cards swap (broken atomic paint).
+   */
   const exchangeRateScopeKey = useMemo(
     () =>
       [
-        companyId ?? "",
-        displayCurrencyCode ?? "",
-        [...currencies].sort().join(","),
-        dateTo ?? "",
+        summaryCompanyId ?? companyId ?? "",
+        summaryCurrencyCode || displayCurrencyCode || "",
+        [...(summaryCurrencies.length ? summaryCurrencies : currencies)].sort().join(","),
+        summaryDateTo || dateTo || "",
       ].join("|"),
-    [companyId, displayCurrencyCode, currencies, dateTo]
+    [
+      summaryCompanyId,
+      companyId,
+      summaryCurrencyCode,
+      displayCurrencyCode,
+      summaryCurrencies,
+      currencies,
+      summaryDateTo,
+      dateTo,
+    ]
   );
 
-  /** Company pill highlight follows painted data — not the in-flight selection. */
+  /**
+   * Painted-scope mirrors for summary/KPI atomic paint.
+   * Filter pills use live selection (TransactionDashboardPage) so clicks feel instant;
+   * earnings summary still consumes these frozen values until the pack lands.
+   */
   const displayCompanyId = useMemo(
     () => parsePaintedCompanyIdFromScopeKey(displayScopeKey, companyId),
     [displayScopeKey, companyId]
   );
-  /** "All" company pill follows painted scope (cache key segment 5 = groupAllMode). */
   const displayGroupAllMode = useMemo(() => {
     if (!displayScopeKey || !scopeDataPending) return groupAllMode;
     const parts = String(displayScopeKey).split("|");
@@ -8003,7 +8058,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (raw.startsWith("groupAll:") || raw === "groups:all") return true;
     return parts[5] === "1";
   }, [displayScopeKey, scopeDataPending, groupAllMode]);
-  /** Group pills freeze with painted scope while next pack loads. */
   const displaySelectedGroup = useMemo(() => {
     if (!displayScopeKey || !scopeDataPending) return selectedGroup;
     const parts = String(displayScopeKey).split("|");
@@ -8014,7 +8068,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (!displayScopeKey || !scopeDataPending) return groupsAllMode;
     return String(displayScopeKey).split("|")[0] === "groups:all";
   }, [displayScopeKey, scopeDataPending, groupsAllMode]);
-  /** Date range label freezes with painted scope (avoid "This Year" label + Month KPI). */
   const displayEffectiveDateRangeText = useMemo(() => {
     if (!scopeDataPending || !displayScopeKey) return null;
     const dates = parseDashboardCacheKeyDates(displayScopeKey);
@@ -8024,11 +8077,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (!left || !right) return null;
     return `${left} - ${right}`;
   }, [scopeDataPending, displayScopeKey]);
-  /** Currency pills freeze with painted scope — no live list leak during company switch. */
   const displayCurrencies =
     summaryCurrencies?.length > 0 ? summaryCurrencies : currencies;
+  /* Never fall through to live currency while pending — that updates pie center/hero early. */
   const displayFilterCurrencyCode = scopeDataPending
-    ? summaryCurrencyCode || displayCurrencyCode
+    ? summaryCurrencyCode || ""
     : displayCurrencyCode;
   const chartDataStable = useMemo(
     () =>
@@ -8043,7 +8096,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     summaryScopeLoading ||
     (!scopeDataPending &&
       summaryCurrencies.length > 1 &&
-      (exchangeRatesLoading ||
+      (summaryExchangeRatesLoading ||
         earningsByCurrencyLoading ||
         !allCurrencyEarningsReady ||
         (showAllCurrencies &&
@@ -8053,7 +8106,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const earningsPanelStable =
     summaryCurrencies.length <= 1 ||
     scopeDataPending ||
-    (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
+    (allCurrencyEarningsReady &&
+      !earningsByCurrencyLoading &&
+      !summaryExchangeRatesLoading);
   /**
    * True when KPI + chart (+ multi-currency earnings) are ready for the active scope.
    * Used for compare badges / panel stability — do not blank the layout while waiting.
@@ -8880,6 +8935,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     handleCurrencyDropOn,
     loading: kpiLoading,
     dashboardViewReady,
+    scopeDataPending,
     dashboardData,
     kpi,
     kpiCompareLabel,
@@ -8903,9 +8959,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     summaryEarningsLoading,
     earningsPanelStable,
     earningsByCurrencyLoading,
-    exchangeRates,
-    exchangeRatesError,
-    exchangeRatesLoading,
+    exchangeRates: summaryExchangeRates,
+    exchangeRatesError: summaryExchangeRatesError,
+    exchangeRatesLoading: summaryExchangeRatesLoading,
     exchangeRateScopeKey,
     convertedPanelTotal,
     showSummaryPanelTabs,

@@ -56,6 +56,8 @@ export default function TransactionAddSection({
   rateMiddlemanAmount,
   rateMiddlemanInputAmount,
   setRateMiddlemanInputAmount,
+  rateMiddlemanPlatformFee,
+  setRateMiddlemanPlatformFee,
   txRemark,
   setTxRemark,
   txConfirm,
@@ -384,8 +386,8 @@ export default function TransactionAddSection({
               />
             </div>
             <input
-              type="number"
-              step="0.0001"
+              type="text"
+              inputMode="decimal"
               id="rate_middleman_rate"
               className="transaction-input"
               placeholder={m.rateMultiplier}
@@ -404,6 +406,17 @@ export default function TransactionAddSection({
               value={rateMiddlemanInputAmount}
               onChange={(e) => setRateMiddlemanInputAmount(e.target.value)}
               aria-label={m.fee}
+            />
+            <input
+              type="number"
+              step="0.01"
+              id="rate_middleman_platform_fee"
+              className="transaction-input"
+              placeholder={m.platformFee}
+              disabled={mutationsBlocked}
+              value={rateMiddlemanPlatformFee}
+              onChange={(e) => setRateMiddlemanPlatformFee(e.target.value)}
+              aria-label={m.platformFee}
             />
             <input
               type="number"

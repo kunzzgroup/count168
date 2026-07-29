@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { accountCompanyPickerZIndex, accountModalOverlayZIndex } from "../../../components/ProcessModalPortal.jsx";
 import SimpleSelect from "../../../components/SimpleSelect.jsx";
 import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
+import PasswordInput from "../../../components/PasswordInput.jsx";
 
 /** Inline so first paint is 3-column even if extracted CSS applies one frame late */
 const modalBodyStyle = {
@@ -82,16 +83,25 @@ function PermissionBulkActions({ className, permissionsLocked, permDisabledMap, 
         className="btn-secondary btn-select-all"
         disabled={permissionsLocked}
         onClick={() => {
-          const n = new Set();
-          visiblePermissionKeys.forEach((k) => {
-            if (!permDisabledMap[k]) n.add(k);
+          startTransition(() => {
+            const n = new Set();
+            visiblePermissionKeys.forEach((k) => {
+              if (!permDisabledMap[k]) n.add(k);
+            });
+            setPermSelected(n);
           });
-          setPermSelected(n);
         }}
       >
         {t("selectAll")}
       </button>
-      <button type="button" className="btn-clearall" disabled={permissionsLocked} onClick={() => setPermSelected(new Set())}>
+      <button
+        type="button"
+        className="btn-clearall"
+        disabled={permissionsLocked}
+        onClick={() => {
+          startTransition(() => setPermSelected(new Set()));
+        }}
+      >
         {t("clearAll")}
       </button>
     </div>
@@ -150,6 +160,34 @@ import { sanitizeEmailInput } from "../../../utils/input/emailValidation.js";
  * 本列 props（items/selectedIds/locked 等）不变即跳过重渲染，
  * 避免上百个 checkbox 卡片在每次角色切换时全量重建。
  */
+const AccessSelectCard = React.memo(function AccessSelectCard({
+  id,
+  idPrefix,
+  primary,
+  secondary,
+  checked,
+  locked,
+  onToggle,
+}) {
+  return (
+    <label
+      className={`account-item-compact account-item-compact--process user-modal-select-card${checked ? " is-selected" : ""}${locked ? " is-disabled" : ""}`}
+    >
+      <input
+        type="checkbox"
+        id={`${idPrefix}-${id}`}
+        checked={checked}
+        disabled={locked}
+        onChange={(e) => onToggle(id, e.target.checked)}
+      />
+      <span className="account-label account-label--process">
+        {primary}
+        {secondary ? <span className="account-label-desc">{secondary}</span> : null}
+      </span>
+    </label>
+  );
+});
+
 const SelectionColumn = React.memo(function SelectionColumn({
   variant,
   title,
@@ -168,6 +206,19 @@ const SelectionColumn = React.memo(function SelectionColumn({
     variant === "account"
       ? "user-modal-col user-modal-col--account account-process-col"
       : "user-modal-col user-modal-col--process account-process-col";
+
+  const onToggle = useCallback(
+    (id, checked) => {
+      setSelectedIds((prev) => {
+        const n = new Set(prev);
+        if (checked) n.add(Number(id));
+        else n.delete(Number(id));
+        return n;
+      });
+    },
+    [setSelectedIds],
+  );
+
   return (
     <div className={colClass} style={userModalColStyle}>
       <label className="acc-proc-label user-modal-col-title">{title}</label>
@@ -179,26 +230,16 @@ const SelectionColumn = React.memo(function SelectionColumn({
           const primary = variant === "account" ? it.account_id : it.process_id;
           const secondary = variant === "account" ? it.name : it.description;
           return (
-            <label key={it.id} className="account-item-compact account-item-compact--process user-modal-select-card">
-              <input
-                type="checkbox"
-                id={`${idPrefix}-${it.id}`}
-                checked={selectedIds.has(Number(it.id))}
-                disabled={locked}
-                onChange={(e) => {
-                  setSelectedIds((prev) => {
-                    const n = new Set(prev);
-                    if (e.target.checked) n.add(Number(it.id));
-                    else n.delete(Number(it.id));
-                    return n;
-                  });
-                }}
-              />
-              <span className="account-label account-label--process">
-                {primary}
-                {secondary ? <span className="account-label-desc">{secondary}</span> : null}
-              </span>
-            </label>
+            <AccessSelectCard
+              key={it.id}
+              id={it.id}
+              idPrefix={idPrefix}
+              primary={primary}
+              secondary={secondary}
+              checked={selectedIds.has(Number(it.id))}
+              locked={locked}
+              onToggle={onToggle}
+            />
           );
         })}
       </div>
@@ -207,7 +248,7 @@ const SelectionColumn = React.memo(function SelectionColumn({
           type="button"
           className="btn-account-control"
           disabled={locked}
-          onClick={() => runBulkSelection(() => setSelectedIds(new Set(idList)))}
+          onClick={() => runBulkSelection(variant, () => setSelectedIds(new Set(idList)))}
         >
           {t("selectAll")}
         </button>
@@ -215,7 +256,7 @@ const SelectionColumn = React.memo(function SelectionColumn({
           type="button"
           className="btn-clearall"
           disabled={locked}
-          onClick={() => runBulkSelection(() => setSelectedIds(new Set()))}
+          onClick={() => runBulkSelection(variant, () => setSelectedIds(new Set()))}
         >
           {t("clearAll")}
         </button>
@@ -268,7 +309,9 @@ function UserModal({
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [permissionPickerOpen, setPermissionPickerOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState("");
-  const [bulkSelectionSettling, setBulkSelectionSettling] = useState(false);
+  const [draftSelectedCompanyIds, setDraftSelectedCompanyIds] = useState([]);
+  const [draftSelectedGroupIds, setDraftSelectedGroupIds] = useState([]);
+  const [bulkSettlingVariant, setBulkSettlingVariant] = useState(null);
   const bulkSelectionTimerRef = useRef(null);
   const { submitting, guardSubmit } = useSubmitGuard(open);
 
@@ -302,9 +345,8 @@ function UserModal({
       });
     };
 
-    // 仅在 open / accounts / processes 变化时同步一次等高。
-    // 不再挂 ResizeObserver：选 Role 导致 Read Only 显隐时列宽微变会触发
-    // 对上百张卡片 clear+getBoundingClientRect+write，是选 Role 卡顿主因之一。
+    // Defer equal-height sync until the browser is idle so Role clicks right after
+    // Add User are not blocked by hundreds of getBoundingClientRect writes.
     const syncGridCardHeights = (gridEl) => {
       if (!gridEl) return;
       const cards = gridEl.querySelectorAll(".user-modal-select-card");
@@ -328,12 +370,22 @@ function UserModal({
       syncGridCardHeights(processGridRef.current);
     };
 
-    const r1 = requestAnimationFrame(() => {
-      syncAll();
+    let idleId = 0;
+    let timeoutId = 0;
+    const rafId = requestAnimationFrame(() => {
+      if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+        idleId = window.requestIdleCallback(syncAll, { timeout: 2500 });
+      } else {
+        timeoutId = window.setTimeout(syncAll, 400);
+      }
     });
 
     return () => {
-      cancelAnimationFrame(r1);
+      cancelAnimationFrame(rafId);
+      if (idleId && typeof window !== "undefined" && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId) window.clearTimeout(timeoutId);
       clearMinHeights(accountGridRef.current);
       clearMinHeights(processGridRef.current);
     };
@@ -346,21 +398,27 @@ function UserModal({
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
+    // One idle reflow is enough — triple sync was fighting Role interaction.
+    let idleId = 0;
+    let timeoutId = 0;
     const forceReflow = () => {
       const nodes = [modalBodyRef.current, cardRef.current];
       nodes.forEach((el) => {
         if (el) void el.getBoundingClientRect();
       });
     };
-    forceReflow();
-    const a = requestAnimationFrame(() => {
-      forceReflow();
-      requestAnimationFrame(() => {
-        forceReflow();
-      });
-    });
-    return () => cancelAnimationFrame(a);
+    if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(forceReflow, { timeout: 1500 });
+    } else {
+      timeoutId = window.setTimeout(forceReflow, 200);
+    }
+    return () => {
+      if (idleId && typeof window !== "undefined" && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -373,6 +431,8 @@ function UserModal({
 
   useEffect(() => {
     if (!companyPickerOpen) return undefined;
+    setDraftSelectedCompanyIds(selectedCompanyIds);
+    setDraftSelectedGroupIds(selectedGroupIds);
     const onKey = (e) => {
       if (e.key === "Escape") {
         setCompanyPickerOpen(false);
@@ -395,11 +455,13 @@ function UserModal({
   const accountIdList = useMemo(() => modalAccounts.map((x) => Number(x.id)), [modalAccounts]);
   const processIdList = useMemo(() => modalProcesses.map((x) => Number(x.id)), [modalProcesses]);
 
-  const runBulkSelection = useCallback((update) => {
+  const runBulkSelection = useCallback((variant, update) => {
     if (bulkSelectionTimerRef.current) clearTimeout(bulkSelectionTimerRef.current);
-    setBulkSelectionSettling(true);
-    update();
-    bulkSelectionTimerRef.current = setTimeout(() => setBulkSelectionSettling(false), 120);
+    setBulkSettlingVariant(variant);
+    startTransition(() => {
+      update();
+    });
+    bulkSelectionTimerRef.current = setTimeout(() => setBulkSettlingVariant(null), 120);
   }, []);
 
   const getCompanyPickerLabel = (companyRow) => {
@@ -409,24 +471,26 @@ function UserModal({
 
   const pickerGroupRows = dualTenantPicker ? modalGroupCompanies : groupPickerMode ? modalCompanies : [];
   const pickerCompanyRows = dualTenantPicker ? modalSubsidiaryCompanies : groupPickerMode ? [] : modalCompanies;
+  const activeSelectedCompanyIds = companyPickerOpen ? draftSelectedCompanyIds : selectedCompanyIds;
+  const activeSelectedGroupIds = companyPickerOpen ? draftSelectedGroupIds : selectedGroupIds;
 
   const selectedGroupLabels = useMemo(() => {
     if (!dualTenantPicker) return [];
-    const set = new Set(selectedGroupIds.map(Number));
+    const set = new Set(activeSelectedGroupIds.map(Number));
     return pickerGroupRows
       .filter((c) => set.has(Number(c.id)))
       .map((c) => String(c?.group_id || c?.company_id || "").trim().toUpperCase())
       .filter(Boolean);
-  }, [dualTenantPicker, pickerGroupRows, selectedGroupIds]);
+  }, [dualTenantPicker, pickerGroupRows, activeSelectedGroupIds]);
 
   const selectedCompanyLabels = useMemo(() => {
-    const set = new Set(selectedCompanyIds.map(Number));
+    const set = new Set(activeSelectedCompanyIds.map(Number));
     const rows = dualTenantPicker ? pickerCompanyRows : modalCompanies;
     return rows
       .filter((c) => set.has(Number(c.id)))
       .map((c) => getCompanyPickerLabel(c))
       .filter(Boolean);
-  }, [modalCompanies, pickerCompanyRows, selectedCompanyIds, groupPickerMode, dualTenantPicker]);
+  }, [modalCompanies, pickerCompanyRows, activeSelectedCompanyIds, groupPickerMode, dualTenantPicker]);
 
   const assignmentSummaryText = useMemo(() => {
     if (dualTenantPicker) {
@@ -459,7 +523,7 @@ function UserModal({
     [pickerCompanyRows, companySearchQuery, groupPickerMode]
   );
 
-  const showProcessColumn = dualTenantPicker ? selectedCompanyIds.length > 0 : !groupPickerMode;
+  const showProcessColumn = dualTenantPicker ? activeSelectedCompanyIds.length > 0 : !groupPickerMode;
 
   const selectedPermissionLabels = useMemo(
     () => visiblePermissionKeys.filter((k) => permSelected.has(k)).map((k) => getPermissionLabel(k, t)),
@@ -508,39 +572,59 @@ function UserModal({
                     required
                     disabled={loginDisabled || pageReadOnlyLock}
                     value={form.login_id}
-                    onChange={(e) => setForm((f) => ({ ...f, login_id: e.target.value.toUpperCase() }))}
+                    onChange={(e) => setForm((f) => ({ ...f, login_id: e.target.value }))}
+                    style={{ textTransform: "uppercase" }}
                   />
                 </div>
                 {showSecondaryPassword ? (
                   <div className="form-group user-info-field password-row-container password-row-container--split">
                     <div className="password-field-wrapper">
                       <label htmlFor="password">{isEditMode ? t("password") : t("passwordRequiredMark")}</label>
-                      <input id="password" type="password" disabled={pageReadOnlyLock} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
+                      <PasswordInput
+                        id="password"
+                        disabled={pageReadOnlyLock}
+                        value={form.password}
+                        onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                        showLabel={t("showPassword")}
+                        hideLabel={t("hidePassword")}
+                        autoComplete="new-password"
+                      />
                     </div>
                     <div className="password-field-wrapper">
                       <label htmlFor="secondary_password">{t("secondaryPassword")}</label>
-                      <input
+                      <PasswordInput
                         id="secondary_password"
-                        type="password"
                         maxLength={6}
                         pattern="[0-9]{6}"
                         placeholder={t("secondaryPasswordPlaceholder")}
                         disabled={pageReadOnlyLock}
                         value={form.secondary_password}
                         onChange={(e) => setForm((f) => ({ ...f, secondary_password: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                        showLabel={t("showPassword")}
+                        hideLabel={t("hidePassword")}
+                        autoComplete="off"
+                        inputMode="numeric"
                       />
                     </div>
                   </div>
                 ) : (
                   <div className="form-group user-info-field">
                     <label htmlFor="password">{isEditMode ? t("password") : t("passwordRequiredMark")}</label>
-                    <input id="password" type="password" disabled={pageReadOnlyLock} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
+                    <PasswordInput
+                      id="password"
+                      disabled={pageReadOnlyLock}
+                      value={form.password}
+                      onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                      showLabel={t("showPassword")}
+                      hideLabel={t("hidePassword")}
+                      autoComplete="new-password"
+                    />
                   </div>
                 )}
                 <div className="user-info-field-row">
                   <div className="form-group user-info-field">
                     <label htmlFor="name">{t("nameRequired")}</label>
-                    <input id="name" required disabled={fieldLocks.name || pageReadOnlyLock} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value.toUpperCase() }))} />
+                    <input id="name" required disabled={fieldLocks.name || pageReadOnlyLock} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} style={{ textTransform: "uppercase" }} />
                   </div>
                   <div className="form-group user-info-field">
                     <label htmlFor="role">{t("roleRequired")}</label>
@@ -561,6 +645,8 @@ function UserModal({
                       options={roleOptions}
                       placeholder={t("selectRole")}
                       disabled={roleSelectDisabled || fieldLocks.role || pageReadOnlyLock}
+                      forcePortal
+                      debugOpenFail
                       required
                     />
                   </div>
@@ -700,7 +786,7 @@ function UserModal({
               setSelectedIds={setSelectedAccountIds}
               idList={accountIdList}
               locked={accountProcessLocked}
-              bulkSelectionSettling={bulkSelectionSettling}
+              bulkSelectionSettling={bulkSettlingVariant === "account"}
               runBulkSelection={runBulkSelection}
               t={t}
             />
@@ -715,7 +801,7 @@ function UserModal({
                 setSelectedIds={setSelectedProcessIds}
                 idList={processIdList}
                 locked={accountProcessLocked}
-                bulkSelectionSettling={bulkSelectionSettling}
+                bulkSelectionSettling={bulkSettlingVariant === "process"}
                 runBulkSelection={runBulkSelection}
                 t={t}
               />
@@ -798,12 +884,12 @@ function UserModal({
                   className="user-modal-company-picker-select-all"
                   disabled={fieldLocks.company || !!editingRow?.is_owner_shadow || modalCompanies.length === 0 || pageReadOnlyLock}
                   onClick={() => {
-                    if (dualTenantPicker && setSelectedGroupIds) {
-                      setSelectedGroupIds(pickerGroupRows.map((c) => Number(c.id)));
-                      setSelectedCompanyIds(pickerCompanyRows.map((c) => Number(c.id)));
+                    if (dualTenantPicker) {
+                      setDraftSelectedGroupIds(pickerGroupRows.map((c) => Number(c.id)));
+                      setDraftSelectedCompanyIds(pickerCompanyRows.map((c) => Number(c.id)));
                       return;
                     }
-                    setSelectedCompanyIds(modalCompanies.map((c) => Number(c.id)));
+                    setDraftSelectedCompanyIds(modalCompanies.map((c) => Number(c.id)));
                   }}
                 >
                   {t("selectAll")}
@@ -818,7 +904,7 @@ function UserModal({
                         {groupPickerFiltered.map((c) => {
                           const id = Number(c.id);
                           const label = String(c?.group_id || c?.company_id || "").trim().toUpperCase();
-                          const checked = selectedGroupIds.includes(id);
+                          const checked = draftSelectedGroupIds.includes(id);
                           const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
                           return (
                             <li key={`g-${c.id}`} className="user-modal-company-picker-row">
@@ -828,7 +914,7 @@ function UserModal({
                                   checked={checked}
                                   disabled={rowDisabled || !setSelectedGroupIds}
                                   onChange={() => {
-                                    setSelectedGroupIds?.((prev) => {
+                                    setDraftSelectedGroupIds((prev) => {
                                       if (prev.includes(id)) return prev.filter((x) => x !== id);
                                       return [...prev, id];
                                     });
@@ -847,7 +933,7 @@ function UserModal({
                         {companyPickerFiltered.map((c) => {
                           const id = Number(c.id);
                           const label = getCompanyPickerLabel(c);
-                          const checked = selectedCompanyIds.includes(id);
+                          const checked = draftSelectedCompanyIds.includes(id);
                           const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
                           return (
                             <li key={`c-${c.id}`} className="user-modal-company-picker-row">
@@ -857,7 +943,7 @@ function UserModal({
                                   checked={checked}
                                   disabled={rowDisabled}
                                   onChange={() => {
-                                    setSelectedCompanyIds((prev) => {
+                                    setDraftSelectedCompanyIds((prev) => {
                                       if (prev.includes(id)) return prev.filter((x) => x !== id);
                                       return [...prev, id];
                                     });
@@ -876,7 +962,7 @@ function UserModal({
                     {companyPickerFiltered.map((c) => {
                       const id = Number(c.id);
                       const label = getCompanyPickerLabel(c);
-                      const checked = selectedCompanyIds.includes(id);
+                      const checked = draftSelectedCompanyIds.includes(id);
                       const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
                       return (
                         <li key={c.id} className="user-modal-company-picker-row">
@@ -886,7 +972,7 @@ function UserModal({
                               checked={checked}
                               disabled={rowDisabled}
                               onChange={() => {
-                                setSelectedCompanyIds((prev) => {
+                                setDraftSelectedCompanyIds((prev) => {
                                   if (prev.includes(id)) return prev.filter((x) => x !== id);
                                   return [...prev, id];
                                 });
@@ -905,6 +991,10 @@ function UserModal({
                   type="button"
                   className="user-modal-company-picker-done"
                   onClick={() => {
+                    if (dualTenantPicker && setSelectedGroupIds) {
+                      setSelectedGroupIds(draftSelectedGroupIds);
+                    }
+                    setSelectedCompanyIds(draftSelectedCompanyIds);
                     setCompanyPickerOpen(false);
                     setCompanySearchQuery("");
                   }}
@@ -957,11 +1047,13 @@ function UserModal({
                         className="btn-secondary btn-select-all"
                         disabled={permissionsLocked}
                         onClick={() => {
-                          const n = new Set();
-                          visiblePermissionKeys.forEach((k) => {
-                            if (!permDisabledMap[k]) n.add(k);
+                          startTransition(() => {
+                            const n = new Set();
+                            visiblePermissionKeys.forEach((k) => {
+                              if (!permDisabledMap[k]) n.add(k);
+                            });
+                            setPermSelected(n);
                           });
-                          setPermSelected(n);
                         }}
                       >
                         {t("selectAll")}
@@ -970,7 +1062,9 @@ function UserModal({
                         type="button"
                         className="btn-clearall"
                         disabled={permissionsLocked}
-                        onClick={() => setPermSelected(new Set())}
+                        onClick={() => {
+                          startTransition(() => setPermSelected(new Set()));
+                        }}
                       >
                         {t("clearAll")}
                       </button>

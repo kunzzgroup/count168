@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MobileShell from "../../components/layout/MobileShell.jsx";
+import MobileSubpageHeader from "../../components/layout/MobileSubpageHeader.jsx";
 import { useIncrementalList } from "../../hooks/useIncrementalList.js";
 import { useMaintenanceSession } from "../../hooks/useMaintenanceSession.js";
 import {
-  fetchMaintenanceCategories,
   formatMaintenanceAmount,
-  pickMaintenanceCategory,
   searchTransactionMaintenance,
 } from "../../lib/maintenanceApi.js";
 import {
@@ -33,6 +32,9 @@ const SEARCH_FIELDS = [
   "dts_created",
 ];
 
+/** Transaction Maintenance is Games-only on mobile (no Category filter). */
+const TXN_CATEGORY = "Games";
+
 function matchesQuery(row, q) {
   if (!q) return true;
   return SEARCH_FIELDS.some((f) => String(row?.[f] ?? "").toUpperCase().includes(q));
@@ -45,8 +47,6 @@ export default function MaintenanceTransactionPage() {
   const [dateFrom, setDateFrom] = useState(todayYmd);
   const [dateTo, setDateTo] = useState(todayYmd);
   const [activePreset, setActivePreset] = useState("today");
-  const [category, setCategory] = useState("Games");
-  const [categories, setCategories] = useState([]);
   const [process, setProcess] = useState("");
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState([]);
@@ -55,8 +55,6 @@ export default function MaintenanceTransactionPage() {
   const [filterOpen, setFilterOpen] = useState(false);
 
   const seqRef = useRef(0);
-  const categoryRef = useRef(category);
-  categoryRef.current = category;
   const scopeReady = maintenanceScopeIsReady(scope);
   const scopeCacheKey = maintenanceScopeKey(scope);
 
@@ -71,7 +69,7 @@ export default function MaintenanceTransactionPage() {
           scope,
           dateFrom: ymdToDmy(dateFrom),
           dateTo: ymdToDmy(dateTo),
-          category,
+          category: TXN_CATEGORY,
           process,
           signal,
         });
@@ -85,7 +83,7 @@ export default function MaintenanceTransactionPage() {
         if (seq === seqRef.current) setListLoading(false);
       }
     },
-    [scope, scopeReady, dateFrom, dateTo, category, process, i18n.loadFailed],
+    [scope, scopeReady, dateFrom, dateTo, process, i18n.loadFailed],
   );
 
   useEffect(() => {
@@ -94,36 +92,7 @@ export default function MaintenanceTransactionPage() {
     loadList(ac.signal);
     return () => ac.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [s.me, scopeCacheKey, dateFrom, dateTo, category, process]);
-
-  /**
-   * Category options follow company permissions (desktop parity). Group mode
-   * uses the group's first company as permissions anchor, like desktop.
-   */
-  useEffect(() => {
-    if (!s.me || !scopeReady) return undefined;
-    const anchor = s.groupMode
-      ? s.companies.find(
-          (c) =>
-            String(c.group_id || "").trim().toUpperCase() ===
-            String(s.selectedGroup || "").trim().toUpperCase(),
-        )
-      : s.selectedCompany;
-    const code = String(anchor?.company_id || "").trim();
-    const ac = new AbortController();
-    fetchMaintenanceCategories(code, ac.signal)
-      .then((list) => {
-        setCategories(list);
-        const next = pickMaintenanceCategory(list, categoryRef.current);
-        if (next !== categoryRef.current) {
-          setCategory(next);
-          setProcess("");
-        }
-      })
-      .catch(() => {});
-    return () => ac.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [s.me, scopeCacheKey]);
+  }, [s.me, scopeCacheKey, dateFrom, dateTo, process]);
 
   const displayRows = useMemo(() => {
     const q = query.trim().toUpperCase();
@@ -137,6 +106,17 @@ export default function MaintenanceTransactionPage() {
 
   const stickyBar = (
     <div className="m-mt-sticky">
+      <MobileSubpageHeader
+        backTo="/maintenance"
+        backAriaLabel={i18n.backToHub}
+        title={i18n.txMaintenanceTitle}
+        search={{
+          value: query,
+          onChange: setQuery,
+          placeholder: i18n.searchPlaceholder,
+          clearAriaLabel: i18n.reset,
+        }}
+      />
       <MaintenanceFilterBar
         i18n={i18n}
         dateFrom={dateFrom}
@@ -146,20 +126,6 @@ export default function MaintenanceTransactionPage() {
         selectedCompany={s.selectedCompany}
         onOpen={() => setFilterOpen(true)}
       />
-      <div className="m-mt-search">
-        <i className="fas fa-magnifying-glass" aria-hidden="true" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={i18n.searchPlaceholder}
-          inputMode="search"
-        />
-        {query ? (
-          <button type="button" onClick={() => setQuery("")} aria-label={i18n.reset}>
-            <i className="fas fa-xmark" aria-hidden="true" />
-          </button>
-        ) : null}
-      </div>
     </div>
   );
 
@@ -191,8 +157,6 @@ export default function MaintenanceTransactionPage() {
           companies={s.companies}
           groupIds={s.groupIds}
           allowedGroupIds={s.allowedGroupIds}
-          categories={categories}
-          category={category}
           withProcess
           process={process}
           readOnlyNote
@@ -211,7 +175,6 @@ export default function MaintenanceTransactionPage() {
             setDateFrom(next.dateFrom);
             setDateTo(next.dateTo);
             setActivePreset(next.activePreset);
-            setCategory(next.category || "Games");
             setProcess(next.process ?? "");
           }}
         />
