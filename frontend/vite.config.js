@@ -40,7 +40,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: "dist",
-      emptyOutDir: false,
+      emptyOutDir: true,
     },
   };
 });
