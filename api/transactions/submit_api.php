@@ -103,10 +103,10 @@ function submitTrunc2($value): string
     return money_normalize($value ?? '0', 2);
 }
 
-/** 非 RATE 入库小数位上限（展示仍由前端 round 2）。 */
+/** 非 RATE 入库小数位上限（展示仍由前端 half-up 2）。 */
 const SUBMIT_STORE_SCALE_DEFAULT = 6;
-/** RATE 入库小数位上限（展示仍由前端 round 2）。 */
-const SUBMIT_STORE_SCALE_RATE = 8;
+/** RATE 入库小数位上限（展示仍由前端 half-up 2；算法/入库用 6 位精度）。 */
+const SUBMIT_STORE_SCALE_RATE = 6;
 
 /**
  * 交易入库金额按指定精度保存（截断/规范化，不做 round-2）。
@@ -121,7 +121,7 @@ function submitStoreAmount($value, int $scale = SUBMIT_STORE_SCALE_DEFAULT): str
 }
 
 /**
- * @deprecated RATE 入库已改为 submitStoreAmount(..., 8)；保留函数避免外部误用旧语义。
+ * @deprecated RATE 入库已改为 submitStoreAmount(..., 6)；保留函数避免外部误用旧语义。
  */
 function submitRateRound2($value): string
 {
@@ -262,7 +262,7 @@ try {
     $from_account_id = !empty($_POST['from_account_id']) ? (int)$_POST['from_account_id'] : null;
     $rawAmount = $_POST['amount'] ?? '0';
     submitEnsureNumericOrEmpty($rawAmount, 'Amount');
-    // RATE 金额以 rate_* 字段为准（最多 8 位）；非 RATE 入库最多 6 位。均不做 round-2。
+    // RATE 金额以 rate_* 字段为准（最多 6 位）；非 RATE 入库最多 6 位。均不做 round-2。
     $is_rate_amount = ($transaction_type === 'RATE');
     $amountStoreScale = $is_rate_amount ? SUBMIT_STORE_SCALE_RATE : SUBMIT_STORE_SCALE_DEFAULT;
     submitEnsureAmountMaxDecimals($rawAmount, $amountStoreScale, 'Amount');
@@ -440,70 +440,27 @@ try {
                 throw new Exception('RATE 交易的金额必须大于 0');
             }
             
-            // 验证账户（支持 account_company 表）
-            // 检查 account_company 表是否存在
-            $has_account_company_table = false;
-            try {
-                $check_stmt = $pdo->query("SHOW TABLES LIKE 'account_company'");
-                $has_account_company_table = $check_stmt->rowCount() > 0;
-            } catch (PDOException $e) {
-                $has_account_company_table = false;
-            }
-            
-            // 验证 Rate From Account（只使用 account_company 表）
-            $stmt = $pdo->prepare("
-                SELECT a.id, a.account_id, a.name 
-                FROM account a
-                INNER JOIN account_company ac ON a.id = ac.account_id
-                WHERE a.id = ? AND ac.company_id = ?
-            ");
-            $stmt->execute([$rate_from_account_id, $company_id]);
-            $rate_from_account = $stmt->fetch(PDO::FETCH_ASSOC);
+            // 验证账户 / 币种（Group ledger vs 子公司 — 禁止硬绑 company_id）
+            $rate_from_account = tx_fetch_account_row($pdo, (int) $rate_from_account_id, $listScope);
             if (!$rate_from_account) {
-                throw new Exception('Rate From Account 不存在或不属于当前公司');
+                throw new Exception('Rate From Account 不存在或不属于当前范围');
             }
-            
-            // 验证 Rate To Account（只使用 account_company 表）
-            $stmt = $pdo->prepare("
-                SELECT a.id, a.account_id, a.name 
-                FROM account a
-                INNER JOIN account_company ac ON a.id = ac.account_id
-                WHERE a.id = ? AND ac.company_id = ?
-            ");
-            $stmt->execute([$rate_to_account_id, $company_id]);
-            $rate_to_account = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $rate_to_account = tx_fetch_account_row($pdo, (int) $rate_to_account_id, $listScope);
             if (!$rate_to_account) {
-                throw new Exception('Rate To Account 不存在或不属于当前公司');
+                throw new Exception('Rate To Account 不存在或不属于当前范围');
             }
-            
-            // 验证 currency 并获取 currency_id，如果不存在则自动创建
-            $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
-            $stmt->execute([$rate_from_currency, $company_id]);
-            $rate_from_currency_id = $stmt->fetchColumn();
-            if (!$rate_from_currency_id) {
-                // 自动创建 currency 到当前公司
-                $currencyCode = strtoupper(trim($rate_from_currency));
-                if (strlen($currencyCode) > 10) {
-                    throw new Exception('Rate From Currency code 长度不能超过 10 个字符');
-                }
-                $stmt = $pdo->prepare("INSERT INTO currency (code, company_id) VALUES (?, ?)");
-                $stmt->execute([$currencyCode, $company_id]);
-                $rate_from_currency_id = $pdo->lastInsertId();
+
+            if ($rate_from_currency === '' || $rate_to_currency === '') {
+                throw new Exception('RATE 交易必须填写 From/To Currency');
             }
-            
-            $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
-            $stmt->execute([$rate_to_currency, $company_id]);
-            $rate_to_currency_id = $stmt->fetchColumn();
-            if (!$rate_to_currency_id) {
-                // 自动创建 currency 到当前公司
-                $currencyCode = strtoupper(trim($rate_to_currency));
-                if (strlen($currencyCode) > 10) {
-                    throw new Exception('Rate To Currency code 长度不能超过 10 个字符');
-                }
-                $stmt = $pdo->prepare("INSERT INTO currency (code, company_id) VALUES (?, ?)");
-                $stmt->execute([$currencyCode, $company_id]);
-                $rate_to_currency_id = $pdo->lastInsertId();
-            }
+            $rate_from_currency_id = tx_resolve_currency_id_for_scope($pdo, $rate_from_currency, $listScope);
+            $rate_to_currency_id = tx_resolve_currency_id_for_scope($pdo, $rate_to_currency, $listScope);
+
+            // Child tables: nullable company_id — empty Group uses NULL, never 0.
+            $rateCompanyFk = $company_id > 0 ? $company_id : null;
+            // Remap for remaining RATE inserts/entries in this branch (RATE returns before non-RATE else).
+            $company_id = $rateCompanyFk;
             
             $transaction_ids = [];
             
@@ -528,11 +485,24 @@ try {
             }
 
             // Service Fee:
-            // - Desktop sends rate_service_fee_amount → insert RATE_FEE once on Select From (no sms remark).
-            // - Mobile / legacy (no rate_service_fee_amount) → sms remark only (unchanged).
+            // - 现行桌面：Fee 已含在 To/From 金额，默认**永不**写 From 的 RATE_FEE（避免旧缓存 JS 仍发 rate_service_fee_amount）。
+            // - 仅当显式 rate_write_from_service_fee=1 时才写 RATE_FEE（紧急回滚用）。
+            // - Mobile / legacy：无 skip 时仍可用 sms Remark。
             $rate_middleman_input_amount = !empty($_POST['rate_middleman_input_amount']) ? money_normalize($_POST['rate_middleman_input_amount']) : null;
             $rate_middleman_platform_fee = !empty($_POST['rate_middleman_platform_fee']) ? money_normalize($_POST['rate_middleman_platform_fee']) : null;
-            $rate_service_fee_amount = !empty($_POST['rate_service_fee_amount'])
+            $rate_skip_from_service_fee = !empty($_POST['rate_skip_from_service_fee'])
+                && (
+                    $_POST['rate_skip_from_service_fee'] === '1'
+                    || $_POST['rate_skip_from_service_fee'] === 1
+                    || $_POST['rate_skip_from_service_fee'] === true
+                );
+            $rate_write_from_service_fee = !empty($_POST['rate_write_from_service_fee'])
+                && (
+                    $_POST['rate_write_from_service_fee'] === '1'
+                    || $_POST['rate_write_from_service_fee'] === 1
+                    || $_POST['rate_write_from_service_fee'] === true
+                );
+            $rate_service_fee_amount = $rate_write_from_service_fee && !empty($_POST['rate_service_fee_amount'])
                 ? submitStoreAmount($_POST['rate_service_fee_amount'], SUBMIT_STORE_SCALE_RATE)
                 : null;
             $rate_service_fee_description = trim($_POST['rate_service_fee_description'] ?? '');
@@ -548,7 +518,12 @@ try {
                     }
                     $rate_service_fee_description = 'charge ' . $feeCurrency . ' ' . $feeDisplay . ' Service Fees';
                 }
-            } elseif ($rate_middleman_input_amount !== null && money_cmp($rate_middleman_input_amount, '0') > 0) {
+            } elseif (
+                !$rate_skip_from_service_fee
+                && !$rate_write_from_service_fee
+                && $rate_middleman_input_amount !== null
+                && money_cmp($rate_middleman_input_amount, '0') > 0
+            ) {
                 $feeCurrency = trim((string) $rate_to_currency);
                 if ($feeCurrency !== '') {
                     $feeDisplay = $rate_middleman_input_amount;
@@ -582,21 +557,15 @@ try {
             $rate_middleman_account_id = !empty($_POST['rate_middleman_account_id']) ? (int)$_POST['rate_middleman_account_id'] : null;
             if (
                 $rate_platform_fee_amount !== null
-                && money_cmp($rate_platform_fee_amount, '0') < 0
+                && money_cmp($rate_platform_fee_amount, '0') > 0
                 && !$rate_middleman_account_id
             ) {
-                throw new Exception('负数 Platform Fee 必须选择 Middle-Man Account');
+                throw new Exception('Platform Fee 必须选择 Middle-Man Account');
             }
-            if ($rate_platform_fee_amount !== null && money_cmp($rate_platform_fee_amount, '0') < 0) {
-                $stmt = $pdo->prepare("
-                    SELECT 1
-                    FROM account_company
-                    WHERE account_id = ? AND company_id = ?
-                    LIMIT 1
-                ");
-                $stmt->execute([$rate_middleman_account_id, $company_id]);
-                if (!$stmt->fetchColumn()) {
-                    throw new Exception('Rate Middleman Account 不存在或不属于当前公司');
+            if ($rate_platform_fee_amount !== null && money_cmp($rate_platform_fee_amount, '0') > 0) {
+                $mm = tx_fetch_account_row($pdo, (int) $rate_middleman_account_id, $listScope);
+                if (!$mm) {
+                    throw new Exception('Rate Middleman Account 不存在或不属于当前范围');
                 }
             }
             $rate_middleman_amount = !empty($_POST['rate_middleman_amount']) ? submitStoreAmount($_POST['rate_middleman_amount'], SUBMIT_STORE_SCALE_RATE) : null;
@@ -619,7 +588,7 @@ try {
 
             // RATE 主记录（默认视为已批准）
             $rateHeader = [
-                'company_id' => $company_id,
+                'company_id' => $rateCompanyFk,
                 'transaction_type' => 'RATE',
                 'account_id' => $rate_to_account_id,
                 'from_account_id' => $rate_from_account_id,
@@ -645,44 +614,24 @@ try {
                     $rateHeader['approved_at'] = date('Y-m-d H:i:s');
                 }
             }
+            tx_apply_scope_columns_to_row($pdo, $rateHeader, $listScope);
+            if (!array_key_exists('company_id', $rateHeader)) {
+                $rateHeader['company_id'] = $rateCompanyFk;
+            }
 
             $main_transaction_id = insertTransactionRow($pdo, $rateHeader);
             $transaction_ids[] = $main_transaction_id;
             
             $rate_transfer_currency = $rate_transfer_to_currency ?: $rate_to_currency;
             if ($rate_transfer_currency) {
-                $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
-                $stmt->execute([$rate_transfer_currency, $company_id]);
-                $rate_transfer_currency_id = $stmt->fetchColumn();
-                if (!$rate_transfer_currency_id) {
-                    // 自动创建 currency 到当前公司
-                    $currencyCode = strtoupper(trim($rate_transfer_currency));
-                    if (strlen($currencyCode) > 10) {
-                        throw new Exception('Rate Transfer Currency code 长度不能超过 10 个字符');
-                    }
-                    $stmt = $pdo->prepare("INSERT INTO currency (code, company_id) VALUES (?, ?)");
-                    $stmt->execute([$currencyCode, $company_id]);
-                    $rate_transfer_currency_id = $pdo->lastInsertId();
-                }
+                $rate_transfer_currency_id = tx_resolve_currency_id_for_scope($pdo, $rate_transfer_currency, $listScope);
             } else {
                 $rate_transfer_currency_id = $rate_to_currency_id;
             }
             
             if ($rate_middleman_account_id) {
                 if ($rate_middleman_currency) {
-                    $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
-                    $stmt->execute([$rate_middleman_currency, $company_id]);
-                    $rate_middleman_currency_id = $stmt->fetchColumn();
-                    if (!$rate_middleman_currency_id) {
-                        // 自动创建 currency 到当前公司
-                        $currencyCode = strtoupper(trim($rate_middleman_currency));
-                        if (strlen($currencyCode) > 10) {
-                            throw new Exception('Rate Middleman Currency code 长度不能超过 10 个字符');
-                        }
-                        $stmt = $pdo->prepare("INSERT INTO currency (code, company_id) VALUES (?, ?)");
-                        $stmt->execute([$currencyCode, $company_id]);
-                        $rate_middleman_currency_id = $pdo->lastInsertId();
-                    }
+                    $rate_middleman_currency_id = tx_resolve_currency_id_for_scope($pdo, $rate_middleman_currency, $listScope);
                 } else {
                     $rate_middleman_currency_id = $rate_transfer_currency_id;
                 }
@@ -702,7 +651,7 @@ try {
             
             $stmt->execute([
                 $main_transaction_id,
-                $company_id,
+                $rateCompanyFk,
                 $rate_group_id,
                 $rate_from_account_id,
                 $rate_to_account_id,
@@ -731,13 +680,13 @@ try {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
             
             $details_stmt->execute([
-                $rate_group_id, $main_transaction_id, $company_id, 'first_from',
+                $rate_group_id, $main_transaction_id, $rateCompanyFk, 'first_from',
                 $rate_from_account_id, null, $rate_from_amount, $rate_from_currency_id,
                 $rate_from_description
             ]);
             
             $details_stmt->execute([
-                $rate_group_id, $main_transaction_id, $company_id, 'first_to',
+                $rate_group_id, $main_transaction_id, $rateCompanyFk, 'first_to',
                 // 第一行两个 Account 都跟随第一个币种（例如 SGD），金额都是 rate_from_amount（例如 100）
                 $rate_to_account_id, null, $rate_from_amount, $rate_from_currency_id,
                 $rate_to_description
@@ -748,31 +697,15 @@ try {
                     throw new Exception('Transfer Account 必须填写金额');
                 }
                 
-                // 验证 Transfer 账户（只使用 account_company 表）
-                $stmt = $pdo->prepare("
-                    SELECT a.id, a.account_id, a.name 
-                    FROM account a
-                    INNER JOIN account_company ac ON a.id = ac.account_id
-                    WHERE a.id = ? AND ac.company_id = ?
-                ");
-                $stmt->execute([$rate_transfer_from_account_id, $company_id]);
-                if (!$stmt->fetchColumn()) {
-                    throw new Exception('Rate Transfer From Account 不存在或不属于当前公司');
+                if (!tx_fetch_account_row($pdo, (int) $rate_transfer_from_account_id, $listScope)) {
+                    throw new Exception('Rate Transfer From Account 不存在或不属于当前范围');
                 }
-                
-                $stmt = $pdo->prepare("
-                    SELECT a.id, a.account_id, a.name 
-                    FROM account a
-                    INNER JOIN account_company ac ON a.id = ac.account_id
-                    WHERE a.id = ? AND ac.company_id = ?
-                ");
-                $stmt->execute([$rate_transfer_to_account_id, $company_id]);
-                if (!$stmt->fetchColumn()) {
-                    throw new Exception('Rate Transfer To Account 不存在或不属于当前公司');
+                if (!tx_fetch_account_row($pdo, (int) $rate_transfer_to_account_id, $listScope)) {
+                    throw new Exception('Rate Transfer To Account 不存在或不属于当前范围');
                 }
                 
                 $rateTransfer = [
-                    'company_id' => $company_id,
+                    'company_id' => $rateCompanyFk,
                     'transaction_type' => 'RATE',
                     'account_id' => $rate_transfer_to_account_id,
                     'from_account_id' => $rate_transfer_from_account_id,
@@ -798,38 +731,34 @@ try {
                         $rateTransfer['approved_at'] = date('Y-m-d H:i:s');
                     }
                 }
+                tx_apply_scope_columns_to_row($pdo, $rateTransfer, $listScope);
+                if (!array_key_exists('company_id', $rateTransfer)) {
+                    $rateTransfer['company_id'] = $rateCompanyFk;
+                }
                 $transfer_transaction_id = insertTransactionRow($pdo, $rateTransfer);
                 $transaction_ids[] = $transfer_transaction_id;
                 
                 $details_stmt->execute([
-                $rate_group_id, $transfer_transaction_id, $company_id, 'transfer_from',
+                $rate_group_id, $transfer_transaction_id, $rateCompanyFk, 'transfer_from',
                     $rate_transfer_from_account_id, $rate_transfer_from_account_id,
                     $rate_transfer_from_amount, $rate_transfer_currency_id,
                     $rate_transfer_from_description
                 ]);
                 
                 $details_stmt->execute([
-                $rate_group_id, $transfer_transaction_id, $company_id, 'transfer_to',
+                $rate_group_id, $transfer_transaction_id, $rateCompanyFk, 'transfer_to',
                     $rate_transfer_to_account_id, null,
                     $rate_transfer_to_amount, $rate_transfer_currency_id,
                     $rate_transfer_to_description
                 ]);
                 
                 if ($rate_middleman_account_id && $rate_middleman_amount !== null && money_cmp($rate_middleman_amount, '0') > 0) {
-                    // 验证 Middleman 账户（只使用 account_company 表）
-                    $stmt = $pdo->prepare("
-                        SELECT a.id, a.account_id, a.name 
-                        FROM account a
-                        INNER JOIN account_company ac ON a.id = ac.account_id
-                        WHERE a.id = ? AND ac.company_id = ?
-                    ");
-                    $stmt->execute([$rate_middleman_account_id, $company_id]);
-                    if (!$stmt->fetchColumn()) {
-                        throw new Exception('Rate Middleman Account 不存在或不属于当前公司');
+                    if (!tx_fetch_account_row($pdo, (int) $rate_middleman_account_id, $listScope)) {
+                        throw new Exception('Rate Middleman Account 不存在或不属于当前范围');
                     }
                     
                     $rateMiddle = [
-                        'company_id' => $company_id,
+                        'company_id' => $rateCompanyFk,
                         'transaction_type' => 'RATE',
                         'account_id' => $rate_middleman_account_id,
                         'from_account_id' => null,
@@ -855,11 +784,15 @@ try {
                             $rateMiddle['approved_at'] = date('Y-m-d H:i:s');
                         }
                     }
+                    tx_apply_scope_columns_to_row($pdo, $rateMiddle, $listScope);
+                    if (!array_key_exists('company_id', $rateMiddle)) {
+                        $rateMiddle['company_id'] = $rateCompanyFk;
+                    }
                     $middleman_transaction_id = insertTransactionRow($pdo, $rateMiddle);
                     $transaction_ids[] = $middleman_transaction_id;
                     
                     $details_stmt->execute([
-                    $rate_group_id, $middleman_transaction_id, $company_id, 'middleman',
+                    $rate_group_id, $middleman_transaction_id, $rateCompanyFk, 'middleman',
                         $rate_middleman_account_id, null,
                         $rate_middleman_amount, $rate_middleman_currency_id,
                         $rate_middleman_description
@@ -871,7 +804,7 @@ try {
                     $middleman_deduction = submitStoreAmount(money_sub($rate_transfer_from_amount, $rate_transfer_to_amount, SUBMIT_STORE_SCALE_RATE), SUBMIT_STORE_SCALE_RATE);
                     if (money_cmp($middleman_deduction, '0.01') > 0) {
                         $rateDeduct = [
-                            'company_id' => $company_id,
+                            'company_id' => $rateCompanyFk,
                             'transaction_type' => 'RATE',
                             'account_id' => $rate_transfer_from_account_id,
                             'from_account_id' => $rate_transfer_from_account_id,
@@ -896,6 +829,10 @@ try {
                             if (tableHasColumn($pdo, 'transactions', 'approved_at')) {
                                 $rateDeduct['approved_at'] = date('Y-m-d H:i:s');
                             }
+                        }
+                        tx_apply_scope_columns_to_row($pdo, $rateDeduct, $listScope);
+                        if (!array_key_exists('company_id', $rateDeduct)) {
+                            $rateDeduct['company_id'] = $rateCompanyFk;
                         }
                         $middleman_deduction_transaction_id = insertTransactionRow($pdo, $rateDeduct);
                         $transaction_ids[] = $middleman_deduction_transaction_id;
@@ -977,10 +914,10 @@ try {
                         $rate_transfer_to_description
                     ]);
 
-                    // Desktop Service Fee：独立 RATE_FEE（正数）挂 Select From；仅当 POST 带 rate_service_fee_amount。
-                    // From 腿金额已由前端扣掉 Service Fee，此处只写一次，避免双计。
+                    // Service Fee 分录：默认不写。仅显式 rate_write_from_service_fee=1 时插入（现行桌面不发该旗标）。
                     if (
-                        $rate_service_fee_amount !== null
+                        $rate_write_from_service_fee
+                        && $rate_service_fee_amount !== null
                         && money_cmp($rate_service_fee_amount, '0') > 0
                         && (int) $rate_transfer_to_account_id > 0
                     ) {
@@ -998,10 +935,17 @@ try {
                     }
 
                     // Middle-man：第二币种 Win/Loss（如果存在）
-                    // 负 PT-Fee：不另开 RATE_PLATFORM_FEE（金额已含在 middleman profit），改挂 Remark。
-                    // 正 PT-Fee：已扣在 From 腿金额，不进 Middle；不再写 RATE_PLATFORM_FEE。
-                    $platformFeeIsNegative =
-                        $rate_platform_fee_amount !== null && money_cmp($rate_platform_fee_amount, '0') < 0;
+                    // PT-Fee > 0：Middle = Fee−PT（前端已算好 middleman_amount）。
+                    //   - 桌面 rate_platform_fee_from_credit=1 → From 上写正数 RATE_PLATFORM_FEE，无 Middle Remark
+                    //   - Mobile/旧路径 → Middle Remark（[[PFEE_REMARK]]）或 fallback 负数 Fee 挂 Middle
+                    $platformFeeActive =
+                        $rate_platform_fee_amount !== null && money_cmp($rate_platform_fee_amount, '0') > 0;
+                    $platformFeeFromCredit = !empty($_POST['rate_platform_fee_from_credit'])
+                        && (
+                            $_POST['rate_platform_fee_from_credit'] === '1'
+                            || $_POST['rate_platform_fee_from_credit'] === 1
+                            || $_POST['rate_platform_fee_from_credit'] === true
+                        );
                     $platformFeeRemarkText = $rate_platform_fee_description !== ''
                         ? $rate_platform_fee_description
                         : 'charge PlatForm Fee';
@@ -1011,7 +955,8 @@ try {
                         $middleAmount = submitStoreAmount($rate_middleman_amount, SUBMIT_STORE_SCALE_RATE);
                         $middleCurrencyId = (int)$rate_middleman_currency_id ?: $myrCurrencyId;
                         $middleEntryDescription = $rate_middleman_description;
-                        if ($platformFeeIsNegative) {
+                        // Mobile/legacy remark path only（桌面 PT-Fee 已改 From Fee 行）
+                        if ($platformFeeActive && !$platformFeeFromCredit) {
                             $middleEntryDescription = rtrim((string) $rate_middleman_description)
                                 . "\n[[PFEE_REMARK]]"
                                 . $platformFeeRemarkText;
@@ -1029,9 +974,20 @@ try {
                         $middlemanRowInserted = true;
                     }
 
-                    // 正 PT-Fee：永不写 RATE_PLATFORM_FEE（已体现在 From 扣减；不进 Middle）。
-                    // 负 PT-Fee：优先 Remark on MIDDLEMAN；若无 Middle-Man 行则 fallback 写 Fee 挂 Middle-Man。
-                    if ($platformFeeIsNegative && !$middlemanRowInserted && $rate_middleman_account_id) {
+                    // 桌面 PT-Fee > 0：Select From 上独立 Fee 行，金额为正数 +PT
+                    if ($platformFeeActive && $platformFeeFromCredit && (int) $rate_transfer_to_account_id > 0) {
+                        $platformFeeLedgerAmount = money_abs($rate_platform_fee_amount);
+                        $entryStmt->execute([
+                            $main_transaction_id,
+                            $company_id,
+                            (int) $rate_transfer_to_account_id,
+                            $myrCurrencyId,
+                            submitStoreAmount($platformFeeLedgerAmount, SUBMIT_STORE_SCALE_RATE),
+                            'RATE_PLATFORM_FEE',
+                            $platformFeeRemarkText
+                        ]);
+                    } elseif ($platformFeeActive && !$platformFeeFromCredit && !$middlemanRowInserted && $rate_middleman_account_id) {
+                        // Mobile/legacy fallback：无 Middle 行时仍写负数 Fee 挂 Middle-Man
                         $platformFeeLedgerAmount = money_mul(
                             money_abs($rate_platform_fee_amount),
                             '-1',
@@ -1089,7 +1045,7 @@ try {
             
             // WIN/LOSE（含前端 PROFIT）：按单条记录保存（To + From + Amount），不再自动生成相反类型第二条
             $txnRow = [
-                'company_id' => $company_id,
+                'company_id' => $company_id > 0 ? $company_id : null,
                 'transaction_type' => $transaction_type,
                 'account_id' => $account_id,
                 'from_account_id' => $from_account_id,
@@ -1116,6 +1072,9 @@ try {
                 }
             }
             tx_apply_scope_columns_to_row($pdo, $txnRow, $listScope);
+            if (!array_key_exists('company_id', $txnRow)) {
+                $txnRow['company_id'] = $company_id > 0 ? $company_id : null;
+            }
 
             $transaction_id = insertTransactionRow($pdo, $txnRow);
         

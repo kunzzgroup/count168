@@ -202,16 +202,15 @@ export function CurrencySettingModal({
   open,
   onClose,
   currencies,
-  settingCurrencyId,
-  setSettingCurrencyId,
+  settingCurrencyIds,
+  setSettingCurrencyIds,
   settingLinked,
   setSettingLinked,
+  settingInitialAccountCount = 0,
   settingSearch,
   setSettingSearch,
   settingRole,
   setSettingRole,
-  onLoadCurrencyLinks,
-  onClearCurrencySelection,
   onSave,
   accounts,
   roles,
@@ -267,9 +266,22 @@ export function CurrencySettingModal({
 
   if (!open) return null;
 
-  const selectedCurrencyMatchesList =
-    settingCurrencyId != null &&
-    currencies.some((c) => Number(c.id) === Number(settingCurrencyId));
+  const selectedCurrencyIdsInList = [...settingCurrencyIds].filter((id) =>
+    currencies.some((c) => Number(c.id) === Number(id)),
+  );
+  const hasSelectedCurrency = selectedCurrencyIdsInList.length > 0;
+  const hasSelectedAccount = settingLinked.size > 0;
+  /** Allow save when unlinking all existing accounts (linked empty but baseline > 0). */
+  const canSave =
+    hasSelectedCurrency && (hasSelectedAccount || Number(settingInitialAccountCount) > 0);
+  const toggleSettingCurrency = (id) => {
+    setSettingCurrencyIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   const filteredAccounts = accounts.filter(a => {
     const text = `${a.account_id || ""} ${a.name || ""}`.toLowerCase();
     const matchesQ = !settingSearch || text.includes(settingSearch.toLowerCase());
@@ -278,7 +290,7 @@ export function CurrencySettingModal({
   });
 
   return portalToDocumentBody(
-    <div id="currencySettingModal" className="currency-fullscreen-modal" style={{ display: "block", zIndex: accountModalOverlayZIndex }}>
+    <div id="currencySettingModal" className="currency-fullscreen-modal" style={{ display: "block" }}>
       <div className="currency-fullscreen-modal-content">
         <div className="currency-fullscreen-modal-header-bar">
           <h2>{t("currencySetting")}</h2>
@@ -320,7 +332,7 @@ export function CurrencySettingModal({
               <div className="currency-setting-pill-list">
                 {currencies.map((c) => {
                   const id = Number(c.id);
-                  const isActive = settingCurrencyId === id;
+                  const isActive = settingCurrencyIds.has(id);
                   return (
                     <div
                       key={c.id}
@@ -328,23 +340,11 @@ export function CurrencySettingModal({
                       role="button"
                       tabIndex={0}
                       aria-pressed={isActive}
-                      onClick={() => {
-                        if (isActive) {
-                          onClearCurrencySelection();
-                        } else {
-                          setSettingCurrencyId(id);
-                          onLoadCurrencyLinks(id);
-                        }
-                      }}
+                      onClick={() => toggleSettingCurrency(id)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          if (isActive) {
-                            onClearCurrencySelection();
-                          } else {
-                            setSettingCurrencyId(id);
-                            onLoadCurrencyLinks(id);
-                          }
+                          toggleSettingCurrency(id);
                         }
                       }}
                     >
@@ -450,10 +450,10 @@ export function CurrencySettingModal({
                 <button
                   type="button"
                   className="account-btn account-btn-add currency-setting-selectall-btn"
-                  disabled={!selectedCurrencyMatchesList}
-                  title={!selectedCurrencyMatchesList ? t("pleaseSelectCurrencyFirst") : undefined}
+                  disabled={!hasSelectedCurrency}
+                  title={!hasSelectedCurrency ? t("pleaseSelectCurrencyFirst") : undefined}
                   onClick={() => {
-                    if (!selectedCurrencyMatchesList) return;
+                    if (!hasSelectedCurrency) return;
                     const allIds = filteredAccounts.map(a => Number(a.id));
                     const allSelected = allIds.every(id => settingLinked.has(id));
                     setSettingLinked(prev => {
@@ -501,8 +501,14 @@ export function CurrencySettingModal({
           <button
             type="button"
             className="account-btn account-btn-save currency-setting-submit-btn"
-            disabled={!selectedCurrencyMatchesList || submitting}
-            title={!selectedCurrencyMatchesList ? t("pleaseSelectCurrencyFirst") : undefined}
+            disabled={!canSave || submitting}
+            title={
+              !hasSelectedCurrency
+                ? t("pleaseSelectCurrencyFirst")
+                : !hasSelectedAccount && !(Number(settingInitialAccountCount) > 0)
+                  ? t("pleaseSelectAccountFirst")
+                  : undefined
+            }
             onClick={() => runGuarded(onSave)}
           >
             {submitting ? t("saving") : t("save")}

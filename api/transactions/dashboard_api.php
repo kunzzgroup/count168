@@ -396,19 +396,21 @@ function dashboardEnsureGroupRowForCode(PDO $pdo, string $groupCode): void
     }
     try {
         $stmt = $pdo->prepare("
-            INSERT INTO `groups` (`group_code`, `group_name`, `owner_id`)
+            INSERT INTO `groups` (`group_code`, `group_name`, `owner_id`, `permissions`)
             SELECT DISTINCT
                 UPPER(TRIM(c.group_id)),
                 UPPER(TRIM(c.group_id)),
-                c.owner_id
+                c.owner_id,
+                ?
             FROM company c
             WHERE UPPER(TRIM(c.group_id)) = ?
               AND TRIM(COALESCE(c.group_id, '')) <> ''
             LIMIT 1
             ON DUPLICATE KEY UPDATE
-                `owner_id` = COALESCE(`groups`.`owner_id`, VALUES(`owner_id`))
+                `owner_id` = COALESCE(`groups`.`owner_id`, VALUES(`owner_id`)),
+                `permissions` = COALESCE(`groups`.`permissions`, VALUES(`permissions`))
         ");
-        $stmt->execute([$g]);
+        $stmt->execute(['["Games"]', $g]);
     } catch (Throwable $e) {
         error_log('dashboardEnsureGroupRowForCode(' . $g . '): ' . $e->getMessage());
     }
@@ -1672,7 +1674,10 @@ function dashboardComputeSubsidiaryEarningsTotal(
             if ($filterCurrencyCode !== null && trim($filterCurrencyCode) !== '') {
                 $captureParams['currency'] = $filterCurrencyCode;
             }
-            // Full company dashboard (incl. EXPENSES) — never kpi_only; group Profit = Σ company Earnings.
+            // Parent kpi_only: skip daily GROUP BY on each subsidiary capture (chart path still full).
+            if ($kpiOnly) {
+                $captureParams['kpi_only'] = '1';
+            }
 
             $cap = dashboard_api_capture($captureParams);
             if (empty($cap['success']) || !is_array($cap['data'] ?? null)) {
@@ -1975,6 +1980,7 @@ function dashboardBuildGroupScopedSummary(
                 $accountIds,
                 $accountIds,
                 [$groupScopeId, $dateFrom, $dateTo],
+                $accountIds,
                 $accountIds,
                 $currencyFilterParams
             );
@@ -3498,10 +3504,10 @@ try {
         } else {
             $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
             if ($userRole === 'owner') {
-                $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-                $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-                $stmt->execute([$requestedCompanyId, $owner_id]);
-                if ($stmt->fetchColumn()) {
+                // Prefer real_owner_id: session owner_id is swapped to the native owner
+                // while viewing an external/partner company.
+                $owner_id = (int) ($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0);
+                if (gc_owner_has_company_access($pdo, $requestedCompanyId, $owner_id)) {
                     $company_id = $requestedCompanyId;
                 } elseif (
                     $viewGroupForAccess !== null

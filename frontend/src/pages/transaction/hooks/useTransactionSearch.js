@@ -90,7 +90,8 @@ import {
   transactionScopeCacheCompanyKey,
   transactionScopeCacheKey,
   transactionScopeIsReady,
-  resolveTransactionCurrencyOrderCompanyId,
+  resolveTransactionCurrencyOrderParams,
+  resolveTransactionCurrencyOrderCacheKey,
 } from "../lib/transactionScope.js";
 
 export function useTransactionSearch({
@@ -186,9 +187,17 @@ export function useTransactionSearch({
   const scopeApi = useMemo(() => transactionScopeApiParams(transactionScope), [transactionScope]);
   const scopeCacheCompanyKey = transactionScopeCacheCompanyKey(transactionScope);
   const scopeKey = transactionScopeCacheKey(transactionScope) || null;
-  const orderCompanyId = useMemo(
+  const orderParams = useMemo(
     () =>
-      resolveTransactionCurrencyOrderCompanyId(
+      resolveTransactionCurrencyOrderParams(
+        transactionScope,
+        filterSnapshot?.snapCompaniesAll || filterSnapshot?.snapCompanies,
+      ),
+    [transactionScope, filterSnapshot?.snapCompanies, filterSnapshot?.snapCompaniesAll],
+  );
+  const orderCacheKey = useMemo(
+    () =>
+      resolveTransactionCurrencyOrderCacheKey(
         transactionScope,
         filterSnapshot?.snapCompaniesAll || filterSnapshot?.snapCompanies,
       ),
@@ -468,23 +477,24 @@ export function useTransactionSearch({
 
       setCurrencyRowsOrdered(list);
       const codes = list.map((x) => String(x.code || x.currency || "").trim().toUpperCase()).filter(Boolean);
-      if (orderCompanyId != null) {
-        persistCurrencyDisplayOrder(orderCompanyId, codes);
+      if (orderCacheKey != null) {
+        persistCurrencyDisplayOrder(orderCacheKey, codes);
       }
       try {
         await saveUserCurrencyOrder(codes, {
-          companyId: orderCompanyId ?? undefined,
+          companyId: orderParams.companyId ?? undefined,
+          groupId: orderParams.groupId ?? undefined,
         });
-        if (orderCompanyId != null) {
+        if (orderCacheKey != null) {
           await queryClient.invalidateQueries({
-            queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId],
+            queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCacheKey],
           });
         }
       } catch {
         /* localStorage already updated */
       }
     },
-    [currencyRowsOrdered, setCurrencyRowsOrdered, orderCompanyId, queryClient],
+    [currencyRowsOrdered, setCurrencyRowsOrdered, orderCacheKey, orderParams, queryClient],
   );
 
   useEffect(() => {
@@ -772,7 +782,8 @@ export function useTransactionSearch({
       const fetchSearch = (params) =>
         queryClient.fetchQuery({
           queryKey: transactionQueryKeys.search(params),
-          queryFn: ({ signal }) => searchTransactionsApi({ ...params, signal }),
+          queryFn: ({ signal }) =>
+            searchTransactionsApi({ ...params, skipCache: Boolean(forceRefresh), signal }),
           // forceRefresh (e.g. right after submit): bypass React Query staleTime so the
           // table reflects the new transaction immediately instead of returning cached data.
           staleTime: forceRefresh ? 0 : 5 * 60_000,
@@ -1103,6 +1114,7 @@ export function useTransactionSearch({
             typeSearch: true,
             typeAccountIds,
             typeSearchFormType: TYPE_SEARCH_LIST_FORM_TYPE,
+            skipCache: Boolean(forceRefresh),
           });
           if (!result?.success || !result?.data) {
             pushToast(result?.message || result?.error || m.searchFailed, "error");
@@ -1977,14 +1989,14 @@ export function useTransactionSearch({
     coldBootCurrencyAppliedRef.current = true;
 
     const savedOrder =
-      orderCompanyId != null ? resolveSavedCurrencyOrder(orderCompanyId, null) : null;
+      orderCacheKey != null ? resolveSavedCurrencyOrder(orderCacheKey, null) : null;
     const defaultCode = pickTransactionDefaultCurrency(
       savedOrder?.length ? savedOrder : ["MYR"],
     );
     if (!defaultCode) return;
     setShowAllCurrencies(false);
     setSelectedCurrencies([defaultCode]);
-  }, [scopeReady, scopeCacheCompanyKey, scopeKey, transactionScope?.mode, orderCompanyId]);
+  }, [scopeReady, scopeCacheCompanyKey, scopeKey, transactionScope?.mode, orderCacheKey]);
 
   useEffect(() => {
     const prev = prevScopeKeyForSearchRef.current;
@@ -2069,7 +2081,7 @@ export function useTransactionSearch({
               .filter(Boolean)
           : [];
       const savedOrder =
-        orderCompanyId != null ? resolveSavedCurrencyOrder(orderCompanyId, null) : null;
+        orderCacheKey != null ? resolveSavedCurrencyOrder(orderCacheKey, null) : null;
       const firstCode = pickTransactionDefaultCurrency(
         liveCodes.length ? liveCodes : savedOrder?.length ? savedOrder : ["MYR"],
       );
@@ -2142,7 +2154,7 @@ export function useTransactionSearch({
     queryClient,
     transactionScope,
     scopeCacheCompanyKey,
-    orderCompanyId,
+    orderCacheKey,
     currencyScopeBundle?.scopeKey,
     currencyRowsOrdered,
     filterSnapshot?.snapCompanies,

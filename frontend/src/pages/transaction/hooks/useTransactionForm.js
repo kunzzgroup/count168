@@ -15,10 +15,19 @@ import {
   RATE_STORE_MAX_DECIMALS,
   TX_STORE_MAX_DECIMALS,
 } from "../lib/transactionFormat.js";
-import { buildRatePayload, toNumberLike, collectSubmitFocusAccountIds, computeRateMiddlemanProfit, positivePlatformFeeDeduction } from "../lib/transactionSubmitHelpers.js";
+import {
+  buildRatePayload,
+  toNumberLike,
+  collectSubmitFocusAccountIds,
+  computeRateMiddlemanProfit,
+  parseMiddlemanRateInput,
+} from "../lib/transactionSubmitHelpers.js";
 import { submitTransaction, transactionQueryKeys } from "../lib/transactionApi.js";
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
-import { resolveGridRowToAccountOption } from "../lib/transactionPaymentLogic.js";
+import {
+  notifyTransactionListInvalidated,
+  resolveGridRowToAccountOption,
+} from "../lib/transactionPaymentLogic.js";
 
 function sanitizeTransactionAmountInput(value) {
   const raw = String(value ?? "").replace(/,/g, "");
@@ -40,6 +49,8 @@ function sanitizeTransactionAmountInput(value) {
 
 /** Badge + list refresh must not block the Submit button after the POST succeeds. */
 function kickOffPostSubmitRefresh({ refreshContraInboxBadge, scopeApi, onAfterSuccessfulSubmit, focusOpts }) {
+  // Invalidate Dashboard / TX / Report client caches immediately (do not wait for SSE).
+  notifyTransactionListInvalidated("tx_submit");
   const tasks = [Promise.resolve(refreshContraInboxBadge?.(scopeApi))];
   if (focusOpts) {
     tasks.push(Promise.resolve(onAfterSuccessfulSubmit?.(focusOpts)));
@@ -245,16 +256,6 @@ export function useTransactionForm({
 
     const clean = (v) => String(v ?? "").replace(/,/g, "").trim();
 
-    let inputAmtDec = MoneyDecimal.toDecimal("0", 0);
-    try {
-      const inputStr = clean(rateMiddlemanInputAmount);
-      if (inputStr) {
-        inputAmtDec = MoneyDecimal.toDecimal(inputStr, 0);
-      }
-    } catch {
-      // ignore
-    }
-
     const parsed = parseRateExpression(rateExchangeRateRaw);
     let rateDec = MoneyDecimal.toDecimal("0", 0);
     if (parsed.valid) {
@@ -265,12 +266,13 @@ export function useTransactionForm({
       }
     }
 
-    // MM profit: PT>0 → 仅 Fee（正 PT 不进 Middle）；PT<0 → Fee−|PT|
+    // MM profit: Fee − PT（PT-Fee 恒为正数、恒代表减法）；负 Rate-Mul 仅除法 Rate 生效
     const finalFeeDec = computeRateMiddlemanProfit({
       fromAmount: rateCurrencyFromAmount,
       middlemanRate: rateMiddlemanRate,
       feeAmount: rateMiddlemanInputAmount,
       platformFeeAmount: rateMiddlemanPlatformFee,
+      exchangeRateRaw: rateExchangeRateRaw,
     });
     let middleStr = "";
     if (!finalFeeDec.isZero()) {
@@ -283,15 +285,15 @@ export function useTransactionForm({
     }
     setRateMiddlemanAmount(middleStr);
 
-    // Second-currency preview: Rate-Mul + Service Fee, then positive PT-Fee.
-    // Desktop submit: From leg also deducts Service Fee; RATE_FEE row carries the Fee once.
+    // From preview: gross − (Rate-Mul + Service Fee). PT-Fee 不动 From/表单金额，只落 PLATFORM_FEE 行。
+    // Calc uses full precision; formatRateAmount is display-only half-up 2.
     const toAmountDeductionDec = computeRateMiddlemanProfit({
       fromAmount: rateCurrencyFromAmount,
       middlemanRate: rateMiddlemanRate,
       feeAmount: rateMiddlemanInputAmount,
       platformFeeAmount: "0",
+      exchangeRateRaw: rateExchangeRateRaw,
     });
-    const positivePtDec = positivePlatformFeeDeduction(rateMiddlemanPlatformFee);
 
     try {
       const fromDec = MoneyDecimal.toDecimal(clean(rateCurrencyFromAmount) || "0", 0);
@@ -308,21 +310,12 @@ export function useTransactionForm({
 
       const baseGross = fromDec.times(rateDec);
 
-      let finalGrossForBackend = baseGross;
-      if (inputAmtDec.lt(0)) {
-        finalGrossForBackend = baseGross.plus(inputAmtDec);
-      }
-
-      const grossDisplayStr = formatRateAmount(finalGrossForBackend.toString());
+      const grossDisplayStr = formatRateAmount(baseGross.toString());
       setRateToAmountGrossStr(grossDisplayStr);
 
-      let displayVal = finalGrossForBackend;
+      let displayVal = baseGross;
       if (!toAmountDeductionDec.isZero()) {
         displayVal = displayVal.minus(toAmountDeductionDec);
-      }
-      // Positive PT-Fee: realtime From amount = amount − PT (e.g. 300 − 1.5 = 298.5).
-      if (positivePtDec.gt(0)) {
-        displayVal = displayVal.minus(positivePtDec);
       }
 
       setRateCurrencyToAmount(formatRateAmount(displayVal.toString()));
@@ -425,7 +418,7 @@ export function useTransactionForm({
         pushToast(m.pleaseEnterMiddleManRateOrFee, "error");
         return;
       }
-      if (hasMiddleRate && !parseRateExpression(mmrNorm).valid) {
+      if (hasMiddleRate && !parseMiddlemanRateInput(mmrNorm).valid) {
         pushToast(m.pleaseEnterMiddleManRate, "error");
         return;
       }
