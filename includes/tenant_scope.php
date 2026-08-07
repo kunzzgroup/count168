@@ -717,7 +717,6 @@ function tenant_create_currency(PDO $pdo, string $code, array $ctx): array
 
     $subsidiaryOnly = tenant_sql_currency_subsidiary_only($pdo);
     $stmt = $pdo->prepare('SELECT id FROM currency WHERE code = ? AND company_id = ?' . $subsidiaryOnly);
-    $stmt->execute([$code, $companyId]);
     if ($stmt->fetchColumn()) {
         throw new Exception('Currency ' . $code . ' already exists');
     }

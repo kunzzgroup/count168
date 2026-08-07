@@ -21,6 +21,7 @@ import {
   collectSubmitFocusAccountIds,
   computeRateMiddlemanProfit,
   parseMiddlemanRateInput,
+  parsePositiveAmt,
 } from "../lib/transactionSubmitHelpers.js";
 import { submitTransaction, transactionQueryKeys } from "../lib/transactionApi.js";
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
@@ -49,12 +50,16 @@ function sanitizeTransactionAmountInput(value) {
 
 /** Badge + list refresh must not block the Submit button after the POST succeeds. */
 function kickOffPostSubmitRefresh({ refreshContraInboxBadge, scopeApi, onAfterSuccessfulSubmit, focusOpts }) {
-  // Invalidate Dashboard / TX / Report client caches immediately (do not wait for SSE).
-  notifyTransactionListInvalidated("tx_submit");
   const tasks = [Promise.resolve(refreshContraInboxBadge?.(scopeApi))];
   if (focusOpts) {
+    // Start the submit-focus refresh first: its synchronous flushSync prefix commits
+    // the widened currency selection before the invalidate broadcast below fires —
+    // otherwise useTransactionSync's tx-data-changed listener re-searches with the
+    // stale (pre-submit) currency selection and can clobber this result.
     tasks.push(Promise.resolve(onAfterSuccessfulSubmit?.(focusOpts)));
   }
+  // Invalidate Dashboard / TX / Report client caches (do not wait for SSE).
+  notifyTransactionListInvalidated("tx_submit");
   void Promise.all(tasks).catch((err) => {
     console.error(err);
   });
@@ -285,15 +290,10 @@ export function useTransactionForm({
     }
     setRateMiddlemanAmount(middleStr);
 
-    // From preview: gross − (Rate-Mul + Service Fee). PT-Fee 不动 From/表单金额，只落 PLATFORM_FEE 行。
+    // From preview: gross − Service Fee only. Rate-Mul 不再影响顾客金额（顾客固定拿 gross，
+    // Rate-Mul 产生的 commission 只体现在 Middle-Man Amount）。PT-Fee 同样不动 From/表单金额，只落 PLATFORM_FEE 行。
     // Calc uses full precision; formatRateAmount is display-only half-up 2.
-    const toAmountDeductionDec = computeRateMiddlemanProfit({
-      fromAmount: rateCurrencyFromAmount,
-      middlemanRate: rateMiddlemanRate,
-      feeAmount: rateMiddlemanInputAmount,
-      platformFeeAmount: "0",
-      exchangeRateRaw: rateExchangeRateRaw,
-    });
+    const toAmountDeductionDec = parsePositiveAmt(rateMiddlemanInputAmount);
 
     try {
       const fromDec = MoneyDecimal.toDecimal(clean(rateCurrencyFromAmount) || "0", 0);
@@ -497,7 +497,7 @@ export function useTransactionForm({
                       rateTransferFromAccountId: rateTransferFromAccount?.id,
                       rateMiddlemanAccountId: rateMiddlemanAccount?.id,
                     }),
-                    submitCurrency: rateCurrencyFrom,
+                    submitCurrency: [rateCurrencyFrom, rateCurrencyTo],
                     transactionDate: rateDate,
                   },
           });
