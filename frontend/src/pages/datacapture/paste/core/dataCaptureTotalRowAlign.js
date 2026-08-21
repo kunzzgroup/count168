@@ -38,11 +38,25 @@ function isNameLike(value) {
 
 const CJK_TOTAL_LABELS = new Set(["总数", "总计", "合计", "總數", "總計", "合計"]);
 
+function isPageOrOverallTotalLabel(value) {
+  const upper = String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ");
+  return (
+    upper === "PAGE TOTAL" ||
+    upper === "PAGETOTAL" ||
+    upper === "OVERALL TOTAL" ||
+    upper === "OVERALLTOTAL"
+  );
+}
+
 function isTotalLabel(value) {
   const raw = String(value || "").trim();
   if (!raw) return false;
-  const upper = raw.toUpperCase();
+  const upper = raw.toUpperCase().replace(/\s+/g, " ");
   if (upper === "TOTAL" || upper === "SUB TOTAL" || upper === "GRAND TOTAL") return true;
+  if (isPageOrOverallTotalLabel(raw)) return true;
   return CJK_TOTAL_LABELS.has(raw);
 }
 
@@ -123,6 +137,98 @@ export function matrixHasNameColumnPattern(matrix) {
  */
 export function alignTotalRowArray(row) {
   return row;
+}
+
+/** Body rows look like id | short-code | number | … (e.g. E1911 | XQ | 101). */
+export function matrixHasCodeColumnPattern(matrix) {
+  if (!Array.isArray(matrix) || matrix.length < 2) return false;
+
+  let matches = 0;
+  for (const row of matrix) {
+    if (!Array.isArray(row) || row.length < 3) continue;
+    if (rowHasTotalLabel(row)) continue;
+
+    const col0 = trimCellValue(row[0]);
+    const col1 = trimCellValue(row[1]);
+    const col2 = trimCellValue(row[2]);
+    if (!col0 || !col1 || !col2) continue;
+    if (isAlphaCode(col1) && isNumericValue(col2)) {
+      matches += 1;
+      if (matches >= 2) return true;
+    }
+  }
+  return false;
+}
+
+function isEnglishTotalBalanceLabel(value) {
+  const upper = String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ");
+  if (!upper) return false;
+  if (upper === "TOTAL BALANCE" || upper === "TOTAL") return true;
+  if (upper === "SUB TOTAL" || upper === "SUBTOTAL" || upper === "GRAND TOTAL" || upper === "GRANDTOTAL") {
+    return false;
+  }
+  return /^TOTAL\b/.test(upper);
+}
+
+/** Most common first-amount column on non-total body rows (needs a leading label gap). */
+function bodyAmountColumnIndex(matrix) {
+  const counts = new Map();
+  (matrix || []).forEach((row) => {
+    if (!Array.isArray(row) || rowHasTotalLabel(row)) return;
+    const idx = rowFirstNumericIndex(row);
+    if (idx < 2) return;
+    counts.set(idx, (counts.get(idx) || 0) + 1);
+  });
+  let bestIdx = -1;
+  let bestCount = 0;
+  counts.forEach((count, idx) => {
+    if (count > bestCount || (count === bestCount && idx > bestIdx)) {
+      bestIdx = idx;
+      bestCount = count;
+    }
+  });
+  return bestCount >= 1 ? bestIdx : -1;
+}
+
+/**
+ * Plain TSV often drops empty cells after TOTAL (role / currency / code columns)
+ * while HTML keeps them via colspan. Re-insert blanks so the first amount lines
+ * up with body rows (Superbo WinLossSimple: TOTAL under KBK18 | SENIOR | MYR).
+ */
+export function ensureTotalRowCodeColumnGap(matrix) {
+  if (!Array.isArray(matrix) || matrix.length < 2) return matrix;
+
+  const amountCol = bodyAmountColumnIndex(matrix);
+  if (amountCol < 2) return matrix;
+
+  let changed = false;
+  const next = matrix.map((row) => {
+    if (!Array.isArray(row) || !row.length) return row;
+    const labelIdx = rowFirstNonEmptyIndex(row);
+    if (labelIdx < 0) return row;
+    const label = trimCellValue(row[labelIdx]);
+    if (!isEnglishTotalBalanceLabel(label) && !isPageOrOverallTotalLabel(label)) return row;
+
+    const numIdx = rowFirstNumericIndex(row);
+    if (numIdx < 0 || numIdx >= amountCol) return row;
+
+    const gap = amountCol - numIdx;
+    const out = [...row];
+    const insertAt = labelIdx + 1;
+    for (let i = 0; i < gap; i += 1) {
+      out.splice(insertAt, 0, makeBlankCellLike(row));
+    }
+    changed = true;
+    return out;
+  });
+
+  if (changed) {
+    console.log("Inserted blanks after TOTAL label so amounts align under body numeric columns.");
+  }
+  return changed ? next : matrix;
 }
 
 /**

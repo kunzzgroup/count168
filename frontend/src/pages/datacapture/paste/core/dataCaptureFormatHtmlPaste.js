@@ -16,7 +16,10 @@ import {
   plainMatrixLooksReliable,
   sanitizePasteMatrix,
 } from "./dataCapturePasteMatrixSanitize.js";
+import { ensureTotalRowCodeColumnGap } from "./dataCaptureTotalRowAlign.js";
 import { expandLabelColonMoneyCells } from "./dataCaptureTextPaste.js";
+import { tryCanonicalizePs38FormatBody } from "./dataCapturePs38WinLossPasteHelper.js";
+import { alignFooterOnlySubGrandMatrix } from "./dataCaptureWinLoseFooterOnlyPasteHelper.js";
 
 function flattenFormatBodyMatrixToPlain(bodyMatrix) {
   const lines = [];
@@ -208,6 +211,18 @@ export function formatBodyMatrixLooksCollapsed(bodyMatrix, dataRows) {
   );
   if (hasStackedDumpCell && maxFilledCols <= 2) return true;
 
+  // PS38 / fixed-data-table: Format reports 2×19 while each cell still holds
+  // a vertical field dump (toast said 2 rows × 19 cols, grid shows stacked text).
+  const hasNewlineStackedCell = bodyMatrix.some((row) =>
+    (row || []).some((cell) => {
+      const text = String(cell?.value || "")
+        .replace(/\u00a0/g, " ")
+        .trim();
+      return text.split(/\r?\n/).filter((line) => line.trim()).length >= 4;
+    }),
+  );
+  if (hasNewlineStackedCell) return true;
+
   if (formatBodyMatrixLooksIdNumberSplit(bodyMatrix)) return true;
 
   return false;
@@ -231,11 +246,17 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
       return false;
     }
 
-    const { headerRows, dataRows, maxCols } = structure;
+    const { headerRows, dataRows, maxCols, dispose } = structure;
+    let bodyMatrix;
+    try {
+      ensureGridFits(startRow, startCol, countFormatRequiredBodyRows(dataRows), maxCols);
 
-    ensureGridFits(startRow, startCol, countFormatRequiredBodyRows(dataRows), maxCols);
+      // Build patches while host is mounted so Excel class backgrounds resolve.
+      bodyMatrix = buildFormatBodyMatrix(dataRows, maxCols);
+    } finally {
+      dispose?.();
+    }
 
-    let bodyMatrix = buildFormatBodyMatrix(dataRows, maxCols);
     console.log(
       `Format: Applying ${bodyMatrix.length} body row(s) at row ${startRow} col ${startCol} (${dataRows.length} source data rows)`,
     );
@@ -261,6 +282,17 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
       }
     }
 
+    const ps38Canonical = tryCanonicalizePs38FormatBody(bodyMatrix);
+    if (ps38Canonical) {
+      bodyMatrix = ps38Canonical;
+      ensureGridFits(
+        startRow,
+        startCol,
+        bodyMatrix.length,
+        Math.max(...bodyMatrix.map((row) => row.length), 0),
+      );
+    }
+
     // Over-select: trim trailing empty cols / junk rows (same as 1.TEXT plain path).
     bodyMatrix = sanitizePasteMatrix(expandLabelColonMoneyCells(bodyMatrix));
 
@@ -272,11 +304,16 @@ export function parseAndFillHtmlTableForFormat(htmlString, options = {}) {
         `Format: Split stacked SUBTOTAL/GRANDTOTAL → ${beforeSplit} row(s) became ${bodyMatrix.length}`,
       );
     }
+    bodyMatrix = alignFooterOnlySubGrandMatrix(bodyMatrix);
     bodyMatrix = sanitizePasteMatrix(expandLabelColonMoneyCells(bodyMatrix));
+    bodyMatrix = ensureTotalRowCodeColumnGap(bodyMatrix);
 
     // Grill: when plain TSV is reliable, HTML body must match its shape (reject → dual-source).
+    // 1.Text (skipPlainGrill) keeps HTML structure — plain often drops the empty
+    // code-column cell after TOTAL BALANCE and would force a left-shifted dual-source fill.
     const plainMatrix = options.plainMatrix;
     if (
+      !options.skipPlainGrill &&
       plainMatrixLooksReliable(plainMatrix) &&
       !matrixAlignsWithPlainSource(bodyMatrix, plainMatrix)
     ) {

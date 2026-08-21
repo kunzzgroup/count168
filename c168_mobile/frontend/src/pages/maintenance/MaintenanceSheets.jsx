@@ -21,6 +21,28 @@ import {
 } from "../dashboard/FilterSheet.jsx";
 import ScopeBreadcrumb from "../dashboard/ScopeBreadcrumb.jsx";
 
+export function MaintenanceSearchBar({ value, onChange, placeholder, clearAriaLabel }) {
+  return (
+    <label className="m-mt-search">
+      <i className="fas fa-magnifying-glass" aria-hidden="true" />
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+      />
+      {value ? (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label={clearAriaLabel || "Clear"}
+        >
+          <i className="fas fa-xmark" aria-hidden="true" />
+        </button>
+      ) : null}
+    </label>
+  );
+}
+
 /**
  * Dashboard/Transaction-style sticky filter bar: one button (date range +
  * scope breadcrumb + Switch) opening the unified maintenance filter sheet.
@@ -30,18 +52,20 @@ export function MaintenanceFilterBar({
   dateFrom,
   dateTo,
   groupMode,
+  groupsAllMode = false,
   selectedGroup,
   selectedCompany,
   onOpen,
 }) {
   const groupId = String(
-    (groupMode ? selectedGroup : selectedCompany?.group_id) || "",
+    (groupsAllMode ? "" : groupMode ? selectedGroup : selectedCompany?.group_id) || "",
   )
     .trim()
     .toUpperCase();
-  const companyCode = groupMode
-    ? ""
-    : String(selectedCompany?.company_id || "").trim().toUpperCase();
+  const companyCode =
+    groupsAllMode || groupMode
+      ? ""
+      : String(selectedCompany?.company_id || "").trim().toUpperCase();
 
   return (
     <button type="button" onClick={onOpen} className="m-filter-bar tap-scale" aria-label={i18n.filter}>
@@ -58,7 +82,8 @@ export function MaintenanceFilterBar({
             i18n={i18n}
             groupId={groupId}
             companyCode={companyCode}
-            groupOnlyMode={groupMode}
+            groupsAllMode={groupsAllMode}
+            groupOnlyMode={groupMode && !groupsAllMode}
           />
         </div>
         <span className="m-filter-bar-switch">{i18n.switchCompany || "Switch"}</span>

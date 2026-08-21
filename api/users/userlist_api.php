@@ -65,6 +65,106 @@ function userlistRoleLevel(string $role): int {
     return $hierarchy[strtolower(trim($role))] ?? 999;
 }
 
+function userlist_can_edit_target_access(string $currentRole, string $targetRole, int $currentUserId, int $targetUserId): bool
+{
+    if ($currentUserId <= 0 || $targetUserId <= 0 || $currentUserId === $targetUserId) {
+        return false;
+    }
+    return userlistRoleLevel($currentRole) < userlistRoleLevel($targetRole);
+}
+
+/** Non-owner may update own Acc/Process flags (self_hidden only; cannot clear superior_closed). */
+function userlist_can_edit_own_account_access(string $currentRole, int $currentUserId, int $targetUserId): bool
+{
+    if ($currentUserId <= 0 || $targetUserId <= 0 || $currentUserId !== $targetUserId) {
+        return false;
+    }
+    return strtolower(trim($currentRole)) !== 'owner';
+}
+
+/** Self save cannot set or clear superior_closed; those rows stay with merge. */
+function userlist_normalize_account_incoming(array $incoming, bool $isSelf): array
+{
+    $out = [];
+    foreach ($incoming as $row) {
+        $id = userlist_permission_row_id($row);
+        if ($id <= 0) {
+            continue;
+        }
+        $item = is_array($row) ? $row : ['id' => $id];
+        if ($isSelf && !empty($item['superior_closed'])) {
+            continue;
+        }
+        if ($isSelf) {
+            unset($item['superior_closed']);
+        }
+        $out[] = $item;
+    }
+    return $out;
+}
+
+function userlist_permission_row_id($row): int
+{
+    if (is_array($row) && isset($row['id'])) {
+        return (int) $row['id'];
+    }
+    if (is_numeric($row)) {
+        return (int) $row;
+    }
+    return 0;
+}
+
+/**
+ * Keep ids the editor cannot toggle; apply incoming only within toggleable ids
+ * (checked + self_hidden; excludes superior_closed on the editor).
+ * existingJson null (unrestricted) → use incoming as-is so first save can close items without wiping unseen accs.
+ */
+function userlist_merge_access_payload($existingJson, array $incoming, ?array $assignableIds): array
+{
+    if ($assignableIds === null) {
+        return array_values($incoming);
+    }
+    if ($existingJson === null || $existingJson === '') {
+        return array_values($incoming);
+    }
+    $existing = json_decode((string) $existingJson, true);
+    if (!is_array($existing)) {
+        return array_values($incoming);
+    }
+    $assignable = [];
+    foreach ($assignableIds as $id) {
+        $nid = (int) $id;
+        if ($nid > 0) {
+            $assignable[$nid] = true;
+        }
+    }
+    $incomingById = [];
+    foreach ($incoming as $row) {
+        $id = userlist_permission_row_id($row);
+        if ($id > 0) {
+            $incomingById[$id] = is_array($row) ? $row : ['id' => $id];
+        }
+    }
+    $out = [];
+    $seen = [];
+    foreach ($existing as $row) {
+        $id = userlist_permission_row_id($row);
+        if ($id <= 0 || isset($assignable[$id])) {
+            continue;
+        }
+        $out[] = is_array($row) ? $row : ['id' => $id];
+        $seen[$id] = true;
+    }
+    foreach ($incomingById as $id => $row) {
+        if (!isset($assignable[$id]) || isset($seen[$id])) {
+            continue;
+        }
+        $out[] = $row;
+        $seen[$id] = true;
+    }
+    return $out;
+}
+
 /** Audit：manager 及以上可写 read_only；Partnership：仅 owner */
 function canSetUserReadOnly(string $currentRole, string $targetUserRole): bool {
     $target = strtolower(trim($targetUserRole));
@@ -1261,6 +1361,24 @@ function userlist_bind_user_to_group_tenant(PDO $pdo, int $userId, string $group
 }
 
 /**
+ * Acc/Process JSON is stored per company. Prefer the company whose Acc grid is shown
+ * (request company_id / session), not company_ids[0] from mixed assignment.
+ * Partnership often has several mapped companies; writing to the smallest id made
+ * Owner unchecks disappear on reopen (GET reads the page company).
+ */
+function userlist_resolve_permission_company_id(array $input, int $scopeCompanyId, int $currentCompanyId): int
+{
+    $requestCompanyId = (int) ($input['company_id'] ?? 0);
+    if ($requestCompanyId > 0) {
+        return $requestCompanyId;
+    }
+    if ($currentCompanyId > 0) {
+        return $currentCompanyId;
+    }
+    return $scopeCompanyId;
+}
+
+/**
  * Resolve effective company scope for group/company modes.
  * - Prefer explicit validated company ids from request (real write target).
  * - group_id is only view/access context for validation.
@@ -2091,11 +2209,10 @@ try {
                     }
                 }
                 
-                // 为新用户在所有关联的公司下初始化权限
-                // 如果提供了 account_permissions 或 process_permissions，则在当前公司下设置它们
-                // 其他公司则使用默认值（null，表示未设置，默认全部可见）
+                // Acc/Process JSON 写在当前 Acc 列表公司（request/session），不是 company_ids[0]
+                $permCompanyId = userlist_resolve_permission_company_id($input, (int) $scope_company_id, (int) $current_company_id);
                 if (
-                    (int) $scope_company_id > 0
+                    $permCompanyId > 0
                     && (isset($input['account_permissions']) || isset($input['process_permissions']))
                 ) {
                     $accountPerms = null;
@@ -2117,9 +2234,8 @@ try {
                         }
                     }
                     
-                    // 只在当前公司下设置权限
                     $permStmt = $pdo->prepare("INSERT INTO user_company_permissions (user_id, company_id, account_permissions, process_permissions) VALUES (?, ?, ?, ?)");
-                    $permStmt->execute([$newUserId, $scope_company_id, $accountPerms, $processPerms]);
+                    $permStmt->execute([$newUserId, $permCompanyId, $accountPerms, $processPerms]);
                 }
                 
                 // 提交事务
@@ -2147,7 +2263,7 @@ try {
                     }
 
                     $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
-                    $stmt->execute([$newUserId, $scope_company_id]);
+                    $stmt->execute([$newUserId, $permCompanyId > 0 ? $permCompanyId : $scope_company_id]);
                     $companyPermissions = $stmt->fetch(PDO::FETCH_ASSOC);
                     if ($companyPermissions) {
                         $newUser['account_permissions'] = $companyPermissions['account_permissions'];
@@ -2302,7 +2418,7 @@ try {
             // 获取原有的 login_id 并验证用户是否存在
             // 注意：用户可能属于多个公司，所以不限制在当前公司
             $stmt = $pdo->prepare("
-                SELECT u.login_id 
+                SELECT u.login_id, u.role, u.id
                 FROM user u
                 WHERE u.id = ?
             ");
@@ -2344,6 +2460,17 @@ try {
                 if (!$belongsToCurrentCompany) {
                     sendResponse(false, 'User not found or access denied');
                 }
+            }
+
+            // 角色层级校验：只有严格上级或本人可以编辑（含改密码）。
+            // owner 影子记录走上面的 isOwnerShadow 分支（仅 owner 本人），此处只覆盖 user 表记录。
+            $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+            $targetUserId = (int) $input['id'];
+            $isSelfUpdate = $currentUserId > 0 && $targetUserId === $currentUserId;
+            $currentRoleLevel = userlistRoleLevel((string) $current_user_role);
+            $targetRoleLevel = userlistRoleLevel((string) ($originalUser['role'] ?? ''));
+            if (!$isSelfUpdate && $targetRoleLevel <= $currentRoleLevel) {
+                sendResponse(false, '无权限修改同级或上级账号');
             }
             
             // 如果没有提交 login_id，使用原有的
@@ -2519,29 +2646,54 @@ try {
                     userlist_sync_user_group_tenants($pdo, (int) $input['id'], $bindGroupScopes);
                 }
                 
-                // 保存 Account 和 Process 权限到 user_company_permissions 表（按当前公司）
-                // 只有当提供了 account_permissions 或 process_permissions 时才更新
-                if (isset($input['account_permissions']) || isset($input['process_permissions'])) {
-                    // 准备权限值
+                // Acc/Process: superior may update both; non-owner self may update own flags only.
+                $currentUid = (int) ($_SESSION['user_id'] ?? 0);
+                $targetUid = (int) $input['id'];
+                $targetRole = (string) ($originalUser['role'] ?? '');
+                $canSuperiorAccess = userlist_can_edit_target_access($current_user_role, $targetRole, $currentUid, $targetUid);
+                $canSelfAccountAccess = userlist_can_edit_own_account_access($current_user_role, $currentUid, $targetUid);
+                if (!$canSuperiorAccess && !$canSelfAccountAccess) {
+                    unset($input['account_permissions'], $input['process_permissions']);
+                }
+                $accountPermsUpdated = false;
+                $processPermsUpdated = false;
+                $permCompanyId = userlist_resolve_permission_company_id($input, (int) $scope_company_id, (int) $current_company_id);
+                if (
+                    $permCompanyId > 0
+                    && (isset($input['account_permissions']) || isset($input['process_permissions']))
+                ) {
+                    $existingPermStmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ? LIMIT 1");
+                    $existingPermStmt->execute([$targetUid, $permCompanyId]);
+                    $existingPermRow = $existingPermStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                    $isSelfAccessSave = $canSelfAccountAccess && !$canSuperiorAccess;
+
                     $accountPerms = null;
                     $processPerms = null;
                     
                     if (isset($input['account_permissions'])) {
-                        if (is_array($input['account_permissions']) && count($input['account_permissions']) > 0) {
-                            $accountPerms = json_encode($input['account_permissions']);
-                        } else {
-                            // 空数组 [] 表示已设置但为空（不选任何账户）
-                            $accountPerms = json_encode([]);
-                        }
+                        $accountPermsUpdated = true;
+                        $incomingAccounts = is_array($input['account_permissions']) ? $input['account_permissions'] : [];
+                        $incomingAccounts = userlist_normalize_account_incoming($incomingAccounts, $isSelfAccessSave);
+                        $editorAccountAssignable = permissions_account_toggleable_ids($pdo, $currentUid, $permCompanyId, $current_user_role);
+                        $mergedAccounts = userlist_merge_access_payload(
+                            $existingPermRow['account_permissions'] ?? null,
+                            $incomingAccounts,
+                            $editorAccountAssignable
+                        );
+                        $accountPerms = json_encode(array_values($mergedAccounts));
                     }
                     
                     if (isset($input['process_permissions'])) {
-                        if (is_array($input['process_permissions']) && count($input['process_permissions']) > 0) {
-                            $processPerms = json_encode($input['process_permissions']);
-                        } else {
-                            // 空数组 [] 表示已设置但为空（不选任何流程）
-                            $processPerms = json_encode([]);
-                        }
+                        $processPermsUpdated = true;
+                        $incomingProcesses = is_array($input['process_permissions']) ? $input['process_permissions'] : [];
+                        $incomingProcesses = userlist_normalize_account_incoming($incomingProcesses, $isSelfAccessSave);
+                        $editorProcessAssignable = permissions_process_toggleable_ids($pdo, $currentUid, $permCompanyId, $current_user_role);
+                        $mergedProcesses = userlist_merge_access_payload(
+                            $existingPermRow['process_permissions'] ?? null,
+                            $incomingProcesses,
+                            $editorProcessAssignable
+                        );
+                        $processPerms = json_encode(array_values($mergedProcesses));
                     }
                     
                     // 使用 INSERT ... ON DUPLICATE KEY UPDATE 来更新或插入
@@ -2555,7 +2707,7 @@ try {
                     ");
                     $stmt->execute([
                         $input['id'], 
-                        $scope_company_id, 
+                        $permCompanyId, 
                         $accountPerms, 
                         $processPerms,
                         $accountPerms, // 用于条件判断
@@ -2589,7 +2741,7 @@ try {
 
                     // 仅从 user_company_permissions 读取公司级权限。
                     $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
-                    $stmt->execute([$input['id'], $scope_company_id]);
+                    $stmt->execute([$input['id'], $permCompanyId > 0 ? $permCompanyId : $scope_company_id]);
                     $companyPermissions = $stmt->fetch(PDO::FETCH_ASSOC);
                     if ($companyPermissions) {
                         $updatedUser['account_permissions'] = $companyPermissions['account_permissions'];
@@ -2622,6 +2774,14 @@ try {
                 }
                 if ($publishIds !== []) {
                     realtime_publish_companies($publishIds, 'users', 'update');
+                    // Acc/Process 白名单变更：Account / Process 下拉 + ledger 立刻按新权限重拉
+                    if (!empty($accountPermsUpdated)) {
+                        realtime_publish_companies($publishIds, 'accounts', 'user_account_permissions');
+                        realtime_publish_companies($publishIds, 'ledger', 'user_account_permissions');
+                    }
+                    if (!empty($processPermsUpdated)) {
+                        realtime_publish_companies($publishIds, 'processes', 'user_process_permissions');
+                    }
                 }
                 
                 sendResponse(true, $message, $responseData);
@@ -3075,8 +3235,8 @@ try {
                     $user['group_codes'] = userlist_fetch_user_group_codes($pdo, (int) $user['id']);
                     $user['company_ids'] = userlist_fetch_user_subsidiary_company_ids($pdo, (int) $user['id']);
                     
-                    // 从 user_company_permissions 表获取当前公司下的权限（如果存在）
-                    $permCompanyId = (int) $current_company_id;
+                    // Acc/Process JSON：与 save 同一家公司（request company_id / session），避免 partnership 多公司时读到空行
+                    $permCompanyId = userlist_resolve_permission_company_id($input, 0, (int) $current_company_id);
                     if ($permCompanyId <= 0 && $groupScopeForGet !== null) {
                         $permCompanyId = userlist_resolve_group_tenant_entity_company_id($pdo, $groupScopeForGet);
                     }

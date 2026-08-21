@@ -29,7 +29,11 @@ import {
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
-import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
+import {
+  fetchOwnerCompaniesAll,
+  clearDashboardSelectedCurrency,
+} from "../../../utils/company/sharedCompanyFilter.js";
+import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
 import {
   resolvePaymentMaintenanceScope,
   paymentMaintenanceScopeCacheCompanyKey,
@@ -63,11 +67,17 @@ import "../../../../public/css/maintenance_unified_filters.css";
 import {
   fetchCompanyCurrencies,
   pickPaymentMaintenanceCurrency,
+  orderPaymentMaintenanceCurrencies,
+  resolvePaymentMaintenanceCurrencyOrderKey,
   searchPaymentData,
   deletePaymentRecords,
   updateSessionCompany,
   isPaymentMaintenanceRowSelectable,
 } from "./paymentMaintenanceLogic.js";
+import {
+  persistCurrencyDisplayOrder,
+  persistUserCurrencyDisplayOrder,
+} from "../../../utils/company/currencyDisplayOrder.js";
 import { notifyTransactionListInvalidated } from "../../transaction/lib/transactionPaymentLogic.js";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
@@ -130,6 +140,8 @@ export default function PaymentMaintenancePage() {
   const companyIdRef = useRef(null);
   const scopeKeyRef = useRef("");
   const searchSeqRef = useRef(0);
+  /** Guards company-switch reloads against out-of-order responses (rapid pill clicks). */
+  const companySelectSeqRef = useRef(0);
   const searchAbortRef = useRef(null);
   const initialPaymentSearchDoneRef = useRef(false);
   /** 切换公司已手动 performSearch 时跳过 useEffect 里下一轮重复请求 */
@@ -142,6 +154,8 @@ export default function PaymentMaintenancePage() {
   const onPrepareCompanySelectRef = useRef(() => {});
   const onClearCompanyRef = useRef(() => {});
   const sidebarSyncedCompanyIdRef = useRef(null);
+  /** True right after the user explicitly picks "All" currencies — tells useCrossPageCurrencySync not to re-apply a persisted/default currency. */
+  const userSelectedAllCurrencyRef = useRef(false);
 
   const {
     snapGroupIds,
@@ -349,7 +363,7 @@ export default function PaymentMaintenancePage() {
           });
           const currList = await fetchCompanyCurrencies(null, bootScope);
           if (cancelled) return;
-          setCurrencies(currList);
+          setCurrencies(orderPaymentMaintenanceCurrencies(currList, bootScope));
           setSelectedCurrency(pickPaymentMaintenanceCurrency(currList, bootScope));
           if (effectiveGroup) sessionStorage.setItem("dashboard_group_filter", effectiveGroup);
           skipMetaAfterBootRef.current = true;
@@ -370,7 +384,7 @@ export default function PaymentMaintenancePage() {
           });
 
           const currList = await fetchCompanyCurrencies(null, bootScope);
-          setCurrencies(currList);
+          setCurrencies(orderPaymentMaintenanceCurrencies(currList, bootScope));
           setSelectedCurrency(pickPaymentMaintenanceCurrency(currList, bootScope));
 
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
@@ -433,7 +447,7 @@ export default function PaymentMaintenancePage() {
       try {
         const currList = await fetchCompanyCurrencies(null, scope);
         if (cancelled) return;
-        setCurrencies(currList);
+        setCurrencies(orderPaymentMaintenanceCurrencies(currList, scope));
         setSelectedCurrency(pickPaymentMaintenanceCurrency(currList, scope));
       } catch (err) {
         if (cancelled) return;
@@ -553,13 +567,71 @@ export default function PaymentMaintenancePage() {
   );
 
   // -- Handlers --
-  const reloadScopeMeta = useCallback(async (scope) => {
+  /**
+   * Optional `seq`/`seqRef`: when a newer company click has superseded this call by the time the
+   * currency fetch returns, skip applying state (stale results are dropped, not shown).
+   */
+  const reloadScopeMeta = useCallback(async (scope, seq, seqRef) => {
     const currList = await fetchCompanyCurrencies(null, scope);
-    setCurrencies(currList);
+    if (seqRef && seq !== seqRef.current) return null;
+    setCurrencies(orderPaymentMaintenanceCurrencies(currList, scope));
     const nextCurrency = pickPaymentMaintenanceCurrency(currList, scope);
     setSelectedCurrency(nextCurrency);
     return nextCurrency;
   }, []);
+
+  /** Local drag reorder — shared cross-page order (user-global + this scope), not a page-local key. */
+  const handleCurrencyDropOn = useCallback(
+    (e, targetCode) => {
+      e.preventDefault();
+      const dragged = e.dataTransfer?.getData("text/plain");
+      if (!dragged || !targetCode || dragged === targetCode) return;
+      const list = [...currencies];
+      const fromI = list.findIndex((row) => row?.code === dragged);
+      const toI = list.findIndex((row) => row?.code === targetCode);
+      if (fromI < 0 || toI < 0 || fromI === toI) return;
+      const next = [...list];
+      const [moved] = next.splice(fromI, 1);
+      next.splice(toI, 0, moved);
+      setCurrencies(next);
+      const codes = next.map((row) => row?.code).filter(Boolean);
+      persistUserCurrencyDisplayOrder(codes);
+      const orderKey = resolvePaymentMaintenanceCurrencyOrderKey(paymentScope);
+      if (orderKey != null) {
+        persistCurrencyDisplayOrder(orderKey, codes);
+      }
+    },
+    [currencies, paymentScope],
+  );
+
+  // -- Cross-page currency selection sync (Dashboard / Transaction / Reports / etc.) --
+  const paymentCurrencyCodes = useMemo(
+    () => currencies.map((row) => row?.code).filter(Boolean),
+    [currencies],
+  );
+  const applyCrossPageCurrency = useCallback((code) => {
+    userSelectedAllCurrencyRef.current = false;
+    setSelectedCurrency(code);
+  }, []);
+  const { persistSelection: persistCrossPageCurrency } = useCrossPageCurrencySync({
+    enabled: paymentCurrencyCodes.length > 0 && paymentMaintenanceScopeIsReady(paymentScope),
+    companyId: paymentScope?.scopeCompanyId > 0 ? paymentScope.scopeCompanyId : null,
+    selectedGroup: paymentScope?.viewGroup ?? selectedGroup,
+    availableCodes: paymentCurrencyCodes,
+    currentCode: selectedCurrency || "",
+    onApplyCode: applyCrossPageCurrency,
+    respectEmptyRef: userSelectedAllCurrencyRef,
+  });
+
+  /** User clicked a currency pill: apply locally + broadcast so every page stays in sync. */
+  const handlePickCurrency = useCallback(
+    (code) => {
+      userSelectedAllCurrencyRef.current = false;
+      setSelectedCurrency(code);
+      persistCrossPageCurrency(code);
+    },
+    [persistCrossPageCurrency],
+  );
 
   const handleClearCompany = useCallback(
     (groupForPersist) => {
@@ -598,11 +670,17 @@ export default function PaymentMaintenancePage() {
     [companies, selectedGroup, reloadScopeMeta, performSearch, resetAnchorSessionRef, me],
   );
 
+  /**
+   * Sole data-reload path for a company switch: fires immediately (no wait on PHP session sync —
+   * the search/currency APIs already trust the explicit company_id param over session state).
+   * Guarded by companySelectSeqRef so a slower, superseded click's response never lands.
+   */
   const onPrepareCompanySelect = useCallback((c) => {
     if (!c?.id) return;
     const nextId = Number(c.id);
     const nextCode = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+    const seq = ++companySelectSeqRef.current;
     suppressNextSearchEffectRef.current = true;
     companyIdRef.current = nextId;
     setCompanyId(nextId);
@@ -618,7 +696,8 @@ export default function PaymentMaintenancePage() {
         me,
       });
       try {
-        const nextCurrency = await reloadScopeMeta(nextScope);
+        const nextCurrency = await reloadScopeMeta(nextScope, seq, companySelectSeqRef);
+        if (seq !== companySelectSeqRef.current) return;
         await performSearch({
           companyId: nextId,
           selectedGroup: newGroup,
@@ -626,6 +705,7 @@ export default function PaymentMaintenancePage() {
           currency: nextCurrency,
         });
       } catch (err) {
+        if (seq !== companySelectSeqRef.current) return;
         console.error("Company select meta/search:", err);
         notify(err.message || t("failedLoadCompanyMetadata"), "error");
       }
@@ -634,10 +714,14 @@ export default function PaymentMaintenancePage() {
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
 
+  /**
+   * PHP session sync + maintenance-category redirect check. onPrepareCompanySelect (called just
+   * before this, synchronously, for the same click) already owns the highlight + data reload —
+   * this only needs to react if the session sync says we must leave this page.
+   */
   const handleSwitchCompany = async (c) => {
     if (!c?.id) return;
-    const nextId = Number(c.id);
-    const nextCode = c.company_id || "";
+    const seq = companySelectSeqRef.current;
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
 
     try {
@@ -647,35 +731,10 @@ export default function PaymentMaintenancePage() {
         currentPath: location.pathname,
         navigate,
         updateSessionCompany,
-        onStay: async () => {
-          suppressNextSearchEffectRef.current = true;
-          companyIdRef.current = nextId;
-          setCompanyId(nextId);
-          setCompanyCode(nextCode);
-          if (newGroup) setSelectedGroup(newGroup);
-          persistDashboardFilterState(newGroup, nextId);
-
-          const nextScope = resolvePaymentMaintenanceScope({
-            companies,
-            selectedGroup: newGroup,
-            companyId: nextId,
-            me,
-          });
-          try {
-            const nextCurrency = await reloadScopeMeta(nextScope);
-            await performSearch({
-              companyId: nextId,
-              selectedGroup: newGroup,
-              scope: nextScope,
-              currency: nextCurrency,
-            });
-          } catch (err) {
-            notify(err.message || t("failedLoadCompanyMetadata"), "error");
-          }
-        },
       });
       if (redirected) return;
     } catch (err) {
+      if (seq !== companySelectSeqRef.current) return;
       notify(err.message || t("switchFailed"), "error");
       navigate(spaPath("dashboard"), { replace: true });
     }
@@ -687,7 +746,9 @@ export default function PaymentMaintenancePage() {
   followGroupRef.current = () => {};
 
   const handleCurrencySelectAll = useCallback(() => {
+    userSelectedAllCurrencyRef.current = true;
     setSelectedCurrency(null);
+    clearDashboardSelectedCurrency();
   }, []);
 
   const toggleSelect = useCallback((id) => {
@@ -767,8 +828,9 @@ export default function PaymentMaintenancePage() {
         groupAllMode={groupAllMode}
         currencies={currencies}
         selectedCurrency={selectedCurrency}
-        setSelectedCurrency={setSelectedCurrency}
+        setSelectedCurrency={handlePickCurrency}
         onCurrencySelectAll={handleCurrencySelectAll}
+        onCurrencyDropOn={handleCurrencyDropOn}
         onDelete={handleDeleteClick}
         confirmDelete={confirmDelete}
         setConfirmDelete={setConfirmDelete}

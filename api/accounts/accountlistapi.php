@@ -31,17 +31,15 @@ function getCurrentUserAccountPermissions(PDO $pdo, int $company_id): array {
 }
 
 /**
- * Owner / member / partnership / audit bypass account_permissions whitelist (same rules as permissions.php).
+ * Owner / member bypass account_permissions whitelist (same rules as permissions.php).
+ * Partnership / audit apply self_hidden + superior_closed like other non-owner roles.
  */
 function accountlist_user_sees_all_accounts(string $current_user_role): bool
 {
     $role = strtolower(trim($current_user_role));
     $userType = strtolower(trim((string) ($_SESSION['user_type'] ?? '')));
-    if ($role === 'owner' || $userType === 'member') {
-        return true;
-    }
 
-    return in_array($role, ['partnership', 'audit'], true);
+    return $role === 'owner' || $userType === 'member';
 }
 
 /**
@@ -62,10 +60,50 @@ function getAccountPermissionFilterForCompany(PDO $pdo, int $company_id, string 
     if (empty($userAccountPermissions) || !is_array($userAccountPermissions)) {
         return [];
     }
-    $accountIds = array_values(array_unique(array_filter(array_map('intval', array_column($userAccountPermissions, 'id')), function ($id) {
-        return $id > 0;
-    })));
-    return $accountIds;
+    // Exclude self_hidden / superior_closed: site lists hide Accs the user or a superior closed.
+    $accountIds = [];
+    foreach ($userAccountPermissions as $row) {
+        if (is_array($row) && (!empty($row['self_hidden']) || !empty($row['superior_closed']))) {
+            continue;
+        }
+        $id = is_array($row) ? (int) ($row['id'] ?? 0) : (int) $row;
+        if ($id > 0) {
+            $accountIds[] = $id;
+        }
+    }
+    return array_values(array_unique($accountIds));
+}
+
+/**
+ * Acc ids the editor may toggle in user-list (includes self_hidden, excludes superior_closed).
+ * null = unrestricted.
+ */
+function getAccountToggleableFilterForCompany(PDO $pdo, int $company_id, string $current_user_role): ?array {
+    $currentUserId = $_SESSION['user_id'] ?? null;
+    if (!$currentUserId || accountlist_user_sees_all_accounts($current_user_role)) {
+        return null;
+    }
+    $stmt = $pdo->prepare("SELECT account_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
+    $stmt->execute([$currentUserId, $company_id]);
+    $permission = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$permission || $permission['account_permissions'] === null) {
+        return null;
+    }
+    $userAccountPermissions = json_decode($permission['account_permissions'], true);
+    if (empty($userAccountPermissions) || !is_array($userAccountPermissions)) {
+        return [];
+    }
+    $accountIds = [];
+    foreach ($userAccountPermissions as $row) {
+        if (is_array($row) && !empty($row['superior_closed'])) {
+            continue;
+        }
+        $id = is_array($row) ? (int) ($row['id'] ?? 0) : (int) $row;
+        if ($id > 0) {
+            $accountIds[] = $id;
+        }
+    }
+    return array_values(array_unique($accountIds));
 }
 
 function validateCompanyAccess(PDO $pdo, int $company_id): void {
@@ -582,9 +620,17 @@ try {
     }
 
     $current_user_role = $_SESSION['role'] ?? '';
+    $forAssignment = isset($_GET['for_assignment']) && (string) $_GET['for_assignment'] === '1';
     $accountIdFilter = $company_id > 0
         ? getAccountPermissionFilterForCompany($pdo, $company_id, $current_user_role)
         : null;
+    $assignableIds = $accountIdFilter;
+    $toggleableIds = $company_id > 0
+        ? getAccountToggleableFilterForCompany($pdo, $company_id, $current_user_role)
+        : null;
+    if ($forAssignment) {
+        $accountIdFilter = null;
+    }
     $userAccountPermissions = $company_id > 0
         ? getCurrentUserAccountPermissions($pdo, $company_id)
         : [];
@@ -629,6 +675,8 @@ try {
             'showAll' => $showAll,
             'company_id' => $company_id,
             'user_permissions_count' => count($userAccountPermissions),
+            'assignable_ids' => $forAssignment ? $assignableIds : null,
+            'toggleable_ids' => $forAssignment ? $toggleableIds : null,
         ],
     ]);
 } catch (PDOException $e) {

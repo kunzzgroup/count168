@@ -395,6 +395,31 @@ export function AccountFormSheet({ open, onClose, account }) {
           </div>
         ) : null}
       </div>
+      {!account.groupOnlyMode && account.availableCompanies?.length > 0 ? (
+        <div className="m-account-sheet-section">
+          <p className="m-account-section-title">{i18n.assignCompanies || i18n.company}</p>
+          <div className="m-account-pill-row">
+            {account.availableCompanies.map((row) => {
+              const id = Number(row.id);
+              const active = account.selectedCompanyIds.includes(id);
+              const label = String(row.company_code || row.company_id || id).toUpperCase();
+              return (
+                <Pill
+                  key={id}
+                  active={active}
+                  onClick={() =>
+                    account.setSelectedCompanyIds((ids) =>
+                      active ? ids.filter((x) => Number(x) !== id) : [...ids, id],
+                    )
+                  }
+                >
+                  {label}
+                </Pill>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
       <div className="m-account-sheet-section">
         <p className="m-account-section-title">{i18n.currencies}</p>
         <div className="m-account-pill-row">
@@ -506,11 +531,22 @@ export function LinkAccountSheet({ open, onClose, account }) {
 
 export function CurrencySettingSheet({ open, onClose, account }) {
   const { i18n } = account;
-  const [currencyId, setCurrencyId] = useState("");
   const [newCode, setNewCode] = useState("");
   useEffect(() => {
-    if (!open) setCurrencyId("");
+    if (!open) setNewCode("");
   }, [open]);
+  const selectedIds = account.settingCurrencyIds instanceof Set ? account.settingCurrencyIds : new Set();
+  const hasSelectedCurrency = selectedIds.size > 0;
+  const canSave = hasSelectedCurrency && (account.currencyLinked.size > 0 || account.currencyInitial.size > 0);
+  const toggleCurrency = (id) => {
+    const nid = Number(id);
+    account.setSettingCurrencyIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nid)) next.delete(nid);
+      else next.add(nid);
+      return next;
+    });
+  };
   return (
     <Sheet
       open={open}
@@ -520,30 +556,17 @@ export function CurrencySettingSheet({ open, onClose, account }) {
       footer={
         <button
           type="button"
-          disabled={!currencyId || account.saving}
+          disabled={!canSave || account.saving}
           className="m-account-primary-btn tap-scale"
           onClick={async () => {
-            if (await account.saveCurrencyLinks(currencyId)) onClose();
+            if (await account.saveCurrencyLinks()) onClose();
           }}
         >
           {account.saving ? i18n.saving : i18n.save}
         </button>
       }
     >
-      <FormField label={i18n.currencies}>
-        <select
-          value={currencyId}
-          onChange={(e) => {
-            setCurrencyId(e.target.value);
-            if (e.target.value) account.loadCurrencyLinks(e.target.value);
-          }}
-        >
-          <option value="">{i18n.currencies}</option>
-          {account.currencies.map((currency) => (
-            <option key={currency.id} value={currency.id}>{currency.code}</option>
-          ))}
-        </select>
-      </FormField>
+      <p className="m-account-currency-hint">{i18n.currencyMatchHint}</p>
       <div className="m-account-currency-create">
         <input
           value={newCode}
@@ -563,29 +586,40 @@ export function CurrencySettingSheet({ open, onClose, account }) {
         </button>
       </div>
       <div className="m-account-currency-tags">
-        {account.currencies.map((currency) => (
-          <span key={currency.id}>
-            {currency.code}
-            <button
-              type="button"
-              disabled={Number(currencyId) === Number(currency.id) || currency.deletable === false}
-              onClick={() => {
-                const message = i18n.deleteCurrencyConfirm.replace("{code}", currency.code);
-                if (window.confirm(message)) account.deleteCurrency(currency);
-              }}
-              aria-label={`${i18n.delete} ${currency.code}`}
-            >
-              ×
-            </button>
-          </span>
-        ))}
+        {account.currencies.map((currency) => {
+          const id = Number(currency.id);
+          const active = selectedIds.has(id);
+          return (
+            <span key={currency.id} className={active ? "is-active" : ""}>
+              <button
+                type="button"
+                className={`m-account-currency-pill tap-scale${active ? " is-active" : ""}`}
+                aria-pressed={active}
+                onClick={() => toggleCurrency(id)}
+              >
+                {currency.code}
+              </button>
+              <button
+                type="button"
+                disabled={currency.deletable === false}
+                onClick={() => {
+                  const message = i18n.deleteCurrencyConfirm.replace("{code}", currency.code);
+                  if (window.confirm(message)) account.deleteCurrency(currency);
+                }}
+                aria-label={`${i18n.delete} ${currency.code}`}
+              >
+                ×
+              </button>
+            </span>
+          );
+        })}
       </div>
       <div className="m-account-check-list">
         {account.accounts.map((row) => (
-          <label key={row.id}>
+          <label key={row.id} className={!hasSelectedCurrency ? "is-disabled" : ""}>
             <input
               type="checkbox"
-              disabled={!currencyId}
+              disabled={!hasSelectedCurrency}
               checked={account.currencyLinked.has(Number(row.id))}
               onChange={(e) =>
                 account.setCurrencyLinked((ids) => {

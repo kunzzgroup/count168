@@ -50,6 +50,10 @@ function DenseAccountTable({ side, rows, showName, m, totals, onOpenHistory, onP
   return (
     <div className="m-tx-dense-wrap">
       <table className="m-tx-dense-table">
+        <colgroup>
+          <col className="m-tx-dense-col--acc" />
+          <col className="m-tx-dense-col--num" span={4} />
+        </colgroup>
         <thead>
           <tr>
             <th scope="col" className="m-tx-dense-th m-tx-dense-th--acc">
@@ -98,7 +102,7 @@ function DenseAccountTable({ side, rows, showName, m, totals, onOpenHistory, onP
               const roleCls = getRoleClass(row?.role);
               const code = String(row?.account_id || "").toUpperCase();
               const name = String(row?.account_name || "").trim();
-              const isAlert = Number(row?.is_alert) === 1;
+              const isAlert = row?.is_alert == 1 || row?.is_alert === true;
               const key = `${row.account_db_id || row.account_id}-${row.currency}-${row.transaction_id || ""}`;
               const balDisplay = formatTransactionGridMoneyHalfUp(row?.balance);
               return (

@@ -34,6 +34,7 @@ import { isCapitalLettersOnly, sanitizeCapitalLettersOnly } from "../../../utils
 import {
   mergeCurrencyCodesWithSavedOrder,
   persistCurrencyDisplayOrder,
+  persistUserCurrencyDisplayOrder,
   resolveSavedCurrencyOrder,
 } from "../../../utils/company/currencyDisplayOrder.js";
 import { saveUserCurrencyOrder, getUserCurrencyOrder } from "../../transaction/lib/transactionApi.js";
@@ -1820,11 +1821,16 @@ export function useBankProcessListPage() {
   };
 
   const openProfitShareModal = () => {
-    const rows = parseProfitSharingToRows(form.profit_sharing, accounts).map((r) => ({
-      ...r,
-      amount: r.amount ? formatBankMoneyFixed2(r.amount) : "",
-    }));
-    setProfitShareRows(rows.length ? rows : [{ accountId: "", accountLabel: "", amount: "" }]);
+    const rows = parseProfitSharingToRows(form.profit_sharing, accounts).map((r) => {
+      const prevMatch = profitShareRows.find((pr) => pr.accountId && String(pr.accountId) === String(r.accountId));
+      return {
+        ...r,
+        amount: r.amount ? formatBankMoneyFixed2(r.amount) : "",
+        amountMode: prevMatch?.amountMode || "",
+        percentInput: prevMatch?.percentInput || "",
+      };
+    });
+    setProfitShareRows(rows.length ? rows : [{ accountId: "", accountLabel: "", amount: "", amountMode: "", percentInput: "" }]);
     setProfitShareModalOpen(true);
   };
 
@@ -2444,6 +2450,8 @@ export function useBankProcessListPage() {
       const [moved] = next.splice(fromI, 1);
       next.splice(toI, 0, moved);
       setCurrencyPillDisplayOrder(next);
+      // Cross-page sync: keep the user-global order in step so every page follows this drag.
+      persistUserCurrencyDisplayOrder(next);
       const cid = Number(companyId);
       if (Number.isFinite(cid) && cid > 0) {
         persistCurrencyDisplayOrder(cid, next);
@@ -2503,12 +2511,16 @@ export function useBankProcessListPage() {
     // Show inactive / select column can alter effective row height.
     // Use real rendered rows to prevent clipped rows near page bottom.
     stableRowHeight: false,
+    // currentPage is deliberately excluded: remeasuring off the DOM rows of
+    // whichever page is currently on screen means the last (partial) page's
+    // smaller row sample can compute a different pageSize than a full page
+    // did, which shrinks totalPages and bounces the user back off the last
+    // page. Only remeasure on things that actually change the dataset/layout.
     remeasureDeps: [
       visibleRows.length,
       tableLoading,
       lang,
       cssReady,
-      currentPage,
       currencyFilterCode,
       showAll,
       showActive,

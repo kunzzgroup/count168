@@ -1,5 +1,10 @@
 /** Mirrors desktop sidebarPermissions.js for mobile routes only. */
 
+import { canAccessC168DomainPages } from "../lib/c168DomainAccess.js";
+import { isGroupLogin } from "../lib/loginScope.js";
+
+export { canAccessC168DomainPages };
+
 export function normRole(role) {
   return String(role || "").trim().toLowerCase();
 }
@@ -31,6 +36,20 @@ export function canAccessReport(me) {
   return canAccessPermission(me, "report");
 }
 
+/**
+ * Report entry (More + hub + deep links): hide when the active company is Bank-only.
+ * Mirrors desktop `canShowReportInSidebar` using session `me` flags (no GC cache on mobile).
+ */
+export function canShowReportEntry(me) {
+  if (!canAccessReport(me)) return false;
+  if (isGroupLogin(me)) return true;
+  if (me?.company_has_gambling) return true;
+  const code = String(me?.company_code || "").trim().toUpperCase();
+  if (code === "C168" || me?.is_current_company_c168) return true;
+  if (me?.company_has_bank && !me?.company_has_gambling) return false;
+  return true;
+}
+
 export function canAccessTransaction(me) {
   return canAccessPermission(me, "payment");
 }
@@ -43,6 +62,13 @@ export function canAccessAccount(me) {
 export function canAccessAdmin(me) {
   if (String(me?.user_type || "").toLowerCase() === "member") return false;
   return canAccessPermission(me, "admin");
+}
+
+/** Ownership page — owner / partnership only, same as desktop sidebar. */
+export function canAccessOwnership(me) {
+  const role = normRole(me?.role);
+  if (role !== "owner" && role !== "partnership") return false;
+  return canAccessPermission(me, "ownership");
 }
 
 /** Full Maintenance: owner / unrestricted, or explicit "maintenance" permission. */
@@ -99,11 +125,35 @@ export function resolveMobileLandingPath(me) {
   if (canAccessDashboard(me)) return "/dashboard";
   if (canAccessTransaction(me)) return "/transaction";
   if (canAccessAccount(me)) return "/account";
-  if (canAccessReport(me)) return "/report";
+  if (canShowReportEntry(me)) return "/report";
   return "/more";
 }
 
+/** More hub + pages opened from More — hide the tab bar. */
+export function isMobileMoreStackPath(pathname) {
+  const p = String(pathname || "");
+  return (
+    p === "/more" ||
+    p.startsWith("/more/") ||
+    p.startsWith("/report") ||
+    p.startsWith("/maintenance")
+  );
+}
+
+/** First bottom-nav tab besides More — used by the More back button. */
+export function resolveMobileMoreBackPath(me) {
+  if (!me) return "/dashboard";
+  const items = mobileNavItems(me).filter((item) => item.to !== "/more");
+  return items[0]?.to || "/dashboard";
+}
+
 export function mobileNavItems(me) {
+  if (String(me?.user_type || "").toLowerCase() === "member") {
+    return [
+      { to: "/member", icon: "fa-chart-line", key: "winLoss" },
+      { to: "/more", icon: "fa-ellipsis", key: "navMore" },
+    ];
+  }
   const items = [];
   if (canAccessDashboard(me)) {
     items.push({ to: "/dashboard", icon: "fa-house", key: "navHome" });

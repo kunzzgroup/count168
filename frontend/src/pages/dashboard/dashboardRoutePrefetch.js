@@ -6,6 +6,11 @@ import {
   readDashboardSelectedCurrency,
   readPersistedDashboardGcFilter,
 } from "../../utils/company/sharedCompanyFilter.js";
+import { readUserCurrencyDisplayOrder } from "../../utils/company/currencyDisplayOrder.js";
+import {
+  resolveFrankfurterDate,
+  warmFrankfurterRatesForCurrencies,
+} from "../../utils/dashboard/frankfurterRates.js";
 import {
   bindDashboardSessionCache,
   buildDashboardCacheKey,
@@ -120,6 +125,7 @@ export function warmDashboardRouteCache({ me = null } = {}) {
           : null;
     if (!scopeCompanyKey) return;
 
+    const orderCodes = readUserCurrencyDisplayOrder();
     const currency =
       readDashboardSelectedCurrency(
         buildDashboardCacheKey({
@@ -130,7 +136,31 @@ export function warmDashboardRouteCache({ me = null } = {}) {
           selectedGroup,
           groupAllMode: false,
         })
-      ) || "";
+      ) ||
+      (Array.isArray(orderCodes) && orderCodes[0]
+        ? String(orderCodes[0]).trim().toUpperCase()
+        : "");
+
+    // Warm FX for the persisted scope off the critical path — the dashboard will need
+    // base→quote rates for every pill the moment it opens; seeding them here (sidebar
+    // idle) removes the "amounts jump after rates land" lag on first paint. Best-effort:
+    // falls back to the user's persisted currency order when the scope has no record yet.
+    {
+      const warmCodes = [
+        ...new Set(
+          [currency, ...(orderCodes || [])]
+            .map((c) => String(c || "").trim().toUpperCase())
+            .filter(Boolean)
+        ),
+      ];
+      if (warmCodes.length > 1) {
+        warmFrankfurterRatesForCurrencies(
+          warmCodes,
+          resolveFrankfurterDate(dateTo),
+          currency || warmCodes[0]
+        );
+      }
+    }
 
     const cacheKey = buildDashboardCacheKey({
       companyId: scopeCompanyKey,
@@ -158,6 +188,7 @@ export function warmDashboardRouteCache({ me = null } = {}) {
     } else {
       return;
     }
+    // Always set currency when known so warm + live kpi share one bootstrap dedupe key.
     if (currency) q.set("currency", currency);
 
     const requestKey = q.toString();

@@ -16,7 +16,7 @@
   flex-shrink: 0;
   place-items: center;
   border-radius: 999px;
-  background: var(--m-color-primary);
+  background: var(--m-grad-brand);
   color: #fff;
 }
 
@@ -54,9 +54,14 @@
   color: var(--m-color-muted);
 }
 
+.m-tx-hist-loading--more {
+  padding: 1.25rem 0 2rem;
+  font-weight: 500;
+}
+
 .m-tx-hist-error {
   border-radius: var(--m-radius-card-lg);
-  background: #fff1f2;
+  background: var(--m-color-danger-soft);
   padding: 0.75rem 1rem;
   font-size: 1em;
   font-weight: 600;
@@ -71,35 +76,49 @@
   color: var(--m-color-muted);
 }
 
-/* Dense table: sticky Date; Type+ money scroll; zebra like Acc */
+/* Dense table: Date · Product · W/L · CR/DR · Bal fit viewport (no horizontal scroll) */
 .m-tx-hist-dense-wrap {
   min-width: 0;
   max-width: 100%;
   width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
   border-radius: 0.5rem;
   background: var(--m-color-surface);
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--m-color-ring);
   margin-bottom: 2rem;
 }
 
 .m-tx-hist-dense-table {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  table-layout: auto;
-  font-size: var(--m-text-secondary);
+  table-layout: fixed;
+  font-size: clamp(0.5rem, 1.85vw, 0.5625rem);
+}
+
+.m-tx-hist-col--date {
+  width: 16%;
+}
+
+.m-tx-hist-col--product {
+  width: 20%;
+}
+
+.m-tx-hist-col--num {
+  width: 19%;
+}
+
+.m-tx-hist-col--chev {
+  width: 7%;
 }
 
 .m-tx-hist-dense-th,
 .m-tx-hist-dense-td {
-  border-right: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid var(--m-color-ring);
+  border-bottom: 1px solid var(--m-color-ring);
   vertical-align: middle;
   font-variant-numeric: tabular-nums;
-  line-height: 1.25;
+  line-height: 1.15;
 }
 
 .m-tx-hist-dense-th:first-child,
@@ -119,11 +138,11 @@
 }
 
 .m-tx-hist-dense-th {
-  padding: 0.5rem 0.25rem;
-  font-size: var(--m-text-secondary);
+  padding: 0.35rem 0.12rem;
+  font-size: inherit;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.01em;
   color: #f8fafc;
   background: #1e3a5f;
   border-bottom-color: #1e3a5f;
@@ -132,38 +151,30 @@
 
 .m-tx-hist-dense-th--date,
 .m-tx-hist-dense-td--date {
-  position: sticky;
-  left: 0;
-  z-index: 2;
-  width: 5.75rem;
-  min-width: 5.75rem;
-  max-width: 5.75rem;
+  min-width: 0;
   text-align: left;
-  padding-left: 0.375rem;
-  box-shadow: 4px 0 8px -4px rgba(15, 23, 42, 0.28);
+  padding-left: 0.3rem;
 }
 
 .m-tx-hist-dense-th--date {
-  z-index: 5;
   background: #1e3a5f;
 }
 
 .m-tx-hist-dense-th--product {
-  min-width: 6.5rem;
+  min-width: 0;
   text-align: left;
 }
 
 .m-tx-hist-dense-th--num {
-  min-width: 8rem;
+  min-width: 0;
   text-align: right;
-  padding-right: 0.375rem;
+  padding-right: 0.25rem;
 }
 
 .m-tx-hist-dense-th--chev {
-  min-width: 2rem;
-  width: 2rem;
+  min-width: 0;
   text-align: center;
-  padding: 0.5rem 0;
+  padding: 0.35rem 0;
 }
 
 .m-tx-hist-row {
@@ -186,67 +197,67 @@
 
 /* Zebra: white / lavender (type tint only on badges) */
 .m-tx-hist-row > .m-tx-hist-dense-td {
-  background: #fff;
+  background: var(--m-color-surface);
 }
 
 .m-tx-hist-row--alt > .m-tx-hist-dense-td {
-  background: #eef2ff;
+  background: var(--m-color-primary-soft);
 }
 
 .m-tx-hist-dense-td {
-  padding: 0.5rem 0.25rem;
+  padding: 0.3rem 0.12rem;
   font-weight: 700;
 }
 
 .m-tx-hist-dense-td--date {
   font-weight: 700;
-  color: #334155;
+  color: var(--m-color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  background-color: #fff;
+  background-color: var(--m-color-surface);
 }
 
 .m-tx-hist-row--alt > .m-tx-hist-dense-td--date {
-  background-color: #eef2ff;
+  background-color: var(--m-color-primary-soft);
 }
 
 .m-tx-hist-row--expanded > .m-tx-hist-dense-td--date {
-  background-color: #dbeafe;
+  background-color: var(--m-color-primary-soft);
 }
 
 .m-tx-hist-row--expanded.m-tx-hist-row--alt > .m-tx-hist-dense-td--date {
-  background-color: #dbeafe;
+  background-color: var(--m-color-primary-soft);
 }
 
 .m-tx-hist-dense-td--product {
+  min-width: 0;
   text-align: left;
-  max-width: 8rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 700;
-  color: #334155;
+  color: var(--m-color-text-secondary);
 }
 
 .m-tx-hist-dense-td--num {
-  min-width: 8rem;
+  min-width: 0;
   text-align: right;
-  padding-right: 0.375rem;
+  padding-right: 0.15rem;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: clip;
-  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  letter-spacing: -0.04em;
 }
 
 .m-tx-hist-dense-td--chev {
   text-align: center;
-  padding: 0.25rem 0;
-  color: #64748b;
+  padding: 0.2rem 0;
+  color: var(--m-color-muted);
 }
 
 .m-tx-hist-chev {
-  font-size: var(--m-text-secondary);
+  font-size: inherit;
   opacity: 0.75;
 }
 
@@ -257,17 +268,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   border-radius: 0.25rem;
-  padding: 0.0625rem 0.25rem;
-  font-size: var(--m-text-secondary);
+  padding: 0.05rem 0.2rem;
+  font-size: inherit;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   vertical-align: middle;
 }
 
 .m-tx-hist-detail-row .m-tx-hist-detail {
   padding: 0;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-bottom: 1px solid var(--m-color-ring);
+  background: var(--m-color-surface-muted);
 }
 
 .m-tx-hist-detail-panel {
@@ -279,8 +290,8 @@
   max-width: 100%;
   margin: 0.5rem 0.375rem 0.625rem;
   border-radius: 0.625rem;
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
+  background: var(--m-color-surface-muted);
+  border: 1px solid var(--m-color-ring);
   padding: 0.75rem 0.875rem;
   display: flex;
   flex-direction: column;
@@ -306,7 +317,7 @@
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem 1rem;
   padding-top: 0.625rem;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--m-color-ring);
 }
 
 .m-tx-hist-detail-meta-item {
@@ -321,7 +332,7 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #64748b;
+  color: var(--m-color-muted);
   line-height: 1.2;
 }
 
@@ -330,7 +341,7 @@
   font-size: var(--m-text-secondary);
   font-weight: 600;
   line-height: 1.45;
-  color: #1e293b;
+  color: var(--m-color-text);
   word-break: break-word;
   overflow-wrap: anywhere;
 }
@@ -344,7 +355,7 @@
   min-width: 0;
   font-size: var(--m-text-secondary);
   font-weight: 700;
-  color: #1e293b;
+  color: var(--m-color-text);
   word-break: break-word;
 }
 

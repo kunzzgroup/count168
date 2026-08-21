@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { formatFrankfurterUnitRate } from "../../../utils/dashboard/frankfurterRates.js";
 import {
@@ -23,9 +23,49 @@ import { EarningsPieSectorTooltip } from "./EarningsPieSectorTooltip.jsx";
  * Doubles as slack for the earnings-by-currency fetch itself: a longer gap means more
  * scopes land already-fully-loaded by the time this timer opens the gate.
  */
-const CURRENCY_CARD_MIN_GAP_AFTER_KPI_MS = 900;
+const CURRENCY_CARD_MIN_GAP_AFTER_KPI_MS = 450;
 
-export function DashboardEarningsSummary({
+/** Debounce layout sync so resize/ResizeObserver bursts re-render the pie shell at most
+ *  once per frame — previously every resize event setState'd and re-rendered the card.
+ *  `measureTick` re-runs one measurement when a reveal/scope change lands (mirrors the
+ *  old `[summaryPieReady, currencyCode]` dependency of the layout effect). */
+function useDebouncedResizeSync(pieAreaRef, pieShellRef, onLayout, measureTick) {
+  const rafRef = useRef(0);
+  useEffect(() => {
+    const wrap = pieAreaRef.current;
+    const shell = pieShellRef.current;
+    if (!wrap || !shell) return undefined;
+
+    const syncLayout = () => {
+      if (rafRef.current) return;
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = 0;
+        onLayout();
+      });
+    };
+
+    syncLayout();
+    const observer =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(syncLayout) : null;
+    observer?.observe(wrap);
+    observer?.observe(shell);
+    window.addEventListener("resize", syncLayout);
+    return () => {
+      if (rafRef.current) window.cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+      observer?.disconnect();
+      window.removeEventListener("resize", syncLayout);
+    };
+  }, [pieAreaRef, pieShellRef, onLayout]);
+
+  useEffect(() => {
+    if (!measureTick) return undefined;
+    const raf = window.requestAnimationFrame(onLayout);
+    return () => window.cancelAnimationFrame(raf);
+  }, [measureTick, onLayout]);
+}
+
+export const DashboardEarningsSummary = memo(function DashboardEarningsSummary({
   i18n,
   currencyCode,
   currencies,
@@ -41,6 +81,7 @@ export function DashboardEarningsSummary({
   exchangeRates,
   exchangeRatesLoading,
   exchangeRateScopeKey = "",
+  scopeKey = "",
   showSummaryPanelTabs = false,
   showEarningPanelTab = false,
   showNetProfitForTab = false,
@@ -111,21 +152,50 @@ export function DashboardEarningsSummary({
   // Holds `kpiChartReady` back by a fixed minimum beat so the Currency card never
   // reveals in the same tick as KPI/chart, even when its own data was already sitting
   // ready (the atomic-paint fetch now starts almost alongside KPI/chart, so this can
-  // genuinely happen). Snaps back to false immediately when KPI/chart go pending again
-  // — only the reveal itself is paced, same rule as the reveal animation's own timing.
+  // genuinely happen).
+  //
+  // Once the card has revealed for THIS scope, keep it visible: a transient pending
+  // (slow FX / earnings refresh flips `kpiChartReady` off and on) must not hide the
+  // already-painted pie only to bloom it back in — the "flickers after it's already
+  // up" bug. Only a real scope change re-arms the 450ms reveal hold; same-scope
+  // updates stay visible and update in place.
+  //
+  // The scope identity is the PAINTED scope key (company|dates|currency|group), not
+  // just currencyCode: switching company/date/group with the same display currency
+  // must still replay the reveal animation (currencyCode alone would look frozen),
+  // while FX/earnings refreshes within one scope keep the key stable and stay put.
   const [kpiChartReadyPaced, setKpiChartReadyPaced] = useState(false);
+  const [revealedPieScope, setRevealedPieScope] = useState("");
+  const pieScopeId = scopeKey || currencyCode || "pie";
   useEffect(() => {
-    if (!kpiChartReady) {
+    // Scope changed → re-arm the reveal hold for the new scope.
+    if (revealedPieScope !== "" && revealedPieScope !== pieScopeId) {
       setKpiChartReadyPaced(false);
+      setRevealedPieScope("");
       return undefined;
     }
+    // Already revealed for this scope — stay visible through transient pendings.
+    if (kpiChartReady && revealedPieScope === pieScopeId) {
+      setKpiChartReadyPaced(true);
+      return undefined;
+    }
+    if (!kpiChartReady) return undefined; // keep current visibility; pending stays
     const timer = window.setTimeout(() => {
+      setRevealedPieScope(pieScopeId);
       setKpiChartReadyPaced(true);
     }, CURRENCY_CARD_MIN_GAP_AFTER_KPI_MS);
     return () => window.clearTimeout(timer);
-  }, [kpiChartReady]);
+  }, [kpiChartReady, pieScopeId, revealedPieScope]);
 
   const showMultiCurrencyBreakdown = currencies.length > 1;
+
+  // FX still resolving for a multi-currency scope: instead of replacing amounts with
+  // a shimmer (which read as a flicker when the rates land a moment later), keep the
+  // previous painted amount and dim it. The amount updates in place when rates become
+  // usable (useConvertedEarnings flips) — no hide-then-show jump.
+  const fxAmountPending =
+    showMultiCurrencyBreakdown && exchangeRatesLoading && !useConvertedEarnings;
+  const fxAmountDimmed = fxAmountPending ? " dashboard-amount-pending-fx" : "";
 
   // Card-level readiness gate — hide only while the first multi-currency paint is
   // still pending. Do NOT require every currency row to be non-null: after a date
@@ -137,38 +207,31 @@ export function DashboardEarningsSummary({
   // `kpiChartReadyPaced` pins this card to a fixed reveal order (never before, never
   // simultaneous with KPI/chart), even when its own data resolves first — otherwise
   // the reveal order/timing flips depending on how many currencies this scope has.
+  // `earningsByCurrencyLoading` is intentionally NOT a hide condition here: a slow
+  // earnings refresh (network) would flip it on and snap the already-revealed card
+  // (pie + list) back to opacity 0, then bloom it in again when the fetch lands —
+  // the visible "pie flickers on slow connections" bug. Once any row has a real
+  // figure, keep showing what we have and update rows in place as batches land.
   const currencyCardReady =
     kpiChartReadyPaced &&
     (showMultiCurrencyBreakdown
-      ? !earningsByCurrencyLoading &&
-        panelCurrencyRows.length > 0 &&
+      ? panelCurrencyRows.length > 0 &&
         panelCurrencyRows.some((row) => row.earnings != null)
       : !summaryEarningsLoading);
 
-  useLayoutEffect(() => {
+  const syncPieLayout = useCallback(() => {
     const wrap = pieAreaRef.current;
     const shell = pieShellRef.current;
-    if (!wrap || !shell) return undefined;
+    if (!wrap || !shell) return;
+    setPieShellLayout({
+      left: shell.offsetLeft,
+      top: shell.offsetTop,
+      width: shell.clientWidth,
+      height: shell.clientHeight,
+    });
+  }, []);
 
-    const syncLayout = () => {
-      setPieShellLayout({
-        left: shell.offsetLeft,
-        top: shell.offsetTop,
-        width: shell.clientWidth,
-        height: shell.clientHeight,
-      });
-    };
-
-    syncLayout();
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(syncLayout) : null;
-    observer?.observe(wrap);
-    observer?.observe(shell);
-    window.addEventListener("resize", syncLayout);
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener("resize", syncLayout);
-    };
-  }, [summaryPieReady, currencyCode]);
+  useDebouncedResizeSync(pieAreaRef, pieShellRef, syncPieLayout, `${summaryPieReady ? "ready" : "wait"}:${currencyCode}`);
 
   const handlePieSectorEnter = useCallback(
     (sectorData, index) => {
@@ -242,7 +305,10 @@ export function DashboardEarningsSummary({
         {currencyCode ? ` · ${currencyCode}` : ""}
       </span>
       <div className="dashboard-summary-hero-value">
-        <span className="dashboard-animated-value dashboard-summary-hero-value-anim">
+        <span
+          className={`dashboard-animated-value dashboard-summary-hero-value-anim${fxAmountDimmed}`}
+          aria-busy={fxAmountPending ? "true" : undefined}
+        >
           {formatCurrency(parseFloat(summaryEarningsValue) || 0)}
         </span>
       </div>
@@ -467,7 +533,10 @@ export function DashboardEarningsSummary({
                     <span className="dashboard-summary-currency-code">{row.code}</span>
                   </div>
                   <div className="dashboard-summary-currency-amount-col">
-                    <span className="dashboard-summary-currency-amount">
+                    <span
+                      className={`dashboard-summary-currency-amount${fxAmountDimmed}`}
+                      aria-busy={fxAmountPending ? "true" : undefined}
+                    >
                       {primary != null ? formatCurrency(primary) : "—"}
                     </span>
                   </div>
@@ -501,4 +570,4 @@ export function DashboardEarningsSummary({
       </div>
     </div>
   );
-}
+});

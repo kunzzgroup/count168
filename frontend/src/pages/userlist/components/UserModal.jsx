@@ -1,5 +1,6 @@
-import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { accountCompanyPickerZIndex, accountModalOverlayZIndex } from "../../../components/ProcessModalPortal.jsx";
 import SimpleSelect from "../../../components/SimpleSelect.jsx";
 import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
@@ -145,12 +146,14 @@ const userModalColStyle = {
 };
 import {
   PERMISSION_ICONS,
+  canSelfEditAccountAccess,
   normRole,
   getAvailableRolesForCreation,
   getAvailableRolesForEdit,
   roleHasReadOnlyToggle,
   canInteractWithReadOnlyToggle,
   isUserModalPageReadOnlyLock,
+  sortAccessItems,
 } from "../userListLogic.js";
 import { formatUserRoleDisplay } from "../../../translateFile/pages/userListTranslate.js";
 import { sanitizeEmailInput } from "../../../utils/input/emailValidation.js";
@@ -171,7 +174,7 @@ const AccessSelectCard = React.memo(function AccessSelectCard({
 }) {
   return (
     <label
-      className={`account-item-compact account-item-compact--process user-modal-select-card${checked ? " is-selected" : ""}${locked ? " is-disabled" : ""}`}
+      className={`account-item-compact account-item-compact--process user-modal-select-card${checked ? " is-selected" : " is-closed"}${locked ? " is-disabled" : ""}`}
     >
       <input
         type="checkbox"
@@ -188,6 +191,16 @@ const AccessSelectCard = React.memo(function AccessSelectCard({
   );
 });
 
+const ACCESS_ROW_ESTIMATE = 44;
+const EMPTY_ACCESS_ID_SET = new Set();
+
+function readAccessGridCols(el) {
+  if (!el || typeof window === "undefined") return 4;
+  const raw = window.getComputedStyle(el).getPropertyValue("--user-modal-access-grid-cols").trim();
+  const n = Number.parseInt(raw, 10);
+  return n > 0 ? n : 4;
+}
+
 const SelectionColumn = React.memo(function SelectionColumn({
   variant,
   title,
@@ -197,6 +210,11 @@ const SelectionColumn = React.memo(function SelectionColumn({
   setSelectedIds,
   idList,
   locked,
+  toggleableIds = null,
+  superiorClosedIds = null,
+  setSuperiorClosedIds = null,
+  selfToggle = false,
+  enabled = true,
   bulkSelectionSettling,
   runBulkSelection,
   t,
@@ -206,49 +224,135 @@ const SelectionColumn = React.memo(function SelectionColumn({
     variant === "account"
       ? "user-modal-col user-modal-col--account account-process-col"
       : "user-modal-col user-modal-col--process account-process-col";
+  const codeKey = variant === "account" ? "account_id" : "process_id";
+  const closedIds = superiorClosedIds instanceof Set ? superiorClosedIds : EMPTY_ACCESS_ID_SET;
+  const sortedItems = useMemo(
+    () => sortAccessItems(items, selectedIds, codeKey),
+    [items, selectedIds, codeKey],
+  );
+  const bulkIdList = useMemo(() => {
+    const source = toggleableIds == null ? idList : idList.filter((id) => toggleableIds.has(Number(id)));
+    if (selfToggle) {
+      return source.filter((id) => !closedIds.has(Number(id)));
+    }
+    return source;
+  }, [closedIds, idList, selfToggle, toggleableIds]);
+  const [gridCols, setGridCols] = useState(4);
+
+  useLayoutEffect(() => {
+    const el = gridRef?.current;
+    if (!el || !enabled) return undefined;
+    const read = () => {
+      const n = readAccessGridCols(el);
+      setGridCols((prev) => (prev === n ? prev : n));
+    };
+    read();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [enabled, gridRef]);
+
+  const isItemLocked = useCallback(
+    (id) => {
+      if (locked) return true;
+      if (selfToggle && closedIds.has(id)) return true;
+      return toggleableIds != null && !toggleableIds.has(id);
+    },
+    [closedIds, locked, selfToggle, toggleableIds],
+  );
 
   const onToggle = useCallback(
     (id, checked) => {
+      const nid = Number(id);
+      if (isItemLocked(nid)) return;
       setSelectedIds((prev) => {
         const n = new Set(prev);
-        if (checked) n.add(Number(id));
-        else n.delete(Number(id));
+        if (checked) n.add(nid);
+        else n.delete(nid);
         return n;
       });
+      if (typeof setSuperiorClosedIds === "function" && !selfToggle) {
+        setSuperiorClosedIds((prev) => {
+          const n = new Set(prev);
+          if (checked) n.delete(nid);
+          else n.add(nid);
+          return n;
+        });
+      }
     },
-    [setSelectedIds],
+    [isItemLocked, selfToggle, setSelectedIds, setSuperiorClosedIds],
   );
+
+  const rowCount = Math.ceil(sortedItems.length / gridCols) || 0;
+  const virtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => gridRef?.current,
+    estimateSize: () => ACCESS_ROW_ESTIMATE,
+    overscan: 6,
+    enabled: !!enabled && rowCount > 0,
+  });
 
   return (
     <div className={colClass} style={userModalColStyle}>
       <label className="acc-proc-label user-modal-col-title">{title}</label>
       <div
         ref={gridRef}
-        className={`account-grid account-grid--four account-grid--process${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}
+        className={`account-grid account-grid--four account-grid--process account-grid--virtual${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}
       >
-        {items.map((it) => {
-          const primary = variant === "account" ? it.account_id : it.process_id;
-          const secondary = variant === "account" ? it.name : it.description;
-          return (
-            <AccessSelectCard
-              key={it.id}
-              id={it.id}
-              idPrefix={idPrefix}
-              primary={primary}
-              secondary={secondary}
-              checked={selectedIds.has(Number(it.id))}
-              locked={locked}
-              onToggle={onToggle}
-            />
-          );
-        })}
+        <div className="account-grid-virtual-spacer" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const start = virtualRow.index * gridCols;
+            const rowItems = sortedItems.slice(start, start + gridCols);
+            return (
+              <div
+                key={virtualRow.key}
+                className="account-grid-virtual-row"
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{ transform: `translateY(${virtualRow.start}px)` }}
+              >
+                {rowItems.map((it) => {
+                  const primary = variant === "account" ? it.account_id : it.process_id;
+                  const secondary = variant === "account" ? it.name : it.description;
+                  const id = Number(it.id);
+                  return (
+                    <AccessSelectCard
+                      key={it.id}
+                      id={it.id}
+                      idPrefix={idPrefix}
+                      primary={primary}
+                      secondary={secondary}
+                      checked={selectedIds.has(id)}
+                      locked={isItemLocked(id)}
+                      onToggle={onToggle}
+                    />
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
       </div>
       <div className="account-control-buttons user-modal-col-actions">
         <button
           type="button"
           className="btn-account-control"
           disabled={locked}
-          onClick={() => runBulkSelection(variant, () => setSelectedIds(new Set(idList)))}
+          onClick={() => runBulkSelection(variant, () => {
+            setSelectedIds((prev) => {
+              const n = new Set(prev);
+              bulkIdList.forEach((id) => n.add(Number(id)));
+              return n;
+            });
+            if (typeof setSuperiorClosedIds === "function" && !selfToggle) {
+              setSuperiorClosedIds((prev) => {
+                const n = new Set(prev);
+                bulkIdList.forEach((id) => n.delete(Number(id)));
+                return n;
+              });
+            }
+          })}
         >
           {t("selectAll")}
         </button>
@@ -256,7 +360,20 @@ const SelectionColumn = React.memo(function SelectionColumn({
           type="button"
           className="btn-clearall"
           disabled={locked}
-          onClick={() => runBulkSelection(variant, () => setSelectedIds(new Set()))}
+          onClick={() => runBulkSelection(variant, () => {
+            setSelectedIds((prev) => {
+              const n = new Set(prev);
+              bulkIdList.forEach((id) => n.delete(Number(id)));
+              return n;
+            });
+            if (typeof setSuperiorClosedIds === "function" && !selfToggle) {
+              setSuperiorClosedIds((prev) => {
+                const n = new Set(prev);
+                bulkIdList.forEach((id) => n.add(Number(id)));
+                return n;
+              });
+            }
+          })}
         >
           {t("clearAll")}
         </button>
@@ -293,9 +410,15 @@ function UserModal({
   modalAccounts,
   selectedAccountIds,
   setSelectedAccountIds,
+  toggleableAccountIds = null,
+  superiorClosedAccountIds = null,
+  setSuperiorClosedAccountIds,
   modalProcesses,
   selectedProcessIds,
   setSelectedProcessIds,
+  toggleableProcessIds = null,
+  superiorClosedProcessIds = null,
+  setSuperiorClosedProcessIds,
   applyPermTemplate,
   onSave,
   sessionMutationsBlocked = false,
@@ -334,62 +457,6 @@ function UserModal({
     }
     return opts;
   }, [isEditMode, currentUserRole, editingRow, form.role, t]);
-
-  useEffect(() => {
-    if (!open) return undefined;
-
-    const clearMinHeights = (gridEl) => {
-      if (!gridEl) return;
-      gridEl.querySelectorAll(".user-modal-select-card").forEach((el) => {
-        el.style.minHeight = "";
-      });
-    };
-
-    // Defer equal-height sync until the browser is idle so Role clicks right after
-    // Add User are not blocked by hundreds of getBoundingClientRect writes.
-    const syncGridCardHeights = (gridEl) => {
-      if (!gridEl) return;
-      const cards = gridEl.querySelectorAll(".user-modal-select-card");
-      if (!cards.length) return;
-      cards.forEach((c) => {
-        c.style.minHeight = "";
-      });
-      let maxH = 0;
-      cards.forEach((c) => {
-        maxH = Math.max(maxH, c.getBoundingClientRect().height);
-      });
-      const px = maxH > 0 ? `${Math.ceil(maxH)}px` : "";
-      if (!px) return;
-      cards.forEach((c) => {
-        c.style.minHeight = px;
-      });
-    };
-
-    const syncAll = () => {
-      syncGridCardHeights(accountGridRef.current);
-      syncGridCardHeights(processGridRef.current);
-    };
-
-    let idleId = 0;
-    let timeoutId = 0;
-    const rafId = requestAnimationFrame(() => {
-      if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
-        idleId = window.requestIdleCallback(syncAll, { timeout: 2500 });
-      } else {
-        timeoutId = window.setTimeout(syncAll, 400);
-      }
-    });
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      if (idleId && typeof window !== "undefined" && typeof window.cancelIdleCallback === "function") {
-        window.cancelIdleCallback(idleId);
-      }
-      if (timeoutId) window.clearTimeout(timeoutId);
-      clearMinHeights(accountGridRef.current);
-      clearMinHeights(processGridRef.current);
-    };
-  }, [open, modalAccounts, modalProcesses]);
 
   useEffect(() => {
     return () => {
@@ -544,7 +611,9 @@ function UserModal({
   }, [open, pageReadOnlyLock]);
 
   const permissionsLocked = fieldLocks.sidebar || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
-  const accountProcessLocked = !!fieldLocks.accountProcess || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
+  const selfToggle = canSelfEditAccountAccess(editingRow, currentUserId, currentUserRole);
+  const accountLocked = !!editingRow?.is_owner_shadow || pageReadOnlyLock || (!!fieldLocks.accountProcess && !selfToggle);
+  const processLocked = !!editingRow?.is_owner_shadow || pageReadOnlyLock || (!!fieldLocks.accountProcess && !selfToggle);
   const showSecondaryPassword = isC168Company || !!editingRow?.is_owner_shadow;
 
   const userModalShell = (
@@ -785,7 +854,12 @@ function UserModal({
               selectedIds={selectedAccountIds}
               setSelectedIds={setSelectedAccountIds}
               idList={accountIdList}
-              locked={accountProcessLocked}
+              locked={accountLocked}
+              toggleableIds={toggleableAccountIds}
+              superiorClosedIds={superiorClosedAccountIds}
+              setSuperiorClosedIds={setSuperiorClosedAccountIds}
+              selfToggle={selfToggle}
+              enabled={open}
               bulkSelectionSettling={bulkSettlingVariant === "account"}
               runBulkSelection={runBulkSelection}
               t={t}
@@ -800,7 +874,12 @@ function UserModal({
                 selectedIds={selectedProcessIds}
                 setSelectedIds={setSelectedProcessIds}
                 idList={processIdList}
-                locked={accountProcessLocked}
+                locked={processLocked}
+                toggleableIds={toggleableProcessIds}
+                superiorClosedIds={superiorClosedProcessIds}
+                setSuperiorClosedIds={setSuperiorClosedProcessIds}
+                selfToggle={selfToggle}
+                enabled={open}
                 bulkSelectionSettling={bulkSettlingVariant === "process"}
                 runBulkSelection={runBulkSelection}
                 t={t}

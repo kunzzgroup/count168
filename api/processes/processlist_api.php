@@ -216,32 +216,6 @@ function getLinkedProcessIdsForSync(PDO $pdo, int $companyId, int $processId): a
     return array_values(array_unique($ids));
 }
 
-/**
- * Parse profit_sharing text like "STAFF - 50, AA - 10.5" and return total amount.
- */
-function parseProfitSharingTotal(?string $profitSharing): string
-{
-    if ($profitSharing === null) {
-        return '0.00000000';
-    }
-
-    $text = trim($profitSharing);
-    if ($text === '') {
-        return '0.00000000';
-    }
-
-    $total = '0.00000000';
-    if (preg_match_all('/-\s*(-?\d+(?:\.\d+)?)/', $text, $matches)) {
-        foreach ($matches[1] as $num) {
-            if (money_is_valid($num)) {
-                $total = money_add($total, $num);
-            }
-        }
-    }
-
-    return $total;
-}
-
 // Handle different actions
 $action = $_GET['action'] ?? '';
 
@@ -358,6 +332,19 @@ function getProcesses() {
         $showOfficial = isset($_GET['showOfficial']) && $_GET['showOfficial'] == '1';
         $showEInvoice = isset($_GET['showEInvoice']) && $_GET['showEInvoice'] == '1';
         $showAll = isset($_GET['showAll']) && $_GET['showAll'] == '1';
+        $forAssignment = isset($_GET['for_assignment']) && (string) $_GET['for_assignment'] === '1';
+        $assignableIds = permissions_process_whitelist_ids(
+            $pdo,
+            (int) ($_SESSION['user_id'] ?? 0),
+            (int) $targetCompanyId,
+            $_SESSION['role'] ?? ''
+        );
+        $toggleableIds = permissions_process_toggleable_ids(
+            $pdo,
+            (int) ($_SESSION['user_id'] ?? 0),
+            (int) $targetCompanyId,
+            $_SESSION['role'] ?? ''
+        );
         
         $hasTxnProcessId = false;
         try {
@@ -425,7 +412,10 @@ function getProcesses() {
         }
         
         // 权限过滤 - 使用请求的公司 id（与 p.company_id 一致），避免 session 仍为上一家公司时返回空列表
-        list($baseSql, $params) = filterProcessesByPermissions($pdo, $baseSql, $params, $targetCompanyId);
+        // for_assignment=1：User List 勾选需要展示已关闭项（灰色），不按当前用户白名单裁剪
+        if (!$forAssignment) {
+            list($baseSql, $params) = filterProcessesByPermissions($pdo, $baseSql, $params, $targetCompanyId);
+        }
         
         // 添加 GROUP BY 和 ORDER BY
         $baseSql .= " GROUP BY p.id ORDER BY p.dts_created DESC";
@@ -457,7 +447,15 @@ function getProcesses() {
             ];
         }
         
-        jsonResponse(true, '', $formattedProcesses);
+        if ($forAssignment) {
+            jsonResponse(true, '', [
+                'processes' => $formattedProcesses,
+                'assignable_ids' => $assignableIds,
+                'toggleable_ids' => $toggleableIds,
+            ]);
+        } else {
+            jsonResponse(true, '', $formattedProcesses);
+        }
     } catch (PDOException $e) {
         error_log("Error fetching processes: " . $e->getMessage());
         jsonResponse(false, 'Failed to fetch processes: ' . $e->getMessage(), null);
@@ -1000,12 +998,6 @@ function getBankProcesses() {
 
         $formattedProcesses = [];
         foreach ($rows as $r) {
-            $storedProfit = isset($r['profit']) && $r['profit'] !== '' ? money_normalize($r['profit']) : '0.00000000';
-            $profitSharingTotal = parseProfitSharingTotal($r['profit_sharing'] ?? null);
-            $netProfit = money_sub($storedProfit, $profitSharingTotal);
-            if (money_cmp($netProfit, '0') < 0) {
-                $netProfit = '0.00000000';
-            }
             $issueFlag = normalizeBankIssueFlagValue($r['issue_flag'] ?? null);
             $formattedProcesses[] = [
                 'id' => $r['id'],
@@ -1019,7 +1011,7 @@ function getBankProcesses() {
                 'customer' => $r['customer_account'] ?? '',
                 'cost' => $r['cost'] !== null && $r['cost'] !== '' ? money_out($r['cost']) : '',
                 'price' => $r['price'] !== null && $r['price'] !== '' ? money_out($r['price']) : '',
-                'profit' => money_out($netProfit),
+                'profit' => $r['profit'] !== null && $r['profit'] !== '' ? money_out($r['profit']) : '',
                 'status' => $r['status'],
                 'issue_flag' => $issueFlag,
                 'remark' => $r['remark'] ?? '',

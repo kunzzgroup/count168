@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { LOGIN_I18N, localizeAuthApiMessage } from "../../translateFile/authTranslate.js";
+import { readLoginLang, writeLoginLang } from "../../lib/loginLang.js";
 import { buildApiUrl } from "../../utils/apiUrl.js";
 import { resolveMobileLandingPath } from "../../utils/mobilePermissions.js";
 import { useAuthBackground } from "./useAuthBackground.js";
 import PasswordInput from "../../components/PasswordInput.jsx";
+import { extractPlainTextFromRichText } from "../../utils/content/richTextSanitizer.js";
 
 const LOGIN_ASSET_RETRY_KEY = "ec_mobile_login_asset_retry";
 
@@ -53,12 +55,6 @@ function tryLoginPageReloadOnce() {
   url.searchParams.set("_", String(Date.now()));
   window.location.replace(url.toString());
   return true;
-}
-
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text ?? "";
-  return div.innerHTML;
 }
 
 function resolvePostLoginPath(data, role, me) {
@@ -138,7 +134,7 @@ export default function LoginPage() {
   const [maintenanceList, setMaintenanceList] = useState([]);
   const [modal, setModal] = useState({ open: false, title: "Notice", message: "" });
   const [submitting, setSubmitting] = useState(false);
-  const [lang, setLang] = useState(() => localStorage.getItem("login_lang") || "en");
+  const [lang, setLang] = useState(() => readLoginLang());
 
   const verifyTimeoutRef = useRef(null);
   const langThumbRef = useRef(null);
@@ -164,7 +160,7 @@ export default function LoginPage() {
   }, [roleFromUrl]);
 
   useEffect(() => {
-    localStorage.setItem("login_lang", lang);
+    writeLoginLang(lang);
   }, [lang]);
 
   useEffect(() => {
@@ -399,7 +395,7 @@ export default function LoginPage() {
                   <div className="sc-login-maintenance-item" key={`${item.id}-${index}`}>
                     <span className="sc-login-maintenance-dot" />
                     <span className="sc-login-maintenance-label">{item.prefix || i18n.maintenanceLabel}</span>
-                    <span dangerouslySetInnerHTML={{ __html: escapeHtml(item.content) }} />
+                    <span>{extractPlainTextFromRichText(item.content)}</span>
                   </div>
                 ))}
               </div>

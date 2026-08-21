@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { usePullToRefresh } from "../../hooks/usePullToRefresh.js";
 import { useDirectScrollChrome } from "../../hooks/useDirectScrollChrome.js";
 import { useScrollIdleVisible } from "../../hooks/useScrollIdleVisible.js";
+import { isMobileMoreStackPath } from "../../utils/mobilePermissions.js";
 import MobileAppBar from "./MobileAppBar.jsx";
 import MobileNotifications, { fetchMobileAnnouncements } from "./MobileNotifications.jsx";
-import MobileSidebar from "./MobileSidebar.jsx";
 import PullRefreshIndicator from "./PullRefreshIndicator.jsx";
 import "./mobile-shell.css";
 
@@ -16,17 +17,14 @@ export default function MobileShell({
   onMainScrollStart,
   i18n,
   me,
-  companyCode = "",
-  groupId = "",
-  onLogout,
   onRefresh,
   refreshing = false,
   showBottomNav = true,
-  lang = "en",
-  onLangChange,
   onChromeOpen,
   overlayOpen = false,
 }) {
+  const { pathname } = useLocation();
+  const navVisible = showBottomNav && !isMobileMoreStackPath(pathname);
   const labels = {
     navHome: "Home",
     navReport: "Report",
@@ -35,7 +33,6 @@ export default function MobileShell({
     navMore: "More",
     ...(i18n || {}),
   };
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const [notifyLoading, setNotifyLoading] = useState(false);
@@ -61,6 +58,8 @@ export default function MobileShell({
     enabled: typeof onRefresh === "function",
     refreshing,
   });
+  /** Only gesture-driven pull refresh should show chrome loading UI. */
+  const gestureRefreshing = phase === "refreshing";
 
   const floatingIdleVisible = useScrollIdleVisible(mainRef, {
     idleMs: 320,
@@ -83,10 +82,10 @@ export default function MobileShell({
       ro?.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [stickyBar, refreshing]);
+  }, [stickyBar, gestureRefreshing]);
 
   const forceChrome =
-    active || isAnimating || overlayOpen || sidebarOpen || notifyOpen || refreshing;
+    active || isAnimating || overlayOpen || notifyOpen || gestureRefreshing;
 
   useDirectScrollChrome({
     scrollRef: mainRef,
@@ -96,20 +95,13 @@ export default function MobileShell({
     paused: forceChrome,
   });
 
-  const openSidebar = () => {
-    onChromeOpen?.();
-    setNotifyOpen(false);
-    setSidebarOpen(true);
-  };
   const openNotifications = () => {
     onChromeOpen?.();
-    setSidebarOpen(false);
     setNotifyOpen(true);
   };
 
   useEffect(() => {
     if (!overlayOpen) return;
-    setSidebarOpen(false);
     setNotifyOpen(false);
   }, [overlayOpen]);
 
@@ -148,16 +140,21 @@ export default function MobileShell({
   const contentTransition = isAnimating && phase !== "pulling" && phase !== "armed";
   const mainPadTop = topChromeH;
 
+  const mainPadBottom = navVisible
+    ? "var(--m-shell-main-pad-bottom-nav)"
+    : floatingAction
+      ? "calc(env(safe-area-inset-bottom, 0px) + 5.5rem)"
+      : "var(--m-shell-main-pad-bottom)";
+
   return (
-    <div className="m-shell">
+    <div className={`m-shell${navVisible ? "" : " m-shell--no-nav"}`}>
       <div ref={topChromeRef} className="m-shell-chrome">
         <MobileAppBar
           i18n={labels}
           notificationCount={announcements.length}
-          onOpenSidebar={openSidebar}
           onOpenNotifications={openNotifications}
           onRefresh={typeof onRefresh === "function" ? refreshPage : undefined}
-          refreshing={refreshing}
+          refreshing={gestureRefreshing}
         />
 
         {stickyBar ? (
@@ -172,9 +169,7 @@ export default function MobileShell({
         className="m-shell-main"
         style={{
           paddingTop: mainPadTop,
-          paddingBottom: showBottomNav
-            ? "var(--m-shell-main-pad-bottom-nav)"
-            : "var(--m-shell-main-pad-bottom)",
+          paddingBottom: mainPadBottom,
         }}
       >
         <div
@@ -184,7 +179,7 @@ export default function MobileShell({
           }}
         >
           <PullRefreshIndicator pullPx={pullPx} progress={progress} phase={phase} labels={labels} />
-          <div className={refreshing ? "m-shell-main--refreshing" : ""}>{children}</div>
+          <div className={gestureRefreshing ? "m-shell-main--refreshing" : ""}>{children}</div>
         </div>
       </main>
 
@@ -198,17 +193,6 @@ export default function MobileShell({
       ) : null}
 
       {overlay}
-      <MobileSidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        i18n={labels}
-        me={me}
-        companyCode={companyCode}
-        groupId={groupId}
-        onLogout={onLogout}
-        lang={lang}
-        onLangChange={onLangChange}
-      />
       <MobileNotifications
         open={notifyOpen}
         onClose={() => setNotifyOpen(false)}

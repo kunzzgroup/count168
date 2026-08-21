@@ -1,17 +1,24 @@
 import {
+  getClipboardHtml,
   getClipboardPlainText,
   isGridPasteBlockedTarget,
   clipboardLooksLikeGridPaste,
   resolvePasteCell,
 } from "./dataCaptureClipboard.js";
-import { getDefaultPasteAnchorCell } from "./dataCapturePasteApply.js";
+import {
+  getDefaultPasteAnchorCell,
+  resolveFormatPasteStartRow,
+} from "./dataCapturePasteApply.js";
 import {
   autoDetectCaptureTypeFromPaste,
   parseCitibetPasteData,
 } from "./dataCapturePasteDetect.js";
 import { handleCitibetPaste } from "../vendors/dataCaptureCitibetPaste.js";
 import { handleTextModePaste } from "./dataCaptureTextPaste.js";
-import { handleFormatCellPaste } from "./dataCaptureFormatPasteHandler.js";
+import {
+  handleFormatCellPaste,
+  tryFillGridWithFormatClipboard,
+} from "./dataCaptureFormatPasteHandler.js";
 import { handleGenericPaste } from "./dataCaptureGenericPaste.js";
 import { handle4ReturnPaste, handleApiReturnPaste } from "../vendors/dataCaptureReturnPaste.js";
 import { handleVPowerPaste } from "../vendors/dataCaptureVPowerPaste.js";
@@ -22,6 +29,12 @@ import { handleInvoicePaste } from "../vendors/dataCaptureInvoicePaste.js";
 import { handle2SpecialPaste } from "../vendors/dataCapture2SpecialPaste.js";
 import { handle3ApiPaste } from "../vendors/dataCapture3ApiPaste.js";
 import { handleAwcPaste } from "../vendors/dataCaptureAwcHandlerPaste.js";
+import { tryHandleAwcWinLossReportPaste } from "../vendors/dataCaptureAwcPaste.js";
+import { tryHandleGamingSoftInvoicePaste } from "./dataCaptureGamingSoftInvoicePasteHelper.js";
+import { tryHandleKing855WinLossPaste } from "./dataCaptureKing855WinLossPasteHelper.js";
+import { tryHandleWosWinLossDetailPaste } from "./dataCaptureWosWinLossDetailPasteHelper.js";
+import { tryHandleFooterOnlySubGrandPaste } from "./dataCaptureWinLoseFooterOnlyPasteHelper.js";
+import { tryHandleCitibetAgentPtReportPaste } from "./dataCaptureCitibetAgentPtReportPasteHelper.js";
 import { handlePegasusPaste } from "../vendors/dataCapturePegasusPaste.js";
 import { handleAlipayPaste } from "../vendors/dataCaptureAlipayPaste.js";
 import { handleC8PlayPaste } from "../vendors/dataCaptureC8PlayPaste.js";
@@ -172,10 +185,62 @@ export function handleCellPasteEvent(e) {
         return;
       }
     }
+    if (
+      tryHandleGamingSoftInvoicePaste(getClipboardHtml(e), pastedData, {
+        anchorCell: cell,
+        startRowOverride: resolveFormatPasteStartRow(cell),
+      })
+    ) {
+      return;
+    }
+    if (
+      tryHandleKing855WinLossPaste(getClipboardHtml(e), pastedData, {
+        anchorCell: cell,
+        startRowOverride: resolveFormatPasteStartRow(cell),
+      })
+    ) {
+      return;
+    }
+    if (
+      tryHandleWosWinLossDetailPaste(getClipboardHtml(e), pastedData, {
+        anchorCell: cell,
+        startRowOverride: resolveFormatPasteStartRow(cell),
+      })
+    ) {
+      return;
+    }
+    if (
+      tryHandleCitibetAgentPtReportPaste(getClipboardHtml(e), pastedData, {
+        anchorCell: cell,
+        startRowOverride: resolveFormatPasteStartRow(cell),
+      })
+    ) {
+      return;
+    }
+    if (
+      tryHandleFooterOnlySubGrandPaste(getClipboardHtml(e), pastedData, {
+        anchorCell: cell,
+        startRowOverride: resolveFormatPasteStartRow(cell),
+      })
+    ) {
+      return;
+    }
+    // Align structure + cell styles with 2.Format fill core; never touch Format shell.
+    if (
+      tryFillGridWithFormatClipboard(getClipboardHtml(e), pastedData, {
+        anchorCell: cell,
+        startRow: resolveFormatPasteStartRow(cell),
+        formatShell: false,
+      })
+    ) {
+      return;
+    }
     if (handleTextModePaste(e, pastedData, cell)) return;
     invokeGenericPasteFallback(e, pastedData);
     return;
   }
+
+  if (tryHandleAwcWinLossReportPaste(getClipboardHtml(e), pastedData, { anchorCell: cell })) return;
 
   const citibetParsed = parseCitibetPasteData(pastedData, captureType);
   if (citibetParsed) {

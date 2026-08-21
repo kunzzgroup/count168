@@ -157,6 +157,12 @@ function dismissAnchorYmdForAccountingDueRow(
 /**
  * 兜底识别：当前 process 若处于 Resend 合并区间（relax=1 且 schedule 同时有 day_start/day_end），
  * 即使前端传了 monthly，也应按 resend_consolidated_range 处理，避免 Delete 成功提示但 Accounting Due 残留。
+ *
+ * 但 schedule 的 day_start/day_end 如果和合同本身当前的 day_start/day_end 完全一样，说明这不是一次
+ * 真正「补开新区间」的 Resend 请求，而是残留未清的 relax 标记（例如之前 Resend 弹窗填的锚点恰好等于
+ * 合同原本的起止日）——这种情况下这一行本来就该当普通月付账单处理，不能因为残留标记就把它的 Delete
+ * 改道到 resend_consolidated_range 分支，否则写入的锚点日期会用合同 day_start（而不是前端实际要删的
+ * 那笔账期），导致 Inbox 按当月比对时找不到、Delete 成功提示但账单又重新出现。
  */
 function isProcessInResendConsolidatedMode(PDO $pdo, int $companyId, int $processId): bool
 {
@@ -179,7 +185,19 @@ function isProcessInResendConsolidatedMode(PDO $pdo, int $companyId, int $proces
         return false;
     }
     $merged = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($row);
-    return !empty($merged['accounting_resend_consolidated_range']);
+    if (empty($merged['accounting_resend_consolidated_range'])) {
+        return false;
+    }
+    $ownDayStartYmd = bmp_bankProcessDateFieldToYmd($row['day_start'] ?? null);
+    $ownDayEndYmd = bmp_bankProcessDateFieldToYmd($row['day_end'] ?? null);
+    $scheduleStartYmd = bmp_bankProcessDateFieldToYmd($row['accounting_resend_schedule_day_start'] ?? null);
+    $scheduleEndYmd = bmp_bankProcessDateFieldToYmd($row['accounting_resend_schedule_day_end'] ?? null);
+    if ($scheduleStartYmd !== null && $ownDayStartYmd !== null && $scheduleStartYmd === $ownDayStartYmd
+        && $scheduleEndYmd !== null && $ownDayEndYmd !== null && $scheduleEndYmd === $ownDayEndYmd) {
+        return false;
+    }
+
+    return true;
 }
 
 /** 专用 Dismiss 锁：按 process + period_type + anchor_date 标记已从 Accounting Due 移除 */
@@ -244,11 +262,13 @@ try {
             'billing_month' => isset($billingMonths[$i]) ? trim((string) $billingMonths[$i]) : '',
         ];
     }
+    // 与 process_post_to_transaction_api 一致：monthly / resend_monthly_reopen 按 billing_month 区分多期，
+    // 其它 period_type（本身单例）仍按 process_id + period_type 去重。
     $seen = [];
     $pairs = array_values(array_filter($pairs, function ($p) use (&$seen) {
         $bm = trim((string) ($p['billing_month'] ?? ''));
         $pt = (string) ($p['period_type'] ?? '');
-        $key = $p['id'] . '_' . $pt . '_' . ((($pt === 'weekly' || $pt === 'daily' || $pt === 'daily_consolidated') && $bm !== '') ? $bm : '');
+        $key = $p['id'] . '_' . $pt . '_' . ((($pt === 'monthly' || $pt === 'resend_monthly_reopen' || $pt === 'weekly' || $pt === 'daily' || $pt === 'daily_consolidated') && $bm !== '') ? $bm : '');
         if (isset($seen[$key])) {
             return false;
         }

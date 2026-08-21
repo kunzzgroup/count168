@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   CartesianGrid,
@@ -11,7 +11,18 @@ import {
 import { computeTrendYDomain } from "../../lib/dashboardChart.js";
 import { formatCompactAxis, formatCurrency } from "../../lib/dashboardFormat.js";
 
-export default function DashboardTrendChart({
+function stripRechartsFocus(root) {
+  if (!root) return;
+  root.querySelectorAll(".recharts-wrapper, .recharts-surface, svg").forEach((node) => {
+    if (node.hasAttribute("tabindex")) node.removeAttribute("tabindex");
+    if (node instanceof HTMLElement || node instanceof SVGElement) {
+      node.style.outline = "none";
+      node.style.webkitTapHighlightColor = "transparent";
+    }
+  });
+}
+
+const DashboardTrendChart = memo(function DashboardTrendChart({
   rows,
   series,
   visible,
@@ -22,15 +33,25 @@ export default function DashboardTrendChart({
   emptyText,
   tapHint,
 }) {
-  const activeSeries = series.filter((s) => visible[s.idx]);
-  const activeKeys = activeSeries.map((s) => s.dataKey);
-  const yDomain = computeTrendYDomain(rows, activeKeys);
+  const activeSeries = useMemo(() => series.filter((s) => visible[s.idx]), [series, visible]);
+  const activeKeys = useMemo(() => activeSeries.map((s) => s.dataKey), [activeSeries]);
+  const yDomain = useMemo(() => computeTrendYDomain(rows, activeKeys), [rows, activeKeys]);
   const hasSeriesOn = activeKeys.length > 0;
   const [activeIndex, setActiveIndex] = useState(null);
+  const chartHostRef = useRef(null);
 
   useEffect(() => {
     setActiveIndex(null);
   }, [rows]);
+
+  useEffect(() => {
+    const root = chartHostRef.current;
+    if (!root || !rows?.length || !hasSeriesOn) return;
+    stripRechartsFocus(root);
+    const observer = new MutationObserver(() => stripRechartsFocus(root));
+    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["tabindex"] });
+    return () => observer.disconnect();
+  }, [rows, hasSeriesOn, activeSeries.length]);
 
   const selected =
     activeIndex != null && rows?.[activeIndex] ? rows[activeIndex] : null;
@@ -40,6 +61,34 @@ export default function DashboardTrendChart({
     const idx = Number(state.activeTooltipIndex);
     if (!Number.isFinite(idx) || idx < 0) return;
     setActiveIndex((prev) => (prev === idx ? null : idx));
+    // Drop any residual browser focus ring after tap/click.
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
+      stripRechartsFocus(chartHostRef.current);
+    });
+  };
+
+  const renderXTick = (props) => {
+    const { x, y, payload, index } = props;
+    const isActive = activeIndex != null && index === activeIndex;
+    const text = payload?.value ?? "";
+    if (isActive) {
+      const w = Math.max(28, String(text).length * 7 + 10);
+      return (
+        <g transform={`translate(${x},${y})`}>
+          <rect x={-w / 2} y={0} width={w} height={16} rx={4} fill="#2563eb" />
+          <text dy={12} textAnchor="middle" fill="#fff" fontSize={10} fontWeight={700}>
+            {text}
+          </text>
+        </g>
+      );
+    }
+    return (
+      <text x={x} y={y} dy={12} textAnchor="middle" fill="var(--m-color-label)" fontSize={10} fontWeight={600}>
+        {text}
+      </text>
+    );
   };
 
   return (
@@ -72,7 +121,14 @@ export default function DashboardTrendChart({
         })}
       </div>
 
-      <div className="m-dash-trend-chart">
+      <div
+        ref={chartHostRef}
+        className="m-dash-trend-chart"
+        onMouseDown={(e) => {
+          // Prevent SVG/wrapper from taking focus (native black focus rect).
+          e.preventDefault();
+        }}
+      >
         {rows?.length && hasSeriesOn ? (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
@@ -84,6 +140,7 @@ export default function DashboardTrendChart({
                 bottom: xAxisLayout.marginBottom ?? 10,
               }}
               onClick={handleChartClick}
+              style={{ outline: "none" }}
             >
               <defs>
                 <linearGradient id="mGProfit" x1="0" y1="0" x2="0" y2="1">
@@ -103,20 +160,20 @@ export default function DashboardTrendChart({
                   <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
-              <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={1.25} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--m-color-chart-grid)" vertical={false} />
+              <ReferenceLine y={0} stroke="var(--m-color-chart-zero)" strokeWidth={1.25} />
               <XAxis
                 dataKey="label"
                 interval={xAxisLayout.interval}
                 minTickGap={xAxisLayout.minTickGap}
                 height={xAxisLayout.height}
-                tick={{ fontSize: 10, fill: "#94a3b8", fontWeight: 600 }}
+                tick={renderXTick}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
                 domain={yDomain}
-                tick={{ fontSize: 10, fill: "#94a3b8", fontWeight: 600 }}
+                tick={{ fontSize: 10, fill: "var(--m-color-label)", fontWeight: 600 }}
                 tickFormatter={(v) => formatCompactAxis(v)}
                 width={44}
                 axisLine={false}
@@ -132,8 +189,9 @@ export default function DashboardTrendChart({
                   fill={s.fill}
                   strokeWidth={s.dataKey === "netProfit" ? 2.5 : 2}
                   dot={false}
-                  activeDot={{ r: 5, strokeWidth: 2, stroke: s.color, fill: "#fff" }}
+                  activeDot={{ r: 5, strokeWidth: 2, stroke: s.color, fill: "var(--m-color-surface)" }}
                   isAnimationActive={false}
+                  cursor="pointer"
                 />
               ))}
             </ComposedChart>
@@ -167,4 +225,6 @@ export default function DashboardTrendChart({
       ) : null}
     </section>
   );
-}
+});
+
+export default DashboardTrendChart;

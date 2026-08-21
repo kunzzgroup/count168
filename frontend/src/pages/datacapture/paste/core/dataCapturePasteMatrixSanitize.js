@@ -3,6 +3,8 @@
  * Total-row empty cells between label and first number are preserved 1:1.
  */
 
+import { isKeptPasteSummaryLabel } from "./dataCapturePasteSummaryLabels.js";
+
 function cellValue(cell) {
   if (cell != null && typeof cell === "object" && "value" in cell) {
     return String(cell.value ?? "").trim();
@@ -53,6 +55,39 @@ function countNonEmpty(row) {
   return row.filter((cell) => cellValue(cell) !== "").length;
 }
 
+function columnEmptyInEveryRow(matrix, colIndex) {
+  return matrix.every((row) => !Array.isArray(row) || cellValue(row[colIndex]) === "");
+}
+
+function matrixHasEqualsMarkerRow(matrix) {
+  return matrix.some((row) => rowLooksLikeEqualsMarker(row));
+}
+
+/**
+ * Phantom gap from space/TSV alignment (`ab \\t\\t 100` + indented `=`).
+ * Only when an `=` marker row exists: drop columns that are empty on every row.
+ * A filled header cell in that column is kept (follow the table header).
+ */
+export function dropUniversallyEmptyColumns(matrix) {
+  if (!Array.isArray(matrix) || matrix.length < 2) return matrix;
+  if (!matrixHasEqualsMarkerRow(matrix)) return matrix;
+
+  const width = Math.max(0, ...matrix.map((row) => (Array.isArray(row) ? row.length : 0)));
+  if (width < 3) return matrix;
+
+  const keep = [];
+  for (let col = 0; col < width; col += 1) {
+    if (!columnEmptyInEveryRow(matrix, col)) keep.push(col);
+  }
+  if (!keep.length || keep.length === width) return matrix;
+
+  return matrix.map((row) => {
+    if (!Array.isArray(row)) return row;
+    const next = keep.map((col) => (col < row.length ? row[col] : makeBlankCellLike(row)));
+    return next;
+  });
+}
+
 /** Drop trailing empty tab/HTML columns after drag-to-end over-select. */
 export function trimTrailingEmptyColumns(matrix) {
   if (!matrix?.length) return matrix;
@@ -76,38 +111,42 @@ export function trimTrailingEmptyColumns(matrix) {
   });
 }
 
-function isSummaryLabelToken(text) {
-  const normalized = String(text ?? "")
-    .trim()
-    .replace(/:$/, "")
-    .replace(/\s+/g, " ")
-    .toUpperCase();
-  // iview allGames footer uses Total(1) / Total(12) — keep as summary, not junk.
-  if (/^TOTAL\(\d+\)$/.test(normalized)) return true;
-  return (
-    normalized === "SUBTOTAL" ||
-    normalized === "SUB TOTAL" ||
-    normalized === "TOTAL AMOUNT" ||
-    normalized === "TOTAL" ||
-    normalized === "GRAND TOTAL" ||
-    normalized === "GRANDTOTAL"
-  );
+/**
+ * Report money (decimals, thousands, signed, 5+ digit integers).
+ * Short unsigned integers are page sizes / years — not enough to keep a stub row.
+ */
+function tokenLooksLikeReportAmount(text) {
+  if (!isMoneyOrNumberLikeToken(text)) return false;
+  const raw = String(text ?? "").trim();
+  if (/[.,]/.test(raw) || /^-/.test(raw) || /^\(.*\)$/.test(raw)) return true;
+  const digits = raw.replace(/[^\d]/g, "");
+  return digits.length >= 5;
 }
 
 /**
- * Real footer total rows often have fewer filled cells than body (no serial / code).
- * Win Loss Detail Subtotal footers are frequently much narrower than agent rows
- * (colspan / sparse leading empties) — still keep them when labeled.
+ * Trailing footer: text label + amount(s), even when colspan makes it narrower
+ * than agent rows. Do not require a label whitelist — Overall Total / EXTRA FEES
+ * / unknown vendor "Net" rows all match.
  */
-function rowLooksLikeKeptSummaryTotalRow(row, _bodyWidth) {
+function rowLooksLikeEqualsMarker(row) {
   if (!Array.isArray(row)) return false;
   const tokens = row.map((cell) => cellValue(cell)).filter(Boolean);
-  if (!tokens.length || !isSummaryLabelToken(tokens[0])) return false;
+  if (!tokens.length) return false;
+  return tokens.every((token) => /^=+$/.test(token));
+}
 
-  // Label + at least one amount is enough. Do not require ~50% of body width —
-  // that dropped legitimate Subtotal rows from C8 / Material win-loss copies.
+function rowLooksLikeAmountFooter(row) {
+  if (!Array.isArray(row)) return false;
+  const tokens = row.map((cell) => cellValue(cell)).filter(Boolean);
+  if (!tokens.length) return false;
+  if (rowLooksLikeEqualsMarker(row)) return true;
+  if (isMoneyOrNumberLikeToken(tokens[0])) return false;
+
   const moneyCount = tokens.filter((token) => isMoneyOrNumberLikeToken(token)).length;
-  return moneyCount >= 1;
+  if (moneyCount < 1) return false;
+  if (isKeptPasteSummaryLabel(tokens[0])) return true;
+  if (moneyCount >= 2) return true;
+  return tokens.some((token) => tokenLooksLikeReportAmount(token));
 }
 
 /** Drop trailing empty / paginator / truncated stub rows (loop for multi-line chrome). */
@@ -132,8 +171,8 @@ export function dropTrailingJunkRows(matrix) {
       continue;
     }
 
-    // Keep SUBTOTAL / GRANDTOTAL footers even when narrower than body rows.
-    if (rowLooksLikeKeptSummaryTotalRow(last, bodyWidth)) {
+    // Keep labeled amount footers / "=" marker rows even when narrower than body.
+    if (rowLooksLikeAmountFooter(last) || rowLooksLikeEqualsMarker(last)) {
       break;
     }
 
@@ -163,6 +202,8 @@ export function sanitizePasteMatrix(matrix) {
   if (!Array.isArray(matrix) || !matrix.length) return matrix;
   let next = trimTrailingEmptyColumns(matrix);
   next = dropTrailingJunkRows(next);
+  next = trimTrailingEmptyColumns(next);
+  next = dropUniversallyEmptyColumns(next);
   next = trimTrailingEmptyColumns(next);
   return next;
 }
@@ -200,7 +241,8 @@ export function plainTextLooksLikeAlignedTsv(text) {
   const widths = tabLines.map((line) => line.split("\t").length);
   const maxCols = Math.max(...widths);
   const minCols = Math.min(...widths);
-  return maxCols >= 2 && maxCols - minCols <= 2;
+  if (maxCols < 2) return false;
+  return maxCols - minCols <= 2;
 }
 
 /** Sanitized plain matrix is usable as the alignment source of truth. */

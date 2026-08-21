@@ -746,6 +746,7 @@ function dashboardBuildGroupProfitBucket(
               AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
               AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_NET_PROFIT|%'
               AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_LIST_FEE|%'
+              AND COALESCE(t.sms, '') NOT LIKE '[AUTO_RENEW|%'
               AND UPPER(TRIM(COALESCE(t.description, ''))) NOT LIKE 'DOMAIN LIST FEE FROM %'";
 
     $kpiOnly = !empty($GLOBALS['DASHBOARD_KPI_ONLY']);
@@ -3344,10 +3345,10 @@ function dashboardExpensesBuildCrDrBundle(
         $toSql = "SELECT COALESCE(SUM(CASE
                          WHEN t.transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
                          WHEN t.transaction_type = 'CONTRA' THEN -t.amount
-                         WHEN t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN t.amount
-                         WHEN t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                         WHEN t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR t.sms LIKE '[AUTO_RENEW|COMMISSION|%') THEN t.amount
+                         WHEN t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_NET_PROFIT|%' OR t.sms LIKE '[AUTO_RENEW|NET_PROFIT|%') THEN 0
                          WHEN t.transaction_type = 'PAYMENT'
-                              AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN t.amount
+                              AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %' OR (t.sms LIKE '[AUTO_RENEW|%' AND t.sms NOT LIKE '[AUTO_RENEW|COMMISSION|%' AND t.sms NOT LIKE '[AUTO_RENEW|NET_PROFIT|%')) THEN t.amount
                          WHEN t.transaction_type = 'PAYMENT' THEN -t.amount
                          ELSE 0
                      END), 0) AS cr_dr
@@ -3363,10 +3364,10 @@ function dashboardExpensesBuildCrDrBundle(
         $periodCrDr = dashboardMoneyAdd($periodCrDr, $toStmt->fetchColumn());
 
         $fromSql = "SELECT COALESCE(SUM(CASE
-                           WHEN t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
-                           WHEN t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                           WHEN t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR t.sms LIKE '[AUTO_RENEW|COMMISSION|%') THEN 0
+                           WHEN t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_NET_PROFIT|%' OR t.sms LIKE '[AUTO_RENEW|NET_PROFIT|%') THEN 0
                            WHEN t.transaction_type = 'PAYMENT'
-                                AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
+                                AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %' OR (t.sms LIKE '[AUTO_RENEW|%' AND t.sms NOT LIKE '[AUTO_RENEW|COMMISSION|%' AND t.sms NOT LIKE '[AUTO_RENEW|NET_PROFIT|%')) THEN -t.amount
                            WHEN t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                            WHEN t.transaction_type = 'CONTRA' THEN t.amount
                            ELSE 0
@@ -3425,10 +3426,10 @@ function dashboardExpensesBuildCrDrBundle(
                      COALESCE(SUM(CASE
                          WHEN t.transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
                          WHEN t.transaction_type = 'CONTRA' THEN -t.amount
-                         WHEN t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN t.amount
-                         WHEN t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                         WHEN t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR t.sms LIKE '[AUTO_RENEW|COMMISSION|%') THEN t.amount
+                         WHEN t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_NET_PROFIT|%' OR t.sms LIKE '[AUTO_RENEW|NET_PROFIT|%') THEN 0
                          WHEN t.transaction_type = 'PAYMENT'
-                              AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN t.amount
+                              AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %' OR (t.sms LIKE '[AUTO_RENEW|%' AND t.sms NOT LIKE '[AUTO_RENEW|COMMISSION|%' AND t.sms NOT LIKE '[AUTO_RENEW|NET_PROFIT|%')) THEN t.amount
                          WHEN t.transaction_type = 'PAYMENT' THEN -t.amount
                          ELSE 0
                      END), 0) AS cr_dr
@@ -3448,10 +3449,10 @@ function dashboardExpensesBuildCrDrBundle(
 
     $fromSql = "SELECT IF(@c168_dash_month=1,LEFT(t.transaction_date,7),DATE(t.transaction_date)) AS date,
                        COALESCE(SUM(CASE
-                           WHEN t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
-                           WHEN t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                           WHEN t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR t.sms LIKE '[AUTO_RENEW|COMMISSION|%') THEN 0
+                           WHEN t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_NET_PROFIT|%' OR t.sms LIKE '[AUTO_RENEW|NET_PROFIT|%') THEN 0
                            WHEN t.transaction_type = 'PAYMENT'
-                                AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
+                                AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %' OR (t.sms LIKE '[AUTO_RENEW|%' AND t.sms NOT LIKE '[AUTO_RENEW|COMMISSION|%' AND t.sms NOT LIKE '[AUTO_RENEW|NET_PROFIT|%')) THEN -t.amount
                            WHEN t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
                            WHEN t.transaction_type = 'CONTRA' THEN t.amount
                            ELSE 0
@@ -3505,6 +3506,124 @@ function dashboardExpensesBuildCrDrBundle(
         'daily' => $daily,
         'period_cr_dr' => dashboardSumDailyAmounts($daily),
     ];
+}
+
+/**
+ * APCu cache for direct earnings-only dashboard_api.php calls (company x currency).
+ *
+ * The existing dash_cap_v1: cache only covers subsidiary captures inside the
+ * group-aggregate loop (dashboard_api_capture() calls from the parent). Frontend
+ * Group/Company "All" fans out DIRECT company_id + earnings_only requests — those
+ * were never cached, so every currency re-ran the whole role x company x SQL
+ * pipeline (the measured 1-3s per request, ~60 requests per scope switch).
+ *
+ * Cache key includes user + company + view_group + currency + dates + mode flags.
+ * Only caches earnings_only (no chart daily GROUP BY) — KPI/chart/full keep the
+ * live path. Invalidated with the existing dash_cap_v1: prefix (realtime writes).
+ * No-ops silently when apcu is absent.
+ */
+const DASHBOARD_EARNINGS_CACHE_PREFIX = 'dash_earn_v1:';
+const DASHBOARD_EARNINGS_CACHE_TTL_SECONDS = 300;
+
+function dashboard_earnings_cache_key(
+    int $userId,
+    array $params
+): string {
+    $signature = [
+        'u' => $userId,
+        'c' => $params['company_id'] ?? '',
+        'vg' => $params['view_group'] ?? '',
+        'cur' => $params['currency'] ?? '',
+        'df' => $params['date_from'] ?? '',
+        'dt' => $params['date_to'] ?? '',
+        'sub' => $params['subsidiary_accounts_only'] ?? '',
+        'eo' => $params['earnings_only'] ?? '',
+    ];
+    ksort($signature);
+
+    return DASHBOARD_EARNINGS_CACHE_PREFIX . md5((string) json_encode($signature));
+}
+
+function dashboard_earnings_cache_get(string $key): ?array
+{
+    if (!function_exists('apcu_fetch')) {
+        return null;
+    }
+    $success = false;
+    $value = apcu_fetch($key, $success);
+
+    return ($success && is_array($value)) ? $value : null;
+}
+
+function dashboard_earnings_cache_set(string $key, array $value): void
+{
+    if (!function_exists('apcu_store')) {
+        return;
+    }
+    apcu_store($key, $value, DASHBOARD_EARNINGS_CACHE_TTL_SECONDS);
+}
+
+/**
+ * APCu cache for the full dashboard_api.php response (KPI / full / chart and
+ * earnings-only, single- and multi-currency, group-ledger included).
+ *
+ * The earnings cache above only covers the slim earnings_only path; the primary
+ * KPI/full/chart request re-ran the whole role × company × SQL pipeline on every
+ * company/currency/date switch. Multi-currency `currencies=` packs (Company All
+ * pie) and group-ledger requests were equally uncached — each scope switch was a
+ * full recompute even when the same (user, company, range, currency) had just
+ * been answered. This cache answers those from APCu.
+ *
+ * Key includes user + company + view_group/group_id + currency (+ currencies
+ * list) + dates + subsidiary flag + mode flags (kpi_only / earnings_only /
+ * chart_monthly). TTL is short (60s) so permission whitelist changes propagate
+ * quickly; invalidated wholesale with the other dashboard caches on ledger /
+ * ownership writes (see dashboard_subsidiary_capture_cache_clear in
+ * api/includes/realtime.php). No-ops silently when apcu is absent.
+ */
+const DASHBOARD_MAIN_CACHE_PREFIX = 'dash_main_v1:';
+const DASHBOARD_MAIN_CACHE_TTL_SECONDS = 60;
+
+function dashboard_main_cache_key(
+    int $userId,
+    array $params
+): string {
+    $signature = [
+        'u' => $userId,
+        'c' => $params['company_id'] ?? '',
+        'vg' => $params['view_group'] ?? '',
+        'gid' => $params['group_id'] ?? '',
+        'cur' => $params['currency'] ?? '',
+        'curs' => $params['currencies'] ?? '',
+        'df' => $params['date_from'] ?? '',
+        'dt' => $params['date_to'] ?? '',
+        'sub' => $params['subsidiary_accounts_only'] ?? '',
+        'kpi' => $params['kpi_only'] ?? '',
+        'eo' => $params['earnings_only'] ?? '',
+        'cm' => $params['chart_monthly'] ?? '',
+    ];
+    ksort($signature);
+
+    return DASHBOARD_MAIN_CACHE_PREFIX . md5((string) json_encode($signature));
+}
+
+function dashboard_main_cache_get(string $key): ?array
+{
+    if (!function_exists('apcu_fetch')) {
+        return null;
+    }
+    $success = false;
+    $value = apcu_fetch($key, $success);
+
+    return ($success && is_array($value)) ? $value : null;
+}
+
+function dashboard_main_cache_set(string $key, array $value): void
+{
+    if (!function_exists('apcu_store')) {
+        return;
+    }
+    apcu_store($key, $value, DASHBOARD_MAIN_CACHE_TTL_SECONDS);
 }
 
 function dashboard_api_main(): void
@@ -3621,6 +3740,123 @@ try {
     $kpiOnly = dashboard_api_kpi_only();
     $earningsOnly = dashboard_api_earnings_only();
     $chartMonthly = !$kpiOnly && dashboard_api_chart_monthly();
+
+    // Direct earnings-only company requests are cached (dash_earn_v1:) — see the
+    // cache helpers above. Only pure earnings captures (no chart daily GROUP BY)
+    // qualify; KPI/full/chart stay live. Checked before any heavy SQL so repeat
+    // currency fetches (Group/Company All fan-out) answer from APCu.
+    $earningsCacheKey = null;
+    $earningsCacheHit = null;
+    if (
+        $earningsOnly
+        && !$kpiOnly
+        && !$chartMonthly
+        && $company_id !== null
+        && $company_id > 0
+        && isset($_SESSION['user_id'])
+    ) {
+        $earningsCacheKey = dashboard_earnings_cache_key((int) $_SESSION['user_id'], [
+            'company_id' => (string) $company_id,
+            'view_group' => $_GET['view_group'] ?? '',
+            'currency' => $_GET['currency'] ?? '',
+            'date_from' => (string) ($_GET['date_from'] ?? ''),
+            'date_to' => (string) ($_GET['date_to'] ?? ''),
+            'subsidiary_accounts_only' => $_GET['subsidiary_accounts_only'] ?? '',
+            'earnings_only' => '1',
+        ]);
+        $earningsCacheHit = dashboard_earnings_cache_get($earningsCacheKey);
+        if ($earningsCacheHit !== null) {
+            echo json_encode($earningsCacheHit, JSON_UNESCAPED_UNICODE);
+            return;
+        }
+    }
+
+    // Full-response cache (dash_main_v1:) — KPI / full / chart / earnings-only,
+    // single-currency, multi-currency `currencies=` packs and group-ledger packs.
+    // Checked before any heavy SQL so every scope switch that was just answered
+    // (same user + company/group + range + currency) returns from APCu. The TTL is
+    // short (60s) so permission-whitelist changes still propagate quickly.
+    $mainCacheKey = null;
+    if (isset($_SESSION['user_id'])) {
+        $mainCacheKey = dashboard_main_cache_key((int) $_SESSION['user_id'], [
+            'company_id' => $company_id !== null ? (string) $company_id : '',
+            'view_group' => $_GET['view_group'] ?? '',
+            'group_id' => $_GET['group_id'] ?? '',
+            'currency' => $_GET['currency'] ?? '',
+            'currencies' => $_GET['currencies'] ?? '',
+            'date_from' => (string) ($_GET['date_from'] ?? ''),
+            'date_to' => (string) ($_GET['date_to'] ?? ''),
+            'subsidiary_accounts_only' => $_GET['subsidiary_accounts_only'] ?? '',
+            'kpi_only' => $kpiOnly ? '1' : '',
+            'earnings_only' => $earningsOnly ? '1' : '',
+            'chart_monthly' => $chartMonthly ? '1' : '',
+        ]);
+        $mainCacheHit = dashboard_main_cache_get($mainCacheKey);
+        if ($mainCacheHit !== null) {
+            echo json_encode($mainCacheHit, JSON_UNESCAPED_UNICODE);
+            return;
+        }
+    }
+
+    // Multi-currency earnings aggregation (Group/Company All pie):
+    // one HTTP request returns every requested currency's earnings for this
+    // company, instead of the frontend fanning out N separate round-trips
+    // (each carrying full TLS + PHP-FPM + query overhead). Measured on prod:
+    // 11 currencies in-process ≈ 200ms vs 11 HTTPS calls ≈ 2-4s.
+    // `currencies=MYR,SGD,…` → { "currencies": { "MYR": {…}, … } }.
+    $multiCurrencyCodes = isset($_GET['currencies']) && trim((string) $_GET['currencies']) !== ''
+        ? array_values(array_unique(array_filter(array_map(
+            static fn (string $c): string => strtoupper(trim($c)),
+            explode(',', (string) $_GET['currencies'])
+        ), static fn (string $c): bool => $c !== '')))
+        : [];
+    // FE sends earnings_only=1 with kpi_only=1 for light pie packs — still take the
+    // multi-currency branch (kpi_only only skips chart GROUP BY inside each capture).
+    if (
+        $earningsOnly
+        && count($multiCurrencyCodes) > 1
+        && $company_id !== null
+        && $company_id > 0
+    ) {
+        $perCurrency = [];
+        // Reuse the same in-process capture path as dashboard_bootstrap_api.php:
+        // require-once already happened, but guard the file-bottom auto-run so the
+        // per-currency main() does not fire a second time with leftover $_GET.
+        if (!defined('DASHBOARD_API_SKIP_MAIN')) {
+            define('DASHBOARD_API_SKIP_MAIN', true);
+        }
+        foreach ($multiCurrencyCodes as $code) {
+            $cap = dashboard_api_capture([
+                'company_id' => (string) $company_id,
+                'view_group' => $_GET['view_group'] ?? '',
+                'subsidiary_accounts_only' => $_GET['subsidiary_accounts_only'] ?? '',
+                'date_from' => (string) $_GET['date_from'] ?? '',
+                'date_to' => (string) $_GET['date_to'] ?? '',
+                'currency' => $code,
+                'earnings_only' => '1',
+                // Force the per-currency capture to NOT re-enter the multi-currency
+                // branch (capture() unsets $_GET keys whose value is empty).
+                'currencies' => '',
+            ]);
+            $perCurrency[$code] = is_array($cap['data'] ?? null) ? $cap['data'] : null;
+        }
+        $multiPayload = [
+            'success' => true,
+            'data' => [
+                'multi_currency_earnings' => true,
+                'currencies' => $perCurrency,
+                'date_range' => [
+                    'from' => $date_from,
+                    'to' => $date_to,
+                ],
+            ],
+        ];
+        if ($mainCacheKey !== null) {
+            dashboard_main_cache_set($mainCacheKey, $multiPayload);
+        }
+        echo json_encode($multiPayload, JSON_UNESCAPED_UNICODE);
+        return;
+    }
     $GLOBALS['DASHBOARD_KPI_ONLY'] = $kpiOnly;
     $GLOBALS['DASHBOARD_EARNINGS_ONLY'] = $earningsOnly;
     $GLOBALS['DASHBOARD_CHART_MONTHLY'] = $chartMonthly;
@@ -3716,7 +3952,7 @@ try {
         $hasGroupAccountOwnership = !empty($viewerGroupShare['has']);
         $subsidiaryCompanyEarningsTotal = (string) ($subsidiaryEarnings['company_earnings_total'] ?? '0');
         $groupKpiProfit = $subsidiaryCompanyEarningsTotal;
-        echo json_encode([
+        $groupLedgerPayload = [
             'success' => true,
             'data' => [
                 'capital' => $groupResult['capital']['total_balance'],
@@ -3756,7 +3992,11 @@ try {
                     'to' => $date_to
                 ]
             ]
-        ], JSON_UNESCAPED_UNICODE);
+        ];
+        if ($mainCacheKey !== null) {
+            dashboard_main_cache_set($mainCacheKey, $groupLedgerPayload);
+        }
+        echo json_encode($groupLedgerPayload, JSON_UNESCAPED_UNICODE);
         return;
     }
 
@@ -3939,7 +4179,9 @@ try {
             $contraApproval = dashboardContraApprovedWhere($pdo, 't');
             $fromDomainFilter = $useProfitTxnRules ? '' : "
                       AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
-                      AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_NET_PROFIT|%'";
+                      AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_NET_PROFIT|%'
+                      AND COALESCE(t.sms, '') NOT LIKE '[AUTO_RENEW|COMMISSION|%'
+                      AND COALESCE(t.sms, '') NOT LIKE '[AUTO_RENEW|NET_PROFIT|%'";
             $bfTxnTypes = $useFullTxnTypes
                 ? "('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE', 'ADJUSTMENT')"
                 : "('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')";
@@ -3955,9 +4197,9 @@ try {
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
                         WHEN transaction_type = 'CONTRA' THEN -amount
                         WHEN transaction_type = 'CLEAR' THEN -amount
-                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN amount
-                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN amount
+                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR sms LIKE '[AUTO_RENEW|COMMISSION|%') THEN amount
+                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_NET_PROFIT|%' OR sms LIKE '[AUTO_RENEW|NET_PROFIT|%') THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(description, ''))) LIKE 'DOMAIN LIST FEE FROM %' OR (sms LIKE '[AUTO_RENEW|%' AND sms NOT LIKE '[AUTO_RENEW|COMMISSION|%' AND sms NOT LIKE '[AUTO_RENEW|NET_PROFIT|%')) THEN amount
                         WHEN transaction_type = 'PAYMENT' THEN -amount
                         WHEN transaction_type = 'WIN' AND (description LIKE 'Process: %') THEN amount
                         WHEN transaction_type = 'LOSE' AND (description LIKE 'Process: %') THEN -amount
@@ -3979,9 +4221,9 @@ try {
             $sql = "SELECT COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR') THEN amount
                         WHEN transaction_type = 'CONTRA' THEN amount
-                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
-                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -amount
+                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR sms LIKE '[AUTO_RENEW|COMMISSION|%') THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_NET_PROFIT|%' OR sms LIKE '[AUTO_RENEW|NET_PROFIT|%') THEN 0
+                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(description, ''))) LIKE 'DOMAIN LIST FEE FROM %' OR (sms LIKE '[AUTO_RENEW|%' AND sms NOT LIKE '[AUTO_RENEW|COMMISSION|%' AND sms NOT LIKE '[AUTO_RENEW|NET_PROFIT|%')) THEN -amount
                         WHEN transaction_type = 'WIN' AND " . dashboardManualProfitDescSql('t') . " THEN amount
                         WHEN transaction_type = 'LOSE' AND " . dashboardManualProfitDescSql('t') . " THEN -amount
                         ELSE 0
@@ -4076,9 +4318,9 @@ try {
                                WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
                                WHEN transaction_type = 'CONTRA' THEN -t.amount
                                WHEN transaction_type = 'CLEAR' THEN -t.amount
-                               WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN t.amount
-                               WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN t.amount
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR t.sms LIKE '[AUTO_RENEW|COMMISSION|%') THEN t.amount
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_NET_PROFIT|%' OR t.sms LIKE '[AUTO_RENEW|NET_PROFIT|%') THEN 0
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %' OR (t.sms LIKE '[AUTO_RENEW|%' AND t.sms NOT LIKE '[AUTO_RENEW|COMMISSION|%' AND t.sms NOT LIKE '[AUTO_RENEW|NET_PROFIT|%')) THEN t.amount
                                WHEN transaction_type = 'PAYMENT' THEN -t.amount
                                WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
                                WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
@@ -4100,9 +4342,9 @@ try {
                 $sql = "SELECT COALESCE(SUM(CASE 
                                WHEN transaction_type = 'CONTRA' THEN t.amount
                                WHEN transaction_type = 'CLEAR' THEN t.amount
-                               WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
-                               WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR t.sms LIKE '[AUTO_RENEW|COMMISSION|%') THEN 0
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_NET_PROFIT|%' OR t.sms LIKE '[AUTO_RENEW|NET_PROFIT|%') THEN 0
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %' OR (t.sms LIKE '[AUTO_RENEW|%' AND t.sms NOT LIKE '[AUTO_RENEW|COMMISSION|%' AND t.sms NOT LIKE '[AUTO_RENEW|NET_PROFIT|%')) THEN -t.amount
                                WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
                                WHEN t.transaction_type = 'WIN' AND " . dashboardManualProfitDescSql('t') . " THEN t.amount
                                WHEN t.transaction_type = 'LOSE' AND " . dashboardManualProfitDescSql('t') . " THEN -t.amount
@@ -4145,9 +4387,9 @@ try {
                                WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
                                WHEN transaction_type = 'CONTRA' THEN -t.amount
                                WHEN transaction_type = 'CLEAR' THEN -t.amount
-                               WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN t.amount
-                               WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN t.amount
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR t.sms LIKE '[AUTO_RENEW|COMMISSION|%') THEN t.amount
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_NET_PROFIT|%' OR t.sms LIKE '[AUTO_RENEW|NET_PROFIT|%') THEN 0
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %' OR (t.sms LIKE '[AUTO_RENEW|%' AND t.sms NOT LIKE '[AUTO_RENEW|COMMISSION|%' AND t.sms NOT LIKE '[AUTO_RENEW|NET_PROFIT|%')) THEN t.amount
                                WHEN transaction_type = 'PAYMENT' THEN -t.amount
                                WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
                                WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
@@ -4175,9 +4417,9 @@ try {
                            COALESCE(SUM(CASE 
                                WHEN transaction_type = 'CONTRA' THEN t.amount
                                WHEN transaction_type = 'CLEAR' THEN t.amount
-                               WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
-                               WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR t.sms LIKE '[AUTO_RENEW|COMMISSION|%') THEN 0
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_NET_PROFIT|%' OR t.sms LIKE '[AUTO_RENEW|NET_PROFIT|%') THEN 0
+                               WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %' OR (t.sms LIKE '[AUTO_RENEW|%' AND t.sms NOT LIKE '[AUTO_RENEW|COMMISSION|%' AND t.sms NOT LIKE '[AUTO_RENEW|NET_PROFIT|%')) THEN -t.amount
                                WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
                                WHEN t.transaction_type = 'WIN' AND " . dashboardManualProfitDescSql('t') . " THEN t.amount
                                WHEN t.transaction_type = 'LOSE' AND " . dashboardManualProfitDescSql('t') . " THEN -t.amount
@@ -4278,7 +4520,7 @@ try {
                            AND t.transaction_type = 'PAYMENT'
                            AND t.from_account_id IN ($profitIdsPlaceholder)
                            AND t.transaction_date < ?
-                           AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'" . $profitAdjCurrencyFilter . $dashTxnSubSql;
+                           AND (t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR t.sms LIKE '[AUTO_RENEW|COMMISSION|%')" . $profitAdjCurrencyFilter . $dashTxnSubSql;
             $adjBfStmt = $pdo->prepare($adjBfSql);
             $adjBfStmt->execute(array_merge([$company_id], $primaryAccountIds, [$date_from_db], $profitAdjCurrencyParams));
             $adjBf = $adjBfStmt->fetchColumn();
@@ -4294,7 +4536,7 @@ try {
                               AND t.transaction_type = 'PAYMENT'
                               AND t.from_account_id IN ($profitIdsPlaceholder)
                               AND t.transaction_date BETWEEN ? AND ?
-                              AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'" . $profitAdjCurrencyFilter . $dashTxnSubSql;
+                              AND (t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR t.sms LIKE '[AUTO_RENEW|COMMISSION|%')" . $profitAdjCurrencyFilter . $dashTxnSubSql;
                 $adjPeriodStmt = $pdo->prepare($adjPeriodSql);
                 $adjPeriodStmt->execute(array_merge([$company_id], $primaryAccountIds, [$date_from_db, $date_to_db], $profitAdjCurrencyParams));
                 $rolePeriodDelta = dashboardMoneySub($rolePeriodDelta, $adjPeriodStmt->fetchColumn() ?? '0');
@@ -4305,7 +4547,7 @@ try {
                               AND t.transaction_type = 'PAYMENT'
                               AND t.from_account_id IN ($profitIdsPlaceholder)
                               AND t.transaction_date BETWEEN ? AND ?
-                              AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'" . $profitAdjCurrencyFilter . $dashTxnSubSql . "
+                              AND (t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' OR t.sms LIKE '[AUTO_RENEW|COMMISSION|%')" . $profitAdjCurrencyFilter . $dashTxnSubSql . "
                             GROUP BY IF(@c168_dash_month=1,LEFT(t.transaction_date,7),DATE(t.transaction_date))
                             ORDER BY IF(@c168_dash_month=1,LEFT(t.transaction_date,7),DATE(t.transaction_date))";
             $adjDailyStmt = $pdo->prepare($adjDailySql);
@@ -4472,7 +4714,7 @@ try {
     $has_group_ownership = $ownershipFields['has_group_ownership'];
 
     // Profit（仪表板 NET PROFIT 卡片）= 所有 Role 为 PROFIT 的账户余额总和
-    echo json_encode([
+    $responsePayload = [
         'success' => true,
         'data' => [
             'capital' => $result['capital']['total_balance'],
@@ -4504,7 +4746,14 @@ try {
                 'to' => $date_to
             ]
         ]
-    ], JSON_UNESCAPED_UNICODE);
+    ];
+    if ($mainCacheKey !== null) {
+        dashboard_main_cache_set($mainCacheKey, $responsePayload);
+    }
+    if ($earningsCacheKey !== null) {
+        dashboard_earnings_cache_set($earningsCacheKey, $responsePayload);
+    }
+    echo json_encode($responsePayload, JSON_UNESCAPED_UNICODE);
 
 } catch (Throwable $e) {
     error_log('dashboard_api: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());

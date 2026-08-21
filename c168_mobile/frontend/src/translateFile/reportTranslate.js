@@ -11,9 +11,11 @@ export const REPORT_I18N = {
     hubTitle: "Report Centre",
     hubSubtitle: "Domain and customer win/lose summaries.",
     sectionReports: "Reports",
+    backToMore: "Back to More",
     apply: "Apply",
     applyFilter: "Apply",
     group: "Group",
+    allGroups: "All Groups",
 
     domainTitle: "Domain Report",
     domainDesc: "Turnover / Win / Lose by process.",
@@ -55,9 +57,11 @@ export const REPORT_I18N = {
     hubTitle: "报表中心",
     hubSubtitle: "域名与客户输赢汇总。",
     sectionReports: "报表",
+    backToMore: "返回更多",
     apply: "应用",
     applyFilter: "应用",
     group: "组别",
+    allGroups: "全部组别",
 
     domainTitle: "域名报表",
     domainDesc: "按流程汇总 Turnover / Win / Lose。",
