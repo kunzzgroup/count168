@@ -1003,8 +1003,12 @@ function inboxComputeBillingPeriodRangeForItem(array $item, array $process, bool
     }
 
     $dayStartYmd = inboxBankProcessDateFieldToYmd($item['day_start'] ?? $process['day_start'] ?? null);
-    $dayEndYmd = inboxBankProcessDateFieldToYmd($process['day_end'] ?? null);
-    if (!empty($process['accounting_resend_relax_created_floor']) && empty($item['is_resend_monthly_reopen'])) {
+    $dayEndYmd = !empty($item['is_resend_consolidated_range'])
+        ? inboxBankProcessDateFieldToYmd($item['day_end'] ?? $process['day_end'] ?? null)
+        : inboxBankProcessDateFieldToYmd($process['day_end'] ?? null);
+    if (!empty($process['accounting_resend_relax_created_floor'])
+        && empty($item['is_resend_monthly_reopen'])
+        && empty($item['is_resend_consolidated_range'])) {
         $storedStart = inboxBankProcessDateFieldToYmd($process['bank_process_stored_day_start'] ?? $item['bank_process_stored_day_start'] ?? null);
         if ($storedStart !== null) {
             $dayStartYmd = $storedStart;
@@ -1153,14 +1157,16 @@ function inboxEnrichNeedTodayBillingPeriods(array &$needToday, array $processByI
         $storedDayStart = $process['bank_process_stored_day_start'] ?? $row['bank_process_stored_day_start'] ?? null;
         $storedDayEnd = $process['bank_process_stored_day_end'] ?? $row['bank_process_stored_day_end'] ?? null;
         // Resend relax 期间：START DATE 始终显示库里真实 day_start，不因最新 Resend 日期而改变。
-        if (!empty($process['accounting_resend_relax_created_floor'])) {
+        // 但 consolidated range 本身就是「按 Resend 弹窗日期」出的合并账单，它的 day_start/day_end
+        // 早已在生成阶段被换成弹窗日期，这里不能再换回库里原 day_start，否则显示会跑回 Resend 前的旧日期。
+        if (!empty($process['accounting_resend_relax_created_floor']) && empty($row['is_resend_consolidated_range'])) {
             if ($storedDayStart !== null && trim((string) $storedDayStart) !== '') {
                 $row['day_start'] = $storedDayStart;
             }
             if ($storedDayEnd !== null && trim((string) $storedDayEnd) !== '') {
                 $row['day_end'] = $storedDayEnd;
             }
-        } elseif ($processDayStart !== null && trim((string) $processDayStart) !== '') {
+        } elseif (empty($row['is_resend_consolidated_range']) && $processDayStart !== null && trim((string) $processDayStart) !== '') {
             $row['day_start'] = $processDayStart;
         }
         [$start, $end] = inboxComputeBillingPeriodRangeForItem($row, $process, $hasDayEndMonthlyCapCol, $hasFrequency);
@@ -2108,6 +2114,11 @@ function inboxItemHiddenByAccountingDueDismiss(PDO $pdo, int $companyId, array $
 
         return $ds !== null && bmp_isAccountingDueSoftDismissed($pdo, $companyId, $processId, 'manual_inactive', $ds);
     }
+    if (!empty($item['is_resend_consolidated_range'])) {
+        $ds = inboxBankProcessDateFieldToYmd($item['day_start'] ?? null);
+
+        return $ds !== null && bmp_isAccountingDueSoftDismissed($pdo, $companyId, $processId, 'resend_consolidated_range', $ds);
+    }
     if (!empty($item['is_once_one_off'])) {
         $ds = inboxBankProcessDateFieldToYmd($item['day_start'] ?? null);
 
@@ -2627,22 +2638,8 @@ try {
                     'is_resend_consolidated_range' => true,
                 ];
             }
-            if (!empty($r['accounting_resend_single_period_from_schedule'])) {
-                $baseCost = money_normalize($r['cost'] ?? '0');
-                $basePrice = money_normalize($r['price'] ?? '0');
-                $baseProfit = money_normalize($r['profit'] ?? '0');
-                inboxAppendStoredNormalFlowIfNeeded(
-                    $needToday,
-                    $pdo,
-                    $company_id,
-                    $r,
-                    $today,
-                    $baseCost,
-                    $basePrice,
-                    $baseProfit,
-                    $hasDayEndMonthlyCapCol
-                );
-            }
+            // 该 process 已是 consolidated range 合并账单：不再额外排「库里原 day_start」的正常流程行，
+            // 否则会把 Resend 前的旧账期（如原 day_start=3/18）重新拉回 Accounting Due，与合并账单重复显示。
             continue;
         }
         // Resend 单期开账（弹窗同时填 day_start + day_end）：统一走 consolidated 一条，避免与 monthly/day_end_tail 重复入列。
